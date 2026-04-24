@@ -88,6 +88,11 @@ function renderInstructorPlacemarks() {
         preset: "islands#greenDotIcon",
       },
     );
+    placemark.events.add("click", () => {
+      selectedInstructorEmail.value = item.email;
+      agreementAccepted.value = false;
+      callStatus.value = `Выбран инструктор: ${displayName(item)}.`;
+    });
     instructorPlacemarks.push(placemark);
     mapInstance.geoObjects.add(placemark);
   });
@@ -154,8 +159,11 @@ async function loadFreeInstructors(apiUrl) {
       throw new Error(body.detail || "Не удалось загрузить свободных инструкторов.");
     }
     instructors.value = Array.isArray(body.instructors) ? body.instructors : [];
-    if (instructors.value.length > 0 && !selectedInstructorEmail.value) {
-      selectedInstructorEmail.value = instructors.value[0].email;
+    if (
+      selectedInstructorEmail.value &&
+      !instructors.value.some((item) => item.email === selectedInstructorEmail.value)
+    ) {
+      selectedInstructorEmail.value = "";
     }
     renderInstructorPlacemarks();
   } catch (err) {
@@ -232,26 +240,14 @@ onMounted(() => {
 
     <div class="map-block">
       <p class="map-status">{{ locationStatus }}</p>
+      <p v-if="instructorsLoading" class="map-status">Загрузка инструкторов...</p>
+      <p v-else-if="instructorsError" class="error">{{ instructorsError }}</p>
       <div ref="mapContainer" class="map-frame" aria-label="Карта выбора точки"></div>
       <p class="legend">
         Синяя точка - вы, зеленые точки - свободные инструкторы, красная точка - место вызова.
-        Перетащите красную точку для корректировки адреса.
+        Перетащите красную точку для корректировки адреса. Нажмите на зеленую точку, чтобы выбрать
+        инструктора.
       </p>
-    </div>
-
-    <div class="instructors-card">
-      <h3>Свободные инструкторы</h3>
-      <p v-if="instructorsLoading" class="map-status">Загрузка инструкторов...</p>
-      <p v-else-if="instructorsError" class="error">{{ instructorsError }}</p>
-      <ul v-else-if="instructors.length > 0" class="instructor-list">
-        <li v-for="item in instructors" :key="item.email">
-          <button class="instructor-item" :class="{ active: selectedInstructorEmail === item.email }" @click="selectedInstructorEmail = item.email">
-            <span>{{ displayName(item) }}</span>
-            <span>Рейтинг: {{ item.rating }}/5</span>
-          </button>
-        </li>
-      </ul>
-      <p v-else class="map-status">Пока нет свободных инструкторов.</p>
     </div>
 
     <div class="agreement-card" v-if="targetPoint && selectedInstructor">
@@ -275,6 +271,12 @@ onMounted(() => {
         Вызвать инструктора в указанную точку
       </button>
     </div>
+    <p v-else-if="!instructorsLoading && !instructorsError && instructors.length > 0" class="map-status">
+      Выберите инструктора на карте, чтобы увидеть его данные.
+    </p>
+    <p v-else-if="!instructorsLoading && !instructorsError" class="map-status">
+      Пока нет свободных инструкторов.
+    </p>
 
     <p v-if="callStatus" class="notice">{{ callStatus }}</p>
   </section>
@@ -302,7 +304,6 @@ onMounted(() => {
 }
 
 .map-block,
-.instructors-card,
 .agreement-card {
   display: grid;
   gap: 10px;
@@ -324,31 +325,6 @@ onMounted(() => {
 .legend {
   color: #9db0ff;
   font-size: 13px;
-}
-
-.instructor-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 8px;
-}
-
-.instructor-item {
-  width: 100%;
-  border-radius: 10px;
-  border: 1px solid rgba(170, 185, 255, 0.35);
-  background: rgba(255, 255, 255, 0.05);
-  color: #e4eaff;
-  padding: 10px 12px;
-  cursor: pointer;
-  display: flex;
-  justify-content: space-between;
-}
-
-.instructor-item.active {
-  border-color: rgba(123, 146, 255, 0.8);
-  background: rgba(95, 125, 255, 0.2);
 }
 
 .checkbox {
