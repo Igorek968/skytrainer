@@ -1,5 +1,6 @@
 <script setup>
 import { computed, onMounted, ref } from "vue";
+import StartPage from "./components/StartPage.vue";
 
 const API_URL = "http://localhost:8000";
 const TOKEN_KEY = "skytrainer_jwt";
@@ -149,6 +150,7 @@ async function submitAuth() {
     localStorage.setItem(TOKEN_KEY, data.access_token);
     profile.value = data.user;
     fillProfileForm(data.user);
+    currentScreen.value = "auth";
     notice.value = activeTab.value === "register" ? "Профиль создан." : "Вход выполнен.";
   } catch (err) {
     error.value = err.message;
@@ -275,25 +277,17 @@ onMounted(loadProfile);
         <p>Личный кабинет для пользователя и инструктора с быстрым редактированием профиля.</p>
       </header>
 
-      <section v-if="!profile && currentScreen === 'home'" class="panel landing">
-        <h2>Добро пожаловать в SkyTrainer</h2>
-        <p>
-          Платформа для пользователей и инструкторов: регистрируйтесь, загружайте фото профиля и
-          управляйте личным кабинетом.
-        </p>
-        <div class="landing-actions">
-          <button class="primary" @click="currentScreen = 'auth'; activeTab = 'register'">
-            Начать регистрацию
-          </button>
-          <button class="ghost" @click="currentScreen = 'auth'; activeTab = 'login'">Войти</button>
-        </div>
+      <section v-if="currentScreen === 'home'" class="panel">
+        <StartPage
+          :is-authenticated="Boolean(profile)"
+          @register="currentScreen = 'auth'; activeTab = 'register'"
+          @login="currentScreen = 'auth'; activeTab = 'login'"
+          @open-profile="currentScreen = 'auth'"
+        />
       </section>
 
       <section v-else-if="!profile" class="panel">
         <div class="tabs">
-          <button :class="{ active: currentScreen === 'home' }" @click="currentScreen = 'home'">
-            Старт
-          </button>
           <button :class="{ active: activeTab === 'login' }" @click="activeTab = 'login'">Вход</button>
           <button :class="{ active: activeTab === 'register' }" @click="activeTab = 'register'">
             Регистрация
@@ -378,7 +372,10 @@ onMounted(loadProfile);
             <p class="tag">{{ roleLabel }}</p>
             <h2>{{ profile.email }}</h2>
           </div>
-          <button class="ghost" @click="logout">Выйти</button>
+          <div class="profile-actions">
+            <button class="ghost" @click="currentScreen = 'home'">На стартовую</button>
+            <button class="ghost" @click="logout">Выйти</button>
+          </div>
         </div>
 
         <p v-if="profileLoading">Загрузка профиля...</p>
@@ -520,26 +517,6 @@ onMounted(loadProfile);
   color: white;
 }
 
-.landing {
-  display: grid;
-  gap: 14px;
-}
-
-.landing h2 {
-  margin: 0;
-}
-
-.landing p {
-  margin: 0;
-  color: #c6d2ff;
-}
-
-.landing-actions {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
 .form-grid {
   display: grid;
   gap: 12px;
@@ -619,6 +596,11 @@ select:focus {
 
 .profile-head h2 {
   margin: 4px 0 0;
+}
+
+.profile-actions {
+  display: flex;
+  gap: 8px;
 }
 
 .tag {
