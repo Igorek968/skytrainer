@@ -29,12 +29,39 @@ let ymapsInstance = null;
 let mapInstance = null;
 let userPlacemark = null;
 let targetPlacemark = null;
+let instructorMarkerLayout = null;
 const instructorPlacemarks = [];
 
 const selectedInstructor = computed(() =>
   instructors.value.find((item) => item.email === selectedInstructorEmail.value),
 );
 const displayName = (item) => item.name || item.email;
+
+function getExperienceStars(experienceYears) {
+  const years = Number(experienceYears) || 0;
+  const stars = Math.ceil(years / 3);
+  const normalized = Math.max(1, Math.min(5, stars));
+  return "★".repeat(normalized);
+}
+
+function getDirectionIcon(item) {
+  const skills = Array.isArray(item.skills) ? item.skills : [];
+  const normalizedSkills = skills.map((value) => String(value).toLowerCase());
+  return normalizedSkills.includes("snowboard") ? "🏂" : "⛷️";
+}
+
+function buildInstructorMarkerHtml(item) {
+  const stars = getExperienceStars(item.experience_years);
+  const icon = getDirectionIcon(item);
+  return `
+    <div style="display:flex;flex-direction:column;align-items:center;gap:2px;transform:translate(-16px,-38px);">
+      <div style="font-size:13px;line-height:1;color:#ffd24a;text-shadow:0 1px 2px rgba(0,0,0,0.65);letter-spacing:1px;">${stars}</div>
+      <div style="width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:linear-gradient(180deg,#3b4f9e,#293b7f);border:2px solid #dfe8ff;box-shadow:0 4px 10px rgba(0,0,0,0.25);font-size:18px;">
+        ${icon}
+      </div>
+    </div>
+  `;
+}
 
 function ensureYandexMapsScript() {
   return new Promise((resolve, reject) => {
@@ -73,6 +100,9 @@ function renderInstructorPlacemarks() {
   if (!mapInstance || !ymapsInstance) {
     return;
   }
+  if (!instructorMarkerLayout) {
+    instructorMarkerLayout = ymapsInstance.templateLayoutFactory.createClass("$[properties.markerHtml]");
+  }
   instructorPlacemarks.forEach((item) => mapInstance.geoObjects.remove(item));
   instructorPlacemarks.length = 0;
 
@@ -83,9 +113,17 @@ function renderInstructorPlacemarks() {
       [lat, lon],
       {
         balloonContent: `<strong>${displayName(item)}</strong><br/>Рейтинг: ${item.rating}/5`,
+        markerHtml: buildInstructorMarkerHtml(item),
       },
       {
-        preset: "islands#greenDotIcon",
+        iconLayout: instructorMarkerLayout,
+        iconShape: {
+          type: "Rectangle",
+          coordinates: [
+            [-16, -40],
+            [16, 2],
+          ],
+        },
       },
     );
     placemark.events.add("click", () => {
@@ -244,9 +282,9 @@ onMounted(() => {
       <p v-else-if="instructorsError" class="error">{{ instructorsError }}</p>
       <div ref="mapContainer" class="map-frame" aria-label="Карта выбора точки"></div>
       <p class="legend">
-        Синяя точка - вы, зеленые точки - свободные инструкторы, красная точка - место вызова.
-        Перетащите красную точку для корректировки адреса. Нажмите на зеленую точку, чтобы выбрать
-        инструктора.
+        Синяя точка - вы, красная точка - место вызова. Инструкторы отмечены иконками направлений:
+        сноубордист - 🏂, лыжник - ⛷️. Над иконкой горят закрашенные звезды по опыту.
+        Перетащите красную точку для корректировки адреса и нажмите на иконку инструктора для выбора.
       </p>
     </div>
 
