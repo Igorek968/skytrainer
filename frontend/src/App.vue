@@ -4,10 +4,13 @@ import { computed, onMounted, ref } from "vue";
 const API_URL = "http://localhost:8000";
 const TOKEN_KEY = "skytrainer_jwt";
 
+const currentScreen = ref("home");
 const activeTab = ref("login");
 const authLoading = ref(false);
 const profileLoading = ref(false);
 const saveLoading = ref(false);
+const uploadAuthPhotoLoading = ref(false);
+const uploadProfilePhotoLoading = ref(false);
 const notice = ref("");
 const error = ref("");
 const profile = ref(null);
@@ -41,6 +44,8 @@ const roleLabel = computed(() =>
   profile.value?.role === "instructor" ? "Инструктор" : "Пользователь",
 );
 const isInstructorProfile = computed(() => profile.value?.role === "instructor");
+const authPhotoSrc = computed(() => resolvePhotoUrl(authForm.value.photoUrl));
+const profilePhotoSrc = computed(() => resolvePhotoUrl(profileForm.value.photoUrl));
 
 function resetMessages() {
   error.value = "";
@@ -53,6 +58,19 @@ function fillProfileForm(user) {
   profileForm.value.gender = user.gender ?? "male";
   profileForm.value.photoUrl = user.photo_url ?? "";
   profileForm.value.hasLicense = Boolean(user.has_license);
+}
+
+function resolvePhotoUrl(url) {
+  if (!url) {
+    return "";
+  }
+  if (url.startsWith("http://") || url.startsWith("https://")) {
+    return url;
+  }
+  if (url.startsWith("/")) {
+    return `${API_URL}${url}`;
+  }
+  return `${API_URL}/${url}`;
 }
 
 async function api(path, options = {}) {
@@ -85,6 +103,7 @@ async function loadProfile() {
     const data = await api("/auth/me");
     profile.value = data.user;
     fillProfileForm(data.user);
+    currentScreen.value = "auth";
   } catch (err) {
     token.value = "";
     localStorage.removeItem(TOKEN_KEY);
@@ -168,6 +187,72 @@ async function saveProfile() {
   }
 }
 
+async function uploadPhoto(file, target) {
+  if (!file) {
+    return;
+  }
+  if (!file.type.startsWith("image/")) {
+    throw new Error("Можно загрузить только изображение.");
+  }
+
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const response = await fetch(`${API_URL}/uploads/photo`, {
+    method: "POST",
+    body: formData,
+  });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(body.detail || "Не удалось загрузить изображение.");
+  }
+  const uploadedUrl = body.photo_url ?? "";
+  if (!uploadedUrl) {
+    throw new Error("Сервер не вернул адрес фото.");
+  }
+  if (target === "auth") {
+    authForm.value.photoUrl = uploadedUrl;
+  } else {
+    profileForm.value.photoUrl = uploadedUrl;
+  }
+}
+
+async function onAuthPhotoChange(event) {
+  const file = event.target.files?.[0];
+  if (!file) {
+    return;
+  }
+  resetMessages();
+  uploadAuthPhotoLoading.value = true;
+  try {
+    await uploadPhoto(file, "auth");
+    notice.value = "Фото для регистрации загружено.";
+  } catch (err) {
+    error.value = err.message;
+  } finally {
+    uploadAuthPhotoLoading.value = false;
+    event.target.value = "";
+  }
+}
+
+async function onProfilePhotoChange(event) {
+  const file = event.target.files?.[0];
+  if (!file) {
+    return;
+  }
+  resetMessages();
+  uploadProfilePhotoLoading.value = true;
+  try {
+    await uploadPhoto(file, "profile");
+    notice.value = "Новое фото загружено. Не забудьте сохранить профиль.";
+  } catch (err) {
+    error.value = err.message;
+  } finally {
+    uploadProfilePhotoLoading.value = false;
+    event.target.value = "";
+  }
+}
+
 function logout() {
   token.value = "";
   profile.value = null;
@@ -190,8 +275,25 @@ onMounted(loadProfile);
         <p>Личный кабинет для пользователя и инструктора с быстрым редактированием профиля.</p>
       </header>
 
-      <section v-if="!profile" class="panel">
+      <section v-if="!profile && currentScreen === 'home'" class="panel landing">
+        <h2>Добро пожаловать в SkyTrainer</h2>
+        <p>
+          Платформа для пользователей и инструкторов: регистрируйтесь, загружайте фото профиля и
+          управляйте личным кабинетом.
+        </p>
+        <div class="landing-actions">
+          <button class="primary" @click="currentScreen = 'auth'; activeTab = 'register'">
+            Начать регистрацию
+          </button>
+          <button class="ghost" @click="currentScreen = 'auth'; activeTab = 'login'">Войти</button>
+        </div>
+      </section>
+
+      <section v-else-if="!profile" class="panel">
         <div class="tabs">
+          <button :class="{ active: currentScreen === 'home' }" @click="currentScreen = 'home'">
+            Старт
+          </button>
           <button :class="{ active: activeTab === 'login' }" @click="activeTab = 'login'">Вход</button>
           <button :class="{ active: activeTab === 'register' }" @click="activeTab = 'register'">
             Регистрация
@@ -242,8 +344,19 @@ onMounted(loadProfile);
 
             <label>
               Фото (URL)
-              <input v-model.trim="authForm.photoUrl" type="url" placeholder="https://..." />
+              <input v-model.trim="authForm.photoUrl" type="text" placeholder="https://... или /uploads/..." />
             </label>
+            <label>
+              Фото (файл)
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                :disabled="uploadAuthPhotoLoading"
+                @change="onAuthPhotoChange"
+              />
+            </label>
+            <p v-if="uploadAuthPhotoLoading" class="notice">Загружаем фото...</p>
+            <img v-if="authPhotoSrc" :src="authPhotoSrc" alt="Предпросмотр" class="avatar preview" />
 
             <label v-if="authForm.role === 'instructor'" class="checkbox">
               <input v-model="authForm.hasLicense" type="checkbox" />
@@ -273,8 +386,8 @@ onMounted(loadProfile);
         <div class="profile-layout">
           <div class="avatar-wrap">
             <img
-              v-if="profileForm.photoUrl"
-              :src="profileForm.photoUrl"
+              v-if="profilePhotoSrc"
+              :src="profilePhotoSrc"
               alt="Аватар"
               class="avatar"
             />
@@ -307,8 +420,22 @@ onMounted(loadProfile);
 
             <label>
               Фото (URL)
-              <input v-model.trim="profileForm.photoUrl" type="url" placeholder="https://..." />
+              <input
+                v-model.trim="profileForm.photoUrl"
+                type="text"
+                placeholder="https://... или /uploads/..."
+              />
             </label>
+            <label>
+              Фото (файл)
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                :disabled="uploadProfilePhotoLoading"
+                @change="onProfilePhotoChange"
+              />
+            </label>
+            <p v-if="uploadProfilePhotoLoading" class="notice">Загружаем фото...</p>
 
             <label v-if="isInstructorProfile" class="checkbox">
               <input v-model="profileForm.hasLicense" type="checkbox" />
@@ -391,6 +518,26 @@ onMounted(loadProfile);
   background: linear-gradient(90deg, #5e7bff, #8f58ff);
   border-color: transparent;
   color: white;
+}
+
+.landing {
+  display: grid;
+  gap: 14px;
+}
+
+.landing h2 {
+  margin: 0;
+}
+
+.landing p {
+  margin: 0;
+  color: #c6d2ff;
+}
+
+.landing-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .form-grid {
@@ -501,6 +648,11 @@ select:focus {
   border-radius: 50%;
   object-fit: cover;
   border: 3px solid rgba(153, 169, 255, 0.55);
+}
+
+.preview {
+  width: 88px;
+  height: 88px;
 }
 
 .fallback {
