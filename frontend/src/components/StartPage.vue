@@ -1,5 +1,6 @@
 <script setup>
 import { computed, onMounted, ref } from "vue";
+import SnowRideMockup from "./SnowRideMockup.vue";
 
 const props = defineProps({
   isAuthenticated: {
@@ -318,6 +319,8 @@ onMounted(() => {
 
     <p v-if="callStatus" class="notice">{{ callStatus }}</p>
   </section>
+
+  <SnowRideMockup />
 </template>
 
 <style scoped>
