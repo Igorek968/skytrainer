@@ -82,6 +82,7 @@ class Review(BaseModel):
 
 class RegisterRequest(BaseModel):
     email: str = Field(min_length=5, max_length=255)
+    name: str = Field(default="", max_length=100)
     password: str = Field(min_length=6, max_length=255)
     role: Role
     skills: list[Skill]
@@ -97,6 +98,7 @@ class LoginRequest(BaseModel):
 
 
 class ProfileUpdateRequest(BaseModel):
+    name: str = Field(default="", max_length=100)
     skills: list[Skill] = Field(min_length=1)
     experience_years: int = Field(ge=0, le=80)
     gender: Gender
@@ -191,6 +193,7 @@ def to_public_user(user: dict) -> dict:
     rating = round(sum(r["score"] for r in reviews) / len(reviews), 1) if reviews else 0
     return {
         "email": user["email"],
+        "name": user.get("name", ""),
         "role": user["role"],
         "skills": user["skills"],
         "experience_years": user["experience_years"],
@@ -277,6 +280,7 @@ async def register(payload: RegisterRequest) -> dict:
     user = await users_repo.create_user(
         {
             "email": payload.email,
+            "name": payload.name.strip() or payload.email.split("@", 1)[0],
             "password_hash": hash_password(payload.password),
             "role": payload.role,
             "skills": payload.skills,
@@ -316,6 +320,7 @@ async def update_me(payload: ProfileUpdateRequest, authorization: str | None = H
 
     updated_user = await get_storage().users.update_profile(
         email=user["email"],
+        name=payload.name.strip() or user.get("name", ""),
         skills=payload.skills,
         experience_years=payload.experience_years,
         gender=payload.gender,

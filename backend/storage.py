@@ -14,6 +14,7 @@ class UsersRepository:
         query = """
         CREATE TABLE IF NOT EXISTS users (
             email TEXT PRIMARY KEY,
+            name TEXT NOT NULL DEFAULT '',
             password_hash TEXT NOT NULL,
             role TEXT NOT NULL,
             skills JSONB NOT NULL,
@@ -25,6 +26,8 @@ class UsersRepository:
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
             updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
+        ALTER TABLE users
+            ADD COLUMN IF NOT EXISTS name TEXT NOT NULL DEFAULT '';
         """
         async with self._pool.acquire() as conn:
             await conn.execute(query)
@@ -33,6 +36,7 @@ class UsersRepository:
         query = """
         SELECT
             email,
+            name,
             password_hash,
             role,
             skills,
@@ -52,6 +56,7 @@ class UsersRepository:
         query = """
         INSERT INTO users (
             email,
+            name,
             password_hash,
             role,
             skills,
@@ -65,15 +70,17 @@ class UsersRepository:
             $1,
             $2,
             $3,
-            $4::jsonb,
-            $5,
+            $4,
+            $5::jsonb,
             $6,
             $7,
             $8,
-            $9::jsonb
+            $9,
+            $10::jsonb
         )
         RETURNING
             email,
+            name,
             password_hash,
             role,
             skills,
@@ -87,6 +94,7 @@ class UsersRepository:
             row = await conn.fetchrow(
                 query,
                 user["email"],
+                user["name"],
                 user["password_hash"],
                 user["role"],
                 json.dumps(user["skills"]),
@@ -104,6 +112,7 @@ class UsersRepository:
         self,
         *,
         email: str,
+        name: str,
         skills: list[str],
         experience_years: int,
         gender: str,
@@ -113,15 +122,17 @@ class UsersRepository:
         query = """
         UPDATE users
         SET
-            skills = $2::jsonb,
-            experience_years = $3,
-            gender = $4,
-            photo_url = $5,
-            has_license = $6,
+            name = $2,
+            skills = $3::jsonb,
+            experience_years = $4,
+            gender = $5,
+            photo_url = $6,
+            has_license = $7,
             updated_at = NOW()
         WHERE email = $1
         RETURNING
             email,
+            name,
             password_hash,
             role,
             skills,
@@ -135,6 +146,7 @@ class UsersRepository:
             row = await conn.fetchrow(
                 query,
                 email,
+                name,
                 json.dumps(skills),
                 experience_years,
                 gender,
@@ -152,6 +164,7 @@ class UsersRepository:
         WHERE email = $1
         RETURNING
             email,
+            name,
             password_hash,
             role,
             skills,
@@ -169,6 +182,7 @@ class UsersRepository:
         query = """
         SELECT
             email,
+            name,
             password_hash,
             role,
             skills,

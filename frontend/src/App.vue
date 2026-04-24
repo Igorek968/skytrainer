@@ -19,6 +19,7 @@ const token = ref(localStorage.getItem(TOKEN_KEY) ?? "");
 
 const authForm = ref({
   email: "",
+  name: "",
   password: "",
   role: "user",
   skills: ["ski"],
@@ -29,6 +30,7 @@ const authForm = ref({
 });
 
 const profileForm = ref({
+  name: "",
   skills: [],
   experienceYears: 0,
   gender: "male",
@@ -54,6 +56,7 @@ function resetMessages() {
 }
 
 function fillProfileForm(user) {
+  profileForm.value.name = user.name ?? "";
   profileForm.value.skills = [...(user.skills ?? [])];
   profileForm.value.experienceYears = Number(user.experience_years ?? 0);
   profileForm.value.gender = user.gender ?? "male";
@@ -127,6 +130,7 @@ async function submitAuth() {
       activeTab.value === "register"
         ? {
             email: authForm.value.email.trim(),
+            name: authForm.value.name.trim(),
             password: authForm.value.password,
             role: authForm.value.role,
             skills: authForm.value.skills,
@@ -168,6 +172,7 @@ async function saveProfile() {
   saveLoading.value = true;
   try {
     const payload = {
+      name: profileForm.value.name.trim(),
       skills: profileForm.value.skills,
       experience_years: Number(profileForm.value.experienceYears),
       gender: profileForm.value.gender,
@@ -308,6 +313,11 @@ onMounted(loadProfile);
 
           <template v-if="activeTab === 'register'">
             <label>
+              Имя
+              <input v-model.trim="authForm.name" type="text" maxlength="100" />
+            </label>
+
+            <label>
               Роль
               <select v-model="authForm.role">
                 <option value="user">Пользователь</option>
@@ -371,7 +381,8 @@ onMounted(loadProfile);
         <div class="profile-head">
           <div>
             <p class="tag">{{ roleLabel }}</p>
-            <h2>{{ profile.email }}</h2>
+            <h2>{{ profile.name || profile.email }}</h2>
+            <p class="profile-email">{{ profile.email }}</p>
           </div>
           <div class="profile-actions">
             <button class="ghost" @click="currentScreen = 'home'">На стартовую</button>
@@ -389,7 +400,7 @@ onMounted(loadProfile);
               alt="Аватар"
               class="avatar"
             />
-            <div v-else class="avatar fallback">{{ profile.email[0]?.toUpperCase() }}</div>
+            <div v-else class="avatar fallback">{{ (profile.name || profile.email)[0]?.toUpperCase() }}</div>
             <p class="rating">Рейтинг: {{ profile.rating }}/5</p>
           </div>
 
@@ -401,6 +412,11 @@ onMounted(loadProfile);
                 {{ skill.label }}
               </label>
             </fieldset>
+
+            <label>
+              Имя
+              <input v-model.trim="profileForm.name" type="text" maxlength="100" />
+            </label>
 
             <label>
               Опыт (лет)
@@ -597,6 +613,11 @@ select:focus {
 
 .profile-head h2 {
   margin: 4px 0 0;
+}
+
+.profile-email {
+  margin: 4px 0 0;
+  color: #a7b0d6;
 }
 
 .profile-actions {

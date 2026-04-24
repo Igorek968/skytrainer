@@ -34,6 +34,7 @@ const instructorPlacemarks = [];
 const selectedInstructor = computed(() =>
   instructors.value.find((item) => item.email === selectedInstructorEmail.value),
 );
+const displayName = (item) => item.name || item.email;
 
 function ensureYandexMapsScript() {
   return new Promise((resolve, reject) => {
@@ -81,7 +82,7 @@ function renderInstructorPlacemarks() {
     const placemark = new ymapsInstance.Placemark(
       [lat, lon],
       {
-        balloonContent: `<strong>${item.email}</strong><br/>Рейтинг: ${item.rating}/5`,
+        balloonContent: `<strong>${displayName(item)}</strong><br/>Рейтинг: ${item.rating}/5`,
       },
       {
         preset: "islands#greenDotIcon",
@@ -168,7 +169,7 @@ function callInstructorToPoint() {
   if (!selectedInstructor.value || !targetPoint.value || !agreementAccepted.value) {
     return;
   }
-  callStatus.value = `Инструктор ${selectedInstructor.value.email} вызван в точку ${targetPoint.value.lat}, ${targetPoint.value.lon}.`;
+  callStatus.value = `Инструктор ${displayName(selectedInstructor.value)} вызван в точку ${targetPoint.value.lat}, ${targetPoint.value.lon}.`;
 }
 
 onMounted(() => {
@@ -245,7 +246,7 @@ onMounted(() => {
       <ul v-else-if="instructors.length > 0" class="instructor-list">
         <li v-for="item in instructors" :key="item.email">
           <button class="instructor-item" :class="{ active: selectedInstructorEmail === item.email }" @click="selectedInstructorEmail = item.email">
-            <span>{{ item.email }}</span>
+            <span>{{ displayName(item) }}</span>
             <span>Рейтинг: {{ item.rating }}/5</span>
           </button>
         </li>
@@ -255,7 +256,8 @@ onMounted(() => {
 
     <div class="agreement-card" v-if="targetPoint && selectedInstructor">
       <h3>Предварительное согласие</h3>
-      <p><strong>Инструктор:</strong> {{ selectedInstructor.email }}</p>
+      <p><strong>Инструктор:</strong> {{ displayName(selectedInstructor) }}</p>
+      <p><strong>Контакт:</strong> {{ selectedInstructor.email }}</p>
       <p><strong>Навыки:</strong> {{ selectedInstructor.skills.join(", ") }}</p>
       <p><strong>Опыт:</strong> {{ selectedInstructor.experience_years }} лет</p>
       <p><strong>Пол:</strong> {{ selectedInstructor.gender }}</p>
