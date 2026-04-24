@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import base64
+from contextlib import asynccontextmanager
 import hashlib
 import hmac
 import json
+import os
 import time
 from typing import Literal
 
@@ -11,7 +13,27 @@ from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-app = FastAPI(title="SkyTrainer API")
+from storage import Storage
+
+
+DATABASE_URL = os.getenv(
+    "DATABASE_URL",
+    "postgresql://skytrainer:skytrainer@db:5432/skytrainer",
+)
+
+storage = Storage(DATABASE_URL)
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    await storage.connect()
+    try:
+        yield
+    finally:
+        await storage.close()
+
+
+app = FastAPI(title="SkyTrainer API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -52,27 +74,12 @@ class LoginRequest(BaseModel):
     password: str
 
 
-class UserRecord(BaseModel):
-    email: str
-    password_hash: str
-    role: Role
-    skills: list[Skill]
-    experience_years: int
-    gender: Gender
-    photo_url: str
-    has_license: bool | None
-    reviews: list[Review] = Field(default_factory=list)
-
-
 class ProfileUpdateRequest(BaseModel):
     skills: list[Skill] = Field(min_length=1)
     experience_years: int = Field(ge=0, le=80)
     gender: Gender
     photo_url: str = ""
     has_license: bool | None = None
-
-
-users_db: dict[str, UserRecord] = {}
 
 
 def _b64url_encode(data: bytes) -> str:
@@ -115,33 +122,43 @@ def decode_jwt(token: str) -> dict:
     return body
 
 
-def get_current_user(authorization: str | None) -> UserRecord:
+def get_storage() -> Storage:
+    if storage.users is None:
+        raise HTTPException(status_code=503, detail="Storage is not initialized")
+    return storage
+
+
+async def get_current_user(authorization: str | None) -> dict:
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Missing Bearer token")
     token = authorization.replace("Bearer ", "", 1)
     payload = decode_jwt(token)
     email = payload.get("sub")
-    if not email or email not in users_db:
+    if not email:
+        raise HTTPException(status_code=401, detail="Invalid token payload")
+    user = await get_storage().users.get_by_email(email)
+    if not user:
         raise HTTPException(status_code=401, detail="User not found")
-    return users_db[email]
+    return user
 
 
 def hash_password(password: str) -> str:
     return hashlib.sha256(password.encode()).hexdigest()
 
 
-def to_public_user(user: UserRecord) -> dict:
-    rating = round(sum(r.score for r in user.reviews) / len(user.reviews), 1) if user.reviews else 0
+def to_public_user(user: dict) -> dict:
+    reviews = user.get("reviews", [])
+    rating = round(sum(r["score"] for r in reviews) / len(reviews), 1) if reviews else 0
     return {
-        "email": user.email,
-        "role": user.role,
-        "skills": user.skills,
-        "experience_years": user.experience_years,
-        "gender": user.gender,
-        "photo_url": user.photo_url,
-        "has_license": user.has_license if user.role == "instructor" else None,
+        "email": user["email"],
+        "role": user["role"],
+        "skills": user["skills"],
+        "experience_years": user["experience_years"],
+        "gender": user["gender"],
+        "photo_url": user["photo_url"],
+        "has_license": user["has_license"] if user["role"] == "instructor" else None,
         "rating": rating,
-        "reviews": [review.model_dump() for review in user.reviews],
+        "reviews": reviews,
     }
 
 
@@ -156,8 +173,10 @@ def message() -> dict[str, str]:
 
 
 @app.post("/auth/register")
-def register(payload: RegisterRequest) -> dict:
-    if payload.email in users_db:
+async def register(payload: RegisterRequest) -> dict:
+    users_repo = get_storage().users
+    existing_user = await users_repo.get_by_email(payload.email)
+    if existing_user:
         raise HTTPException(status_code=409, detail="User already exists")
     if not payload.skills:
         raise HTTPException(status_code=400, detail="Select at least one skill")
@@ -166,65 +185,71 @@ def register(payload: RegisterRequest) -> dict:
     if payload.role == "user":
         payload.has_license = None
 
-    user = UserRecord(
-        email=payload.email,
-        password_hash=hash_password(payload.password),
-        role=payload.role,
+    user = await users_repo.create_user(
+        {
+            "email": payload.email,
+            "password_hash": hash_password(payload.password),
+            "role": payload.role,
+            "skills": payload.skills,
+            "experience_years": payload.experience_years,
+            "gender": payload.gender,
+            "photo_url": payload.photo_url,
+            "has_license": payload.has_license,
+            "reviews": [],
+        }
+    )
+    token = create_jwt({"sub": user["email"], "role": user["role"], "skills": user["skills"]})
+    return {"access_token": token, "token_type": "bearer", "user": to_public_user(user)}
+
+
+@app.post("/auth/login")
+async def login(payload: LoginRequest) -> dict:
+    user = await get_storage().users.get_by_email(payload.email)
+    if not user or user["password_hash"] != hash_password(payload.password):
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    token = create_jwt({"sub": user["email"], "role": user["role"], "skills": user["skills"]})
+    return {"access_token": token, "token_type": "bearer", "user": to_public_user(user)}
+
+
+@app.get("/auth/me")
+async def me(authorization: str | None = Header(default=None)) -> dict:
+    user = await get_current_user(authorization)
+    return {"user": to_public_user(user)}
+
+
+@app.put("/auth/me")
+async def update_me(payload: ProfileUpdateRequest, authorization: str | None = Header(default=None)) -> dict:
+    user = await get_current_user(authorization)
+    if user["role"] == "instructor" and payload.has_license is None:
+        raise HTTPException(status_code=400, detail="Instructor must provide license info")
+    if user["role"] == "user":
+        payload.has_license = None
+
+    updated_user = await get_storage().users.update_profile(
+        email=user["email"],
         skills=payload.skills,
         experience_years=payload.experience_years,
         gender=payload.gender,
         photo_url=payload.photo_url,
         has_license=payload.has_license,
     )
-    users_db[user.email] = user
-    token = create_jwt({"sub": user.email, "role": user.role, "skills": user.skills})
-    return {"access_token": token, "token_type": "bearer", "user": to_public_user(user)}
-
-
-@app.post("/auth/login")
-def login(payload: LoginRequest) -> dict:
-    user = users_db.get(payload.email)
-    if not user or user.password_hash != hash_password(payload.password):
-        raise HTTPException(status_code=401, detail="Invalid credentials")
-    token = create_jwt({"sub": user.email, "role": user.role, "skills": user.skills})
-    return {"access_token": token, "token_type": "bearer", "user": to_public_user(user)}
-
-
-@app.get("/auth/me")
-def me(authorization: str | None = Header(default=None)) -> dict:
-    user = get_current_user(authorization)
-    return {"user": to_public_user(user)}
-
-
-@app.put("/auth/me")
-def update_me(payload: ProfileUpdateRequest, authorization: str | None = Header(default=None)) -> dict:
-    user = get_current_user(authorization)
-    if user.role == "instructor" and payload.has_license is None:
-        raise HTTPException(status_code=400, detail="Instructor must provide license info")
-    if user.role == "user":
-        payload.has_license = None
-
-    user.skills = payload.skills
-    user.experience_years = payload.experience_years
-    user.gender = payload.gender
-    user.photo_url = payload.photo_url
-    user.has_license = payload.has_license
-    return {"user": to_public_user(user)}
+    if not updated_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return {"user": to_public_user(updated_user)}
 
 
 @app.post("/users/{email}/reviews")
-def add_review(email: str, review: Review, authorization: str | None = Header(default=None)) -> dict:
-    get_current_user(authorization)
-    user = users_db.get(email)
+async def add_review(email: str, review: Review, authorization: str | None = Header(default=None)) -> dict:
+    await get_current_user(authorization)
+    user = await get_storage().users.add_review(email=email, review=review.model_dump())
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    user.reviews.insert(0, review)
     return {"user": to_public_user(user)}
 
 
 @app.get("/users/{email}/reviews")
-def get_reviews(email: str) -> dict:
-    user = users_db.get(email)
+async def get_reviews(email: str) -> dict:
+    user = await get_storage().users.get_by_email(email)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    return {"rating": to_public_user(user)["rating"], "reviews": [r.model_dump() for r in user.reviews]}
+    return {"rating": to_public_user(user)["rating"], "reviews": user["reviews"]}

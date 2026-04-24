@@ -1,12 +1,26 @@
-version: "3.9"
-
 services:
+  db:
+    image: postgres:16-alpine
+    container_name: skytrainer-db
+    environment:
+      POSTGRES_DB: skytrainer
+      POSTGRES_USER: skytrainer
+      POSTGRES_PASSWORD: skytrainer
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+
   backend:
     build:
       context: ./backend
     container_name: skytrainer-backend
+    environment:
+      DATABASE_URL: postgresql://skytrainer:skytrainer@db:5432/skytrainer
     ports:
       - "8000:8000"
+    depends_on:
+      - db
 
   frontend:
     build:
@@ -16,3 +30,6 @@ services:
       - "5173:5173"
     depends_on:
       - backend
+
+volumes:
+  pg_data:
