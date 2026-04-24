@@ -17,10 +17,17 @@ services:
     container_name: skytrainer-backend
     environment:
       DATABASE_URL: postgresql://skytrainer:skytrainer@db:5432/skytrainer
+      S3_ENDPOINT_URL: http://minio:9000
+      S3_ACCESS_KEY: minioadmin
+      S3_SECRET_KEY: minioadmin
+      S3_REGION: us-east-1
+      PHOTO_BUCKET: user-photos
+      PUBLIC_PHOTO_BASE_URL: /uploads/photo
     ports:
       - "8000:8000"
     depends_on:
       - db
+      - minio
 
   frontend:
     build:
@@ -31,5 +38,19 @@ services:
     depends_on:
       - backend
 
+  minio:
+    image: minio/minio:latest
+    container_name: skytrainer-minio
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+
 volumes:
   pg_data:
+  minio_data:

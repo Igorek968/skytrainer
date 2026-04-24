@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import base64
+import asyncio
 from contextlib import asynccontextmanager
-from pathlib import Path
 import hashlib
 import hmac
 import json
@@ -11,10 +11,12 @@ import secrets
 import time
 from typing import Literal
 
+import boto3
+from botocore.exceptions import BotoCoreError, ClientError
 from fastapi import FastAPI, File, Header, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
+from starlette.responses import StreamingResponse
 
 from storage import Storage
 
@@ -30,6 +32,7 @@ storage = Storage(DATABASE_URL)
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     await storage.connect()
+    await ensure_photo_bucket()
     try:
         yield
     finally:
@@ -51,8 +54,20 @@ JWT_ALG = "HS256"
 JWT_TTL_SECONDS = 60 * 60 * 24
 MAX_PHOTO_SIZE_BYTES = 5 * 1024 * 1024
 ALLOWED_PHOTO_TYPES = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp"}
-UPLOADS_DIR = Path("uploads")
-UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+PHOTO_BUCKET = os.getenv("PHOTO_BUCKET", "user-photos")
+S3_ENDPOINT_URL = os.getenv("S3_ENDPOINT_URL", "http://minio:9000")
+S3_ACCESS_KEY = os.getenv("S3_ACCESS_KEY", "minioadmin")
+S3_SECRET_KEY = os.getenv("S3_SECRET_KEY", "minioadmin")
+S3_REGION = os.getenv("S3_REGION", "us-east-1")
+PUBLIC_PHOTO_BASE_URL = os.getenv("PUBLIC_PHOTO_BASE_URL", "/uploads/photo")
+
+s3_client = boto3.client(
+    "s3",
+    endpoint_url=S3_ENDPOINT_URL,
+    aws_access_key_id=S3_ACCESS_KEY,
+    aws_secret_access_key=S3_SECRET_KEY,
+    region_name=S3_REGION,
+)
 
 Skill = Literal["snowboard", "ski"]
 Role = Literal["instructor", "user"]
@@ -135,6 +150,23 @@ def get_storage() -> Storage:
     return storage
 
 
+async def ensure_photo_bucket() -> None:
+    def _ensure_bucket() -> None:
+        try:
+            s3_client.head_bucket(Bucket=PHOTO_BUCKET)
+        except ClientError as exc:
+            error_code = exc.response.get("Error", {}).get("Code")
+            if error_code in {"404", "NoSuchBucket"}:
+                s3_client.create_bucket(Bucket=PHOTO_BUCKET)
+            else:
+                raise
+
+    try:
+        await asyncio.to_thread(_ensure_bucket)
+    except (ClientError, BotoCoreError) as exc:
+        raise RuntimeError(f"Could not initialize photo bucket '{PHOTO_BUCKET}'") from exc
+
+
 async def get_current_user(authorization: str | None) -> dict:
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Missing Bearer token")
@@ -192,10 +224,41 @@ async def upload_photo(file: UploadFile = File(...)) -> dict:
         raise HTTPException(status_code=400, detail="Image is too large. Max size is 5 MB.")
 
     extension = ALLOWED_PHOTO_TYPES[file.content_type]
-    filename = f"{secrets.token_hex(16)}{extension}"
-    file_path = UPLOADS_DIR / filename
-    file_path.write_bytes(content)
-    return {"photo_url": f"/uploads/{filename}"}
+    object_key = f"{secrets.token_hex(16)}{extension}"
+    try:
+        await asyncio.to_thread(
+            s3_client.put_object,
+            Bucket=PHOTO_BUCKET,
+            Key=object_key,
+            Body=content,
+            ContentType=file.content_type,
+        )
+    except (ClientError, BotoCoreError) as exc:
+        raise HTTPException(status_code=500, detail="Could not upload photo to storage.") from exc
+
+    return {"photo_url": f"{PUBLIC_PHOTO_BASE_URL.rstrip('/')}/{object_key}"}
+
+
+@app.get("/uploads/photo/{object_key}")
+async def get_photo(object_key: str) -> StreamingResponse:
+    try:
+        response = await asyncio.to_thread(
+            s3_client.get_object,
+            Bucket=PHOTO_BUCKET,
+            Key=object_key,
+        )
+    except ClientError as exc:
+        error_code = exc.response.get("Error", {}).get("Code")
+        if error_code in {"NoSuchKey", "404"}:
+            raise HTTPException(status_code=404, detail="Photo not found.") from exc
+        raise HTTPException(status_code=500, detail="Could not read photo from storage.") from exc
+    except BotoCoreError as exc:
+        raise HTTPException(status_code=500, detail="Could not read photo from storage.") from exc
+
+    return StreamingResponse(
+        response["Body"],
+        media_type=response.get("ContentType", "application/octet-stream"),
+    )
 
 
 @app.post("/auth/register")
@@ -286,6 +349,3 @@ async def free_instructors() -> dict:
     users_repo = get_storage().users
     instructors = await users_repo.list_instructors()
     return {"instructors": [to_public_user(user) for user in instructors]}
-
-
-app.mount("/uploads", StaticFiles(directory=str(UPLOADS_DIR)), name="uploads")
