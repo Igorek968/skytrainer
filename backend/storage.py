@@ -165,6 +165,31 @@ class UsersRepository:
             row = await conn.fetchrow(query, email, json.dumps([review]))
         return self._normalize_row(row)
 
+    async def list_instructors(self) -> list[dict[str, Any]]:
+        query = """
+        SELECT
+            email,
+            password_hash,
+            role,
+            skills,
+            experience_years,
+            gender,
+            photo_url,
+            has_license,
+            reviews
+        FROM users
+        WHERE role = 'instructor'
+        ORDER BY updated_at DESC, created_at DESC;
+        """
+        async with self._pool.acquire() as conn:
+            rows = await conn.fetch(query)
+        instructors: list[dict[str, Any]] = []
+        for row in rows:
+            normalized = self._normalize_row(row)
+            if normalized is not None:
+                instructors.append(normalized)
+        return instructors
+
     @staticmethod
     def _normalize_row(row: asyncpg.Record | None) -> dict[str, Any] | None:
         if row is None:

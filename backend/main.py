@@ -281,4 +281,11 @@ async def get_reviews(email: str) -> dict:
     return {"rating": to_public_user(user)["rating"], "reviews": user["reviews"]}
 
 
+@app.get("/instructors/free")
+async def free_instructors() -> dict:
+    users_repo = get_storage().users
+    instructors = await users_repo.list_instructors()
+    return {"instructors": [to_public_user(user) for user in instructors]}
+
+
 app.mount("/uploads", StaticFiles(directory=str(UPLOADS_DIR)), name="uploads")

@@ -280,6 +280,7 @@ onMounted(loadProfile);
       <section v-if="currentScreen === 'home'" class="panel">
         <StartPage
           :is-authenticated="Boolean(profile)"
+          :api-url="API_URL"
           @register="currentScreen = 'auth'; activeTab = 'register'"
           @login="currentScreen = 'auth'; activeTab = 'login'"
           @open-profile="currentScreen = 'auth'"
