@@ -64,6 +64,14 @@ class UserRecord(BaseModel):
     reviews: list[Review] = Field(default_factory=list)
 
 
+class ProfileUpdateRequest(BaseModel):
+    skills: list[Skill] = Field(min_length=1)
+    experience_years: int = Field(ge=0, le=80)
+    gender: Gender
+    photo_url: str = ""
+    has_license: bool | None = None
+
+
 users_db: dict[str, UserRecord] = {}
 
 
@@ -185,6 +193,22 @@ def login(payload: LoginRequest) -> dict:
 @app.get("/auth/me")
 def me(authorization: str | None = Header(default=None)) -> dict:
     user = get_current_user(authorization)
+    return {"user": to_public_user(user)}
+
+
+@app.put("/auth/me")
+def update_me(payload: ProfileUpdateRequest, authorization: str | None = Header(default=None)) -> dict:
+    user = get_current_user(authorization)
+    if user.role == "instructor" and payload.has_license is None:
+        raise HTTPException(status_code=400, detail="Instructor must provide license info")
+    if user.role == "user":
+        payload.has_license = None
+
+    user.skills = payload.skills
+    user.experience_years = payload.experience_years
+    user.gender = payload.gender
+    user.photo_url = payload.photo_url
+    user.has_license = payload.has_license
     return {"user": to_public_user(user)}
 
 
