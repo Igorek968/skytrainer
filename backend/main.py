@@ -2,15 +2,18 @@ from __future__ import annotations
 
 import base64
 from contextlib import asynccontextmanager
+from pathlib import Path
 import hashlib
 import hmac
 import json
 import os
+import secrets
 import time
 from typing import Literal
 
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import FastAPI, File, Header, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from storage import Storage
@@ -46,6 +49,10 @@ app.add_middleware(
 JWT_SECRET = "skytrainer-secret"
 JWT_ALG = "HS256"
 JWT_TTL_SECONDS = 60 * 60 * 24
+MAX_PHOTO_SIZE_BYTES = 5 * 1024 * 1024
+ALLOWED_PHOTO_TYPES = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp"}
+UPLOADS_DIR = Path("uploads")
+UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 
 Skill = Literal["snowboard", "ski"]
 Role = Literal["instructor", "user"]
@@ -147,7 +154,8 @@ def hash_password(password: str) -> str:
 
 
 def to_public_user(user: dict) -> dict:
-    reviews = user.get("reviews", [])
+    raw_reviews = user.get("reviews", [])
+    reviews = [r for r in raw_reviews if isinstance(r, dict) and isinstance(r.get("score"), (int, float))]
     rating = round(sum(r["score"] for r in reviews) / len(reviews), 1) if reviews else 0
     return {
         "email": user["email"],
@@ -170,6 +178,24 @@ def health() -> dict[str, str]:
 @app.get("/api/message")
 def message() -> dict[str, str]:
     return {"message": "Hello from FastAPI backend"}
+
+
+@app.post("/uploads/photo")
+async def upload_photo(file: UploadFile = File(...)) -> dict:
+    if file.content_type not in ALLOWED_PHOTO_TYPES:
+        raise HTTPException(status_code=400, detail="Unsupported image type. Use JPG, PNG, or WEBP.")
+
+    content = await file.read()
+    if not content:
+        raise HTTPException(status_code=400, detail="Empty file.")
+    if len(content) > MAX_PHOTO_SIZE_BYTES:
+        raise HTTPException(status_code=400, detail="Image is too large. Max size is 5 MB.")
+
+    extension = ALLOWED_PHOTO_TYPES[file.content_type]
+    filename = f"{secrets.token_hex(16)}{extension}"
+    file_path = UPLOADS_DIR / filename
+    file_path.write_bytes(content)
+    return {"photo_url": f"/uploads/{filename}"}
 
 
 @app.post("/auth/register")
@@ -253,3 +279,6 @@ async def get_reviews(email: str) -> dict:
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     return {"rating": to_public_user(user)["rating"], "reviews": user["reviews"]}
+
+
+app.mount("/uploads", StaticFiles(directory=str(UPLOADS_DIR)), name="uploads")

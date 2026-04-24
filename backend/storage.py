@@ -170,9 +170,23 @@ class UsersRepository:
         if row is None:
             return None
         data = dict(row)
-        data["skills"] = list(data.get("skills") or [])
-        data["reviews"] = list(data.get("reviews") or [])
+        data["skills"] = UsersRepository._normalize_json_array(data.get("skills"))
+        data["reviews"] = UsersRepository._normalize_json_array(data.get("reviews"))
         return data
+
+    @staticmethod
+    def _normalize_json_array(value: Any) -> list[Any]:
+        if value is None:
+            return []
+        if isinstance(value, list):
+            return value
+        if isinstance(value, str):
+            try:
+                parsed = json.loads(value)
+            except json.JSONDecodeError:
+                return []
+            return parsed if isinstance(parsed, list) else []
+        return []
 
 
 class Storage:
