@@ -1,3 +1,5 @@
+# По умолчанию поднимаются postgres, redis и skiinstruct (без legacy API).
+# Чтобы собрать и запустить также сервис api: docker compose --profile with-api up -d --build
 services:
   postgres:
     image: postgis/postgis:16-3.4-alpine
@@ -11,7 +13,7 @@ services:
     volumes:
       - skytrainer_pg:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U sky -d skytrainer"]
+      test: ["CMD-SHELL", "pg_isready -U sky -d skytrainer_new"]
       interval: 5s
       timeout: 5s
       retries: 12
@@ -31,6 +33,8 @@ services:
       retries: 10
 
   api:
+    profiles:
+      - with-api
     build:
       context: ./api
       dockerfile: Dockerfile
@@ -40,11 +44,11 @@ services:
     env_file:
       - .env
     environment:
-      DATABASE_URL: postgres://sky:sky@postgres:5432/skytrainer
+      DATABASE_URL: postgres://sky:sky@postgres:5432/skytrainer_new
       REDIS_URL: redis://redis:6379
       JWT_SECRET: ${JWT_SECRET:-change-me-min-32-chars-docker-compose-skytrainer}
       PUBLIC_API_URL: ${PUBLIC_API_URL:-http://localhost:3000}
-      APP_RETURN_URL: ${APP_RETURN_URL:-http://localhost:5173/payment-return}
+      APP_RETURN_URL: ${APP_RETURN_URL:-http://localhost:3001/client/orders}
       YOOKASSA_SHOP_ID: ${YOOKASSA_SHOP_ID:-}
       YOOKASSA_SECRET_KEY: ${YOOKASSA_SECRET_KEY:-}
       FCM_SERVER_KEY: ${FCM_SERVER_KEY:-}
@@ -55,21 +59,62 @@ services:
       redis:
         condition: service_healthy
 
-  frontend:
+  skiinstruct:
     build:
-      context: ./frontend
+      context: ./skiinstruct
       dockerfile: Dockerfile
-    container_name: skytrainer-frontend
+    container_name: skiinstruct-web
     ports:
-      - "5173:5173"
-    env_file:
-      - .env
+      - "3001:3000"
     environment:
-      VITE_API_URL: ${VITE_API_URL:-http://localhost:3000}
-      VITE_YANDEX_MAPS_API_KEY: ${VITE_YANDEX_MAPS_API_KEY:-}
+      NODE_ENV: development
+      # Сборка Next в Docker на Windows: опрос файлов вместо inotify, иначе часто остаётся старый код.
+      WATCHPACK_POLLING: "true"
+      CHOKIDAR_USEPOLLING: "true"
+      DATABASE_URL: ${SKIINSTRUCT_DATABASE_URL:-postgres://sky:sky@postgres:5432/skytrainer_new?schema=skiinstruct}
+      AUTH_SECRET: ${SKIINSTRUCT_AUTH_SECRET:-replace-with-long-random-secret}
+      AUTH_URL: ${SKIINSTRUCT_AUTH_URL:-http://localhost:3001}
+      NEXTAUTH_SECRET: ${SKIINSTRUCT_AUTH_SECRET:-replace-with-long-random-secret}
+      NEXTAUTH_URL: ${SKIINSTRUCT_AUTH_URL:-http://localhost:3001}
+      NEXT_PUBLIC_APP_URL: ${SKIINSTRUCT_PUBLIC_APP_URL:-http://localhost:3001}
+      # Доп. хосты для Server Actions (CSRF), через запятую: 192.168.1.10:3001,myhost.local:3001
+      NEXT_SERVER_ACTIONS_ALLOWED_ORIGINS: ${SKIINSTRUCT_SERVER_ACTIONS_ALLOWED_ORIGINS:-}
+      CRON_SECRET: ${SKIINSTRUCT_CRON_SECRET:-replace-with-long-random-secret}
+      AUTH_GOOGLE_ID: ${SKIINSTRUCT_AUTH_GOOGLE_ID:-}
+      AUTH_GOOGLE_SECRET: ${SKIINSTRUCT_AUTH_GOOGLE_SECRET:-}
+      SKIINSTRUCT_ADMIN_EMAIL: ${SKIINSTRUCT_ADMIN_EMAIL:-}
+      SKIINSTRUCT_ADMIN_PASSWORD: ${SKIINSTRUCT_ADMIN_PASSWORD:-}
+      SKIINSTRUCT_ADMIN_NAME: ${SKIINSTRUCT_ADMIN_NAME:-Администратор}
+      STRIPE_SECRET_KEY: ${SKIINSTRUCT_STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${SKIINSTRUCT_STRIPE_WEBHOOK_SECRET:-}
+      NEXT_PUBLIC_VAPID_PUBLIC_KEY: ${SKIINSTRUCT_VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${SKIINSTRUCT_VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${SKIINSTRUCT_VAPID_SUBJECT:-mailto:you@example.com}
+      PASSWORD_RESET_EMAIL_WEBHOOK_URL: ${SKIINSTRUCT_PASSWORD_RESET_EMAIL_WEBHOOK_URL:-}
+      PASSWORD_RESET_EMAIL_FROM: ${SKIINSTRUCT_PASSWORD_RESET_EMAIL_FROM:-}
+      PASSWORD_RESET_EMAIL_SUBJECT: ${SKIINSTRUCT_PASSWORD_RESET_EMAIL_SUBJECT:-}
+      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
+      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
+      TWILIO_FROM_NUMBER: ${TWILIO_FROM_NUMBER:-}
+      SMS_WEBHOOK_URL: ${SMS_WEBHOOK_URL:-}
+      # Отладка без SMS: код в JSON / toast. По умолчанию 1 в compose; реальная SMS: SMS_OTP_DEBUG=0 + TWILIO_* или SMS_WEBHOOK_URL
+      SMS_OTP_DEBUG: ${SMS_OTP_DEBUG:-1}
+      SMS_OTP_MOCK: ${SMS_OTP_MOCK:-}
+    volumes:
+      # Локальные правки в коде сразу видны в контейнере (без полной пересборки образа).
+      - ./skiinstruct/src:/app/src
+      - ./skiinstruct/public:/app/public
+      # Иначе в контейнере остаётся старый schema.prisma из образа — db:push не добавит новые поля (birthDate и т.д.).
+      - ./skiinstruct/prisma:/app/prisma
+      # Кэш Next (.next) не удалять при каждом старте — иначе первый заход ждёт минуты компиляции.
+      - skiinstruct_next_cache:/app/.next
+    # Сброс .prisma — иначе после смены schema.prisma в образе остаётся старый клиент → Unknown argument preferredLessonTime и т.п.
+    command: sh -c "rm -rf node_modules/.prisma && npm run db:push && npx prisma generate && npm run db:bootstrap-admin && npm run db:seed:instructors && npm run dev -- --hostname 0.0.0.0 --port 3000"
     depends_on:
-      - api
+      postgres:
+        condition: service_healthy
 
 volumes:
   skytrainer_pg:
   skytrainer_redis:
+  skiinstruct_next_cache:

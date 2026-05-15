@@ -1,0 +1,333 @@
+// SkiInstruct — PostgreSQL schema (Supabase / Vercel compatible)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  CLIENT
+  INSTRUCTOR
+  ADMIN
+}
+
+enum SkillLevel {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+}
+
+enum LessonDuration {
+  ONE_HOUR
+  TWO_HOURS
+  HALF_DAY
+  FULL_DAY
+}
+
+enum OrderStatus {
+  DRAFT
+  AWAITING_PAYMENT
+  PENDING_INSTRUCTOR
+  ACCEPTED
+  INSTRUCTOR_EN_ROUTE
+  LESSON_STARTED
+  COMPLETED
+  CANCELLED
+  REJECTED
+  EXPIRED
+}
+
+enum PaymentMethod {
+  CARD
+  CASH
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+}
+
+enum InstructorVerificationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// Auth.js / NextAuth models
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  /// Нормализованный российский мобильный, 11 цифр с ведущей 7 (уникален для клиентов с телефоном)
+  phone         String?   @unique
+  emailVerified DateTime?
+  image         String?
+
+  passwordHash String?
+
+  /// Дата рождения (для личных данных клиента / учётной записи)
+  birthDate DateTime?
+
+  role UserRole @default(CLIENT)
+
+  accounts Account[]
+  sessions Session[]
+
+  instructorProfile InstructorProfile?
+
+  clientOrders     Order[] @relation("ClientOrders")
+  instructorOrders Order[] @relation("InstructorOrders")
+
+  sentMessages Message[] @relation("SentMessages")
+
+  pushSubscriptions PushSubscription[]
+
+  passwordResetTokens PasswordResetToken[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+/// Password reset tokens for credentials-based users (email request -> token link -> set new password).
+/// Token is stored as SHA-256 hash, raw token is only ever sent to the user (e.g. in a link).
+model PasswordResetToken {
+  id String @id @default(cuid())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// SHA-256 of the raw token.
+  tokenHash String @unique
+
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+  usedAt    DateTime?
+}
+
+/// Одноразовый код входа по телефону (SMS). Одна активная запись на номер.
+model PhoneOtpChallenge {
+  id          String   @id @default(cuid())
+  phoneNorm   String   @unique
+  /// SHA-256 hex от секрета и кода (см. lib/phone-otp.ts)
+  codeHash    String
+  pendingName String?
+  expiresAt   DateTime
+  verifyAttempts Int   @default(0)
+  createdAt   DateTime @default(now())
+}
+
+model Resort {
+  id        String @id @default(cuid())
+  name      String
+  slug      String @unique
+  country   String?
+  centerLat Float
+  centerLng Float
+  zoom      Int    @default(13)
+
+  instructors InstructorProfile[]
+  orders      Order[]
+}
+
+model InstructorProfile {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  bio                String? @db.Text
+  certificationLevel String?
+  certifications     String[] @default([])
+  skillLevels        String[] @default([])
+  languages          String[]
+  hourlyRate         Decimal @db.Decimal(10, 2)
+  photoUrl           String?
+  photoGallery       String[] @default([])
+  age                Int?
+  experienceYears    Int?
+  totalLessons       Int?
+  achievements       String[] @default([])
+
+  /// Last known position (Geolocation API, max ~1 req / 30s from client)
+  lat Float?
+  lng Float?
+
+  isOnline           Boolean                      @default(false)
+  verificationStatus InstructorVerificationStatus @default(PENDING)
+  specializations    String[]
+  additionalServices String[] @default([])
+  offeredDurations   String[] @default([])
+  availabilitySlots  Json?
+  cancellationPolicy String? @db.Text
+  supportContact     String?
+  legalInfo          String?
+
+  telegramUrl String?
+  whatsappUrl String?
+  instagramUrl String?
+  videoVisitUrl String?
+
+  ratingAvg   Float @default(0)
+  reviewCount Int   @default(0)
+
+  resortId String?
+  resort   Resort? @relation(fields: [resortId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Order {
+  id String @id @default(cuid())
+
+  clientId String
+  client   User   @relation("ClientOrders", fields: [clientId], references: [id], onDelete: Cascade)
+
+  instructorId String?
+  instructor   User?   @relation("InstructorOrders", fields: [instructorId], references: [id], onDelete: SetNull)
+
+  resortId String?
+  resort   Resort? @relation(fields: [resortId], references: [id])
+
+  status OrderStatus @default(DRAFT)
+
+  meetLat Float
+  meetLng Float
+
+  skillLevel    SkillLevel
+  languagePref  String
+  duration      LessonDuration
+  notes         String?        @db.Text
+  requestedStartDate DateTime?
+  requestedEndDate   DateTime?
+  requestedDays      Int?
+
+  instructorQueue    Json?
+  instructorQueueIndex Int      @default(0)
+
+  /// Запись на дату: инструктор мог быть офлайн; без таймера 60 с, только уведомление.
+  flexibleInstructorInvite Boolean @default(false)
+
+  /// Instructor must accept within this window (UTC)
+  pendingExpiresAt DateTime?
+
+  acceptedAt      DateTime?
+  lessonStartedAt DateTime?
+  lessonEndedAt   DateTime?
+
+  /// Web Push: напоминание «за ~1 мин до начала» (по requestedStartDate) уже отправлено.
+  lessonStartReminderSentAt DateTime?
+  /// Web Push: напоминание завершить урок по плановому окончанию уже отправлено.
+  lessonEndReminderSentAt DateTime?
+
+  /// После «урок выполнен»: доля инструктора (за вычетом комиссии платформы) считается переданной учётно.
+  instructorPayoutReleasedAt DateTime?
+
+  clientRating Int?
+  clientReview String? @db.Text
+  instructorRating Int?
+  instructorReview String? @db.Text
+
+  agreedHourlyRate Decimal? @db.Decimal(10, 2)
+
+  paymentMethod PaymentMethod?
+  paymentStatus PaymentStatus  @default(PENDING)
+
+  stripeCheckoutSessionId String?
+  stripePaymentIntentId     String?
+
+  /// Total charged to client (platform + instructor share)
+  amountTotal Decimal? @db.Decimal(10, 2)
+
+  platformFeePercent    Int      @default(15)
+  instructorShareAmount Decimal? @db.Decimal(10, 2)
+
+  messages Message[]
+  payments Payment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([clientId])
+  @@index([instructorId])
+  @@index([status])
+}
+
+model Message {
+  id      String @id @default(cuid())
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  senderId String
+  sender   User   @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+
+  body String @db.Text
+
+  createdAt DateTime @default(now())
+
+  @@index([orderId, createdAt])
+}
+
+model Payment {
+  id      String @id @default(cuid())
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  stripePaymentIntentId String?
+  amount                Decimal  @db.Decimal(10, 2)
+  currency              String   @default("rub")
+  status                PaymentStatus
+
+  createdAt DateTime @default(now())
+}
+
+model PushSubscription {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  endpoint String @unique
+  p256dh   String
+  auth     String
+
+  createdAt DateTime @default(now())
+}

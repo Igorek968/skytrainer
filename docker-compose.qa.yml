@@ -1,0 +1,107 @@
+services:
+  postgres:
+    image: postgis/postgis:16-3.4-alpine
+    container_name: skytrainer-qa-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-sky}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-sky}
+      POSTGRES_DB: ${POSTGRES_DB:-skytrainer_new}
+    volumes:
+      - skytrainer_qa_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-sky} -d ${POSTGRES_DB:-skytrainer_new}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  redis:
+    image: redis:7-alpine
+    container_name: skytrainer-qa-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - skytrainer_qa_redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  skiinstruct:
+    build:
+      context: ./skiinstruct
+      dockerfile: Dockerfile.qa
+    container_name: skiinstruct-qa-web
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: ${SKIINSTRUCT_DATABASE_URL:-postgres://sky:sky@postgres:5432/skytrainer_new?schema=skiinstruct}
+      AUTH_SECRET: ${SKIINSTRUCT_AUTH_SECRET}
+      AUTH_URL: https://${APP_DOMAIN}
+      NEXTAUTH_SECRET: ${SKIINSTRUCT_AUTH_SECRET}
+      NEXTAUTH_URL: https://${APP_DOMAIN}
+      NEXT_PUBLIC_APP_URL: https://${APP_DOMAIN}
+      NEXT_SERVER_ACTIONS_ALLOWED_ORIGINS: ${SKIINSTRUCT_SERVER_ACTIONS_ALLOWED_ORIGINS:-${APP_DOMAIN}}
+      CRON_SECRET: ${SKIINSTRUCT_CRON_SECRET}
+      AUTH_GOOGLE_ID: ${SKIINSTRUCT_AUTH_GOOGLE_ID:-}
+      AUTH_GOOGLE_SECRET: ${SKIINSTRUCT_AUTH_GOOGLE_SECRET:-}
+      SKIINSTRUCT_ADMIN_EMAIL: ${SKIINSTRUCT_ADMIN_EMAIL}
+      SKIINSTRUCT_ADMIN_PASSWORD: ${SKIINSTRUCT_ADMIN_PASSWORD}
+      SKIINSTRUCT_ADMIN_NAME: ${SKIINSTRUCT_ADMIN_NAME:-QA Администратор}
+      STRIPE_SECRET_KEY: ${SKIINSTRUCT_STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${SKIINSTRUCT_STRIPE_WEBHOOK_SECRET:-}
+      NEXT_PUBLIC_VAPID_PUBLIC_KEY: ${SKIINSTRUCT_VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${SKIINSTRUCT_VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${SKIINSTRUCT_VAPID_SUBJECT:-mailto:you@example.com}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -S -O - http://localhost:3000/api/health >/dev/null 2>&1 || exit 1"]
+      interval: 20s
+      timeout: 10s
+      retries: 8
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "7"
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: skytrainer-qa-caddy
+    restart: unless-stopped
+    depends_on:
+      skiinstruct:
+        condition: service_started
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - skytrainer_qa_caddy_data:/data
+      - skytrainer_qa_caddy_config:/config
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+volumes:
+  skytrainer_qa_pg:
+  skytrainer_qa_redis:
+  skytrainer_qa_caddy_data:
+  skytrainer_qa_caddy_config:

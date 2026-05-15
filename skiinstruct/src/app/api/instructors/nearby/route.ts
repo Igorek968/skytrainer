@@ -1,0 +1,198 @@
+import { NextResponse } from "next/server";
+import { z } from "zod";
+
+import { prisma } from "@/lib/prisma";
+import {
+  canonicalizeActivityLabels,
+  instructorMatchesAvailability,
+  normalizeText,
+  resolveInstructorListAvatar,
+  specializationMatches,
+  utcCalendarWeekdaysInclusive,
+} from "@/lib/services/instructor-match";
+import { DEFAULT_SKI_RESORT_CENTER, haversineKm } from "@/lib/services/geo";
+
+/** Список инструкторов меняется при редактировании профиля — не кэшируем ответ CDN/браузером. */
+export const dynamic = "force-dynamic";
+
+const querySchema = z
+  .object({
+    lat: z.coerce.number().min(-90).max(90),
+    lng: z.coerce.number().min(-180).max(180),
+    radiusKm: z.coerce.number().min(0.5).max(50).optional().default(5),
+    skillLevel: z.enum(["BEGINNER", "INTERMEDIATE", "ADVANCED"]).optional(),
+    languagePref: z.string().trim().min(1).max(64).optional(),
+    duration: z.enum(["ONE_HOUR", "TWO_HOURS", "HALF_DAY", "FULL_DAY"]).optional(),
+    specialization: z.string().trim().min(1).max(80).optional(),
+    lessonDate: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .optional(),
+    lessonEndDate: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .optional(),
+    lessonDays: z.coerce.number().int().min(1).max(30).optional().default(1),
+    /** Показать одобренных инструкторов, даже офлайн; слоты по дням недели не фильтруем. */
+    includeOffline: z
+      .enum(["0", "1", "true", "false"])
+      .optional()
+      .transform((v) => v === "1" || v === "true"),
+  })
+  .refine((d) => d.includeOffline === true || d.lessonDate != null, {
+    message: "lessonDate обязательна, если не включён режим «офлайн / запись на дату»",
+    path: ["lessonDate"],
+  });
+
+const SKILL_LEVEL_TO_LABEL: Record<string, string> = {
+  BEGINNER: "Для начинающих",
+  INTERMEDIATE: "Средний",
+  ADVANCED: "Продвинутый",
+};
+const DURATION_TO_LABEL: Record<string, string> = {
+  ONE_HOUR: "1 ч",
+  TWO_HOURS: "2 ч",
+  HALF_DAY: "Полдня",
+  FULL_DAY: "День",
+};
+
+export async function GET(req: Request) {
+  const url = new URL(req.url);
+  const parsed = querySchema.safeParse(Object.fromEntries(url.searchParams));
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+  }
+
+  const {
+    lat,
+    lng,
+    radiusKm,
+    skillLevel,
+    languagePref,
+    duration,
+    specialization,
+    lessonDate,
+    lessonEndDate,
+    lessonDays,
+    includeOffline,
+  } = parsed.data;
+
+  const skillLabel = skillLevel ? SKILL_LEVEL_TO_LABEL[skillLevel] : null;
+  const durationLabel = duration ? DURATION_TO_LABEL[duration] : null;
+  const languageNeedle = normalizeText(languagePref ?? "");
+  const specializationNeedle = normalizeText(specialization ?? "");
+
+  const requestedDays =
+    includeOffline || !lessonDate
+      ? null
+      : utcCalendarWeekdaysInclusive(lessonDate, lessonEndDate, lessonDays);
+
+  const instructors = await prisma.user.findMany({
+    where: {
+      role: "INSTRUCTOR",
+      instructorProfile: {
+        verificationStatus: "APPROVED",
+        ...(includeOffline
+          ? {}
+          : {
+              isOnline: true,
+            }),
+      },
+    },
+    include: {
+      instructorProfile: true,
+    },
+  });
+
+  const withDistance = instructors
+    .map((u) => {
+      const p = u.instructorProfile;
+      if (!p) return null;
+      const hasCoords = p.lat != null && p.lng != null;
+      const pinLat = hasCoords ? p.lat! : DEFAULT_SKI_RESORT_CENTER.lat;
+      const pinLng = hasCoords ? p.lng! : DEFAULT_SKI_RESORT_CENTER.lng;
+      const km = haversineKm(lat, lng, pinLat, pinLng);
+
+      const hasAvailabilityForSelectedDate = instructorMatchesAvailability(
+        p.availabilitySlots,
+        requestedDays,
+        includeOffline,
+      );
+
+      const hasSkillLevel =
+        !skillLabel || p.skillLevels.length === 0
+          ? true
+          : p.skillLevels.some((s) => s.trim() === skillLabel);
+
+      const hasDuration =
+        !durationLabel || p.offeredDurations.length === 0
+          ? true
+          : p.offeredDurations.some((d) => d.trim() === durationLabel);
+
+      const hasLanguage =
+        languageNeedle.length > 0
+          ? p.languages.some((lang) => normalizeText(lang) === languageNeedle)
+          : true;
+
+      const hasSpecialization =
+        specializationNeedle.length > 0 ? specializationMatches(p.specializations, specialization ?? "") : true;
+
+      const listPhotoUrl = resolveInstructorListAvatar({
+        photoUrl: p.photoUrl,
+        photoGallery: p.photoGallery,
+        userImage: u.image,
+      });
+
+      return {
+        id: u.id,
+        name: u.name,
+        image: u.image,
+        photoUrl: listPhotoUrl,
+        age: p.age,
+        isOnline: p.isOnline,
+        ratingAvg: p.ratingAvg,
+        reviewCount: p.reviewCount,
+        languages: p.languages,
+        hourlyRate: Number(p.hourlyRate),
+        specializations: canonicalizeActivityLabels(p.specializations),
+        lat: pinLat,
+        lng: pinLng,
+        distanceKm: Math.round(km * 10) / 10,
+        hasAvailabilityForSelectedDate,
+        hasSkillLevel,
+        hasDuration,
+        hasLanguage,
+        hasSpecialization,
+      };
+    })
+    .filter(
+      (x): x is NonNullable<typeof x> =>
+        x !== null &&
+        (includeOffline || x.distanceKm <= radiusKm) &&
+        x.hasAvailabilityForSelectedDate &&
+        x.hasSkillLevel &&
+        x.hasDuration &&
+        x.hasLanguage &&
+        x.hasSpecialization,
+    )
+    .map(
+      ({
+        hasAvailabilityForSelectedDate: _unused,
+        hasSkillLevel: _unused2,
+        hasDuration: _unused3,
+        hasLanguage: _unused4,
+        hasSpecialization: _unused5,
+        ...rest
+      }) => rest,
+    )
+    .sort((a, b) => a.distanceKm - b.distanceKm);
+
+  return NextResponse.json(
+    { instructors: withDistance },
+    {
+      headers: {
+        "Cache-Control": "private, no-store, max-age=0",
+      },
+    },
+  );
+}

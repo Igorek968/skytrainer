@@ -1,0 +1,390 @@
+"use client";
+
+import { type UseMutationResult, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import Link from "next/link";
+import { useParams } from "next/navigation";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
+
+import { OrderChat } from "@/features/chat/order-chat";
+import { NearbyMapLazy } from "@/features/map/map-loader";
+import { orderRelaxedInstructorTiming } from "@/shared/lib/order-flex";
+import { hasLessonTimeWindowInNotes, lessonTimeWindowLineFromNotes } from "@/shared/lib/order-lesson-times";
+import { orderStatusLabel } from "@/shared/lib/order-status";
+import { Button } from "@/shared/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
+import { Input } from "@/shared/ui/input";
+import { Skeleton } from "@/shared/ui/skeleton";
+import type { Order, OrderStatus } from "@prisma/client";
+
+type OrderDTO = Order & {
+  client: { id: string; name: string | null };
+  meetLat: number;
+  meetLng: number;
+};
+
+function InstructorOrderDetailContent({
+  id,
+  data,
+  patch,
+}: {
+  id: string;
+  data: { order: OrderDTO };
+  patch: UseMutationResult<unknown, Error, Record<string, unknown>>;
+}) {
+  const etaOptions = Array.from({ length: 48 }, (_, i) => (i + 1) * 5);
+  const extractEtaFromNotes = (notes: string | null | undefined): number => {
+    const match = (notes ?? "").match(/ETA инструктора:\s*~?(\d{1,3})\s*мин/i);
+    const val = match ? Number(match[1]) : 20;
+    if (!Number.isFinite(val) || val < 1) return 20;
+    return Math.min(240, Math.max(1, Math.round(val)));
+  };
+  const safeOrder = data.order;
+  const safeStatus = safeOrder.status as OrderStatus;
+  const relaxedTiming = orderRelaxedInstructorTiming({
+    flexibleInstructorInvite: Boolean(safeOrder.flexibleInstructorInvite),
+    requestedDays: safeOrder.requestedDays,
+  });
+
+  const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
+  const [clientRating, setClientRating] = useState(5);
+  const [clientReview, setClientReview] = useState("");
+  const [etaMinutes, setEtaMinutes] = useState<number>(extractEtaFromNotes(safeOrder.notes));
+  const [instructorPos, setInstructorPos] = useState<[number, number] | null>(null);
+
+  const pendingExpiresAtRaw = safeOrder.pendingExpiresAt;
+  const pendingExpiresMs =
+    pendingExpiresAtRaw != null ? new Date(pendingExpiresAtRaw).getTime() : null;
+
+  useEffect(() => {
+    if (safeStatus !== "PENDING_INSTRUCTOR" || pendingExpiresMs == null) {
+      setSecondsLeft(null);
+      return;
+    }
+    const tick = () => {
+      const left = Math.max(0, Math.ceil((pendingExpiresMs - Date.now()) / 1000));
+      setSecondsLeft(left);
+    };
+    tick();
+    const timerId = window.setInterval(tick, 1000);
+    return () => window.clearInterval(timerId);
+  }, [safeStatus, pendingExpiresMs]);
+
+  useEffect(() => {
+    setEtaMinutes(extractEtaFromNotes(safeOrder.notes));
+  }, [safeOrder.notes]);
+
+  useEffect(() => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) return;
+    let cancelled = false;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        if (cancelled) return;
+        setInstructorPos([pos.coords.latitude, pos.coords.longitude]);
+      },
+      () => {
+        /* geolocation denied/unavailable */
+      },
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 10000 },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const mapsHref = instructorPos
+    ? `https://www.openstreetmap.org/directions?engine=graphhopper_foot&route=${instructorPos[0]}%2C${instructorPos[1]}%3B${safeOrder.meetLat}%2C${safeOrder.meetLng}`
+    : `https://www.openstreetmap.org/directions?engine=graphhopper_foot&route=${safeOrder.meetLat}%2C${safeOrder.meetLng}`;
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <div className="text-sm text-muted-foreground">
+            <Link className="underline" href="/instructor/orders">
+              ← Назад
+            </Link>
+          </div>
+          <h1 className="text-2xl font-semibold tracking-tight">{orderStatusLabel(safeStatus)}</h1>
+        </div>
+        <Button asChild variant="outline">
+          <a href={mapsHref} target="_blank" rel="noreferrer">
+            Маршрут (OSM)
+          </a>
+        </Button>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Точка встречи</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <NearbyMapLazy
+            interactive={false}
+            center={[safeOrder.meetLat, safeOrder.meetLng]}
+            meetLat={safeOrder.meetLat}
+            meetLng={safeOrder.meetLng}
+            radiusKm={5}
+            instructors={
+              instructorPos
+                ? [
+                    {
+                      id: "current-instructor",
+                      name: "Вы",
+                      lat: instructorPos[0],
+                      lng: instructorPos[1],
+                      hourlyRate: 0,
+                      ratingAvg: 0,
+                      distanceKm: 0,
+                    },
+                  ]
+                : []
+            }
+            onMeetChange={() => {
+              /* no-op */
+            }}
+          />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="space-y-2 py-4 text-sm">
+          <div>Клиент: {safeOrder.client.name}</div>
+          {safeOrder.requestedStartDate ? (
+            <div>
+              Период:{" "}
+              {new Date(safeOrder.requestedStartDate).toLocaleDateString("ru-RU")}
+              {safeOrder.requestedEndDate &&
+              new Date(safeOrder.requestedEndDate).toDateString() !==
+                new Date(safeOrder.requestedStartDate).toDateString()
+                ? ` — ${new Date(safeOrder.requestedEndDate).toLocaleDateString("ru-RU")}`
+                : null}
+              {safeOrder.requestedDays != null && safeOrder.requestedDays > 1
+                ? ` (${safeOrder.requestedDays} дн.)`
+                : null}
+            </div>
+          ) : null}
+          {hasLessonTimeWindowInNotes(safeOrder.notes) ? (
+            <div>{lessonTimeWindowLineFromNotes(safeOrder.notes)}</div>
+          ) : null}
+          <div>Сумма: {safeOrder.amountTotal ? `${Number(safeOrder.amountTotal)} ₽` : "—"}</div>
+          {safeStatus === "PENDING_INSTRUCTOR" ? (
+            <div className="font-medium text-amber-600">
+              {relaxedTiming
+                ? safeOrder.flexibleInstructorInvite
+                  ? "Запись на дату — ответ без ограничения по времени."
+                  : "Несколько дней — ответ без таймера 60 с."
+                : `На решение: ${secondsLeft ?? 0} сек`}
+            </div>
+          ) : null}
+        </CardContent>
+      </Card>
+
+      {(safeStatus === "ACCEPTED" ||
+        safeStatus === "INSTRUCTOR_EN_ROUTE" ||
+        safeStatus === "LESSON_STARTED") &&
+      !relaxedTiming ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Время прибытия до клиента (ETA)</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="text-xs text-muted-foreground">
+              Выберите минуты в списке и подтвердите — клиент увидит ETA в информации о заказе.
+            </div>
+            <div className="grid gap-3 md:grid-cols-[200px_1fr]">
+              <select
+                aria-label="Минуты ETA"
+                size={6}
+                className="h-40 rounded-md border border-input bg-background px-2 py-1 text-sm"
+                value={etaMinutes}
+                onChange={(e) => setEtaMinutes(Number(e.target.value))}
+              >
+                {etaOptions.map((m) => (
+                  <option key={m} value={m}>
+                    ~{m} мин
+                  </option>
+                ))}
+              </select>
+              <div className="flex items-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={patch.isPending}
+                  onClick={() =>
+                    patch.mutate(
+                      { action: "set_eta", etaMinutes },
+                      { onSuccess: () => toast.success(`ETA обновлён: ~${etaMinutes} мин`) },
+                    )
+                  }
+                >
+                  Сообщить время прибытия
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      <div className="flex flex-wrap gap-2">
+        {safeStatus === "PENDING_INSTRUCTOR" ? (
+          <>
+            <Button
+              type="button"
+              variant="accent"
+              disabled={patch.isPending}
+              onClick={() =>
+                patch.mutate(
+                  { action: "accept" },
+                  { onSuccess: () => toast.success("Принято") }
+                )
+              }
+            >
+              {relaxedTiming ? "Принять" : "Принять (60 сек)"}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={patch.isPending}
+              onClick={() => patch.mutate({ action: "reject" })}
+            >
+              Отклонить
+            </Button>
+          </>
+        ) : null}
+
+        {safeStatus === "ACCEPTED" ? (
+          <Button type="button" disabled={patch.isPending} onClick={() => patch.mutate({ action: "en_route" })}>
+            В пути
+          </Button>
+        ) : null}
+
+        {safeStatus === "INSTRUCTOR_EN_ROUTE" ? (
+          <Button type="button" disabled={patch.isPending} onClick={() => patch.mutate({ action: "start_lesson" })}>
+            Урок начался
+          </Button>
+        ) : null}
+
+        {safeStatus === "LESSON_STARTED" ? (
+          <Button
+            type="button"
+            variant="accent"
+            disabled={patch.isPending}
+            onClick={() =>
+              patch.mutate(
+                { action: "complete_lesson" },
+                { onSuccess: () => toast.success("Урок завершён") }
+              )
+            }
+          >
+            Завершить урок
+          </Button>
+        ) : null}
+      </div>
+
+      {safeStatus === "COMPLETED" && safeOrder.instructorRating == null ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Оценка клиента</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-wrap gap-2">
+            <label className="flex items-center gap-2 text-sm">
+              Оценка
+              <Input
+                type="number"
+                min={1}
+                max={5}
+                className="w-20"
+                value={clientRating}
+                onChange={(e) => setClientRating(Number(e.target.value))}
+              />
+            </label>
+            <Input
+              placeholder="Отзыв о клиенте"
+              value={clientReview}
+              onChange={(e) => setClientReview(e.target.value)}
+            />
+            <Button
+              type="button"
+              disabled={patch.isPending}
+              onClick={() =>
+                patch.mutate(
+                  { action: "add_client_review", rating: clientRating, review: clientReview },
+                  { onSuccess: () => toast.success("Отзыв о клиенте отправлен") }
+                )
+              }
+            >
+              Сохранить отзыв
+            </Button>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {safeStatus === "COMPLETED" && safeOrder.instructorRating != null ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Ваш отзыв о клиенте</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-1 text-sm">
+            <div>Оценка: {safeOrder.instructorRating}/5</div>
+            <div className="text-muted-foreground">{safeOrder.instructorReview || "Без текста"}</div>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {safeStatus !== "PENDING_INSTRUCTOR" && safeStatus !== "CANCELLED" ? (
+        <OrderChat orderId={id} />
+      ) : null}
+    </div>
+  );
+}
+
+export default function InstructorOrderPage() {
+  const params = useParams<{ id: string }>();
+  const id = params.id;
+  const qc = useQueryClient();
+
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["order", id],
+    queryFn: async () => {
+      const r = await fetch(`/api/orders/${id}`);
+      if (!r.ok) throw new Error("order");
+      return r.json() as Promise<{ order: OrderDTO }>;
+    },
+    refetchInterval: 4000,
+  });
+
+  const patch = useMutation({
+    mutationFn: async (body: Record<string, unknown>) => {
+      const r = await fetch(`/api/orders/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!r.ok) {
+        const j = (await r.json().catch(() => ({}))) as { error?: unknown };
+        throw new Error(typeof j.error === "string" ? j.error : "patch");
+      }
+      return r.json();
+    },
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ["order", id] });
+      await qc.invalidateQueries({ queryKey: ["orders"] });
+    },
+  });
+
+  if (isLoading) {
+    return (
+      <div className="space-y-3">
+        <Skeleton className="h-10 w-64" />
+        <Skeleton className="h-40 w-full" />
+      </div>
+    );
+  }
+
+  if (error || !data) {
+    return <p className="text-destructive">Заказ не найден</p>;
+  }
+
+  return <InstructorOrderDetailContent key={id} id={id} data={data} patch={patch} />;
+}
