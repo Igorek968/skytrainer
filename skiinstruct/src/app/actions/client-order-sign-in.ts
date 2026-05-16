@@ -35,10 +35,11 @@ function isCredentialsLikeFailure(error: unknown): boolean {
 
 function messageForFailure(error: unknown): string {
   if (error instanceof AuthError) {
-    if (error.type === "Configuration") {
+    const authType = String(error.type);
+    if (authType === "Configuration") {
       return "Сбой настройки входа на сервере. Проверьте AUTH_SECRET и AUTH_URL, перезапустите приложение.";
     }
-    if (error.type === "AccessDenied") return "Вход запрещён настройками.";
+    if (authType === "AccessDenied") return "Вход запрещён настройками.";
   }
   return "Неверный email или пароль.";
 }

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { Prisma } from "@prisma/client";
+import { Prisma, type UserRole } from "@prisma/client";
 
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
@@ -52,13 +52,16 @@ export async function GET(_req: Request, ctx: Ctx) {
   }
 
   const uid = session.user.id;
-  let role = session.user.role;
+  let role: UserRole | undefined = session.user.role;
   if (!role) {
     const row = await prisma.user.findUnique({
       where: { id: uid },
       select: { role: true },
     });
-    role = row?.role;
+    role = row?.role ?? undefined;
+  }
+  if (!role) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
   const allowed =
     order.clientId === uid ||

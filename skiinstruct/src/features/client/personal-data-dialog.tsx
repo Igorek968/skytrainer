@@ -1,6 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -25,17 +26,19 @@ export function PersonalDataDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const qc = useQueryClient();
+  const { data: session } = useSession();
+  const userId = session?.user?.id;
   const [name, setName] = useState("");
   const [birthDate, setBirthDate] = useState("");
 
   const { data, isLoading } = useQuery({
-    queryKey: ["me-profile"],
+    queryKey: ["me-profile", userId],
     queryFn: async () => {
-      const r = await fetch("/api/me/profile");
+      const r = await fetch("/api/me/profile", { cache: "no-store" });
       if (!r.ok) throw new Error("profile");
       return r.json() as Promise<MeProfile>;
     },
-    enabled: open,
+    enabled: open && Boolean(userId),
   });
 
   useEffect(() => {

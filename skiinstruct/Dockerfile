@@ -13,8 +13,11 @@ RUN npm install
 
 COPY . .
 
+RUN sed -i 's/\r$//' /app/scripts/docker-dev-entrypoint.sh 2>/dev/null || true \
+  && chmod +x /app/scripts/docker-dev-entrypoint.sh
+
 RUN npx prisma generate
 
 EXPOSE 3000
 
-CMD ["sh", "-c", "npm run db:push && npx prisma generate && npm run db:seed:instructors && npm run dev -- --hostname 0.0.0.0 --port 3000"]
+CMD ["sh", "/app/scripts/docker-dev-entrypoint.sh"]

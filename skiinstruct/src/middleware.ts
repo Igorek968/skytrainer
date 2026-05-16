@@ -26,7 +26,7 @@ export default NextAuth(authConfig).auth((req) => {
     (pathname === "/client" || pathname === "/client/") && !req.auth;
   const isPublicInstructorReviewsBrowse = pathname.startsWith("/instructors/");
   const isPublicOferta = pathname === "/oferta" || pathname.startsWith("/oferta/");
-  const publicPaths = ["/", "/login", "/register", "/instructor/login"];
+  const publicPaths = ["/", "/login", "/register", "/instructor/login", "/instructor/apply"];
   if (
     publicPaths.includes(pathname) ||
     isPublicClientHome ||

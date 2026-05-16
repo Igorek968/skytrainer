@@ -4,12 +4,12 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSession, getSession } from "next-auth/react";
-import { Suspense, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
+import { Suspense, useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react";
 import { toast } from "sonner";
 import { ChevronDown, Star, Award, ShieldCheck, CalendarDays, Languages } from "lucide-react";
 
 import { PersonalDataDialog } from "@/features/client/personal-data-dialog";
-import { ClientOrderLoginDialog } from "@/features/client/client-order-login-dialog";
+import { ClientOrderCheckoutDialog } from "@/features/client/client-order-checkout-dialog";
 import { NearbyMapLazy } from "@/features/map/map-loader";
 import { useGeolocationMeetInit, useMeetPoint } from "@/features/map/use-client-meet-point";
 import { Button } from "@/shared/ui/button";
@@ -18,6 +18,9 @@ import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
 import { Skeleton } from "@/shared/ui/skeleton";
 import { INSTRUCTOR_ACTIVITY_LABELS, isSyntheticInstructorBioLine } from "@/lib/services/instructor-match";
+
+/** В Docker dev отключите опрос через NEXT_PUBLIC_DISABLE_NEARBY_POLL=1 (см. docker-compose.yml). */
+const disableNearbyPoll = process.env.NEXT_PUBLIC_DISABLE_NEARBY_POLL === "1";
 
 type NearbyResponse = {
   instructors: {
@@ -426,8 +429,13 @@ export default function ClientHomePage() {
   const [showAllReviewsFor, setShowAllReviewsFor] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [orderLoginOpen, setOrderLoginOpen] = useState(false);
-  const pendingOrderInstructorId = useRef<string | null>(null);
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [checkoutInstructor, setCheckoutInstructor] = useState<{
+    id: string;
+    name: string | null;
+    hourlyRate: number;
+  } | null>(null);
+  const [showAdvancedParams, setShowAdvancedParams] = useState(false);
   const [personalOpen, setPersonalOpen] = useState(false);
   /** Запись на дату: в списке — и офлайн; после оплаты у инструктора нет таймера 60 с. */
   const [flexibleOfflineBooking, setFlexibleOfflineBooking] = useState(false);
@@ -469,9 +477,9 @@ export default function ClientHomePage() {
     staleTime: 0,
     gcTime: 5 * 60_000,
     refetchOnMount: "always",
-    refetchOnWindowFocus: true,
+    refetchOnWindowFocus: !disableNearbyPoll,
     /** Пока открыта страница клиента — подтягиваем анкеты инструкторов без ручного «Обновить». */
-    refetchInterval: 12_000,
+    refetchInterval: disableNearbyPoll ? false : 12_000,
     refetchIntervalInBackground: false,
   });
 
@@ -520,12 +528,12 @@ export default function ClientHomePage() {
     staleTime: 0,
     gcTime: 5 * 60_000,
     refetchOnMount: true,
-    refetchOnWindowFocus: true,
-    refetchInterval: expandedId ? 12_000 : false,
+    refetchOnWindowFocus: !disableNearbyPoll,
+    refetchInterval: disableNearbyPoll || !expandedId ? false : 12_000,
     refetchIntervalInBackground: false,
   });
 
-  async function postOrder(instructorId: string): Promise<boolean> {
+  async function postOrder(instructorId: string): Promise<string | null> {
     const disciplineLine = `Дисциплина: ${specializationPref}`;
     const notesLine = notes.trim();
     const mergedNotes = [disciplineLine, notesLine].filter(Boolean).join("\n");
@@ -581,8 +589,8 @@ export default function ClientHomePage() {
       }
       if (!res.ok) {
         if (res.status === 401) {
-          toast.error("Сессия не подхватилась. Обновите страницу и снова нажмите «Отправить запрос инструктору».");
-          return false;
+          toast.error("Сессия не подхватилась. Войдите снова в окне оформления.");
+          return null;
         }
         const err = payload.error;
         const fallback =
@@ -594,36 +602,37 @@ export default function ClientHomePage() {
             ? err
             : fallback || "Не удалось создать заказ";
         toast.error(msg);
-        return false;
+        return null;
       }
       const j = payload;
       if (!j.order?.id) {
         toast.error("Ответ сервера без номера заказа. Обновите страницу и проверьте «Мои заказы».");
-        return false;
+        return null;
       }
-      toast.success("Запрос отправлен");
-      router.push(`/client/orders/${j.order.id}`);
-      return true;
+      return j.order.id;
     } catch {
       toast.error("Сеть недоступна. Проверьте соединение и повторите.");
-      return false;
+      return null;
     } finally {
       setSubmitting(false);
     }
   }
 
-  async function createOrder() {
+  function openCheckoutForSelected() {
     const targetInstructorId = selectedId ?? expandedId;
     if (!targetInstructorId) {
       toast.error("Выберите инструктора на карте или в списке");
       return;
     }
-    if (!session?.user) {
-      pendingOrderInstructorId.current = targetInstructorId;
-      setOrderLoginOpen(true);
-      return;
-    }
-    await postOrder(targetInstructorId);
+    const row = data?.instructors.find((i) => i.id === targetInstructorId);
+    const rate = row?.hourlyRate ?? expandedProfile?.instructor.profile.hourlyRate;
+    const rateNum = typeof rate === "number" ? rate : Number(rate);
+    setCheckoutInstructor({
+      id: targetInstructorId,
+      name: row?.name ?? expandedProfile?.instructor.name ?? null,
+      hourlyRate: Number.isFinite(rateNum) ? rateNum : 0,
+    });
+    setCheckoutOpen(true);
   }
 
   return (
@@ -634,17 +643,22 @@ export default function ClientHomePage() {
 
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Новый заказ</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Найти тренера рядом</h1>
           <p className="text-sm text-muted-foreground">
-            Выберите инструктора и нажмите «Отправить запрос инструктору». Если вы ещё не вошли, после нажатия
-            откроется окно входа по email; новые пользователи могут зарегистрироваться по ссылке в том же окне. После
-            входа запрос уйдёт инструктору, откроется страница заказа.
+            Без регистрации: отметьте себя на карте, выберите направление и инструктора. После выбора — согласие с
+            офертой, аккаунт и оплата картой, затем заявка уходит инструктору.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" asChild>
-            <Link href="/client/orders">Мои заказы</Link>
-          </Button>
+          {session?.user ? (
+            <Button variant="outline" asChild>
+              <Link href="/client/orders">Мои заказы</Link>
+            </Button>
+          ) : (
+            <Button variant="outline" asChild>
+              <Link href="/login">Войти</Link>
+            </Button>
+          )}
         </div>
       </div>
 
@@ -673,8 +687,8 @@ export default function ClientHomePage() {
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>{isOutdoorTour ? "Параметры тура" : "Параметры урока"}</CardTitle>
-            <CardDescription>Валидация на клиенте и сервере (Zod).</CardDescription>
+            <CardTitle>Быстрый поиск</CardTitle>
+            <CardDescription>Минимум полей — карта обновит список инструкторов в радиусе 5 км.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
@@ -719,6 +733,17 @@ export default function ClientHomePage() {
                 <option value="FULL_DAY">Весь день</option>
               </select>
             </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="w-full"
+              onClick={() => setShowAdvancedParams((v) => !v)}
+            >
+              {showAdvancedParams ? "Скрыть даты и комментарий" : "Даты, язык и комментарий"}
+            </Button>
+            {showAdvancedParams ? (
+              <>
             <div className="flex items-start gap-3 rounded-md border border-border bg-muted/30 p-3">
               <input
                 id="flexible-offline"
@@ -814,6 +839,8 @@ export default function ClientHomePage() {
                 }
               />
             </div>
+              </>
+            ) : null}
           </CardContent>
         </Card>
 
@@ -989,9 +1016,9 @@ export default function ClientHomePage() {
               variant="accent"
               type="button"
               disabled={submitting || (!selectedId && !expandedId)}
-              onClick={() => void createOrder()}
+              onClick={() => openCheckoutForSelected()}
             >
-              Отправить запрос инструктору
+              Забронировать выбранного
             </Button>
           </CardContent>
         </Card>
@@ -1022,21 +1049,17 @@ export default function ClientHomePage() {
 
       <PersonalDataDialog open={personalOpen} onOpenChange={setPersonalOpen} />
 
-      <ClientOrderLoginDialog
-        open={orderLoginOpen}
-        onOpenChange={(open) => {
-          setOrderLoginOpen(open);
-          if (!open) pendingOrderInstructorId.current = null;
-        }}
-        onAuthenticated={async () => {
-          const id = pendingOrderInstructorId.current ?? selectedId ?? expandedId;
+      <ClientOrderCheckoutDialog
+        open={checkoutOpen}
+        onOpenChange={setCheckoutOpen}
+        instructor={checkoutInstructor}
+        onCreateOrder={async () => {
+          const id = checkoutInstructor?.id ?? selectedId ?? expandedId;
           if (!id) {
-            toast.error("Не выбран инструктор. Закройте окно и выберите инструктора снова.");
-            return false;
+            toast.error("Не выбран инструктор");
+            return null;
           }
-          const ok = await postOrder(id);
-          if (ok) pendingOrderInstructorId.current = null;
-          return ok;
+          return postOrder(id);
         }}
       />
 

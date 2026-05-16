@@ -68,9 +68,11 @@ services:
       - "3001:3000"
     environment:
       NODE_ENV: development
-      # Сборка Next в Docker на Windows: опрос файлов вместо inotify, иначе часто остаётся старый код.
-      WATCHPACK_POLLING: "true"
-      CHOKIDAR_USEPOLLING: "true"
+      # На Windows bind-mount медленный: polling только если hot-reload «залипает» (см. SKIINSTRUCT_USE_POLLING=1).
+      WATCHPACK_POLLING: ${SKIINSTRUCT_USE_POLLING:-false}
+      CHOKIDAR_USEPOLLING: ${SKIINSTRUCT_USE_POLLING:-false}
+      # Не дёргать /api/instructors/nearby каждые 12 с в dev (сильно тормозит в Docker).
+      NEXT_PUBLIC_DISABLE_NEARBY_POLL: "1"
       DATABASE_URL: ${SKIINSTRUCT_DATABASE_URL:-postgres://sky:sky@postgres:5432/skytrainer_new?schema=skiinstruct}
       AUTH_SECRET: ${SKIINSTRUCT_AUTH_SECRET:-replace-with-long-random-secret}
       AUTH_URL: ${SKIINSTRUCT_AUTH_URL:-http://localhost:3001}
@@ -106,10 +108,11 @@ services:
       - ./skiinstruct/public:/app/public
       # Иначе в контейнере остаётся старый schema.prisma из образа — db:push не добавит новые поля (birthDate и т.д.).
       - ./skiinstruct/prisma:/app/prisma
+      # scripts не монтируем — на Windows CRLF ломает sh; скрипт берётся из образа.
       # Кэш Next (.next) не удалять при каждом старте — иначе первый заход ждёт минуты компиляции.
       - skiinstruct_next_cache:/app/.next
-    # Сброс .prisma — иначе после смены schema.prisma в образе остаётся старый клиент → Unknown argument preferredLessonTime и т.п.
-    command: sh -c "rm -rf node_modules/.prisma && npm run db:push && npx prisma generate && npm run db:bootstrap-admin && npm run db:seed:instructors && npm run dev -- --hostname 0.0.0.0 --port 3000"
+    # Первый запуск с пустой БД: SKIINSTRUCT_RUN_SEED=1 docker compose up -d --build
+    command: sh /app/scripts/docker-dev-entrypoint.sh
     depends_on:
       postgres:
         condition: service_healthy

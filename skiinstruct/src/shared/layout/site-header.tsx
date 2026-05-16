@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useQueryClient } from "@tanstack/react-query";
 import { useSession, signOut } from "next-auth/react";
 import { Menu, Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
@@ -11,7 +12,13 @@ import { cn } from "@/lib/utils";
 
 import { HeaderAccountHint } from "@/shared/layout/header-account-hint";
 
+function signOutAndClearCache(queryClient: ReturnType<typeof useQueryClient>) {
+  void queryClient.removeQueries({ queryKey: ["me-profile"] });
+  void signOut({ callbackUrl: "/" });
+}
+
 export function SiteHeader() {
+  const queryClient = useQueryClient();
   const { data: session } = useSession();
   const isClientUser = session?.user.role === "CLIENT";
   const { theme, setTheme } = useTheme();
@@ -42,7 +49,7 @@ export function SiteHeader() {
           {session ? (
             isClientUser ? (
               <>
-                <Button variant="outline" onClick={() => void signOut({ callbackUrl: "/" })}>
+                <Button variant="outline" onClick={() => signOutAndClearCache(queryClient)}>
                   Выйти
                 </Button>
                 <Link
@@ -67,7 +74,7 @@ export function SiteHeader() {
                 >
                   {ordersLabel}
                 </Link>
-                <Button variant="outline" onClick={() => void signOut({ callbackUrl: "/" })}>
+                <Button variant="outline" onClick={() => signOutAndClearCache(queryClient)}>
                   Выйти
                 </Button>
               </>
@@ -134,7 +141,7 @@ export function SiteHeader() {
                 <button
                   type="button"
                   className="rounded-md px-3 py-2 text-left hover:bg-muted"
-                  onClick={() => void signOut({ callbackUrl: "/" })}
+                  onClick={() => signOutAndClearCache(queryClient)}
                 >
                   Выйти
                 </button>
@@ -167,7 +174,7 @@ export function SiteHeader() {
                 <button
                   type="button"
                   className="rounded-md px-3 py-2 text-left hover:bg-muted"
-                  onClick={() => void signOut({ callbackUrl: "/" })}
+                  onClick={() => signOutAndClearCache(queryClient)}
                 >
                   Выйти
                 </button>

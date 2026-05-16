@@ -185,7 +185,14 @@ export async function GET(req: Request) {
         ...rest
       }) => rest,
     )
-    .sort((a, b) => a.distanceKm - b.distanceKm);
+    .sort((a, b) => {
+      if (a.isOnline !== b.isOnline) return a.isOnline ? -1 : 1;
+      const dist = a.distanceKm - b.distanceKm;
+      if (Math.abs(dist) > 0.3) return dist;
+      const rating = b.ratingAvg - a.ratingAvg;
+      if (rating !== 0) return rating;
+      return b.reviewCount - a.reviewCount;
+    });
 
   return NextResponse.json(
     { instructors: withDistance },

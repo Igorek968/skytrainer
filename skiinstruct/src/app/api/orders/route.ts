@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import type { LessonDuration, OrderStatus, SkillLevel } from "@prisma/client";
+import type { LessonDuration, OrderStatus, SkillLevel, UserRole } from "@prisma/client";
 import { Prisma } from "@prisma/client";
 
 import { auth } from "@/auth";
@@ -52,13 +52,16 @@ export async function GET() {
   await processExpiredPendingOrders();
 
   const uid = session.user.id;
-  let role = session.user.role;
+  let role: UserRole | undefined = session.user.role;
   if (!role) {
     const row = await prisma.user.findUnique({
       where: { id: uid },
       select: { role: true },
     });
-    role = row?.role;
+    role = row?.role ?? undefined;
+  }
+  if (!role) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const where =
@@ -90,15 +93,15 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  let role = session.user.role;
+  let role: UserRole | undefined = session.user.role;
   if (!role) {
     const row = await prisma.user.findUnique({
       where: { id: session.user.id },
       select: { role: true },
     });
-    role = row?.role;
+    role = row?.role ?? undefined;
   }
-  if (role !== "CLIENT") {
+  if (!role || role !== "CLIENT") {
     return NextResponse.json(
       { error: "Создавать заказы могут только клиенты. Войдите под учётной записью клиента." },
       { status: 403 },

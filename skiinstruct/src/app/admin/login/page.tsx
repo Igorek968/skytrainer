@@ -82,6 +82,7 @@ export default function AdminLoginPage() {
             </Link>
             .
           </p>
+        </CardContent>
       </Card>
     </div>
   );

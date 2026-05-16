@@ -1,7 +1,8 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSession } from "next-auth/react";
+import { useEffect } from "react";
 
 import { formatRussianPhoneDisplay } from "@/lib/phone";
 
@@ -13,25 +14,35 @@ type MeProfile = {
 };
 
 export function HeaderAccountHint() {
-  const { status } = useSession();
+  const queryClient = useQueryClient();
+  const { data: session, status } = useSession();
+  const userId = session?.user?.id;
+
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      void queryClient.removeQueries({ queryKey: ["me-profile"] });
+    }
+  }, [status, queryClient]);
+
   const { data } = useQuery({
-    queryKey: ["me-profile"],
+    queryKey: ["me-profile", userId],
     queryFn: async () => {
-      const r = await fetch("/api/me/profile");
+      const r = await fetch("/api/me/profile", { cache: "no-store" });
       if (r.status === 401 || !r.ok) return null;
       return r.json() as Promise<MeProfile>;
     },
-    enabled: status === "authenticated",
+    enabled: status === "authenticated" && Boolean(userId),
     staleTime: 60_000,
   });
 
-  if (status !== "authenticated" || !data) return null;
+  if (status !== "authenticated" || !userId) return null;
 
-  const contactLine = data.phone
+  const contactLine = data?.phone
     ? formatRussianPhoneDisplay(data.phone)
-    : data.email;
-  const nameLine = data.name?.trim() || "Ф.И.О. не указано";
-  const birthLine = data.birthDate
+    : data?.email ?? session.user?.email ?? "";
+  const nameLine =
+    data?.name?.trim() || session.user?.name?.trim() || "Ф.И.О. не указано";
+  const birthLine = data?.birthDate
     ? new Date(`${data.birthDate}T12:00:00`).toLocaleDateString("ru-RU", {
         day: "2-digit",
         month: "2-digit",
