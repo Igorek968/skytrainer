@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { auth } from "@/auth";
+import { isApiErrorResponse, requireInstructorSession } from "@/lib/api-session";
 import { prisma } from "@/lib/prisma";
 import { rateLimit, clientIp } from "@/lib/rate-limit";
 
@@ -11,14 +11,13 @@ const bodySchema = z.object({
 });
 
 export async function POST(req: Request) {
-  const session = await auth();
-  if (!session?.user || session.user.role !== "INSTRUCTOR") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const authResult = await requireInstructorSession();
+  if (isApiErrorResponse(authResult)) return authResult;
+  const { userId } = authResult;
 
   const ip = clientIp(req.headers);
   // ~1 update / 30s: allow at most 2 per minute per user+IP
-  if (!rateLimit(`loc:${session.user.id}:${ip}`, 2, 60_000)) {
+  if (!rateLimit(`loc:${userId}:${ip}`, 2, 60_000)) {
     return NextResponse.json({ error: "Слишком частые обновления" }, { status: 429 });
   }
 
@@ -35,7 +34,7 @@ export async function POST(req: Request) {
   }
 
   await prisma.instructorProfile.updateMany({
-    where: { userId: session.user.id },
+    where: { userId },
     data: {
       lat: parsed.data.lat,
       lng: parsed.data.lng,

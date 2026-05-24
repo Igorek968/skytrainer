@@ -2,9 +2,14 @@
 
 import { redirect } from "next/navigation";
 import type { UserRole } from "@prisma/client";
-import { AuthError } from "next-auth";
 
-import { signIn } from "@/auth";
+import { signOut } from "@/auth";
+import {
+  cabinetPathForRole,
+  isClientBookingReturnPath,
+  resolvePostLoginRedirect,
+} from "@/lib/auth-routes";
+import { credentialsSignInNoRedirect } from "@/lib/credentials-sign-in-core";
 import { prisma } from "@/lib/prisma";
 import { normalizeRussianPhone } from "@/lib/phone";
 import { sanitizeRedirectPath } from "@/lib/sanitize-auth-redirect";
@@ -13,44 +18,44 @@ export type CredentialsSignInState = {
   error: string | null;
 };
 
-function isNextRedirect(error: unknown): boolean {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "digest" in error &&
-    typeof (error as { digest?: unknown }).digest === "string" &&
-    String((error as { digest: string }).digest).startsWith("NEXT_REDIRECT")
-  );
-}
+/** Проверка email перед входом клиента (роль и куда редиректить). */
+export async function validateClientLoginEmail(email: string): Promise<{ error: string | null }> {
+  const trimmed = email.trim();
+  if (!trimmed) return { error: "Введите email" };
 
-function isCredentialsFailure(error: unknown): boolean {
-  if (error instanceof AuthError) return true;
-  if (typeof error === "object" && error !== null) {
-    const type =
-      "type" in error && typeof (error as { type: unknown }).type === "string"
-        ? (error as { type: string }).type
-        : "";
-    if (type === "CredentialsSignin") return true;
-    const name =
-      "name" in error && typeof (error as { name: unknown }).name === "string"
-        ? (error as { name: string }).name
-        : "";
-    if (name === "CredentialsSignin") return true;
+  const role = await lookupRoleForIdentifier(trimmed);
+  if (role === "ADMIN") {
+    return {
+      error:
+        "Этот email — администратор. Войдите через /admin/login или зарегистрируйте отдельный клиентский аккаунт.",
+    };
   }
-  return false;
+  if (role === "INSTRUCTOR") {
+    return {
+      error:
+        "Этот email — инструктор. Для заказа занятий нужен клиентский аккаунт: зарегистрируйтесь на /register или войдите через /instructor/login.",
+    };
+  }
+  return { error: null };
 }
 
-function barePath(path: string): string {
-  const p = path.split("?")[0]?.split("#")[0] ?? path;
-  const noTrail = p.replace(/\/+$/, "");
-  return noTrail === "" ? "/" : noTrail;
-}
-
-function cabinetForRole(role: UserRole | undefined): "/instructor" | "/client" | "/admin/activity" | null {
-  if (role === "INSTRUCTOR") return "/instructor";
-  if (role === "CLIENT") return "/client";
-  if (role === "ADMIN") return "/admin/activity";
-  return null;
+async function lookupRoleForIdentifier(identifier: string): Promise<UserRole | undefined> {
+  const email = identifier.trim();
+  if (!email) return undefined;
+  if (email.includes("@")) {
+    const row = await prisma.user.findFirst({
+      where: { email: { equals: email, mode: "insensitive" } },
+      select: { role: true },
+    });
+    return row?.role;
+  }
+  const digits = normalizeRussianPhone(email);
+  if (!digits) return undefined;
+  const row = await prisma.user.findUnique({
+    where: { phone: digits },
+    select: { role: true },
+  });
+  return row?.role;
 }
 
 export async function signInWithCredentialsAction(
@@ -60,43 +65,46 @@ export async function signInWithCredentialsAction(
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
   const rawRedirect = String(formData.get("redirectTo") ?? "");
-  const fallbackRaw = String(formData.get("fallbackRedirect") ?? "/") || "/";
-  const fallback = sanitizeRedirectPath(fallbackRaw, "/");
+  const fallbackRaw = String(formData.get("fallbackRedirect") ?? "/client") || "/client";
+  const fallback = sanitizeRedirectPath(fallbackRaw, "/client");
   let redirectTo = sanitizeRedirectPath(rawRedirect, fallback);
 
-  /** Иначе после входа остаются на «/» и не попадают в кабинет без лишнего клика. */
-  if (barePath(redirectTo) === "/" && email.length > 0) {
-    let row: { role: UserRole } | null = null;
-    if (email.includes("@")) {
-      row = await prisma.user.findFirst({
-        where: { email: { equals: email, mode: "insensitive" } },
-        select: { role: true },
-      });
-    } else {
-      const digits = normalizeRussianPhone(email);
-      if (digits) {
-        row = await prisma.user.findUnique({
-          where: { phone: digits },
-          select: { role: true },
-        });
-      }
-    }
-    const cabinet = cabinetForRole(row?.role);
-    if (cabinet) redirectTo = cabinet;
+  if (!email || !password) {
+    return { error: "Введите email и пароль" };
   }
 
-  try {
-    await signIn("credentials", {
-      email,
-      password,
-      redirectTo,
-    });
-  } catch (error) {
-    if (isNextRedirect(error)) throw error;
-    if (isCredentialsFailure(error)) {
-      return { error: "Неверный email или пароль" };
-    }
-    throw error;
+  const role = await lookupRoleForIdentifier(email);
+  if (role === "ADMIN") {
+    return {
+      error:
+        "Этот email — администратор. Войдите через /admin/login или зарегистрируйте отдельный клиентский аккаунт.",
+    };
+  }
+  if (role === "INSTRUCTOR") {
+    return {
+      error:
+        "Этот email — инструктор. Для заказа занятий нужен клиентский аккаунт: зарегистрируйтесь на /register или войдите через /instructor/login.",
+    };
+  }
+
+  if (role) {
+    redirectTo = resolvePostLoginRedirect(role, redirectTo, cabinetPathForRole(role) ?? fallback);
+  } else {
+    redirectTo = resolvePostLoginRedirect("CLIENT", redirectTo, fallback);
+  }
+
+  if (role && role !== "CLIENT" && isClientBookingReturnPath(redirectTo)) {
+    return {
+      error:
+        role === "ADMIN"
+          ? "Этот email — администратор. Для заказа войдите как клиент или используйте /admin/login."
+          : "Этот email — инструктор. Для заказа зарегистрируйтесь как клиент с другим email.",
+    };
+  }
+
+  const signedIn = await credentialsSignInNoRedirect(email, password);
+  if (!signedIn.ok) {
+    return { error: signedIn.error };
   }
 
   redirect(redirectTo);
@@ -108,20 +116,64 @@ export async function signInAdminCredentialsAction(
 ): Promise<CredentialsSignInState> {
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
+  const rawRedirect = String(formData.get("redirectTo") ?? "");
+  const redirectTo = resolvePostLoginRedirect(
+    "ADMIN",
+    sanitizeRedirectPath(rawRedirect, "/admin/activity"),
+    "/admin/activity",
+  );
 
-  try {
-    await signIn("credentials", {
-      email,
-      password,
-      redirectTo: "/admin/activity",
-    });
-  } catch (error) {
-    if (isNextRedirect(error)) throw error;
-    if (isCredentialsFailure(error)) {
-      return { error: "Неверный email или пароль" };
-    }
-    throw error;
+  if (!email.includes("@")) {
+    return { error: "Введите email администратора" };
   }
 
-  redirect("/admin/activity");
+  const adminUser = await prisma.user.findFirst({
+    where: { email: { equals: email, mode: "insensitive" } },
+    select: { role: true },
+  });
+  if (!adminUser || adminUser.role !== "ADMIN") {
+    return { error: "Нет прав администратора для этого аккаунта" };
+  }
+
+  await signOut({ redirect: false });
+  const signedIn = await credentialsSignInNoRedirect(email, password);
+  if (!signedIn.ok) {
+    return { error: signedIn.error };
+  }
+
+  redirect(redirectTo);
+}
+
+export async function signInInstructorCredentialsAction(
+  _prev: CredentialsSignInState,
+  formData: FormData,
+): Promise<CredentialsSignInState> {
+  const email = String(formData.get("email") ?? "").trim();
+  const password = String(formData.get("password") ?? "");
+  const rawRedirect = String(formData.get("redirectTo") ?? "");
+  const redirectTo = resolvePostLoginRedirect(
+    "INSTRUCTOR",
+    sanitizeRedirectPath(rawRedirect, "/instructor"),
+    "/instructor",
+  );
+
+  if (!email.includes("@")) {
+    return { error: "Введите email инструктора" };
+  }
+
+  const instructorUser = await prisma.user.findFirst({
+    where: { email: { equals: email, mode: "insensitive" } },
+    select: { role: true },
+  });
+  if (!instructorUser || instructorUser.role !== "INSTRUCTOR") {
+    return { error: "Этот аккаунт не зарегистрирован как инструктор" };
+  }
+
+  await signOut({ redirect: false });
+  const signedIn = await credentialsSignInNoRedirect(email, password);
+  if (!signedIn.ok) {
+    return { error: signedIn.error };
+  }
+
+  redirect(redirectTo);
 }

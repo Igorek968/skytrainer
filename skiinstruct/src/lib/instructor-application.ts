@@ -2,6 +2,8 @@ import { Prisma } from "@prisma/client";
 import { hash } from "bcryptjs";
 import { z } from "zod";
 
+import { buildInstructorProfileCreateData } from "@/lib/instructor-profile-defaults";
+import { AGENCY_OFFER_VERSION } from "@/lib/legal-config";
 import { prisma } from "@/lib/prisma";
 import { canonicalizeActivityLabel, canonicalizeActivityLabels } from "@/lib/services/instructor-match";
 
@@ -29,7 +31,19 @@ export async function createInstructorApplication(input: {
   primarySpecialization: string;
   extraSpecializations?: string[];
   achievementsRaw?: string;
+  acceptAgencyOffer?: boolean;
+  acceptPrivacy?: boolean;
+  taxStatus?: "SELF_EMPLOYED" | "IP";
+  inn?: string;
 }): Promise<CreateInstructorApplicationResult> {
+  if (!input.acceptAgencyOffer || !input.acceptPrivacy) {
+    return {
+      ok: false,
+      error: "Необходимо принять агентский договор и политику обработки персональных данных",
+      status: 400,
+    };
+  }
+
   if (input.passwordConfirm !== undefined && input.password !== input.passwordConfirm) {
     return { ok: false, error: "Пароли не совпадают", status: 400 };
   }
@@ -93,16 +107,16 @@ export async function createInstructorApplication(input: {
         name,
         role: "INSTRUCTOR",
         instructorProfile: {
-          create: {
+          create: buildInstructorProfileCreateData({
             bio,
             hourlyRate,
             specializations,
-            languages: ["Русский"],
-            skillLevels: ["Для начинающих", "Средний", "Продвинутый"],
             achievements,
-            verificationStatus: "PENDING",
-            isOnline: false,
-          },
+            agencyOfferAcceptedAt: new Date(),
+            agencyOfferVersion: AGENCY_OFFER_VERSION,
+            taxStatus: input.taxStatus ?? null,
+            inn: input.inn?.trim() || null,
+          }),
         },
       },
     });

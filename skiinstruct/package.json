@@ -18,6 +18,7 @@
     "db:seed:instructors": "tsx prisma/seed-instructors.ts",
     "db:clear-instructors": "tsx prisma/delete-all-instructor-users.ts",
     "db:bootstrap-admin": "tsx prisma/bootstrap-admin.ts",
+    "db:backfill-instructor-profiles": "tsx scripts/backfill-instructor-profiles.ts",
     "db:studio": "prisma studio",
     "postinstall": "prisma generate"
   },

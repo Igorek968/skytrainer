@@ -2,13 +2,21 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { SessionProvider } from "next-auth/react";
+import type { Session } from "next-auth";
 import { ThemeProvider } from "next-themes";
 import { useState } from "react";
 import { Toaster } from "sonner";
 
 import { LessonPushRegistrar } from "@/features/push/lesson-push-registrar";
+import { SupportProvider } from "@/features/support/support-provider";
 
-export function AppProviders({ children }: { children: React.ReactNode }) {
+export function AppProviders({
+  children,
+  session,
+}: {
+  children: React.ReactNode;
+  session: Session | null;
+}) {
   const [client] = useState(
     () =>
       new QueryClient({
@@ -25,12 +33,14 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <SessionProvider refetchInterval={5 * 60} refetchOnWindowFocus={false}>
+    <SessionProvider session={session} refetchInterval={60} refetchOnWindowFocus>
       <QueryClientProvider client={client}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          {children}
-          <LessonPushRegistrar />
-          <Toaster richColors closeButton position="top-center" />
+          <SupportProvider>
+            {children}
+            <LessonPushRegistrar />
+            <Toaster richColors closeButton position="top-center" />
+          </SupportProvider>
         </ThemeProvider>
       </QueryClientProvider>
     </SessionProvider>

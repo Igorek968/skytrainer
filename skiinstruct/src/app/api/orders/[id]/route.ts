@@ -10,9 +10,17 @@ import {
   prepareInstructorQueue,
   rerouteOrderIfDeadlinePassed,
 } from "@/lib/services/instructor-routing";
+import type { OrderCancelledBy } from "@prisma/client";
+
+import { cancelOrderWithRefund, claimInstructorLateRefund } from "@/lib/services/order-refund";
+import { canClaimInstructorLateRefund, computeCancelRefundQuote } from "@/lib/refund-policy";
 import { transitionOrderStatus } from "@/lib/services/order-service";
 import { orderActionSchema } from "@/lib/validations/order";
 import { orderRelaxedInstructorTiming } from "@/shared/lib/order-flex";
+import {
+  extractInstructorEtaMinutes,
+  instructorEtaDeadlineFromMinutes,
+} from "@/shared/lib/order-instructor-eta";
 import { clientCanRemoveOrderFromHistory } from "@/shared/lib/order-status";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -71,17 +79,48 @@ export async function GET(_req: Request, ctx: Ctx) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  /** Старые заказы: ETA только в notes — восстанавливаем instructorEtaAt для живого таймера. */
+  let orderForClient = order;
+  if (!order.instructorEtaAt) {
+    const etaMinutes = extractInstructorEtaMinutes(order.notes);
+    if (etaMinutes != null) {
+      const acceptedMs = order.acceptedAt?.getTime();
+      const deadline =
+        acceptedMs != null && Number.isFinite(acceptedMs)
+          ? new Date(acceptedMs + etaMinutes * 60_000)
+          : instructorEtaDeadlineFromMinutes(etaMinutes);
+      orderForClient = await prisma.order.update({
+        where: { id },
+        data: { instructorEtaAt: deadline },
+        include: {
+          client: { select: { id: true, name: true, image: true } },
+          instructor: {
+            select: { id: true, name: true, image: true, instructorProfile: true },
+          },
+          resort: true,
+        },
+      });
+    }
+  }
+
   let routingQueue: { userId: string; name: string | null }[] | undefined;
   if (
     role === "CLIENT" &&
-    order.clientId === uid &&
-    order.status !== "AWAITING_PAYMENT" &&
-    Array.isArray(order.instructorQueue)
+    orderForClient.clientId === uid &&
+    orderForClient.status !== "AWAITING_PAYMENT" &&
+    Array.isArray(orderForClient.instructorQueue)
   ) {
-    routingQueue = await loadRoutingQueueLabels(order.instructorQueue as string[]);
+    routingQueue = await loadRoutingQueueLabels(orderForClient.instructorQueue as string[]);
   }
 
-  return NextResponse.json({ order, ...(routingQueue ? { routingQueue } : {}) });
+  return NextResponse.json(
+    { order: orderForClient, ...(routingQueue ? { routingQueue } : {}) },
+    {
+      headers: {
+        "Cache-Control": "private, no-store, max-age=0",
+      },
+    },
+  );
 }
 
 export async function PATCH(req: Request, ctx: Ctx) {
@@ -175,13 +214,83 @@ export async function PATCH(req: Request, ctx: Ctx) {
       return NextResponse.json({ order: refreshed });
     }
 
+    if (action.action === "preview_cancel_refund") {
+      if (order.clientId !== actor && order.instructorId !== actor) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+      const cancelledBy: OrderCancelledBy =
+        order.clientId === actor
+          ? "CLIENT"
+          : order.instructorId === actor
+            ? "INSTRUCTOR"
+            : "PLATFORM";
+      const quote = computeCancelRefundQuote({
+        cancelledBy,
+        status: order.status,
+        paymentStatus: order.paymentStatus,
+        requestedStartDate: order.requestedStartDate,
+        acceptedAt: order.acceptedAt,
+      });
+      const totalRub = order.amountTotal != null ? Number(order.amountTotal) : 0;
+      const refundAmount =
+        quote.percent > 0 ? Math.round(((totalRub * quote.percent) / 100) * 100) / 100 : 0;
+      return NextResponse.json({
+        refundPercent: quote.percent,
+        refundAmount,
+        reason: quote.reason,
+        lateRefundEligible: canClaimInstructorLateRefund({
+          status: order.status,
+          paymentStatus: order.paymentStatus,
+          instructorEtaAt: order.instructorEtaAt,
+          lessonStartedAt: order.lessonStartedAt,
+          lateRefundClaimedAt: order.lateRefundClaimedAt,
+        }),
+      });
+    }
+
     if (action.action === "cancel") {
-      const updated = await transitionOrderStatus({
+      const cancelledBy: OrderCancelledBy =
+        order.clientId === actor
+          ? "CLIENT"
+          : order.instructorId === actor
+            ? "INSTRUCTOR"
+            : "PLATFORM";
+      const result = await cancelOrderWithRefund({
         orderId: id,
         actorUserId: actor,
-        to: "CANCELLED",
+        cancelledBy,
       });
-      return NextResponse.json({ order: updated });
+      return NextResponse.json({
+        order: result.order,
+        refundPercent: result.refundPercent,
+        refundAmount: result.refundAmount,
+      });
+    }
+
+    if (action.action === "claim_late_refund") {
+      if (order.clientId !== actor) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+      if (
+        !canClaimInstructorLateRefund({
+          status: order.status,
+          paymentStatus: order.paymentStatus,
+          instructorEtaAt: order.instructorEtaAt,
+          lessonStartedAt: order.lessonStartedAt,
+          lateRefundClaimedAt: order.lateRefundClaimedAt,
+        })
+      ) {
+        return NextResponse.json(
+          { error: "Полный возврат по опозданию сейчас недоступен для этого заказа" },
+          { status: 400 },
+        );
+      }
+      const result = await claimInstructorLateRefund({ orderId: id, actorUserId: actor });
+      return NextResponse.json({
+        order: result.order,
+        refundPercent: result.refundPercent,
+        refundAmount: result.refundAmount,
+      });
     }
 
     if (action.action === "accept") {
@@ -200,7 +309,10 @@ export async function PATCH(req: Request, ctx: Ctx) {
       let extra: Prisma.OrderUpdateInput | undefined;
       if (typeof etaMinutes === "number" && Number.isFinite(etaMinutes) && etaMinutes > 0) {
         const nextNotes = mergeEtaToNotes(order.notes, etaMinutes);
-        extra = { notes: nextNotes || null };
+        extra = {
+          notes: nextNotes || null,
+          instructorEtaAt: instructorEtaDeadlineFromMinutes(etaMinutes),
+        };
       }
       const updated = await transitionOrderStatus({
         orderId: id,
@@ -239,7 +351,10 @@ export async function PATCH(req: Request, ctx: Ctx) {
       const nextNotes = mergeEtaToNotes(order.notes, action.etaMinutes);
       const updated = await prisma.order.update({
         where: { id },
-        data: { notes: nextNotes || null },
+        data: {
+          notes: nextNotes || null,
+          instructorEtaAt: instructorEtaDeadlineFromMinutes(action.etaMinutes),
+        },
       });
       return NextResponse.json({ order: updated });
     }

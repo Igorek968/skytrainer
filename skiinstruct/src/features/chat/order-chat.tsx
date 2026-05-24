@@ -5,6 +5,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/shared/ui/button";
+import { devPollInterval } from "@/lib/query-poll";
 import { Input } from "@/shared/ui/input";
 
 type Msg = {
@@ -26,7 +27,7 @@ export function OrderChat({ orderId }: { orderId: string }) {
       return r.json() as Promise<{ messages: Msg[] }>;
     },
     staleTime: 8000,
-    refetchInterval: 10000,
+    refetchInterval: devPollInterval(10000),
     refetchIntervalInBackground: false,
   });
 

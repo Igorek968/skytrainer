@@ -5,7 +5,12 @@ import path from "path";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { auth } from "@/auth";
+import { isApiErrorResponse, requireInstructorSession } from "@/lib/api-session";
+import { ensureInstructorProfile } from "@/lib/instructor-profile-defaults";
+import {
+  applyInstructorPhotoUpdate,
+  effectivePhotoGallery,
+} from "@/lib/instructor-profile-photo-draft";
 import { prisma } from "@/lib/prisma";
 
 const MAX_SIZE_BYTES = 5 * 1024 * 1024;
@@ -17,10 +22,9 @@ const patchSchema = z.object({
 });
 
 export async function POST(req: Request) {
-  const session = await auth();
-  if (!session?.user || session.user.role !== "INSTRUCTOR") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const authResult = await requireInstructorSession();
+  if (isApiErrorResponse(authResult)) return authResult;
+  const { userId } = authResult;
 
   const form = await req.formData();
   const file = form.get("file");
@@ -37,7 +41,7 @@ export async function POST(req: Request) {
 
   const ext =
     file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg";
-  const filename = `${session.user.id}-${randomUUID()}.${ext}`;
+  const filename = `${userId}-${randomUUID()}.${ext}`;
 
   const dir = path.join(process.cwd(), "public", "uploads", "instructors");
   await mkdir(dir, { recursive: true });
@@ -47,11 +51,46 @@ export async function POST(req: Request) {
   await writeFile(filepath, buffer);
 
   const photoUrl = `/uploads/instructors/${filename}`;
-  const profile = await prisma.instructorProfile.findUnique({
-    where: { userId: session.user.id },
-    select: { photoGallery: true, photoUrl: true },
-  });
-  const current = profile?.photoGallery ?? [];
+  await ensureInstructorProfile(userId);
+  const [profile, user] = await Promise.all([
+    prisma.instructorProfile.findUnique({
+      where: { userId: userId },
+      select: {
+        verificationStatus: true,
+        profileDraft: true,
+        profileDraftStatus: true,
+        photoGallery: true,
+        photoUrl: true,
+        bio: true,
+        certificationLevel: true,
+        certifications: true,
+        skillLevels: true,
+        languages: true,
+        specializations: true,
+        specializationOffers: true,
+        additionalServices: true,
+        offeredDurations: true,
+        achievements: true,
+        experienceYears: true,
+        totalLessons: true,
+        age: true,
+        availabilitySlots: true,
+        cancellationPolicy: true,
+        supportContact: true,
+        legalInfo: true,
+        videoVisitUrl: true,
+        hourlyRate: true,
+      },
+    }),
+    prisma.user.findUnique({ where: { id: userId }, select: { name: true } }),
+  ]);
+  if (!profile) {
+    return NextResponse.json({ error: "Не удалось создать профиль инструктора" }, { status: 500 });
+  }
+  const { photoGallery: current, photoUrl: currentCover } = effectivePhotoGallery(
+    profile,
+    user?.name ?? null,
+  );
   if (current.length >= MAX_GALLERY) {
     return NextResponse.json(
       { error: `Можно загрузить максимум ${MAX_GALLERY} фото` },
@@ -60,50 +99,77 @@ export async function POST(req: Request) {
   }
 
   const nextGallery = [...current, photoUrl];
-  const nextCover = profile?.photoUrl || photoUrl;
+  const nextCover = currentCover || photoUrl;
 
-  await prisma.instructorProfile.update({
-    where: { userId: session.user.id },
-    data: {
-      photoUrl: nextCover,
-      photoGallery: nextGallery,
-    },
+  const result = await applyInstructorPhotoUpdate(userId, user?.name ?? null, profile, {
+    photoUrl: nextCover,
+    photoGallery: nextGallery,
   });
 
-  return NextResponse.json({ photoUrl, photoGallery: nextGallery });
+  return NextResponse.json(result);
 }
 
 export async function DELETE(req: Request) {
-  const session = await auth();
-  if (!session?.user || session.user.role !== "INSTRUCTOR") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const authResult = await requireInstructorSession();
+  if (isApiErrorResponse(authResult)) return authResult;
+  const { userId } = authResult;
 
   const url = new URL(req.url);
   const removeUrl = url.searchParams.get("photoUrl");
 
-  const profile = await prisma.instructorProfile.findUnique({
-    where: { userId: session.user.id },
-    select: { photoGallery: true, photoUrl: true },
-  });
-  const current = profile?.photoGallery ?? [];
+  await ensureInstructorProfile(userId);
+  const [profile, user] = await Promise.all([
+    prisma.instructorProfile.findUnique({
+      where: { userId: userId },
+      select: {
+        verificationStatus: true,
+        profileDraft: true,
+        profileDraftStatus: true,
+        photoGallery: true,
+        photoUrl: true,
+        bio: true,
+        certificationLevel: true,
+        certifications: true,
+        skillLevels: true,
+        languages: true,
+        specializations: true,
+        specializationOffers: true,
+        additionalServices: true,
+        offeredDurations: true,
+        achievements: true,
+        experienceYears: true,
+        totalLessons: true,
+        age: true,
+        availabilitySlots: true,
+        cancellationPolicy: true,
+        supportContact: true,
+        legalInfo: true,
+        videoVisitUrl: true,
+        hourlyRate: true,
+      },
+    }),
+    prisma.user.findUnique({ where: { id: userId }, select: { name: true } }),
+  ]);
+  if (!profile) {
+    return NextResponse.json({ error: "Не удалось создать профиль инструктора" }, { status: 500 });
+  }
+  const { photoGallery: current } = effectivePhotoGallery(profile, user?.name ?? null);
 
   const nextGallery = removeUrl ? current.filter((p) => p !== removeUrl) : [];
   const nextCover = nextGallery[0] ?? null;
 
-  await prisma.instructorProfile.update({
-    where: { userId: session.user.id },
-    data: { photoUrl: nextCover, photoGallery: nextGallery },
+  const result = await applyInstructorPhotoUpdate(userId, user?.name ?? null, profile, {
+    photoUrl: nextCover,
+    photoGallery: nextGallery,
   });
 
-  return NextResponse.json({ ok: true, photoGallery: nextGallery, photoUrl: nextCover });
+  return NextResponse.json({ ok: true, ...result });
 }
 
 export async function PATCH(req: Request) {
-  const session = await auth();
-  if (!session?.user || session.user.role !== "INSTRUCTOR") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const authResult = await requireInstructorSession();
+  if (isApiErrorResponse(authResult)) return authResult;
+  const { userId } = authResult;
 
   let json: unknown;
   try {
@@ -117,11 +183,46 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
-  const profile = await prisma.instructorProfile.findUnique({
-    where: { userId: session.user.id },
-    select: { photoGallery: true, photoUrl: true },
-  });
-  const current = profile?.photoGallery ?? [];
+  await ensureInstructorProfile(userId);
+  const [profile, user] = await Promise.all([
+    prisma.instructorProfile.findUnique({
+      where: { userId: userId },
+      select: {
+        verificationStatus: true,
+        profileDraft: true,
+        profileDraftStatus: true,
+        photoGallery: true,
+        photoUrl: true,
+        bio: true,
+        certificationLevel: true,
+        certifications: true,
+        skillLevels: true,
+        languages: true,
+        specializations: true,
+        specializationOffers: true,
+        additionalServices: true,
+        offeredDurations: true,
+        achievements: true,
+        experienceYears: true,
+        totalLessons: true,
+        age: true,
+        availabilitySlots: true,
+        cancellationPolicy: true,
+        supportContact: true,
+        legalInfo: true,
+        videoVisitUrl: true,
+        hourlyRate: true,
+      },
+    }),
+    prisma.user.findUnique({ where: { id: userId }, select: { name: true } }),
+  ]);
+  if (!profile) {
+    return NextResponse.json({ error: "Не удалось создать профиль инструктора" }, { status: 500 });
+  }
+  const { photoGallery: current, photoUrl: currentCover } = effectivePhotoGallery(
+    profile,
+    user?.name ?? null,
+  );
   const nextGallery = parsed.data.photoGallery ?? current;
 
   // Ensure instructor can only reorder existing own photos.
@@ -133,7 +234,7 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: "Некорректный список фото" }, { status: 400 });
   }
 
-  let coverUrl = parsed.data.coverUrl ?? profile?.photoUrl ?? null;
+  let coverUrl = parsed.data.coverUrl ?? currentCover ?? null;
   if (coverUrl && !nextGallery.includes(coverUrl)) {
     coverUrl = nextGallery[0] ?? null;
   }
@@ -141,17 +242,10 @@ export async function PATCH(req: Request) {
     coverUrl = nextGallery[0];
   }
 
-  const updated = await prisma.instructorProfile.update({
-    where: { userId: session.user.id },
-    data: {
-      photoGallery: nextGallery,
-      photoUrl: coverUrl,
-    },
-    select: { photoGallery: true, photoUrl: true },
+  const result = await applyInstructorPhotoUpdate(userId, user?.name ?? null, profile, {
+    photoUrl: coverUrl,
+    photoGallery: nextGallery,
   });
 
-  return NextResponse.json({
-    photoGallery: updated.photoGallery,
-    photoUrl: updated.photoUrl,
-  });
+  return NextResponse.json(result);
 }

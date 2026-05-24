@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useFormState, useFormStatus } from "react-dom";
 
 import { instructorApplyAction, type InstructorApplyState } from "@/app/actions/instructor-apply";
+import { LEGAL_ROUTES } from "@/lib/legal";
 import { INSTRUCTOR_ACTIVITY_LABELS } from "@/lib/services/instructor-match";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
@@ -103,6 +104,25 @@ export default function InstructorApplyPage() {
                 placeholder="Сертификаты, стаж, с кем работаете (дети, взрослые)…"
               />
             </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="taxStatus">Налоговый статус</Label>
+                <select
+                  id="taxStatus"
+                  name="taxStatus"
+                  required
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  defaultValue="SELF_EMPLOYED"
+                >
+                  <option value="SELF_EMPLOYED">Самозанятый (НПД)</option>
+                  <option value="IP">Индивидуальный предприниматель</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="inn">ИНН</Label>
+                <Input id="inn" name="inn" required pattern="\d{10,12}" placeholder="10 или 12 цифр" />
+              </div>
+            </div>
             <div className="space-y-2">
               <Label htmlFor="achievements">Достижения (по одному на строку, необязательно)</Label>
               <textarea
@@ -112,6 +132,28 @@ export default function InstructorApplyPage() {
                 className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 placeholder="Победы, звания, курсы…"
               />
+            </div>
+
+            <div className="space-y-2 rounded-md border border-border p-3 text-sm">
+              <label className="flex gap-2">
+                <input name="acceptAgencyOffer" type="checkbox" required className="mt-1" />
+                <span>
+                  Принимаю{" "}
+                  <Link className="text-accent underline" href={LEGAL_ROUTES.ofertaInstructor} target="_blank">
+                    агентский договор (оферту)
+                  </Link>{" "}
+                  и подтверждаю статус самозанятого/ИП
+                </span>
+              </label>
+              <label className="flex gap-2">
+                <input name="acceptPrivacy" type="checkbox" required className="mt-1" />
+                <span>
+                  Согласен с{" "}
+                  <Link className="text-accent underline" href={LEGAL_ROUTES.privacy} target="_blank">
+                    политикой обработки персональных данных
+                  </Link>
+                </span>
+              </label>
             </div>
 
             {state.error ? <p className="text-sm text-destructive">{state.error}</p> : null}

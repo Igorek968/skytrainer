@@ -1,0 +1,94 @@
+# Поддержка платформы: веб-чат и Telegram
+
+## Что сделано в приложении
+
+- Кнопка **«Поддержка»** в шапке и подвале → чат на сайте (`/support`).
+- Сообщения сохраняются в БД (`SupportTicket`, `SupportMessage`).
+- При настройке Telegram каждое сообщение пользователя **дублируется** в ваш чат.
+- Ответ оператора в Telegram (**Reply** на сообщение бота) попадает обратно в веб-чат (опрос раз в 5 с).
+
+Юридические страницы: `/oferta`, `/privacy`, `/returns`.
+
+---
+
+## Что нужно от вас для Telegram (двусторонняя связь)
+
+### 1. Создать бота
+
+1. В Telegram откройте [@BotFather](https://t.me/BotFather).
+2. Команда `/newbot`, задайте имя и username.
+3. Скопируйте **токен** → `TELEGRAM_BOT_TOKEN` в `.env`.
+
+### 2. Куда слать обращения
+
+**Вариант А — личный чат с ботом**
+
+1. Напишите боту любое сообщение (кнопка Start).
+2. Узнайте свой `chat_id` (через [@userinfobot](https://t.me/userinfobot) или `getUpdates` API).
+3. `TELEGRAM_SUPPORT_CHAT_ID=<ваш id>` (положительное число).
+
+**Вариант Б — группа поддержки (удобнее команде)**
+
+1. Создайте группу, добавьте бота **администратором**.
+2. Напишите в группе любое сообщение.
+3. Откройте `https://api.telegram.org/bot<TOKEN>/getUpdates` и найдите `"chat":{"id":-100...}`.
+4. `TELEGRAM_SUPPORT_CHAT_ID=-100xxxxxxxxxx`.
+
+### 3. Webhook (продакшен с HTTPS)
+
+На сервере с доменом `https://ваш-домен.ru`:
+
+```bash
+curl -X POST "https://api.telegram.org/bot<TOKEN>/setWebhook" \
+  -H "Content-Type: application/json" \
+  -d "{\"url\":\"https://ваш-домен.ru/api/webhooks/telegram\",\"secret_token\":\"<случайная_строка>\"}"
+```
+
+В `.env`:
+
+```
+TELEGRAM_WEBHOOK_SECRET=<та же случайная строка>
+```
+
+### 4. Публичные ссылки (необязательно)
+
+```
+NEXT_PUBLIC_SUPPORT_EMAIL=support@yourdomain.ru
+NEXT_PUBLIC_SUPPORT_TELEGRAM_URL=https://t.me/your_channel
+```
+
+Показываются под чатом как альтернативные контакты.
+
+### 5. Перезапуск
+
+```bash
+docker compose exec skiinstruct npx prisma db push
+docker compose restart skiinstruct
+```
+
+---
+
+## Как отвечать пользователю
+
+1. В Telegram приходит сообщение вида `🆘 Поддержка #a1b2c3d4` с текстом клиента.
+2. Нажмите **Ответить (Reply)** именно на это сообщение — не новое сообщение в чате.
+3. Ваш ответ появится в веб-чате у пользователя в течение нескольких секунд.
+
+Если ответить без Reply, в веб-чат **не попадёт** (так устроена привязка к тикету).
+
+---
+
+## Локальная разработка без HTTPS
+
+Webhook Telegram на `localhost` не работает. Варианты:
+
+- [ngrok](https://ngrok.com/) / Cloudflare Tunnel → публичный URL на `/api/webhooks/telegram`;
+- или тестировать только исходящие сообщения (веб → Telegram), ответы вручную в Telegram без синхронизации в веб.
+
+Без `TELEGRAM_*` чат на сайте всё равно работает, но сообщения никуда не уходят.
+
+---
+
+## Email
+
+Полноценной синхронизации «письмо ↔ веб-чат» нет. `NEXT_PUBLIC_SUPPORT_EMAIL` — ссылка `mailto:` для пользователя. Для почты с тикетами нужен отдельный почтовый сервис или виджет.

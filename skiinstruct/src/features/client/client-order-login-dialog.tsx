@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { signInClientSessionAction } from "@/app/actions/client-order-sign-in";
+import { CLIENT_BOOKING_RETURN_PATH } from "@/lib/client-pending-checkout";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
@@ -124,7 +125,7 @@ export function ClientOrderLoginDialog({ open, onOpenChange, onAuthenticated }: 
             Нет аккаунта?{" "}
             <Link
               className="text-accent underline"
-              href={`/register?callbackUrl=${encodeURIComponent("/client")}`}
+              href={`/register?callbackUrl=${encodeURIComponent(CLIENT_BOOKING_RETURN_PATH)}`}
               onClick={() => closeAll()}
             >
               Зарегистрироваться

@@ -2,6 +2,8 @@
 
 import { redirect } from "next/navigation";
 
+import { signOut } from "@/auth";
+import { credentialsSignInNoRedirect } from "@/lib/credentials-sign-in-core";
 import { createInstructorApplication } from "@/lib/instructor-application";
 
 export type InstructorApplyState = {
@@ -14,10 +16,15 @@ export async function instructorApplyAction(
   formData: FormData,
 ): Promise<InstructorApplyState> {
   const extra = formData.getAll("extraSpecializations").map((v) => String(v));
+  const password = String(formData.get("password") ?? "");
+
+  const taxStatusRaw = String(formData.get("taxStatus") ?? "");
+  const taxStatus =
+    taxStatusRaw === "IP" ? ("IP" as const) : taxStatusRaw === "SELF_EMPLOYED" ? ("SELF_EMPLOYED" as const) : undefined;
 
   const created = await createInstructorApplication({
     email: String(formData.get("email") ?? ""),
-    password: String(formData.get("password") ?? ""),
+    password,
     passwordConfirm: String(formData.get("passwordConfirm") ?? ""),
     name: String(formData.get("name") ?? ""),
     bio: String(formData.get("bio") ?? ""),
@@ -25,11 +32,25 @@ export async function instructorApplyAction(
     primarySpecialization: String(formData.get("primarySpecialization") ?? ""),
     extraSpecializations: extra,
     achievementsRaw: String(formData.get("achievements") ?? ""),
+    acceptAgencyOffer: formData.get("acceptAgencyOffer") === "on",
+    acceptPrivacy: formData.get("acceptPrivacy") === "on",
+    taxStatus,
+    inn: String(formData.get("inn") ?? ""),
   });
 
   if (!created.ok) {
     return { error: created.error, success: false };
   }
 
-  redirect(`/instructor/login?applied=1&email=${encodeURIComponent(created.email)}`);
+  const afterApplyUrl = `/instructor?applied=1`;
+
+  await signOut({ redirect: false });
+  const signedIn = await credentialsSignInNoRedirect(created.email, password);
+  if (!signedIn.ok) {
+    redirect(
+      `/instructor/login?applied=1&email=${encodeURIComponent(created.email)}&signin=required`,
+    );
+  }
+
+  redirect(afterApplyUrl);
 }

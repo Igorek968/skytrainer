@@ -3,10 +3,11 @@ import { NextResponse } from "next/server";
 import type { LessonDuration, OrderStatus, SkillLevel, UserRole } from "@prisma/client";
 import { Prisma } from "@prisma/client";
 
-import { auth } from "@/auth";
+import { isApiErrorResponse, requireAuthSession, requireClientSession } from "@/lib/api-session";
 import { prisma } from "@/lib/prisma";
 import { assertClientHasNoOtherActiveOrder } from "@/lib/services/client-active-order";
 import { prepareInstructorQueue, processExpiredPendingOrders } from "@/lib/services/instructor-routing";
+import { canonicalizeActivityLabel } from "@/lib/services/instructor-match";
 import { createOrderSchema } from "@/lib/validations/order";
 
 /** Счёт календарных дней по YYYY-MM-DD в UTC полдень (без сдвига из‑за DST у полуночи). */
@@ -44,25 +45,13 @@ function safeCoord(n: unknown, min: number, max: number): number | null {
 }
 
 export async function GET() {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const resolved = await requireAuthSession();
+  if (isApiErrorResponse(resolved)) return resolved;
 
   await processExpiredPendingOrders();
 
-  const uid = session.user.id;
-  let role: UserRole | undefined = session.user.role;
-  if (!role) {
-    const row = await prisma.user.findUnique({
-      where: { id: uid },
-      select: { role: true },
-    });
-    role = row?.role ?? undefined;
-  }
-  if (!role) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const uid = resolved.userId;
+  const role = resolved.role;
 
   const where =
     role === "CLIENT"
@@ -88,25 +77,8 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  let role: UserRole | undefined = session.user.role;
-  if (!role) {
-    const row = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: { role: true },
-    });
-    role = row?.role ?? undefined;
-  }
-  if (!role || role !== "CLIENT") {
-    return NextResponse.json(
-      { error: "Создавать заказы могут только клиенты. Войдите под учётной записью клиента." },
-      { status: 403 },
-    );
-  }
+  const resolved = await requireClientSession();
+  if (isApiErrorResponse(resolved)) return resolved;
 
   let json: unknown;
   try {
@@ -136,6 +108,7 @@ export async function POST(req: Request) {
     languagePref,
     duration,
     notes,
+    disciplineLabel: disciplineLabelRaw,
     lessonDate,
     lessonEndDate,
     lessonDays,
@@ -192,7 +165,7 @@ export async function POST(req: Request) {
     : notes;
 
   try {
-    await assertClientHasNoOtherActiveOrder(session.user.id);
+    await assertClientHasNoOtherActiveOrder(resolved.userId);
   } catch (e) {
     if (e instanceof Error && e.message === "ACTIVE_ORDER_EXISTS") {
       return NextResponse.json(
@@ -235,7 +208,7 @@ export async function POST(req: Request) {
       : null;
 
   const createData = dropUndefined({
-    clientId: session.user.id,
+    clientId: resolved.userId,
     instructorId: instructorId ?? null,
     status: (instructorId ? "AWAITING_PAYMENT" : "DRAFT") as OrderStatus,
     meetLat: meetLatN,
@@ -244,6 +217,9 @@ export async function POST(req: Request) {
     languagePref: languagePref.trim(),
     duration: duration as LessonDuration,
     notes: notesFinal,
+    disciplineLabel: disciplineLabelRaw?.trim()
+      ? canonicalizeActivityLabel(disciplineLabelRaw.trim()) || undefined
+      : undefined,
     requestedDays: Math.trunc(requestedDaysSafe),
     ...scheduleFields,
     resortId: resortId ?? undefined,

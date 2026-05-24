@@ -66,18 +66,28 @@ SkiInstruct будет доступен на `http://localhost:3001`.
 ### Вход в админку
 
 - URL: `http://localhost:3001/admin/login`
-- При старте контейнера выполняется `npm run db:bootstrap-admin`, который создаёт/обновляет администратора из env:
+- При старте контейнера выполняется `npm run db:bootstrap-admin`, который создаёт/обновляет администратора из переменных в `.env` (см. `.env.example`):
   - `SKIINSTRUCT_ADMIN_EMAIL`
   - `SKIINSTRUCT_ADMIN_PASSWORD`
   - `SKIINSTRUCT_ADMIN_NAME`
 
-### Тестовые учётные записи (после `db seed`)
+**По умолчанию в `.env.example`:**
+
+| Email | Пароль |
+|-------|--------|
+| `admin@skiinstruct.local` | `Admin12345!` |
+
+Если вошли с `admin@example.com` / `Password123!` из старой документации — в БД может не быть такого пользователя. Либо задайте эти значения в `.env` и перезапустите контейнер, либо выполните:
+
+`docker compose exec skiinstruct npm run db:bootstrap-admin`
+
+### Тестовые учётные записи (после `npm run db:seed` в контейнере)
 
 | Роль        | Email                    | Пароль          |
 |------------|---------------------------|-----------------|
 | Клиент     | `client@example.com`      | `Password123!`  |
 | Инструктор | `instructor1@example.com` | `Password123!`  |
-| Админ      | `admin@example.com`     | `Password123!`  |
+| Админ      | см. `SKIINSTRUCT_ADMIN_*` в `.env` или `admin@example.com` после bootstrap с этим email |
 
 ## Переменные окружения
 

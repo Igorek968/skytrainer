@@ -64,8 +64,11 @@ export async function POST(req: Request) {
   const resetLink = `${baseUrl}/reset-password?token=${encodeURIComponent(token)}`;
 
   const sent = await trySendPasswordResetEmail({ to: email, resetLink });
-  const debugToken = process.env.NODE_ENV !== "production" && !sent ? token : undefined;
+  const allowDebugLink =
+    process.env.SKIINSTRUCT_PASSWORD_RESET_DEBUG === "1" ||
+    (process.env.NODE_ENV !== "production" && !sent);
+  const debugToken = !sent && allowDebugLink ? token : undefined;
 
-  return NextResponse.json({ ok: true, sent, debugToken });
+  return NextResponse.json({ ok: true, sent, debugToken, resetLink: debugToken ? resetLink : undefined });
 }
 

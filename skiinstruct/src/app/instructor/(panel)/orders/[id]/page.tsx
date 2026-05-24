@@ -7,6 +7,10 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { OrderChat } from "@/features/chat/order-chat";
+import { NpdReceiptUpload } from "@/features/instructor/npd-receipt-upload";
+import { CancelOrderButton } from "@/features/orders/cancel-order-button";
+import { OrderEventsFeed } from "@/features/orders/order-events-feed";
+import { devPollInterval } from "@/lib/query-poll";
 import { NearbyMapLazy } from "@/features/map/map-loader";
 import { orderRelaxedInstructorTiming } from "@/shared/lib/order-flex";
 import { hasLessonTimeWindowInNotes, lessonTimeWindowLineFromNotes } from "@/shared/lib/order-lesson-times";
@@ -27,10 +31,12 @@ function InstructorOrderDetailContent({
   id,
   data,
   patch,
+  onRefresh,
 }: {
   id: string;
   data: { order: OrderDTO };
   patch: UseMutationResult<unknown, Error, Record<string, unknown>>;
+  onRefresh: () => void;
 }) {
   const etaOptions = Array.from({ length: 48 }, (_, i) => (i + 1) * 5);
   const extractEtaFromNotes = (notes: string | null | undefined): number => {
@@ -280,7 +286,28 @@ function InstructorOrderDetailContent({
             Завершить урок
           </Button>
         ) : null}
+
+        {(safeStatus === "ACCEPTED" ||
+          safeStatus === "INSTRUCTOR_EN_ROUTE" ||
+          safeStatus === "LESSON_STARTED") && (
+          <CancelOrderButton orderId={id} disabled={patch.isPending} onCancelled={onRefresh} />
+        )}
       </div>
+
+      {safeStatus === "COMPLETED" ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Чек НПД / ККТ</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <NpdReceiptUpload
+              orderId={id}
+              existingUrl={(safeOrder as Order & { npdReceiptUrl?: string | null }).npdReceiptUrl}
+              onUploaded={onRefresh}
+            />
+          </CardContent>
+        </Card>
+      ) : null}
 
       {safeStatus === "COMPLETED" && safeOrder.instructorRating == null ? (
         <Card>
@@ -333,7 +360,10 @@ function InstructorOrderDetailContent({
       ) : null}
 
       {safeStatus !== "PENDING_INSTRUCTOR" && safeStatus !== "CANCELLED" ? (
-        <OrderChat orderId={id} />
+        <>
+          <OrderEventsFeed orderId={id} />
+          <OrderChat orderId={id} />
+        </>
       ) : null}
     </div>
   );
@@ -351,7 +381,7 @@ export default function InstructorOrderPage() {
       if (!r.ok) throw new Error("order");
       return r.json() as Promise<{ order: OrderDTO }>;
     },
-    refetchInterval: 4000,
+    refetchInterval: devPollInterval(4000),
   });
 
   const patch = useMutation({
@@ -386,5 +416,13 @@ export default function InstructorOrderPage() {
     return <p className="text-destructive">Заказ не найден</p>;
   }
 
-  return <InstructorOrderDetailContent key={id} id={id} data={data} patch={patch} />;
+  return (
+    <InstructorOrderDetailContent
+      key={id}
+      id={id}
+      data={data}
+      patch={patch}
+      onRefresh={() => void qc.invalidateQueries({ queryKey: ["order", id] })}
+    />
+  );
 }

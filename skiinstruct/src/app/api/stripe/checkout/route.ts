@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { auth } from "@/auth";
+import { isApiErrorResponse, requireClientSession } from "@/lib/api-session";
 import { prisma } from "@/lib/prisma";
 import { assignInstructorByQueue } from "@/lib/services/instructor-routing";
+import { isMockCheckoutEnabled } from "@/lib/checkout-config";
 import { getStripe } from "@/lib/stripe";
 
 const bodySchema = z.object({
@@ -12,10 +13,8 @@ const bodySchema = z.object({
 
 export async function POST(req: Request) {
   try {
-    const session = await auth();
-    if (!session?.user || session.user.role !== "CLIENT") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const resolved = await requireClientSession();
+    if (isApiErrorResponse(resolved)) return resolved;
 
     let json: unknown;
     try {
@@ -30,7 +29,7 @@ export async function POST(req: Request) {
     }
 
     const order = await prisma.order.findUnique({ where: { id: parsed.data.orderId } });
-    if (!order || order.clientId !== session.user.id) {
+    if (!order || order.clientId !== resolved.userId) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
     const prepayOk =
@@ -47,12 +46,8 @@ export async function POST(req: Request) {
     }
 
     const origin = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3001";
-    const stripeKey = process.env.STRIPE_SECRET_KEY?.trim();
-    const allowMockCheckout =
-      !stripeKey &&
-      (process.env.NODE_ENV !== "production" || process.env.ALLOW_MOCK_CHECKOUT === "1");
 
-    if (allowMockCheckout) {
+    if (isMockCheckoutEnabled()) {
       const mockIntentId = `mock_pi_${order.id.slice(0, 12)}_${Date.now()}`;
       const beforeStatus = order.status;
       await prisma.order.update({

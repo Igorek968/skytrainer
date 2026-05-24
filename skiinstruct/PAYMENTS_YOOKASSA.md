@@ -1,0 +1,52 @@
+# Подключение ЮKassa к SkiInstruct
+
+Сейчас в **skiinstruct** оплата идёт через **Stripe** (или mock без ключа в dev).  
+В корневом **legacy API** (`api/`) уже есть черновик ЮKassa — для единого продакшена лучше перенести логику в Next.js.
+
+## За 2 дня до подключения — подготовьте
+
+1. **Личный кабинет ЮKassa** — shopId и секретный ключ (тестовый магазин для проверки).
+2. **Домен с HTTPS** — webhook и `return_url` только по HTTPS (localhost — только mock/ручная проверка).
+3. **Реквизиты в оферте** — `NEXT_PUBLIC_LEGAL_ENTITY_NAME`, ИНН, контакты поддержки.
+4. **Сценарий оплаты** (зафиксируйте с юристом):
+   - предоплата при создании заказа (`AWAITING_PAYMENT` → `PAID` → очередь инструкторов);
+   - комиссия платформы 15% — как отражается в чеке/агентском договоре.
+
+## Переменные окружения (добавить в корневой `.env` и `docker-compose.yml`)
+
+```env
+YOOKASSA_SHOP_ID=
+YOOKASSA_SECRET_KEY=
+# Публичный URL приложения для return_url после оплаты
+SKIINSTRUCT_PUBLIC_APP_URL=https://your-domain.ru
+```
+
+Опционально отключить mock на проде:
+
+```env
+ALLOW_MOCK_CHECKOUT=0
+```
+
+## Точки интеграции в коде
+
+| Шаг | Файл / действие |
+|-----|------------------|
+| 1 | `POST /api/stripe/checkout` → новый `POST /api/payments/yookassa/create` (создание платежа ЮKassa) |
+| 2 | `POST /api/webhooks/yookassa` — подтверждение `payment.succeeded`, обновление `Order.paymentStatus`, вызов `assignInstructorByQueue` (как в Stripe webhook) |
+| 3 | UI: `client-order-checkout-dialog.tsx`, `client/orders/[id]/page.tsx` — кнопка «Оплатить» ведёт на URL ЮKassa |
+| 4 | Prisma: поля `yookassaPaymentId` на `Order` / `Payment` (по аналогии со `stripePaymentIntentId`) |
+| 5 | Редиректы success/cancel: `/client/orders/[id]?paid=1` |
+
+Референс в репозитории: `api/src/services/yookassa.ts`, `api/src/routes/payment.ts`.
+
+## Проверка после подключения
+
+- [ ] Тестовый платёж 1 ₽ в тестовом магазине ЮKassa
+- [ ] Webhook доходит на прод (логи, статус заказа `PAID`)
+- [ ] После оплаты инструктор получает заявку в очереди
+- [ ] Возврат по `/returns` — процесс согласован с фактической оплатой через ЮKassa
+
+## Пока ЮKassa не подключена (локально)
+
+- Пустой `STRIPE_SECRET_KEY` + `ALLOW_MOCK_CHECKOUT=1` (или dev по умолчанию) — mock-оплата без карты.
+- Для демо инвестору этого достаточно; для приёма денег в РФ нужна ЮKassa (или Stripe, если доступен).

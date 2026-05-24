@@ -66,13 +66,24 @@ services:
     container_name: skiinstruct-web
     ports:
       - "3001:3000"
+    env_file:
+      - .env
     environment:
-      NODE_ENV: development
-      # На Windows bind-mount медленный: polling только если hot-reload «залипает» (см. SKIINSTRUCT_USE_POLLING=1).
+      # prod = next build + start (быстрые переходы). dev = hot-reload, но в Docker на Windows очень медленно.
+      SKIINSTRUCT_NEXT_MODE: ${SKIINSTRUCT_NEXT_MODE:-prod}
+      SKIINSTRUCT_FORCE_REBUILD: ${SKIINSTRUCT_FORCE_REBUILD:-0}
+      NODE_ENV: ${SKIINSTRUCT_NODE_ENV:-production}
+      # На Windows bind-mount: polling=true сильно грузит CPU. Включите только если dev-режим «не видит» правки.
       WATCHPACK_POLLING: ${SKIINSTRUCT_USE_POLLING:-false}
       CHOKIDAR_USEPOLLING: ${SKIINSTRUCT_USE_POLLING:-false}
-      # Не дёргать /api/instructors/nearby каждые 12 с в dev (сильно тормозит в Docker).
+      NEXT_TELEMETRY_DISABLED: "1"
+      # Меньше фоновых запросов в Docker — страницы не «висят» из-за опроса API.
       NEXT_PUBLIC_DISABLE_NEARBY_POLL: "1"
+      NEXT_PUBLIC_DISABLE_DEV_POLL: "1"
+      # 0 — очередь в /admin/moderation; 1 — сразу «Опубликовано» без админки
+      SKIINSTRUCT_AUTO_APPROVE_EVENTS: ${SKIINSTRUCT_AUTO_APPROVE_EVENTS:-0}
+      # Локально: показать ссылку сброса пароля на странице (письмо не отправляется без webhook)
+      SKIINSTRUCT_PASSWORD_RESET_DEBUG: ${SKIINSTRUCT_PASSWORD_RESET_DEBUG:-1}
       DATABASE_URL: ${SKIINSTRUCT_DATABASE_URL:-postgres://sky:sky@postgres:5432/skytrainer_new?schema=skiinstruct}
       AUTH_SECRET: ${SKIINSTRUCT_AUTH_SECRET:-replace-with-long-random-secret}
       AUTH_URL: ${SKIINSTRUCT_AUTH_URL:-http://localhost:3001}
@@ -89,6 +100,9 @@ services:
       SKIINSTRUCT_ADMIN_NAME: ${SKIINSTRUCT_ADMIN_NAME:-Администратор}
       STRIPE_SECRET_KEY: ${SKIINSTRUCT_STRIPE_SECRET_KEY:-}
       STRIPE_WEBHOOK_SECRET: ${SKIINSTRUCT_STRIPE_WEBHOOK_SECRET:-}
+      YOOKASSA_SHOP_ID: ${YOOKASSA_SHOP_ID:-}
+      YOOKASSA_SECRET_KEY: ${YOOKASSA_SECRET_KEY:-}
+      ALLOW_MOCK_CHECKOUT: ${ALLOW_MOCK_CHECKOUT:-1}
       NEXT_PUBLIC_VAPID_PUBLIC_KEY: ${SKIINSTRUCT_VAPID_PUBLIC_KEY:-}
       VAPID_PRIVATE_KEY: ${SKIINSTRUCT_VAPID_PRIVATE_KEY:-}
       VAPID_SUBJECT: ${SKIINSTRUCT_VAPID_SUBJECT:-mailto:you@example.com}
@@ -102,17 +116,25 @@ services:
       # Отладка без SMS: код в JSON / toast. По умолчанию 1 в compose; реальная SMS: SMS_OTP_DEBUG=0 + TWILIO_* или SMS_WEBHOOK_URL
       SMS_OTP_DEBUG: ${SMS_OTP_DEBUG:-1}
       SMS_OTP_MOCK: ${SMS_OTP_MOCK:-}
+      # Секреты только в корневом .env (не в этом файле!). CHAT_ID — число, не @username бота
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_SUPPORT_CHAT_ID: ${TELEGRAM_SUPPORT_CHAT_ID:-}
+      TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET:-}
+      NEXT_PUBLIC_SUPPORT_EMAIL: ${NEXT_PUBLIC_SUPPORT_EMAIL:-}
+      NEXT_PUBLIC_SUPPORT_TELEGRAM_URL: ${NEXT_PUBLIC_SUPPORT_TELEGRAM_URL:-}
     volumes:
       # Локальные правки в коде сразу видны в контейнере (без полной пересборки образа).
       - ./skiinstruct/src:/app/src
       - ./skiinstruct/public:/app/public
+      - ./skiinstruct/next.config.mjs:/app/next.config.mjs:ro
       # Иначе в контейнере остаётся старый schema.prisma из образа — db:push не добавит новые поля (birthDate и т.д.).
       - ./skiinstruct/prisma:/app/prisma
-      # scripts не монтируем — на Windows CRLF ломает sh; скрипт берётся из образа.
+      # Entrypoint с хоста — не нужен rebuild образа при смене prod/dev.
+      - ./skiinstruct/scripts/docker-dev-entrypoint.sh:/app/scripts/docker-dev-entrypoint.sh:ro
       # Кэш Next (.next) не удалять при каждом старте — иначе первый заход ждёт минуты компиляции.
       - skiinstruct_next_cache:/app/.next
     # Первый запуск с пустой БД: SKIINSTRUCT_RUN_SEED=1 docker compose up -d --build
-    command: sh /app/scripts/docker-dev-entrypoint.sh
+    command: sh -c "tr -d '\\r' < /app/scripts/docker-dev-entrypoint.sh | sh -s"
     depends_on:
       postgres:
         condition: service_healthy

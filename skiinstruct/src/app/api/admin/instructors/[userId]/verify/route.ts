@@ -1,12 +1,20 @@
 import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { z } from "zod";
 
 import { auth } from "@/auth";
+import { draftToProfileUpdate, parseProfileDraft } from "@/lib/instructor-profile-draft";
 import { prisma } from "@/lib/prisma";
 
-const bodySchema = z.object({
-  status: z.enum(["APPROVED", "REJECTED"]),
-});
+const bodySchema = z
+  .object({
+    status: z.enum(["APPROVED", "REJECTED"]),
+    rejectMessage: z.string().trim().min(3).max(2000).optional(),
+  })
+  .refine((d) => d.status !== "REJECTED" || Boolean(d.rejectMessage?.trim()), {
+    message: "Укажите причину отказа (не менее 3 символов)",
+    path: ["rejectMessage"],
+  });
 
 type Ctx = { params: Promise<{ userId: string }> };
 
@@ -30,9 +38,72 @@ export async function POST(req: Request, ctx: Ctx) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
-  await prisma.instructorProfile.update({
+  const profile = await prisma.instructorProfile.findUnique({
     where: { userId },
-    data: { verificationStatus: parsed.data.status },
+    select: {
+      profileDraft: true,
+      profileDraftStatus: true,
+    },
+  });
+
+  if (!profile) {
+    return NextResponse.json({ error: "Профиль не найден" }, { status: 404 });
+  }
+
+  if (parsed.data.status === "REJECTED") {
+    await prisma.instructorProfile.update({
+      where: { userId },
+      data: {
+        verificationStatus: "REJECTED",
+        profileDraft: Prisma.JsonNull,
+        profileDraftStatus: "NONE",
+        profileDraftSubmittedAt: null,
+        profileDraftRejectNote: parsed.data.rejectMessage!.trim(),
+        profileDraftRejectedAt: new Date(),
+      },
+    });
+    return NextResponse.json({ ok: true });
+  }
+
+  const draft =
+    profile.profileDraftStatus === "PENDING_REVIEW"
+      ? parseProfileDraft(profile.profileDraft)
+      : null;
+
+  await prisma.$transaction(async (tx) => {
+    if (draft) {
+      const first = draft.firstName?.trim() ?? "";
+      const last = draft.lastName?.trim() ?? "";
+      const fullName = [first, last].filter(Boolean).join(" ");
+      if (draft.firstName !== undefined || draft.lastName !== undefined) {
+        await tx.user.update({
+          where: { id: userId },
+          data: { name: fullName || null },
+        });
+      }
+      await tx.instructorProfile.update({
+        where: { userId },
+        data: {
+          ...draftToProfileUpdate(draft),
+          verificationStatus: "APPROVED",
+          profileDraft: Prisma.JsonNull,
+          profileDraftStatus: "NONE",
+          profileDraftSubmittedAt: null,
+          profileDraftRejectNote: null,
+          profileDraftRejectedAt: null,
+        },
+      });
+      return;
+    }
+
+    await tx.instructorProfile.update({
+      where: { userId },
+      data: {
+        verificationStatus: "APPROVED",
+        profileDraftRejectNote: null,
+        profileDraftRejectedAt: null,
+      },
+    });
   });
 
   return NextResponse.json({ ok: true });

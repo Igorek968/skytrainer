@@ -2,6 +2,7 @@ import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
+import { markEventRegistrationPaid } from "@/lib/services/event-checkout";
 import { assignInstructorByQueue } from "@/lib/services/instructor-routing";
 import { getStripe } from "@/lib/stripe";
 
@@ -24,8 +25,18 @@ export async function POST(req: Request) {
 
   if (event.type === "checkout.session.completed") {
     const session = event.data.object as import("stripe").Stripe.Checkout.Session;
-    const orderId = session.metadata?.orderId;
+    const eventRegistrationId = session.metadata?.eventRegistrationId;
     const pi = session.payment_intent;
+    const piId = typeof pi === "string" ? pi : pi?.id;
+
+    if (eventRegistrationId) {
+      await markEventRegistrationPaid({
+        registrationId: eventRegistrationId,
+        stripePaymentIntentId: piId,
+      });
+    }
+
+    const orderId = session.metadata?.orderId;
     if (orderId) {
       const before = await prisma.order.findUnique({
         where: { id: orderId },
@@ -51,7 +62,6 @@ export async function POST(req: Request) {
       }
 
       const amount = session.amount_total;
-      const piId = typeof pi === "string" ? pi : pi?.id;
       if (amount != null && piId) {
         const exists = await prisma.payment.findFirst({
           where: { orderId, stripePaymentIntentId: piId },

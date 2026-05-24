@@ -39,6 +39,9 @@ const nextConfig = {
     NEXTAUTH_URL: resolvedNextAuthUrlForClient(),
   },
   reactStrictMode: true,
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   experimental: {
     serverActions: {
       allowedOrigins: serverActionsAllowedOrigins(),

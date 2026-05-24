@@ -213,7 +213,8 @@ export function specializationMatches(available: string[], requestedRaw: string)
   const reqSource = canonicalizeActivityLabel(requestedRaw) ?? requestedRaw;
   const req = toCanonicalSpecialization(reqSource);
   if (!req) return false;
-  if (!available.length) return false;
+  /** Пустой список в анкете — не скрываем (инструктор ещё не отметил направления). */
+  if (!available.length) return true;
   return available.some((s) => {
     const curSource = canonicalizeActivityLabel(s) ?? s;
     const cur = toCanonicalSpecialization(curSource);
@@ -263,12 +264,49 @@ export function instructorMatchesAvailability(
   availabilitySlotsJson: unknown,
   requestedWeekdays: number[] | null,
   includeOffline: boolean,
+  isOnline = false,
 ): boolean {
   if (includeOffline || requestedWeekdays == null) return true;
+  /** Сейчас в сети — доступен для ближайшей записи, не режем по шаблону дней недели. */
+  if (isOnline) return true;
   const slots = parseAvailabilitySlots(availabilitySlotsJson);
   /** Пустые слоты = анкета ещё не заполнена — не скрываем онлайн-инструктора с карты. */
   if (slots.length === 0) return true;
   return requestedWeekdays.every((requiredDay) =>
     slots.some((slot) => slot.day === requiredDay && slot.busy !== true),
   );
+}
+
+/** Совпадение длительности: API («2 ч») и анкета («2 ч», «2 часа»). */
+export function durationLabelMatches(offered: string[], requestedLabel: string | null): boolean {
+  if (!requestedLabel || offered.length === 0) return true;
+  const req = normalizeText(requestedLabel);
+  return offered.some((d) => {
+    const cur = normalizeText(d);
+    if (cur === req) return true;
+    if (req === "2 ч" && (cur === "2 часа" || cur === "2ч")) return true;
+    if (req === "1 ч" && (cur === "1 час" || cur === "1ч")) return true;
+    if (req === "полдня" && cur.includes("полдн")) return true;
+    if (req === "день" && (cur === "день" || cur.includes("полный") || cur.includes("весь"))) return true;
+    if (req.includes("день") && cur === "день") return true;
+    return false;
+  });
+}
+
+/** Уровень подготовки: точное совпадение или инструктор указал более высокий уровень. */
+export function skillLevelMatches(offered: string[], requestedLabel: string | null): boolean {
+  if (!requestedLabel || offered.length === 0) return true;
+  if (offered.some((s) => s.trim() === requestedLabel)) return true;
+  const rank: Record<string, number> = {
+    "для начинающих": 0,
+    "средний": 1,
+    "продвинутый": 2,
+    "эксперт": 3,
+  };
+  const reqRank = rank[normalizeText(requestedLabel)];
+  if (reqRank === undefined) return true;
+  return offered.some((s) => {
+    const r = rank[normalizeText(s)];
+    return r !== undefined && r >= reqRank;
+  });
 }

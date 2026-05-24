@@ -1,13 +1,26 @@
-import { redirect } from "next/navigation";
+import { Suspense } from "react";
 
 import ClientHomePage from "@/app/client/page";
-import { auth } from "@/auth";
+import { Skeleton } from "@/shared/ui/skeleton";
 
-/** Главная = поиск на карте без барьеров; кабинеты ролей — по прямым URL. */
-export default async function HomePage() {
-  const session = await auth();
-  if (session?.user.role === "INSTRUCTOR") redirect("/instructor");
-  if (session?.user.role === "ADMIN") redirect("/admin/activity");
+function ClientHomeFallback() {
+  return (
+    <div className="space-y-6" aria-busy aria-label="Загрузка…">
+      <Skeleton className="h-10 w-64" />
+      <Skeleton className="h-[320px] w-full rounded-lg md:h-[420px]" />
+      <div className="grid gap-4 md:grid-cols-2">
+        <Skeleton className="h-48 w-full" />
+        <Skeleton className="h-48 w-full" />
+      </div>
+    </div>
+  );
+}
 
-  return <ClientHomePage />;
+/** Главная = поиск и заказ на карте; кабинеты — по ссылкам в шапке. */
+export default function HomePage() {
+  return (
+    <Suspense fallback={<ClientHomeFallback />}>
+      <ClientHomePage />
+    </Suspense>
+  );
 }

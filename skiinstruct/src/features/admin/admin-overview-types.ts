@@ -90,6 +90,16 @@ export type AdminOverview = {
     email: string;
     name: string | null;
     certificationLevel: string | null;
+    moderationKind: "NEW_ACCOUNT" | "PROFILE_UPDATE";
+    profileDraftSubmittedAt: string | null;
+    /** Только для PROFILE_UPDATE: что изменилось относительно опубликованной анкеты */
+    profileChanges?: {
+      field: string;
+      label: string;
+      kind: "added" | "removed" | "changed";
+      before: string | null;
+      after: string | null;
+    }[];
   }[];
   pipeline: {
     onlineQueuePending: number;

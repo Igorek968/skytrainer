@@ -1,58 +1,318 @@
 "use client";
 
+import { useEffect, useState } from "react";
+
 import type { AdminOverview } from "@/features/admin/admin-overview-types";
-import { useAdminVerifyInstructorMutation } from "@/features/admin/use-admin-overview";
+import {
+  useAdminProfileReviewMutation,
+  useAdminVerifyInstructorMutation,
+} from "@/features/admin/use-admin-overview";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
+import { Label } from "@/shared/ui/label";
+import { cn } from "@/lib/utils";
+
+type ProfileChange = NonNullable<AdminOverview["pendingList"][number]["profileChanges"]>[number];
+type PendingItem = AdminOverview["pendingList"][number];
+
+type RejectTarget = {
+  userId: string;
+  moderationKind: PendingItem["moderationKind"];
+  name: string | null;
+  email: string;
+};
+
+function profileChangeKindLabel(kind: ProfileChange["kind"]): string {
+  switch (kind) {
+    case "added":
+      return "Добавлено";
+    case "removed":
+      return "Удалено";
+    default:
+      return "Изменено";
+  }
+}
+
+function ProfileDraftChangesList({ changes }: { changes: ProfileChange[] }) {
+  if (changes.length === 0) return null;
+  return (
+    <div className="mt-2 w-full space-y-1.5 rounded-md border border-border/80 bg-muted/30 p-2">
+      <p className="text-xs font-medium text-foreground">Изменения в анкете</p>
+      <ul className="space-y-1.5">
+        {changes.map((c) => (
+          <li key={c.field} className="text-xs">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="font-medium text-foreground">{c.label}</span>
+              <span
+                className={cn(
+                  "rounded px-1 py-0.5 text-[10px] font-medium uppercase tracking-wide",
+                  c.kind === "added" && "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
+                  c.kind === "removed" && "bg-destructive/15 text-destructive",
+                  c.kind === "changed" && "bg-amber-500/15 text-amber-800 dark:text-amber-300",
+                )}
+              >
+                {profileChangeKindLabel(c.kind)}
+              </span>
+            </div>
+            {c.kind === "added" ? (
+              <p className="mt-0.5 text-muted-foreground">
+                <span className="text-foreground">{c.after ?? "—"}</span>
+              </p>
+            ) : c.kind === "removed" ? (
+              <p className="mt-0.5 text-muted-foreground line-through">{c.before ?? "—"}</p>
+            ) : (
+              <p className="mt-0.5 text-muted-foreground">
+                <span className="line-through opacity-70">{c.before ?? "—"}</span>
+                <span className="mx-1 text-foreground">→</span>
+                <span className="text-foreground">{c.after ?? "—"}</span>
+              </p>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function ModerationRejectModal({
+  target,
+  pending,
+  onClose,
+  onSubmit,
+}: {
+  target: RejectTarget;
+  pending: boolean;
+  onClose: () => void;
+  onSubmit: (message: string) => void;
+}) {
+  const [message, setMessage] = useState("");
+  const isNewAccount = target.moderationKind === "NEW_ACCOUNT";
+  const title = isNewAccount ? "Отклонить регистрацию инструктора" : "Отклонить изменения анкеты";
+
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, []);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !pending) onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose, pending]);
+
+  return (
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="reject-modal-title"
+      onClick={() => {
+        if (!pending) onClose();
+      }}
+    >
+      <div
+        className="w-full max-w-lg rounded-lg border border-border bg-background p-5 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 id="reject-modal-title" className="text-lg font-semibold">
+          {title}
+        </h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {target.name ?? "—"} · {target.email}
+        </p>
+        <p className="mt-2 text-sm text-foreground">
+          Напишите инструктору, что нужно исправить. Без комментария отклонить нельзя.
+        </p>
+        <div className="mt-4 space-y-1.5">
+          <Label htmlFor="reject-message-modal" className="text-sm">
+            Ответ инструктору <span className="text-destructive">*</span>
+          </Label>
+          <textarea
+            id="reject-message-modal"
+            autoFocus
+            className="min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            placeholder={
+              isNewAccount
+                ? "Например: укажите действующую сертификацию и корректное описание опыта…"
+                : "Например: уберите контакты и рекламу из достижений, укажите реальные длительности занятий…"
+            }
+            maxLength={2000}
+          />
+          <p className="text-xs text-muted-foreground">Минимум 3 символа</p>
+        </div>
+        <div className="mt-4 flex flex-wrap justify-end gap-2">
+          <Button type="button" variant="outline" disabled={pending} onClick={onClose}>
+            Закрыть
+          </Button>
+          <Button
+            type="button"
+            variant="destructive"
+            disabled={pending || message.trim().length < 3}
+            onClick={() => onSubmit(message.trim())}
+          >
+            Отправить отказ
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ProfileDraftChangesSummary({ changes }: { changes: ProfileChange[] }) {
+  if (!changes.length) return null;
+  const first = changes.slice(0, 4).map((c) => c.label);
+  const hidden = Math.max(0, changes.length - first.length);
+  return (
+    <p className="mt-1 text-xs text-foreground">
+      <span className="font-medium">Изменено:</span> {first.join(", ")}
+      {hidden > 0 ? ` и ещё ${hidden}` : ""}.
+    </p>
+  );
+}
 
 export function AdminModerationSection({ data }: { data: AdminOverview }) {
   const verify = useAdminVerifyInstructorMutation();
+  const profileReview = useAdminProfileReviewMutation();
+  const [rejectTarget, setRejectTarget] = useState<RejectTarget | null>(null);
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Модерация сертификатов</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {data.pendingList.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Очередь пуста</p>
-        ) : (
-          <ul className="space-y-3">
-            {data.pendingList.map((p) => (
-              <li
-                key={p.userId}
-                className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border p-3"
-              >
-                <div>
-                  <div className="font-medium">{p.name ?? "—"}</div>
-                  <div className="text-xs text-muted-foreground">{p.email}</div>
-                  <div className="text-xs">{p.certificationLevel}</div>
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="accent"
-                    disabled={verify.isPending}
-                    onClick={() => verify.mutate({ userId: p.userId, status: "APPROVED" })}
-                  >
-                    Одобрить
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    disabled={verify.isPending}
-                    onClick={() => verify.mutate({ userId: p.userId, status: "REJECTED" })}
-                  >
-                    Отклонить
-                  </Button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </CardContent>
-    </Card>
+    <>
+      <Card>
+        <CardHeader>
+          <CardTitle>Модерация анкет инструкторов</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            В очереди: {data.pendingList.length}
+            {data.pendingInstructors > data.pendingList.length
+              ? ` (показаны первые ${data.pendingList.length} из ${data.pendingInstructors})`
+              : null}
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {data.pendingList.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Очередь пуста</p>
+          ) : (
+            <ul className="space-y-3">
+              {data.pendingList.map((p) => (
+                <li
+                  key={`${p.userId}-${p.moderationKind}`}
+                  className="flex flex-col gap-3 rounded-lg border border-border p-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="font-medium">{p.name ?? "—"}</div>
+                    <div className="text-xs text-muted-foreground">{p.email}</div>
+                    <p className="text-xs text-muted-foreground">
+                      {p.moderationKind === "NEW_ACCOUNT"
+                        ? "Новая регистрация — первая проверка"
+                        : "Изменения опубликованной анкеты"}
+                      {p.profileDraftSubmittedAt
+                        ? ` · ${new Date(p.profileDraftSubmittedAt).toLocaleString("ru-RU")}`
+                        : null}
+                    </p>
+                    <div className="text-xs">{p.certificationLevel}</div>
+                    {p.moderationKind === "PROFILE_UPDATE" ? (
+                      <ProfileDraftChangesSummary changes={p.profileChanges ?? []} />
+                    ) : null}
+                    {p.moderationKind === "PROFILE_UPDATE" && p.profileChanges?.length ? (
+                      <ProfileDraftChangesList changes={p.profileChanges} />
+                    ) : p.moderationKind === "PROFILE_UPDATE" ? (
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        Список изменений пуст (черновик совпадает с опубликованной анкетой).
+                      </p>
+                    ) : null}
+                  </div>
+                  <div className="flex shrink-0 flex-wrap gap-2">
+                    {p.moderationKind === "NEW_ACCOUNT" ? (
+                      <>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="accent"
+                          disabled={verify.isPending || Boolean(rejectTarget)}
+                          onClick={() => verify.mutate({ userId: p.userId, status: "APPROVED" })}
+                        >
+                          Одобрить инструктора
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          disabled={verify.isPending || Boolean(rejectTarget)}
+                          onClick={() =>
+                            setRejectTarget({
+                              userId: p.userId,
+                              moderationKind: p.moderationKind,
+                              name: p.name,
+                              email: p.email,
+                            })
+                          }
+                        >
+                          Отклонить…
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="accent"
+                          disabled={profileReview.isPending || Boolean(rejectTarget)}
+                          onClick={() => profileReview.mutate({ userId: p.userId, action: "approve" })}
+                        >
+                          Опубликовать изменения
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          disabled={profileReview.isPending || Boolean(rejectTarget)}
+                          onClick={() =>
+                            setRejectTarget({
+                              userId: p.userId,
+                              moderationKind: p.moderationKind,
+                              name: p.name,
+                              email: p.email,
+                            })
+                          }
+                        >
+                          Отклонить изменения…
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
+
+      {rejectTarget ? (
+        <ModerationRejectModal
+          target={rejectTarget}
+          pending={verify.isPending || profileReview.isPending}
+          onClose={() => setRejectTarget(null)}
+          onSubmit={(rejectMessage) => {
+            if (rejectTarget.moderationKind === "NEW_ACCOUNT") {
+              verify.mutate(
+                { userId: rejectTarget.userId, status: "REJECTED", rejectMessage },
+                { onSuccess: () => setRejectTarget(null) },
+              );
+              return;
+            }
+            profileReview.mutate(
+              { userId: rejectTarget.userId, action: "reject", rejectMessage },
+              { onSuccess: () => setRejectTarget(null) },
+            );
+          }}
+        />
+      ) : null}
+    </>
   );
 }

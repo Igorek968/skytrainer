@@ -1,5 +1,10 @@
 import { Prisma } from "@prisma/client";
 
+import {
+  parseDisciplineFromOrderNotes,
+  parseSpecializationOffers,
+  resolveHourlyRateForDiscipline,
+} from "@/lib/instructor-specialization-offers";
 import { prisma } from "@/lib/prisma";
 import { computeTotals } from "@/lib/pricing";
 import {
@@ -15,6 +20,25 @@ import { lessonTimeWindowLineFromNotes } from "@/shared/lib/order-lesson-times";
 function orderMoneyDecimal(value: number): Prisma.Decimal {
   const safe = Number.isFinite(value) && value >= 0 ? value : 0;
   return new Prisma.Decimal(safe.toFixed(2));
+}
+
+function hourlyRateForOrder(
+  profile: {
+    hourlyRate: unknown;
+    specializationOffers: unknown;
+    specializations: string[];
+  },
+  order: { disciplineLabel: string | null; notes: string | null },
+): number {
+  const fallback = Number(profile.hourlyRate);
+  const offers = parseSpecializationOffers(
+    profile.specializationOffers,
+    fallback,
+    profile.specializations,
+  );
+  const discipline =
+    order.disciplineLabel ?? parseDisciplineFromOrderNotes(order.notes);
+  return resolveHourlyRateForDiscipline(offers, discipline, fallback);
 }
 
 const RADIUS_KM = 5;
@@ -180,8 +204,8 @@ export async function assignInstructorByQueue(orderId: string, reason: "initial"
 
       if (!instr?.instructorProfile) continue;
 
-      const hourlyRate = Number(instr.instructorProfile.hourlyRate);
-      if (!Number.isFinite(hourlyRate) || hourlyRate < 0) continue;
+      const hourlyRate = hourlyRateForOrder(instr.instructorProfile, order);
+      if (!Number.isFinite(hourlyRate) || hourlyRate < 500) continue;
 
       const totals = computeTotals({
         hourlyRate,
@@ -262,7 +286,12 @@ export async function prepareInstructorQueue(orderId: string): Promise<PrepareQu
 
   const profile = await prisma.instructorProfile.findUnique({
     where: { userId: chosenId },
-    select: { hourlyRate: true, verificationStatus: true },
+    select: {
+      hourlyRate: true,
+      verificationStatus: true,
+      specializationOffers: true,
+      specializations: true,
+    },
   });
   if (!profile || profile.verificationStatus !== "APPROVED") {
     return { ok: false, reason: "NO_PROFILE" };
@@ -299,8 +328,8 @@ export async function prepareInstructorQueue(orderId: string): Promise<PrepareQu
     return { ok: false, reason: "NO_QUEUE" };
   }
 
-  const hourlyRate = Number(profile.hourlyRate);
-  if (!Number.isFinite(hourlyRate) || hourlyRate < 0) {
+  const hourlyRate = hourlyRateForOrder(profile, order);
+  if (!Number.isFinite(hourlyRate) || hourlyRate < 500) {
     return { ok: false, reason: "NO_PROFILE" };
   }
 

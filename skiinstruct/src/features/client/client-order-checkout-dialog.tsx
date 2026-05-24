@@ -2,11 +2,13 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { getSession, useSession } from "next-auth/react";
+import { getSession, signOut, useSession } from "next-auth/react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { signInClientSessionAction } from "@/app/actions/client-order-sign-in";
+import { CLIENT_BOOKING_RETURN_PATH } from "@/lib/client-pending-checkout";
+import { LEGAL_ROUTES } from "@/lib/legal";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
@@ -25,7 +27,7 @@ type Props = {
   onCreateOrder: () => Promise<string | null>;
 };
 
-type Step = "legal" | "account" | "pay" | "busy";
+type Step = "legal" | "account" | "pay" | "wrongRole" | "busy";
 
 export function ClientOrderCheckoutDialog({ open, onOpenChange, instructor, onCreateOrder }: Props) {
   const router = useRouter();
@@ -40,7 +42,10 @@ export function ClientOrderCheckoutDialog({ open, onOpenChange, instructor, onCr
   const [name, setName] = useState("");
 
   const legalOk = acceptOferta && acceptPd;
+  const sessionRole = session?.user?.role;
   const loggedIn = sessionStatus === "authenticated" && Boolean(session?.user);
+  const loggedInAsClient = loggedIn && sessionRole === "CLIENT";
+  const loggedInWrongRole = loggedIn && sessionRole !== "CLIENT";
 
   useEffect(() => {
     if (!open) return;
@@ -68,7 +73,8 @@ export function ClientOrderCheckoutDialog({ open, onOpenChange, instructor, onCr
       toast.error("Подтвердите согласие с офертой и обработкой персональных данных");
       return;
     }
-    if (loggedIn) setStep("pay");
+    if (loggedInWrongRole) setStep("wrongRole");
+    else if (loggedInAsClient) setStep("pay");
     else setStep("account");
   }
 
@@ -123,9 +129,13 @@ export function ClientOrderCheckoutDialog({ open, onOpenChange, instructor, onCr
       toast.error("Подтвердите согласия");
       return;
     }
-    if (!loggedIn) {
+    if (loggedInWrongRole) {
+      setStep("wrongRole");
+      return;
+    }
+    if (!loggedInAsClient) {
       setStep("account");
-      toast.error("Войдите или зарегистрируйтесь");
+      toast.error("Войдите или зарегистрируйтесь как клиент");
       return;
     }
     setStep("busy");
@@ -198,16 +208,23 @@ export function ClientOrderCheckoutDialog({ open, onOpenChange, instructor, onCr
               />
               <span>
                 Принимаю{" "}
-                <Link className="text-accent underline" href="/oferta" target="_blank">
+                <Link className="text-accent underline" href={LEGAL_ROUTES.oferta} target="_blank">
                   публичную оферту
-                </Link>{" "}
-                и условия сервиса
+                </Link>
+                ,{" "}
+                <Link className="text-accent underline" href={LEGAL_ROUTES.returns} target="_blank">
+                  возвраты и отмену
+                </Link>
               </span>
             </label>
             <label className="flex cursor-pointer gap-2 text-sm">
               <input type="checkbox" className="mt-1" checked={acceptPd} onChange={(e) => setAcceptPd(e.target.checked)} />
               <span>
-                Согласен(на) на обработку персональных данных для оформления заказа, оплаты и связи с инструктором
+                Согласен(на) на{" "}
+                <Link className="text-accent underline" href={LEGAL_ROUTES.privacy} target="_blank">
+                  обработку персональных данных
+                </Link>{" "}
+                для оформления заказа, оплаты и связи с инструктором
               </span>
             </label>
             <div className="flex justify-end gap-2 pt-2">
@@ -240,6 +257,17 @@ export function ClientOrderCheckoutDialog({ open, onOpenChange, instructor, onCr
                 Вход
               </button>
             </div>
+            <p className="text-xs text-muted-foreground">
+              Или{" "}
+              <Link
+                className="text-accent underline"
+                href={`/login?callbackUrl=${encodeURIComponent(CLIENT_BOOKING_RETURN_PATH)}`}
+                onClick={() => onOpenChange(false)}
+              >
+                войти на отдельной странице
+              </Link>
+              {" — после входа вернёт на заказ."}
+            </p>
             {authMode === "register" ? (
               <div className="space-y-2">
                 <Label htmlFor="co-name">Имя</Label>
@@ -283,6 +311,18 @@ export function ClientOrderCheckoutDialog({ open, onOpenChange, instructor, onCr
                 />
               </div>
             ) : null}
+            {authMode === "register" ? (
+              <p className="text-xs text-muted-foreground">
+                Уже есть аккаунт?{" "}
+                <Link
+                  className="text-accent underline"
+                  href={`/register?callbackUrl=${encodeURIComponent(CLIENT_BOOKING_RETURN_PATH)}`}
+                  onClick={() => onOpenChange(false)}
+                >
+                  Регистрация на отдельной странице
+                </Link>
+              </p>
+            ) : null}
             <div className="flex justify-between gap-2 pt-2">
               <Button type="button" variant="outline" onClick={() => setStep("legal")}>
                 Назад
@@ -294,9 +334,39 @@ export function ClientOrderCheckoutDialog({ open, onOpenChange, instructor, onCr
           </form>
         ) : null}
 
+        {step === "wrongRole" ? (
+          <div className="mt-4 space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Сейчас вы вошли как{" "}
+              <span className="font-medium text-foreground">
+                {sessionRole === "INSTRUCTOR"
+                  ? "инструктор"
+                  : sessionRole === "ADMIN"
+                    ? "администратор"
+                    : "другой тип аккаунта"}
+              </span>
+              . Чтобы оформить занятие и оплатить, нужен аккаунт <strong>клиента</strong>.
+            </p>
+            <div className="flex flex-wrap justify-between gap-2">
+              <Button type="button" variant="outline" onClick={() => setStep("legal")}>
+                Назад
+              </Button>
+              <Button
+                type="button"
+                variant="accent"
+                onClick={() =>
+                  void signOut({ callbackUrl: CLIENT_BOOKING_RETURN_PATH })
+                }
+              >
+                Выйти и войти как клиент
+              </Button>
+            </div>
+          </div>
+        ) : null}
+
         {step === "pay" ? (
           <div className="mt-4 space-y-4">
-            {loggedIn ? (
+            {loggedInAsClient ? (
               <p className="text-sm text-muted-foreground">
                 Вы вошли как <span className="font-medium text-foreground">{session?.user?.email ?? "клиент"}</span>
               </p>
@@ -310,7 +380,11 @@ export function ClientOrderCheckoutDialog({ open, onOpenChange, instructor, onCr
               {estimatedTotal ? <p className="mt-2 text-xs">{estimatedTotal}</p> : null}
             </div>
             <div className="flex justify-between gap-2">
-              <Button type="button" variant="outline" onClick={() => (loggedIn ? setStep("legal") : setStep("account"))}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => (loggedInAsClient ? setStep("legal") : setStep("account"))}
+              >
                 Назад
               </Button>
               <Button type="button" variant="accent" onClick={() => void payAndSend()}>

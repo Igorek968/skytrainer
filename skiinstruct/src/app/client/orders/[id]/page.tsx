@@ -3,13 +3,24 @@
 import { type UseMutationResult, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { OrderChat } from "@/features/chat/order-chat";
+import { CancelOrderButton, ClaimLateRefundButton } from "@/features/orders/cancel-order-button";
+import { OrderEventsFeed } from "@/features/orders/order-events-feed";
+import { INSTRUCTOR_LATE_GRACE_MINUTES } from "@/lib/legal-config";
+import { devPollInterval } from "@/lib/query-poll";
 import { NearbyMapLazy } from "@/features/map/map-loader";
 import { orderRelaxedInstructorTiming } from "@/shared/lib/order-flex";
 import { hasLessonTimeWindowInNotes, lessonTimeWindowLineFromNotes } from "@/shared/lib/order-lesson-times";
+import { useCountdownToDeadline } from "@/shared/hooks/use-countdown-to-deadline";
+import {
+  extractInstructorEtaMinutes,
+  formatArrivalCountdownRu,
+  formatCountdownMmSs,
+  resolveInstructorArrivalDeadlineMs,
+} from "@/shared/lib/order-instructor-eta";
 import { clientCanRemoveOrderFromHistory, orderStatusLabel } from "@/shared/lib/order-status";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
@@ -68,21 +79,6 @@ function formatDateTimeRu(raw: string | Date | null | undefined): string {
   return d.toLocaleString("ru-RU");
 }
 
-function extractInstructorEtaMinutes(notes: string | null | undefined): number | null {
-  if (!notes) return null;
-  const lines = notes
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean);
-  const etaLine = [...lines].reverse().find((line) => line.startsWith("ETA инструктора:"));
-  if (!etaLine) return null;
-  const match = etaLine.match(/(\d{1,3})\s*мин/i);
-  if (!match) return null;
-  const minutes = Number(match[1]);
-  if (!Number.isFinite(minutes) || minutes < 1) return null;
-  return Math.round(minutes);
-}
-
 function ClientOrderDetailContent({
   id,
   data,
@@ -93,29 +89,32 @@ function ClientOrderDetailContent({
   mutations: DetailMutations;
 }) {
   const { patch, removeFromHistory, payStripe } = mutations;
+  const queryClient = useQueryClient();
   const o = data.order;
   const routingQueue = data.routingQueue;
   const statusEarly = o?.status as OrderStatus | undefined;
 
   const [rating, setRating] = useState(5);
   const [review, setReview] = useState("");
-  const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
-
   const pendingExpiresMs = parsePendingExpiresMs(o?.pendingExpiresAt);
+  const pendingCountdownEnabled = statusEarly === "PENDING_INSTRUCTOR" && pendingExpiresMs != null;
+  const secondsLeft = useCountdownToDeadline(pendingExpiresMs, pendingCountdownEnabled);
 
-  useEffect(() => {
-    if (statusEarly !== "PENDING_INSTRUCTOR" || pendingExpiresMs == null) {
-      setSecondsLeft(null);
-      return;
-    }
-    const tick = () => {
-      const left = Math.max(0, Math.ceil((pendingExpiresMs - Date.now()) / 1000));
-      setSecondsLeft(left);
-    };
-    tick();
-    const timerId = window.setInterval(tick, 1000);
-    return () => window.clearInterval(timerId);
-  }, [statusEarly, pendingExpiresMs]);
+  const arrivalDeadlineMs = useMemo(
+    () =>
+      resolveInstructorArrivalDeadlineMs({
+        instructorEtaAt: o?.instructorEtaAt,
+        acceptedAt: o?.acceptedAt,
+        notes: o?.notes,
+      }),
+    [o?.instructorEtaAt, o?.acceptedAt, o?.notes],
+  );
+  const arrivalCountdownEnabled =
+    arrivalDeadlineMs != null &&
+    (statusEarly === "ACCEPTED" ||
+      statusEarly === "INSTRUCTOR_EN_ROUTE" ||
+      statusEarly === "LESSON_STARTED");
+  const arrivalSecondsLeft = useCountdownToDeadline(arrivalDeadlineMs, arrivalCountdownEnabled);
 
   if (!o) {
     return <p className="text-destructive">Заказ не найден или данные не загрузились.</p>;
@@ -131,6 +130,16 @@ function ClientOrderDetailContent({
     o.instructor?.instructorProfile?.specializations?.[0] ??
     "Не указано";
   const instructorEtaMinutes = extractInstructorEtaMinutes(o.notes);
+
+  const lateRefundEligible =
+    o.paymentStatus === "PAID" &&
+    !o.lateRefundClaimedAt &&
+    !o.lessonStartedAt &&
+    (status === "ACCEPTED" || status === "INSTRUCTOR_EN_ROUTE") &&
+    arrivalDeadlineMs != null &&
+    Date.now() >= arrivalDeadlineMs + INSTRUCTOR_LATE_GRACE_MINUTES * 60_000;
+
+  const refreshOrder = () => void queryClient.invalidateQueries({ queryKey: ["order", id] });
 
   const instrPos =
     o.instructor?.instructorProfile?.lat != null &&
@@ -207,16 +216,36 @@ function ClientOrderDetailContent({
         </Card>
       ) : null}
 
-      {instructorEtaMinutes != null &&
+      {arrivalDeadlineMs != null &&
       (status === "ACCEPTED" || status === "INSTRUCTOR_EN_ROUTE" || status === "LESSON_STARTED") ? (
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Ожидаемое прибытие инструктора</CardTitle>
           </CardHeader>
-          <CardContent className="text-sm">
-            <div className="inline-flex items-center rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 font-medium text-emerald-800 dark:text-emerald-200">
-              Инструктор сообщил: примерно через {instructorEtaMinutes} мин.
-            </div>
+          <CardContent className="space-y-2 text-sm">
+            {arrivalSecondsLeft != null ? (
+              <>
+                <p className="text-muted-foreground">
+                  Инструктор указал ETA ~{instructorEtaMinutes ?? "—"} мин. До встречи осталось:
+                </p>
+                <div
+                  className="font-mono text-4xl font-semibold tabular-nums tracking-tight text-emerald-700 dark:text-emerald-300"
+                  aria-live="polite"
+                  aria-atomic="true"
+                  data-eta-countdown="live"
+                >
+                  {formatCountdownMmSs(arrivalSecondsLeft)}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  ({formatArrivalCountdownRu(arrivalSecondsLeft)})
+                  {arrivalSecondsLeft === 0
+                    ? " · ожидаем инструктора у точки встречи — напишите в чат, если задержка"
+                    : null}
+                </p>
+              </>
+            ) : (
+              <p className="text-muted-foreground">Загрузка таймера…</p>
+            )}
           </CardContent>
         </Card>
       ) : null}
@@ -256,7 +285,8 @@ function ClientOrderDetailContent({
             )}
             {!relaxedTiming && pendingExpiresMs != null ? (
               <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 font-medium text-amber-800 dark:text-amber-200">
-                Ожидание ответа текущего инструктора: {secondsLeft ?? 0} сек
+                Ожидание ответа текущего инструктора:{" "}
+                <span className="font-mono tabular-nums">{formatCountdownMmSs(secondsLeft ?? 0)}</span>
               </div>
             ) : null}
             <div>
@@ -313,7 +343,8 @@ function ClientOrderDetailContent({
             )}
             {!relaxedTiming && pendingExpiresMs != null ? (
               <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 font-medium text-amber-800 dark:text-amber-200">
-                Осталось: {secondsLeft ?? 0} сек
+                Осталось:{" "}
+                <span className="font-mono tabular-nums">{formatCountdownMmSs(secondsLeft ?? 0)}</span>
               </div>
             ) : null}
           </CardContent>
@@ -381,15 +412,32 @@ function ClientOrderDetailContent({
               <div>Завершение занятия: {formatDateTimeRu(o.lessonEndedAt)}</div>
             </div>
           ) : null}
-          {o.instructorRating != null ? (
-            <div className="rounded-md border border-border bg-muted/30 p-2">
-              <div className="font-medium">Отзыв инструктора о клиенте</div>
-              <div>Оценка: {o.instructorRating}/5</div>
-              <div className="text-muted-foreground">{o.instructorReview || "Без текста"}</div>
-            </div>
-          ) : null}
         </CardContent>
       </Card>
+
+      {o.instructorId &&
+      status !== "PENDING_INSTRUCTOR" &&
+      status !== "AWAITING_PAYMENT" &&
+      status !== "CANCELLED" ? (
+        <div className="grid gap-4 md:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Отзыв инструктора о вас</CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm">
+              {o.instructorRating != null ? (
+                <>
+                  <div>Оценка: {o.instructorRating}/5</div>
+                  <p className="mt-1 text-muted-foreground">{o.instructorReview || "Без текста"}</p>
+                </>
+              ) : (
+                <p className="text-muted-foreground">Пока нет отзыва от инструктора.</p>
+              )}
+            </CardContent>
+          </Card>
+          <OrderEventsFeed orderId={id} instructorName={o.instructor?.name} />
+        </div>
+      ) : null}
 
       <div className="flex flex-wrap gap-2">
         {(status === "DRAFT" ||
@@ -397,20 +445,12 @@ function ClientOrderDetailContent({
           status === "PENDING_INSTRUCTOR" ||
           status === "ACCEPTED" ||
           status === "INSTRUCTOR_EN_ROUTE") && (
-          <Button
-            variant="destructive"
-            type="button"
-            disabled={patch.isPending}
-            onClick={() =>
-              patch.mutate(
-                { action: "cancel" },
-                { onError: () => toast.error("Не удалось отменить") }
-              )
-            }
-          >
-            Отменить
-          </Button>
+          <CancelOrderButton orderId={id} disabled={patch.isPending} onCancelled={refreshOrder} />
         )}
+
+        {lateRefundEligible ? (
+          <ClaimLateRefundButton orderId={id} disabled={patch.isPending} onDone={refreshOrder} />
+        ) : null}
 
         {clientCanRemoveOrderFromHistory(status) ? (
           <Button
@@ -535,7 +575,7 @@ export default function ClientOrderPage() {
       if (!r.ok) throw new Error("order");
       return r.json() as Promise<OrderPayload>;
     },
-    refetchInterval: 5000,
+    refetchInterval: devPollInterval(5000),
   });
 
   const removeFromHistory = useMutation({

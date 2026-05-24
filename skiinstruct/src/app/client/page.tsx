@@ -10,14 +10,23 @@ import { ChevronDown, Star, Award, ShieldCheck, CalendarDays, Languages } from "
 
 import { PersonalDataDialog } from "@/features/client/personal-data-dialog";
 import { ClientOrderCheckoutDialog } from "@/features/client/client-order-checkout-dialog";
+import { ClientEventsFeed } from "@/features/orders/client-events-feed";
 import { NearbyMapLazy } from "@/features/map/map-loader";
+import { consumeOpenPersonalDataFlag } from "@/lib/client-personal-data-storage";
 import { useGeolocationMeetInit, useMeetPoint } from "@/features/map/use-client-meet-point";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
 import { Skeleton } from "@/shared/ui/skeleton";
+import {
+  CLIENT_BOOKING_RETURN_PATH,
+  clearPendingCheckout,
+  readPendingCheckout,
+  savePendingCheckout,
+} from "@/lib/client-pending-checkout";
 import { INSTRUCTOR_ACTIVITY_LABELS, isSyntheticInstructorBioLine } from "@/lib/services/instructor-match";
+import { SectionErrorBoundary } from "@/shared/ui/section-error-boundary";
 
 /** В Docker dev отключите опрос через NEXT_PUBLIC_DISABLE_NEARBY_POLL=1 (см. docker-compose.yml). */
 const disableNearbyPoll = process.env.NEXT_PUBLIC_DISABLE_NEARBY_POLL === "1";
@@ -31,6 +40,7 @@ type NearbyResponse = {
     age?: number | null;
     isOnline?: boolean;
     hourlyRate: number;
+    lessonsForDiscipline?: number | null;
     ratingAvg: number;
     reviewCount: number;
     languages: string[];
@@ -64,9 +74,6 @@ type InstructorProfileResponse = {
       cancellationPolicy: string | null;
       supportContact: string | null;
       legalInfo: string | null;
-      telegramUrl: string | null;
-      whatsappUrl: string | null;
-      instagramUrl: string | null;
       videoVisitUrl: string | null;
       hourlyRate: number;
       ratingAvg: number;
@@ -88,6 +95,17 @@ type InstructorProfileResponse = {
 };
 
 const DAY_LABELS = ["Вс", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"];
+
+const CLIENT_SECTION_IDS = {
+  quickSearch: "client-quick-search",
+  nearbyInstructors: "client-nearby-instructors",
+  instructorReviews: "client-instructor-reviews",
+  events: "client-events",
+} as const;
+
+function scrollToClientSection(id: string) {
+  document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
 function firstNonEmptyGalleryUrl(urls: string[] | undefined | null): string | null {
   const hit = urls?.find((u) => typeof u === "string" && u.trim().length > 0);
   return hit?.trim() ?? null;
@@ -173,7 +191,7 @@ function InstructorSearchExpandedBody({
           <span className="text-muted-foreground">Стаж (лет) · </span>
           {p.experienceYears ?? "—"}
           <span className="mx-1.5 text-muted-foreground">·</span>
-          <span className="text-muted-foreground">Проведено занятий · </span>
+          <span className="text-muted-foreground">Занятий по направлению · </span>
           {p.totalLessons ?? "—"}
         </p>
         <p className="mt-1 text-[11px] text-muted-foreground">
@@ -343,36 +361,14 @@ function InstructorSearchExpandedBody({
         Выбрать инструктора для заказа
       </Button>
 
-      <div className="space-y-1 text-xs">
-        <p className="font-medium">Контакты и соцсети</p>
-        <div className="flex flex-wrap gap-2 text-muted-foreground">
-          {![p.telegramUrl, p.whatsappUrl, p.instagramUrl, p.videoVisitUrl].some((u) =>
-            Boolean(u?.trim())
-          ) ? (
-            <span>Не указано</span>
-          ) : null}
-          {p.telegramUrl ? (
-            <Link href={p.telegramUrl} target="_blank" rel="noreferrer" className="underline">
-              Telegram
-            </Link>
-          ) : null}
-          {p.whatsappUrl ? (
-            <Link href={p.whatsappUrl} target="_blank" rel="noreferrer" className="underline">
-              WhatsApp
-            </Link>
-          ) : null}
-          {p.instagramUrl ? (
-            <Link href={p.instagramUrl} target="_blank" rel="noreferrer" className="underline">
-              Instagram
-            </Link>
-          ) : null}
-          {p.videoVisitUrl ? (
-            <Link href={p.videoVisitUrl} target="_blank" rel="noreferrer" className="underline">
-              Видео-визитка
-            </Link>
-          ) : null}
+      {p.videoVisitUrl?.trim() ? (
+        <div className="space-y-1 text-xs">
+          <p className="font-medium">Видео-визитка</p>
+          <Link href={p.videoVisitUrl} target="_blank" rel="noreferrer" className="text-muted-foreground underline">
+            Смотреть
+          </Link>
         </div>
-      </div>
+      ) : null}
 
       <div className="rounded-md border border-border bg-muted/30 p-2 text-xs text-muted-foreground">
         <p>Политика отмены: {p.cancellationPolicy?.trim() || "Не указано"}</p>
@@ -383,20 +379,41 @@ function InstructorSearchExpandedBody({
   );
 }
 
-/** Открывает то же окно «Личные данные», что раньше вызывало кнопку на странице (параметр из шапки). */
-function OpenPersonalDataFromQuery({
-  setPersonalOpen,
+/** После входа с /login?checkout=1 — снова открыть оформление с сохранённым инструктором. */
+function ResumeCheckoutFromQuery({
+  data,
+  setSelectedId,
+  setCheckoutInstructor,
+  setCheckoutOpen,
 }: {
-  setPersonalOpen: Dispatch<SetStateAction<boolean>>;
+  data: NearbyResponse | undefined;
+  setSelectedId: Dispatch<SetStateAction<string | null>>;
+  setCheckoutInstructor: Dispatch<
+    SetStateAction<{ id: string; name: string | null; hourlyRate: number } | null>
+  >;
+  setCheckoutOpen: Dispatch<SetStateAction<boolean>>;
 }) {
   const searchParams = useSearchParams();
   const router = useRouter();
 
   useEffect(() => {
-    if (searchParams.get("personal") !== "1") return;
-    setPersonalOpen(true);
+    if (searchParams.get("checkout") !== "1") return;
+    const pending = readPendingCheckout();
+    if (!pending) {
+      router.replace("/client", { scroll: false });
+      return;
+    }
+    setSelectedId(pending.instructorId);
+    const row = data?.instructors.find((i) => i.id === pending.instructorId);
+    setCheckoutInstructor({
+      id: pending.instructorId,
+      name: row?.name ?? pending.instructorName,
+      hourlyRate: row?.hourlyRate ?? pending.hourlyRate,
+    });
+    setCheckoutOpen(true);
+    clearPendingCheckout();
     router.replace("/client", { scroll: false });
-  }, [searchParams, router, setPersonalOpen]);
+  }, [searchParams, router, data, setSelectedId, setCheckoutInstructor, setCheckoutOpen]);
 
   return null;
 }
@@ -439,6 +456,13 @@ export default function ClientHomePage() {
   const [personalOpen, setPersonalOpen] = useState(false);
   /** Запись на дату: в списке — и офлайн; после оплаты у инструктора нет таймера 60 с. */
   const [flexibleOfflineBooking, setFlexibleOfflineBooking] = useState(false);
+
+  useEffect(() => {
+    if (consumeOpenPersonalDataFlag()) setPersonalOpen(true);
+    const onOpenPersonal = () => setPersonalOpen(true);
+    window.addEventListener("skiinstruct:open-personal", onOpenPersonal);
+    return () => window.removeEventListener("skiinstruct:open-personal", onOpenPersonal);
+  }, []);
 
   const lessonDays = useMemo(() => {
     const start = new Date(`${lessonDate}T00:00:00`);
@@ -518,10 +542,14 @@ export default function ClientHomePage() {
     isLoading: isExpandedProfileLoading,
     isError: isExpandedProfileError,
   } = useQuery({
-    queryKey: ["instructor-profile", expandedId],
+    queryKey: ["instructor-profile", expandedId, specializationPref],
     enabled: Boolean(expandedId),
     queryFn: async () => {
-      const r = await fetch(`/api/instructors/${expandedId}`, { cache: "no-store" });
+      const disciplineQ = encodeURIComponent(specializationPref);
+      const r = await fetch(
+        `/api/instructors/${expandedId}?discipline=${disciplineQ}`,
+        { cache: "no-store" },
+      );
       if (!r.ok) throw new Error("profile");
       return r.json() as Promise<InstructorProfileResponse>;
     },
@@ -544,6 +572,7 @@ export default function ClientHomePage() {
       languagePref,
       duration,
       notes: mergedNotes || undefined,
+      disciplineLabel: specializationPref,
       lessonDate,
       lessonEndDate,
       lessonDays,
@@ -627,65 +656,123 @@ export default function ClientHomePage() {
     const row = data?.instructors.find((i) => i.id === targetInstructorId);
     const rate = row?.hourlyRate ?? expandedProfile?.instructor.profile.hourlyRate;
     const rateNum = typeof rate === "number" ? rate : Number(rate);
-    setCheckoutInstructor({
+    const summary = {
       id: targetInstructorId,
       name: row?.name ?? expandedProfile?.instructor.name ?? null,
       hourlyRate: Number.isFinite(rateNum) ? rateNum : 0,
+    };
+    savePendingCheckout({
+      instructorId: summary.id,
+      instructorName: summary.name,
+      hourlyRate: summary.hourlyRate,
     });
+    setCheckoutInstructor(summary);
     setCheckoutOpen(true);
   }
+
+  const loginHref = `/login?callbackUrl=${encodeURIComponent(CLIENT_BOOKING_RETURN_PATH)}`;
 
   return (
     <div className="space-y-6">
       <Suspense fallback={null}>
-        <OpenPersonalDataFromQuery setPersonalOpen={setPersonalOpen} />
+        <ResumeCheckoutFromQuery
+          data={data}
+          setSelectedId={setSelectedId}
+          setCheckoutInstructor={setCheckoutInstructor}
+          setCheckoutOpen={setCheckoutOpen}
+        />
       </Suspense>
 
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Найти тренера рядом</h1>
-          <p className="text-sm text-muted-foreground">
-            Без регистрации: отметьте себя на карте, выберите направление и инструктора. После выбора — согласие с
-            офертой, аккаунт и оплата картой, затем заявка уходит инструктору.
-          </p>
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">Найти тренера рядом</h1>
+            <p className="text-sm text-muted-foreground">
+              Без регистрации: отметьте себя на карте, выберите направление и инструктора. После выбора — согласие с
+              офертой, аккаунт и оплата картой, затем заявка уходит инструктору.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {session?.user ? (
+              <Button variant="outline" asChild>
+                <Link href="/client/orders">Мои заказы</Link>
+              </Button>
+            ) : (
+              <Button variant="outline" asChild>
+                <Link href={loginHref}>Войти</Link>
+              </Button>
+            )}
+          </div>
         </div>
-        <div className="flex flex-wrap gap-2">
-          {session?.user ? (
-            <Button variant="outline" asChild>
-              <Link href="/client/orders">Мои заказы</Link>
-            </Button>
-          ) : (
-            <Button variant="outline" asChild>
-              <Link href="/login">Войти</Link>
-            </Button>
-          )}
-        </div>
+        <nav
+          className="grid w-full grid-cols-2 gap-2 sm:grid-cols-4"
+          aria-label="Быстрый переход по разделам"
+        >
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="w-full px-2 text-xs sm:text-sm"
+            onClick={() => scrollToClientSection(CLIENT_SECTION_IDS.quickSearch)}
+          >
+            Быстрый поиск
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="w-full px-2 text-xs sm:text-sm"
+            onClick={() => scrollToClientSection(CLIENT_SECTION_IDS.nearbyInstructors)}
+          >
+            Инструкторы рядом
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="w-full px-2 text-xs sm:text-sm"
+            onClick={() => scrollToClientSection(CLIENT_SECTION_IDS.instructorReviews)}
+          >
+            Отзывы инструкторов
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="w-full px-2 text-xs sm:text-sm"
+            onClick={() => scrollToClientSection(CLIENT_SECTION_IDS.events)}
+          >
+            Мероприятия
+          </Button>
+        </nav>
       </div>
 
-      <NearbyMapLazy
-        interactive
-        center={center}
-        meetLat={meetLat}
-        meetLng={meetLng}
-        radiusKm={5}
-        selectedInstructorId={selectedId}
-        onInstructorSelect={(id) => setSelectedId(id)}
-        instructors={(data?.instructors ?? [])
-          .filter((i) => i.lat != null && i.lng != null)
-          .map((i) => ({
-            id: i.id,
-            name: i.name,
-            lat: i.lat as number,
-            lng: i.lng as number,
-            hourlyRate: i.hourlyRate,
-            ratingAvg: i.ratingAvg,
-            distanceKm: i.distanceKm,
-          }))}
-        onMeetChange={(lat, lng) => setMeet(lat, lng)}
-      />
+      <SectionErrorBoundary title="Карта временно недоступна">
+        <NearbyMapLazy
+          interactive
+          center={center}
+          meetLat={meetLat}
+          meetLng={meetLng}
+          radiusKm={5}
+          selectedInstructorId={selectedId}
+          onInstructorSelect={(id) => setSelectedId(id)}
+          instructors={(data?.instructors ?? [])
+            .filter((i) => i.lat != null && i.lng != null)
+            .map((i) => ({
+              id: i.id,
+              name: i.name,
+              lat: i.lat as number,
+              lng: i.lng as number,
+              hourlyRate: i.hourlyRate,
+              ratingAvg: i.ratingAvg,
+              distanceKm: i.distanceKm,
+            }))}
+          onMeetChange={(lat, lng) => setMeet(lat, lng)}
+        />
+      </SectionErrorBoundary>
 
       <div className="grid gap-4 md:grid-cols-2">
-        <Card>
+        <Card id={CLIENT_SECTION_IDS.quickSearch} className="scroll-mt-24">
           <CardHeader>
             <CardTitle>Быстрый поиск</CardTitle>
             <CardDescription>Минимум полей — карта обновит список инструкторов в радиусе 5 км.</CardDescription>
@@ -844,7 +931,7 @@ export default function ClientHomePage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card id={CLIENT_SECTION_IDS.nearbyInstructors} className="scroll-mt-24">
           <CardHeader className="flex flex-row items-start justify-between gap-3">
             <div>
               <CardTitle>{flexibleOfflineBooking ? "Инструкторы" : "Инструкторы рядом"}</CardTitle>
@@ -883,7 +970,9 @@ export default function ClientHomePage() {
               <p className="text-sm text-destructive">Не удалось загрузить список</p>
             ) : !data?.instructors.length ? (
               <p className="text-sm text-muted-foreground">
-                Нет онлайн‑инструкторов поблизости со свободным временем на выбранный период.
+                Нет подходящих инструкторов: совпадение по направлению, уровню и длительности; для онлайн — в
+                радиусе до ~100 км от точки на карте. Сдвиньте маркер встречи ближе к инструктору или попросите
+                его включить «Онлайн» и геолокацию в кабинете.
               </p>
             ) : (
               <ul className="space-y-2" aria-label="Список инструкторов">
@@ -968,6 +1057,9 @@ export default function ClientHomePage() {
                       </div>
                       <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
                         <span>{i.hourlyRate} ₽/час</span>
+                        {i.lessonsForDiscipline != null ? (
+                          <span>· {i.lessonsForDiscipline} занятий по направлению</span>
+                        ) : null}
                         <span className="inline-flex items-center gap-1">
                           <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
                           {i.ratingAvg.toFixed(1)} ({i.reviewCount})
@@ -1023,28 +1115,36 @@ export default function ClientHomePage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Отзывы инструкторов о вас</CardTitle>
-            <CardDescription>Показываются после завершения обучения.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {!myInstructorReviews?.length ? (
-              <p className="text-sm text-muted-foreground">Пока нет отзывов от инструкторов.</p>
-            ) : (
-              <ul className="space-y-2">
-                {myInstructorReviews.slice(0, 3).map((r) => (
-                  <li key={r.id} className="rounded-md border border-border bg-muted/30 p-2 text-sm">
-                    <p className="font-medium">
-                      ★ {r.instructorRating}/5 · {r.instructor?.name ?? "Инструктор"}
-                    </p>
-                    <p className="text-muted-foreground">{r.instructorReview || "Без текста"}</p>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
+        <div className="grid gap-4 md:col-span-2 md:grid-cols-2">
+          <Card id={CLIENT_SECTION_IDS.instructorReviews} className="scroll-mt-24">
+            <CardHeader>
+              <CardTitle>Отзывы инструкторов о вас</CardTitle>
+              <CardDescription>Показываются после завершения обучения.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {!myInstructorReviews?.length ? (
+                <p className="text-sm text-muted-foreground">Пока нет отзывов от инструкторов.</p>
+              ) : (
+                <ul className="space-y-2">
+                  {myInstructorReviews.slice(0, 3).map((r) => (
+                    <li key={r.id} className="rounded-md border border-border bg-muted/30 p-2 text-sm">
+                      <p className="font-medium">
+                        ★ {r.instructorRating}/5 · {r.instructor?.name ?? "Инструктор"}
+                      </p>
+                      <p className="text-muted-foreground">{r.instructorReview || "Без текста"}</p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
+
+          <div id={CLIENT_SECTION_IDS.events} className="scroll-mt-24">
+            <SectionErrorBoundary title="Мероприятия временно недоступны">
+              <ClientEventsFeed />
+            </SectionErrorBoundary>
+          </div>
+        </div>
       </div>
 
       <PersonalDataDialog open={personalOpen} onOpenChange={setPersonalOpen} />

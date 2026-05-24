@@ -3,10 +3,17 @@ import { z } from "zod";
 
 import { prisma } from "@/lib/prisma";
 import {
+  parseSpecializationOffers,
+  resolveHourlyRateForDiscipline,
+  resolveLessonsForDiscipline,
+} from "@/lib/instructor-specialization-offers";
+import {
   canonicalizeActivityLabels,
+  durationLabelMatches,
   instructorMatchesAvailability,
   normalizeText,
   resolveInstructorListAvatar,
+  skillLevelMatches,
   specializationMatches,
   utcCalendarWeekdaysInclusive,
 } from "@/lib/services/instructor-match";
@@ -55,6 +62,9 @@ const DURATION_TO_LABEL: Record<string, string> = {
   HALF_DAY: "Полдня",
   FULL_DAY: "День",
 };
+
+/** Онлайн-инструкторы: шире радиус (курорт/агломерация); офлайн — radiusKm из запроса. */
+const ONLINE_DISCOVERY_RADIUS_KM = 100;
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
@@ -117,21 +127,17 @@ export async function GET(req: Request) {
         p.availabilitySlots,
         requestedDays,
         includeOffline,
+        p.isOnline,
       );
 
-      const hasSkillLevel =
-        !skillLabel || p.skillLevels.length === 0
-          ? true
-          : p.skillLevels.some((s) => s.trim() === skillLabel);
+      const hasSkillLevel = skillLevelMatches(p.skillLevels, skillLabel);
 
-      const hasDuration =
-        !durationLabel || p.offeredDurations.length === 0
-          ? true
-          : p.offeredDurations.some((d) => d.trim() === durationLabel);
+      const hasDuration = durationLabelMatches(p.offeredDurations, durationLabel);
 
       const hasLanguage =
         languageNeedle.length > 0
-          ? p.languages.some((lang) => normalizeText(lang) === languageNeedle)
+          ? p.languages.length === 0 ||
+            p.languages.some((lang) => normalizeText(lang) === languageNeedle)
           : true;
 
       const hasSpecialization =
@@ -143,6 +149,22 @@ export async function GET(req: Request) {
         userImage: u.image,
       });
 
+      const offers = parseSpecializationOffers(
+        p.specializationOffers,
+        Number(p.hourlyRate),
+        p.specializations,
+      );
+      const displayRate = resolveHourlyRateForDiscipline(
+        offers,
+        specialization ?? null,
+        Number(p.hourlyRate),
+      );
+      const lessonsForDiscipline = resolveLessonsForDiscipline(
+        offers,
+        specialization ?? null,
+        p.totalLessons,
+      );
+
       return {
         id: u.id,
         name: u.name,
@@ -153,7 +175,8 @@ export async function GET(req: Request) {
         ratingAvg: p.ratingAvg,
         reviewCount: p.reviewCount,
         languages: p.languages,
-        hourlyRate: Number(p.hourlyRate),
+        hourlyRate: displayRate,
+        lessonsForDiscipline,
         specializations: canonicalizeActivityLabels(p.specializations),
         lat: pinLat,
         lng: pinLng,
@@ -168,7 +191,9 @@ export async function GET(req: Request) {
     .filter(
       (x): x is NonNullable<typeof x> =>
         x !== null &&
-        (includeOffline || x.distanceKm <= radiusKm) &&
+        (includeOffline ||
+          x.distanceKm <= radiusKm ||
+          (x.isOnline && x.distanceKm <= ONLINE_DISCOVERY_RADIUS_KM)) &&
         x.hasAvailabilityForSelectedDate &&
         x.hasSkillLevel &&
         x.hasDuration &&

@@ -26,6 +26,7 @@ export const createOrderSchema = z
     languagePref: z.string().min(1).max(64),
     duration: z.enum(["ONE_HOUR", "TWO_HOURS", "HALF_DAY", "FULL_DAY"]),
     notes: z.string().max(2000).optional(),
+    disciplineLabel: z.string().trim().min(1).max(80).optional(),
     lessonDate: z
       .string()
       .regex(/^\d{4}-\d{2}-\d{2}$/)
@@ -74,6 +75,8 @@ export const createOrderSchema = z
 
 export const orderActionSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("cancel") }),
+  z.object({ action: z.literal("claim_late_refund") }),
+  z.object({ action: z.literal("preview_cancel_refund") }),
   z.object({
     action: z.literal("accept"),
     etaMinutes: z.number().int().min(1).max(240).optional(),

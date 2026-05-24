@@ -58,6 +58,57 @@ enum InstructorVerificationStatus {
   REJECTED
 }
 
+enum InstructorProfileDraftStatus {
+  NONE
+  PENDING_REVIEW
+}
+
+enum RefundStatus {
+  NONE
+  PENDING
+  COMPLETED
+  FAILED
+  NOT_APPLICABLE
+}
+
+enum OrderCancelledBy {
+  CLIENT
+  INSTRUCTOR
+  PLATFORM
+  SYSTEM
+}
+
+enum ComplianceDocType {
+  TAX_STATUS_NPD
+  TAX_STATUS_IP
+  INSURANCE
+}
+
+enum ComplianceDocStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum InstructorTaxStatus {
+  SELF_EMPLOYED
+  IP
+}
+
+enum InstructorEventModerationStatus {
+  DRAFT
+  PENDING_REVIEW
+  PUBLISHED
+  REJECTED
+  ARCHIVED
+}
+
+enum EventRegistrationStatus {
+  PENDING_PAYMENT
+  PAID
+  CANCELLED
+}
+
 // Auth.js / NextAuth models
 model User {
   id            String    @id @default(cuid())
@@ -85,9 +136,16 @@ model User {
 
   sentMessages Message[] @relation("SentMessages")
 
+  supportTickets SupportTicket[]
+
   pushSubscriptions PushSubscription[]
 
   passwordResetTokens PasswordResetToken[]
+
+  complianceDocuments InstructorComplianceDocument[]
+  instructorEvents      InstructorEvent[]
+  instructorEventTitles InstructorEventTitle[]
+  eventRegistrations    EventRegistration[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -193,13 +251,30 @@ model InstructorProfile {
 
   isOnline           Boolean                      @default(false)
   verificationStatus InstructorVerificationStatus @default(PENDING)
+  /// Черновик анкеты до одобрения администратором (для одобренных инструкторов).
+  profileDraft           Json?
+  profileDraftStatus     InstructorProfileDraftStatus @default(NONE)
+  profileDraftSubmittedAt DateTime?
+  /// Комментарий администратора при отклонении черновика или первичной анкеты.
+  profileDraftRejectNote   String?   @db.Text
+  profileDraftRejectedAt   DateTime?
   specializations    String[]
+  /// Направления с ценой и счётчиком занятий: [{ label, hourlyRate, lessonsCompleted }]
+  specializationOffers Json?
   additionalServices String[] @default([])
   offeredDurations   String[] @default([])
   availabilitySlots  Json?
   cancellationPolicy String? @db.Text
   supportContact     String?
   legalInfo          String?
+
+  /// Акцепт агентской оферты для инструкторов (/oferta-instructor).
+  agencyOfferAcceptedAt DateTime?
+  agencyOfferVersion    String? @default("2026-05-13")
+  taxStatus             InstructorTaxStatus?
+  inn                   String?
+  /// Маскированные реквизиты для выплат (карта/счёт).
+  payoutAccountHint     String?
 
   telegramUrl String?
   whatsappUrl String?
@@ -236,6 +311,8 @@ model Order {
   skillLevel    SkillLevel
   languagePref  String
   duration      LessonDuration
+  /// Каноническое направление из поиска клиента (🎿 Горные лыжи и т.д.)
+  disciplineLabel String?
   notes         String?        @db.Text
   requestedStartDate DateTime?
   requestedEndDate   DateTime?
@@ -251,6 +328,8 @@ model Order {
   pendingExpiresAt DateTime?
 
   acceptedAt      DateTime?
+  /// Момент ожидаемого прибытия инструктора (now + ETA при принятии / обновлении ETA).
+  instructorEtaAt DateTime?
   lessonStartedAt DateTime?
   lessonEndedAt   DateTime?
 
@@ -261,6 +340,18 @@ model Order {
 
   /// После «урок выполнен»: доля инструктора (за вычетом комиссии платформы) считается переданной учётно.
   instructorPayoutReleasedAt DateTime?
+  /// С какого момента доля доступна к выплате (подтверждение + срок из оферты).
+  payoutEligibleAt DateTime?
+
+  cancelledBy     OrderCancelledBy?
+  refundPercent   Int?
+  refundAmount    Decimal? @db.Decimal(10, 2)
+  refundStatus    RefundStatus @default(NONE)
+  refundNote      String? @db.Text
+  lateRefundClaimedAt DateTime?
+
+  npdReceiptUrl         String?
+  npdReceiptUploadedAt  DateTime?
 
   clientRating Int?
   clientReview String? @db.Text
@@ -283,6 +374,7 @@ model Order {
 
   messages Message[]
   payments Payment[]
+  events   InstructorEvent[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -290,6 +382,83 @@ model Order {
   @@index([clientId])
   @@index([instructorId])
   @@index([status])
+}
+
+/// Каталог названий мероприятий инструктора (для выбора из уже созданных).
+model InstructorEventTitle {
+  id           String @id @default(cuid())
+  instructorId String
+  instructor   User   @relation(fields: [instructorId], references: [id], onDelete: Cascade)
+  title        String
+  events       InstructorEvent[]
+
+  createdAt DateTime @default(now())
+
+  @@unique([instructorId, title])
+  @@index([instructorId])
+}
+
+/// Мероприятия / объявления инструктора (лента на странице заказа).
+model InstructorEvent {
+  id           String @id @default(cuid())
+  instructorId String
+  instructor   User   @relation(fields: [instructorId], references: [id], onDelete: Cascade)
+
+  titleId String?
+  titleRef InstructorEventTitle? @relation(fields: [titleId], references: [id], onDelete: SetNull)
+
+  /// Если задан — видно только на этом заказе; иначе на всех заказах с этим инструктором.
+  orderId String?
+  order   Order? @relation(fields: [orderId], references: [id], onDelete: SetNull)
+
+  title   String
+  body    String @db.Text
+  eventAt DateTime?
+
+  moderationStatus InstructorEventModerationStatus @default(DRAFT)
+  rejectNote       String? @db.Text
+  submittedAt      DateTime?
+  publishedAt      DateTime?
+
+  /// Стоимость участия в рублях; null или 0 — бесплатная запись.
+  priceRub Int?
+  /// Лимит оплаченных мест; null — без лимита.
+  maxRegistrations Int?
+
+  registrations EventRegistration[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([instructorId, moderationStatus, createdAt])
+  @@index([titleId])
+  @@index([orderId])
+}
+
+/// Запись клиента на мероприятие инструктора.
+model EventRegistration {
+  id       String @id @default(cuid())
+  eventId  String
+  event    InstructorEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  clientId String
+  client   User   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  status EventRegistrationStatus @default(PENDING_PAYMENT)
+
+  amountRub             Decimal  @db.Decimal(10, 2)
+  platformFeePercent    Int      @default(15)
+  instructorShareAmount Decimal? @db.Decimal(10, 2)
+
+  stripeCheckoutSessionId String?
+  stripePaymentIntentId   String?
+  paidAt                  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([eventId, clientId])
+  @@index([eventId, status])
+  @@index([clientId])
 }
 
 model Message {
@@ -318,6 +487,69 @@ model Payment {
   status                PaymentStatus
 
   createdAt DateTime @default(now())
+}
+
+/// Документы инструктора: НПД/ИП, страхование (модерация админом).
+model InstructorComplianceDocument {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type       ComplianceDocType
+  fileUrl    String
+  status     ComplianceDocStatus @default(PENDING)
+  rejectNote String? @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, type])
+}
+
+enum SupportAuthorRole {
+  USER
+  STAFF
+  SYSTEM
+}
+
+/// Обращение в поддержку платформы (не путать с чатом заказа).
+model SupportTicket {
+  id     String  @id @default(cuid())
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  guestEmail String?
+  guestName  String?
+
+  /// Токен для гостя (cookie) — доступ к API без входа.
+  accessToken String @unique @default(cuid())
+
+  status String @default("OPEN")
+
+  messages SupportMessage[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, status])
+  @@index([accessToken])
+}
+
+model SupportMessage {
+  id       String @id @default(cuid())
+  ticketId String
+  ticket   SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  authorRole SupportAuthorRole
+  body       String          @db.Text
+
+  /// ID сообщения в Telegram (для ответа reply_to).
+  telegramMessageId BigInt?
+
+  createdAt DateTime @default(now())
+
+  @@index([ticketId, createdAt])
+  @@index([telegramMessageId])
 }
 
 model PushSubscription {

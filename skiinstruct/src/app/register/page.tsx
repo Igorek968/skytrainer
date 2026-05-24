@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
-import { Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 
 import { registerClientAction, type RegisterClientState } from "@/app/actions/register-client";
+import { LEGAL_ROUTES } from "@/lib/legal";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Input } from "@/shared/ui/input";
@@ -23,16 +24,46 @@ function SubmitButton() {
 }
 
 function RegisterForm() {
+  const router = useRouter();
   const params = useSearchParams();
   const callbackUrl = params.get("callbackUrl")?.trim() || "/client";
+  const asInstructor =
+    params.get("as") === "instructor" || params.get("role") === "instructor";
+
+  useEffect(() => {
+    if (asInstructor) {
+      router.replace("/instructor/apply");
+    }
+  }, [asInstructor, router]);
 
   const [state, formAction] = useFormState(registerClientAction, initialState);
 
+  if (asInstructor) {
+    return (
+      <div className="mx-auto max-w-md py-8 text-center text-sm text-muted-foreground">
+        Переход к регистрации инструктора…
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto max-w-md space-y-6">
+      <Card className="border-accent/30 bg-accent/5">
+        <CardContent className="space-y-2 pt-6 text-sm">
+          <p className="font-medium text-foreground">Вы инструктор?</p>
+          <p className="text-muted-foreground">
+            Регистрация клиента откроет кабинет заказчика. Для заявки инструктора используйте отдельную
+            форму — после неё вы попадёте в кабинет инструктора (после одобрения администратором).
+          </p>
+          <Button asChild variant="accent" className="w-full">
+            <Link href="/instructor/apply">Зарегистрироваться как инструктор</Link>
+          </Button>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
-          <CardTitle>Регистрация</CardTitle>
+          <CardTitle>Регистрация клиента</CardTitle>
           <CardDescription>
             Укажите email и пароль — после регистрации вы сразу войдёте и сможете оформить заказ на{" "}
             <Link className="text-accent underline" href="/client">
@@ -88,6 +119,18 @@ function RegisterForm() {
 
             {state.error ? <p className="text-sm text-destructive">{state.error}</p> : null}
 
+            <p className="text-xs text-muted-foreground">
+              Регистрируясь, вы принимаете{" "}
+              <Link href={LEGAL_ROUTES.oferta} className="text-accent underline" target="_blank">
+                оферту
+              </Link>{" "}
+              и{" "}
+              <Link href={LEGAL_ROUTES.privacy} className="text-accent underline" target="_blank">
+                политику персональных данных
+              </Link>
+              .
+            </p>
+
             <SubmitButton />
           </form>
 
@@ -99,8 +142,12 @@ function RegisterForm() {
           </p>
           <p className="text-center text-sm text-muted-foreground">
             Инструктор?{" "}
+            <Link className="font-medium text-accent underline" href="/instructor/apply">
+              Подать заявку
+            </Link>
+            {" · "}
             <Link className="text-accent underline" href="/instructor/login">
-              Вход в кабинет
+              Вход
             </Link>
           </p>
         </CardContent>

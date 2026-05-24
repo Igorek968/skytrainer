@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { LEGAL_ROUTES } from "@/lib/legal";
+
 const operator =
   process.env.NEXT_PUBLIC_LEGAL_ENTITY_NAME?.trim() ||
   "оператор программного сервиса «Инструктор для тебя» (реквизиты и наименование юридического лица уточняются у администрации сервиса)";
@@ -24,6 +26,17 @@ export default function PublicOfferPage() {
           Настоящий документ является офертой в смысле ст. 437 ГК РФ. Использование сервиса означает полное и безоговорочное
           принятие (акцепт) условий ниже.
         </p>
+        <nav className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+          <Link className="underline underline-offset-2 hover:text-foreground" href={LEGAL_ROUTES.privacy}>
+            Политика ПДн (152-ФЗ)
+          </Link>
+          <Link className="underline underline-offset-2 hover:text-foreground" href={LEGAL_ROUTES.returns}>
+            Возвраты и отмена
+          </Link>
+          <Link className="underline underline-offset-2 hover:text-foreground" href={LEGAL_ROUTES.support}>
+            Поддержка
+          </Link>
+        </nav>
         <p className="mt-2 rounded-md border border-dashed border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
           Исполнитель по договору с пользователем: <span className="font-medium text-foreground">{operator}</span>.
           При необходимости задайте переменную окружения{" "}
@@ -107,14 +120,34 @@ export default function PublicOfferPage() {
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">6. Персональные данные</h2>
         <p className="text-muted-foreground">
-          Обработка персональных данных осуществляется в целях исполнения договора с пользователем и законодательству РФ.
-          Объём и цели обработки определяются функционалом Сервиса (например, контактный телефон для связи по Заказу).
-          Политика в отношении обработки ПДн может публиковаться отдельно по решению Оператора.
+          Обработка персональных данных осуществляется в соответствии с Федеральным законом № 152-ФЗ. Подробные цели,
+          категории данных и права субъекта изложены в{" "}
+          <Link href={LEGAL_ROUTES.privacy} className="text-accent underline">
+            Политике обработки персональных данных
+          </Link>
+          . Акцепт оферты и отдельное согласие при оформлении заказа подтверждают ознакомление с Политикой.
         </p>
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold">7. Ограничение ответственности</h2>
+        <h2 className="text-lg font-semibold">7. Отмена, оплата и возвраты</h2>
+        <p className="text-muted-foreground">
+          Бронирование подтверждается после 100% предоплаты через платформу. Отмена клиентом: более 24 ч до занятия —
+          полный возврат; от 2 до 24 ч — 50%; менее 2 ч — без возврата (расчёт показывается при отмене в интерфейсе).
+          Отмена инструктором — полный возврат. Подробности — в{" "}
+          <Link href={LEGAL_ROUTES.returns} className="text-accent underline">
+            правилах возвратов
+          </Link>
+          . Для инструкторов —{" "}
+          <Link href={LEGAL_ROUTES.ofertaInstructor} className="text-accent underline">
+            агентский договор
+          </Link>
+          .
+        </p>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold">8. Ограничение ответственности</h2>
         <p className="text-muted-foreground">
           Сервис предоставляется «как есть». Оператор не несёт ответственности за вред, причинённый в результате занятий
           на склоне, за неявку Инструктора или Заказчика, за качество услуг Инструктора, за действия третьих лиц, а также
@@ -123,7 +156,7 @@ export default function PublicOfferPage() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold">8. Порядок разрешения споров</h2>
+        <h2 className="text-lg font-semibold">9. Порядок разрешения споров</h2>
         <p className="text-muted-foreground">
           Споры подлежат урегулирению путём переговоров. При недостижении согласия — в судебном порядке по месту нахождения
           Оператора (после уточнения реквизитов) либо по нормам закона о защите прав потребителей для соответствующих
@@ -132,11 +165,13 @@ export default function PublicOfferPage() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold">9. Реквизиты и связь</h2>
+        <h2 className="text-lg font-semibold">10. Реквизиты и связь</h2>
         <p className="text-muted-foreground">
-          Полные реквизиты Оператора, адрес электронной почты и телефон для обращений уточняются у администрации сервиса
-          или публикуются в интерфейсе для администраторов. Для связи по вопросам работы Сервиса используйте контакты,
-          указанные на сайте проекта.
+          Полные реквизиты Оператора уточняются у администрации сервиса. Обращения по работе Сервиса — через{" "}
+          <Link href={LEGAL_ROUTES.support} className="text-accent underline">
+            чат поддержки платформы
+          </Link>
+          , а также контакты, указанные в подвале сайта (email, Telegram).
         </p>
       </section>
 

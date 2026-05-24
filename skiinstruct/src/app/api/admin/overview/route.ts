@@ -4,10 +4,22 @@ import { Prisma, type UserRole } from "@prisma/client";
 
 import type { AdminOrderOverviewRow, AdminParticipantInsights } from "@/features/admin/admin-overview-types";
 import { normalizeAdminSearchInput } from "@/features/admin/admin-search-params";
-import { auth } from "@/auth";
+import { isApiErrorResponse, requireAdminSession } from "@/lib/api-session";
+import {
+  computeProfileDraftChanges,
+  parseProfileDraft,
+  snapshotProfileToDraft,
+} from "@/lib/instructor-profile-draft";
 import { prisma } from "@/lib/prisma";
 import { SKIINSTRUCT_PRODUCT_NAME } from "@/shared/lib/product";
 import { orderStatusLabel } from "@/shared/lib/order-status";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+const NO_STORE_HEADERS = {
+  "Cache-Control": "private, no-store, no-cache, must-revalidate, max-age=0",
+} as const;
 
 function roleRu(role: UserRole): string {
   switch (role) {
@@ -306,10 +318,8 @@ async function buildFocusParticipantInsights(
 
 export async function GET(req: Request) {
   try {
-    const session = await auth();
-    if (!session?.user || session.user.role !== "ADMIN") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const authResult = await requireAdminSession();
+    if (isApiErrorResponse(authResult)) return authResult;
 
     const url = new URL(req.url);
     const focusQueryRaw = normalizeAdminSearchInput(
@@ -340,7 +350,11 @@ export async function GET(req: Request) {
   ] = await prisma.$transaction([
     prisma.order.count(),
     prisma.user.count(),
-    prisma.instructorProfile.count({ where: { verificationStatus: "PENDING" } }),
+    prisma.instructorProfile.count({
+      where: {
+        OR: [{ verificationStatus: "PENDING" }, { profileDraftStatus: "PENDING_REVIEW" }],
+      },
+    }),
     prisma.order.count({
       where: {
         status: "PENDING_INSTRUCTOR",
@@ -462,8 +476,11 @@ export async function GET(req: Request) {
   const focusUserFound = matchedUsers.length > 0;
 
   const pending = await prisma.instructorProfile.findMany({
-    where: { verificationStatus: "PENDING" },
-    take: 25,
+    where: {
+      OR: [{ verificationStatus: "PENDING" }, { profileDraftStatus: "PENDING_REVIEW" }],
+    },
+    take: 40,
+    orderBy: [{ profileDraftSubmittedAt: "desc" }, { updatedAt: "desc" }],
     include: { user: { select: { email: true, name: true } } },
   });
 
@@ -605,57 +622,74 @@ export async function GET(req: Request) {
         ? await buildFocusParticipantInsights(participantIdRaw, thirtyDaysAgo)
         : null;
 
-    return NextResponse.json({
-      context: {
-        productName: SKIINSTRUCT_PRODUCT_NAME,
-        generatedAt: new Date().toISOString(),
+    return NextResponse.json(
+      {
+        context: {
+          productName: SKIINSTRUCT_PRODUCT_NAME,
+          generatedAt: new Date().toISOString(),
+        },
+        focus: {
+          query: hasUserFocus ? focusQueryRaw : null,
+          activityQuery: hasActivityFocus ? activityQueryRaw : null,
+          matches: matchedUsers.map((u) => ({
+            id: u.id,
+            email: u.email,
+            name: u.name,
+            role: u.role,
+            instructorSpecializations: u.instructorProfile?.specializations ?? null,
+          })),
+          email: hasUserFocus ? focusQueryRaw : null,
+          userFound: focusUserFound,
+          activityFilterSkippedNoMatches,
+          ordersAsClientOrInstructor: ordersForFocusUser,
+        },
+        activityFeed,
+        ordersCount,
+        usersCount,
+        pendingInstructors,
+        pendingList: pending.map((p) => {
+          const moderationKind =
+            p.verificationStatus === "APPROVED" && p.profileDraftStatus === "PENDING_REVIEW"
+              ? ("PROFILE_UPDATE" as const)
+              : ("NEW_ACCOUNT" as const);
+          const draft = parseProfileDraft(p.profileDraft);
+          const profileChanges =
+            moderationKind === "PROFILE_UPDATE" && draft
+              ? computeProfileDraftChanges(snapshotProfileToDraft(p, p.user.name), draft)
+              : undefined;
+          return {
+            userId: p.userId,
+            email: p.user.email,
+            name: p.user.name,
+            certificationLevel: p.certificationLevel,
+            moderationKind,
+            profileDraftSubmittedAt: p.profileDraftSubmittedAt?.toISOString() ?? null,
+            ...(profileChanges?.length ? { profileChanges } : {}),
+          };
+        }),
+        pipeline: {
+          /** Онлайн-очередь: ожидание ответа с таймером 60 с */
+          onlineQueuePending,
+          /** Запись на дату: офлайн-приглашение, без таймера */
+          flexiblePending,
+          /** Урок в работе */
+          inProgress,
+          awaitingPayment,
+          draftOrders,
+          completedLast30d,
+        },
+        ordersByStatus: statusCounts,
+        finance: {
+          paidOrdersCount: paidAggregate._count?._all ?? 0,
+          grossPaidRub: grossRub,
+          instructorSharePaidRub: instructorShareRub,
+          platformSharePaidRub: platformRub,
+        },
+        recentOrders: recentOrders.map(mapOrderOverviewRow),
+        focusParticipant,
       },
-      focus: {
-        query: hasUserFocus ? focusQueryRaw : null,
-        activityQuery: hasActivityFocus ? activityQueryRaw : null,
-        matches: matchedUsers.map((u) => ({
-          id: u.id,
-          email: u.email,
-          name: u.name,
-          role: u.role,
-          instructorSpecializations: u.instructorProfile?.specializations ?? null,
-        })),
-        email: hasUserFocus ? focusQueryRaw : null,
-        userFound: focusUserFound,
-        activityFilterSkippedNoMatches,
-        ordersAsClientOrInstructor: ordersForFocusUser,
-      },
-      activityFeed,
-      ordersCount,
-      usersCount,
-      pendingInstructors,
-      pendingList: pending.map((p) => ({
-        userId: p.userId,
-        email: p.user.email,
-        name: p.user.name,
-        certificationLevel: p.certificationLevel,
-      })),
-      pipeline: {
-        /** Онлайн-очередь: ожидание ответа с таймером 60 с */
-        onlineQueuePending,
-        /** Запись на дату: офлайн-приглашение, без таймера */
-        flexiblePending,
-        /** Урок в работе */
-        inProgress,
-        awaitingPayment,
-        draftOrders,
-        completedLast30d,
-      },
-      ordersByStatus: statusCounts,
-      finance: {
-        paidOrdersCount: paidAggregate._count?._all ?? 0,
-        grossPaidRub: grossRub,
-        instructorSharePaidRub: instructorShareRub,
-        platformSharePaidRub: platformRub,
-      },
-      recentOrders: recentOrders.map(mapOrderOverviewRow),
-      focusParticipant,
-    });
+      { headers: NO_STORE_HEADERS },
+    );
   } catch (e: unknown) {
     console.error("[admin/overview]", e);
     const msg = e instanceof Error ? e.message : "Internal error";
@@ -668,7 +702,7 @@ export async function GET(req: Request) {
         error: "overview_failed",
         message: process.env.NODE_ENV === "development" ? `${msg}${hint}` : `Не удалось загрузить сводку.${hint}`,
       },
-      { status: 500 },
+      { status: 500, headers: NO_STORE_HEADERS },
     );
   }
 }

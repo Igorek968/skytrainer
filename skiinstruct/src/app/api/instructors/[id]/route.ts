@@ -2,6 +2,11 @@ import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
 import {
+  parseSpecializationOffers,
+  resolveHourlyRateForDiscipline,
+  resolveLessonsForDiscipline,
+} from "@/lib/instructor-specialization-offers";
+import {
   canonicalizeActivityLabels,
   repairStaleCatalogSyntheticBio,
   resolveInstructorListAvatar,
@@ -11,8 +16,9 @@ type Ctx = { params: Promise<{ id: string }> };
 
 export const dynamic = "force-dynamic";
 
-export async function GET(_req: Request, ctx: Ctx) {
+export async function GET(req: Request, ctx: Ctx) {
   const { id } = await ctx.params;
+  const discipline = new URL(req.url).searchParams.get("discipline");
 
   const instructor = await prisma.user.findFirst({
     where: { id, role: "INSTRUCTOR" },
@@ -76,6 +82,21 @@ export async function GET(_req: Request, ctx: Ctx) {
   });
 
   const canonSpecs = canonicalizeActivityLabels(instructor.instructorProfile.specializations);
+  const offers = parseSpecializationOffers(
+    instructor.instructorProfile.specializationOffers,
+    Number(instructor.instructorProfile.hourlyRate),
+    instructor.instructorProfile.specializations,
+  );
+  const hourlyRate = resolveHourlyRateForDiscipline(
+    offers,
+    discipline,
+    Number(instructor.instructorProfile.hourlyRate),
+  );
+  const lessonsForDiscipline = resolveLessonsForDiscipline(
+    offers,
+    discipline,
+    instructor.instructorProfile.totalLessons,
+  );
 
   return NextResponse.json(
     {
@@ -97,15 +118,13 @@ export async function GET(_req: Request, ctx: Ctx) {
         availabilitySlots: instructor.instructorProfile.availabilitySlots ?? [],
         age: instructor.instructorProfile.age,
         experienceYears: instructor.instructorProfile.experienceYears,
-        totalLessons: instructor.instructorProfile.totalLessons,
+        totalLessons: lessonsForDiscipline,
+        specializationOffers: offers,
         cancellationPolicy: instructor.instructorProfile.cancellationPolicy,
         supportContact: instructor.instructorProfile.supportContact,
         legalInfo: instructor.instructorProfile.legalInfo,
-        telegramUrl: instructor.instructorProfile.telegramUrl,
-        whatsappUrl: instructor.instructorProfile.whatsappUrl,
-        instagramUrl: instructor.instructorProfile.instagramUrl,
         videoVisitUrl: instructor.instructorProfile.videoVisitUrl,
-        hourlyRate: Number(instructor.instructorProfile.hourlyRate),
+        hourlyRate,
         ratingAvg: instructor.instructorProfile.ratingAvg,
         reviewCount: instructor.instructorProfile.reviewCount,
       },

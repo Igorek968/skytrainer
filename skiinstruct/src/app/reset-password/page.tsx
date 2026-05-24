@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { Suspense, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/shared/ui/button";
@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/sha
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
 
-export default function ResetPasswordPage() {
+function ResetPasswordForm() {
   const search = useSearchParams();
   const token = search.get("token");
 
@@ -31,15 +31,27 @@ export default function ResetPasswordPage() {
         body: JSON.stringify({ email }),
       });
 
-      const data = (await r.json().catch(() => ({}))) as { ok?: boolean; error?: unknown; debugToken?: string };
+      const data = (await r.json().catch(() => ({}))) as {
+        ok?: boolean;
+        error?: unknown;
+        debugToken?: string;
+        sent?: boolean;
+        resetLink?: string;
+      };
 
       if (!r.ok) {
         toast.error(typeof data.error === "string" ? data.error : "Ошибка запроса сброса пароля");
         return;
       }
 
-      toast.success("Если аккаунт существует — отправили ссылку для восстановления пароля.");
-      if (data.debugToken) setDebugToken(data.debugToken);
+      if (data.debugToken) {
+        setDebugToken(data.debugToken);
+        toast.message("Письмо на локальном стенде не отправляется — используйте ссылку ниже.");
+      } else if (data.sent) {
+        toast.success("Ссылка для восстановления отправлена на email.");
+      } else {
+        toast.success("Если аккаунт существует — отправили ссылку для восстановления пароля.");
+      }
     } catch {
       toast.error("Ошибка сети");
     } finally {
@@ -141,15 +153,16 @@ export default function ResetPasswordPage() {
               </p>
 
               {debugToken ? (
-                <div className="rounded-md border border-border bg-muted/30 p-3 text-sm">
-                  <p className="font-medium">Тестовый токен (dev):</p>
-                  <p className="mt-1 break-all font-mono text-xs">{debugToken}</p>
-                  <Link
-                    className="mt-2 inline-block text-accent underline"
-                    href={`/reset-password?token=${encodeURIComponent(debugToken)}`}
-                  >
-                    Перейти к установке пароля
-                  </Link>
+                <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-100">
+                  <p className="font-medium">Локальный стенд: письмо не уходит</p>
+                  <p className="mt-1 text-xs opacity-90">
+                    Нажмите кнопку ниже, чтобы задать новый пароль (ссылка действует 1 час).
+                  </p>
+                  <Button className="mt-3 w-full" variant="accent" asChild>
+                    <Link href={`/reset-password?token=${encodeURIComponent(debugToken)}`}>
+                      Установить новый пароль
+                    </Link>
+                  </Button>
                 </div>
               ) : null}
             </>
@@ -160,3 +173,14 @@ export default function ResetPasswordPage() {
   );
 }
 
+export default function ResetPasswordPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="mx-auto max-w-md p-6 text-sm text-muted-foreground">Загрузка…</div>
+      }
+    >
+      <ResetPasswordForm />
+    </Suspense>
+  );
+}

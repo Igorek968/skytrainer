@@ -1,80 +1,141 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { useSession, signOut } from "next-auth/react";
 import { Menu, Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useState } from "react";
 
+import { inferRoleFromProtectedPath, resolveAppNav, resolveBrandingHref } from "@/lib/app-nav";
 import { Button } from "@/shared/ui/button";
 import { cn } from "@/lib/utils";
 
+import { signOutCallbackForRole } from "@/lib/auth-routes";
+import { markOpenPersonalDataOnNextClientVisit } from "@/lib/client-personal-data-storage";
+import { SupportLauncher } from "@/features/support/support-launcher";
 import { HeaderAccountHint } from "@/shared/layout/header-account-hint";
 
-function signOutAndClearCache(queryClient: ReturnType<typeof useQueryClient>) {
+function signOutAndClearCache(
+  queryClient: ReturnType<typeof useQueryClient>,
+  role: string | undefined,
+) {
   void queryClient.removeQueries({ queryKey: ["me-profile"] });
-  void signOut({ callbackUrl: "/" });
+  void signOut({
+    callbackUrl: signOutCallbackForRole(
+      role === "INSTRUCTOR" || role === "ADMIN" || role === "CLIENT" ? role : undefined,
+    ),
+  });
+}
+
+function openClientPersonalData(pathname: string, router: ReturnType<typeof useRouter>) {
+  const onClientHome = pathname === "/client" || pathname === "/";
+  if (onClientHome && typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("skiinstruct:open-personal"));
+    return;
+  }
+  markOpenPersonalDataOnNextClientVisit();
+  router.push("/client");
 }
 
 export function SiteHeader() {
   const queryClient = useQueryClient();
-  const { data: session } = useSession();
-  const isClientUser = session?.user.role === "CLIENT";
+  const router = useRouter();
+  const pathname = usePathname();
+  const { data: session, status } = useSession();
+  const pathRole = inferRoleFromProtectedPath(pathname);
+  const role = session?.user?.role ?? pathRole;
+  const isClientUser = role === "CLIENT";
+  const showAuthenticatedNav =
+    Boolean(session?.user) || (status === "loading" && pathRole != null);
   const { theme, setTheme } = useTheme();
   const [open, setOpen] = useState(false);
 
-  const dashboardHref =
-    session?.user.role === "INSTRUCTOR"
-      ? "/instructor"
-      : session?.user.role === "ADMIN"
-        ? "/admin/activity"
-        : "/client";
-
-  const ordersHref =
-    session?.user.role === "ADMIN" ? "/admin/orders" : `${dashboardHref}/orders`;
-  const ordersLabel = session?.user.role === "ADMIN" ? "Заказы (админ)" : "Заказы";
+  const nav = resolveAppNav(pathname, role);
+  const {
+    dashboardHref,
+    dashboardLabel,
+    ordersHref,
+    ordersLabel,
+    profileHref,
+    profileLabel,
+    bookHref,
+    bookLabel,
+  } = nav;
+  const brandingHref = resolveBrandingHref(pathname, role);
+  const onInstructorCabinet = pathname?.startsWith("/instructor");
 
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">
         <div className="min-w-0 flex-shrink">
-          <Link href="/" className="block text-sm font-semibold leading-snug tracking-tight text-foreground sm:text-base">
+          <Link
+            href={brandingHref}
+            className="block text-sm font-semibold leading-snug tracking-tight text-foreground hover:text-accent sm:text-base"
+            title={
+              onInstructorCabinet || role === "INSTRUCTOR" || role === "ADMIN"
+                ? "Поиск инструктора и заказ занятия как клиент"
+                : "На главную — поиск инструктора"
+            }
+          >
             Инструктор <span className="text-accent">для тебя</span>
           </Link>
           <HeaderAccountHint />
         </div>
 
         <nav className="hidden items-center gap-2 md:flex" aria-label="Основная навигация">
-          {session ? (
+          {showAuthenticatedNav ? (
             isClientUser ? (
               <>
-                <Button variant="outline" onClick={() => signOutAndClearCache(queryClient)}>
+                <Button
+                  variant="outline"
+                  onClick={() => signOutAndClearCache(queryClient, role)}
+                >
                   Выйти
                 </Button>
-                <Link
-                  href="/client?personal=1"
-                  className="inline-flex h-10 items-center justify-center whitespace-nowrap rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground transition-colors hover:bg-accent/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                <Button
+                  type="button"
+                  variant="accent"
+                  onClick={() => openClientPersonalData(pathname, router)}
                 >
                   Личные данные
-                </Link>
+                </Button>
               </>
             ) : (
               <>
-                <button
-                  type="button"
-                  onClick={() => window.location.assign(dashboardHref)}
+                {bookHref && bookLabel ? (
+                  <Link
+                    href={bookHref}
+                    className="inline-flex h-10 items-center justify-center whitespace-nowrap rounded-md border border-border px-4 py-2 text-sm font-medium transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  >
+                    {bookLabel}
+                  </Link>
+                ) : null}
+                <Link
+                  href={dashboardHref}
                   className="inline-flex h-10 items-center justify-center whitespace-nowrap rounded-md px-4 py-2 text-sm font-medium transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 >
-                  {session?.user.role === "ADMIN" ? "Админ-панель" : "Кабинет"}
-                </button>
+                  {dashboardLabel}
+                </Link>
+                {profileHref && profileLabel ? (
+                  <Link
+                    href={profileHref}
+                    className="inline-flex h-10 items-center justify-center whitespace-nowrap rounded-md px-4 py-2 text-sm font-medium transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  >
+                    {profileLabel}
+                  </Link>
+                ) : null}
                 <Link
                   href={ordersHref}
                   className="inline-flex h-10 items-center justify-center whitespace-nowrap rounded-md px-4 py-2 text-sm font-medium transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 >
                   {ordersLabel}
                 </Link>
-                <Button variant="outline" onClick={() => signOutAndClearCache(queryClient)}>
+                <Button
+                  variant="outline"
+                  onClick={() => signOutAndClearCache(queryClient, role)}
+                >
                   Выйти
                 </Button>
               </>
@@ -82,19 +143,20 @@ export function SiteHeader() {
           ) : (
             <>
               <Link
-                href="/login"
+                href="/login?callbackUrl=%2Fclient"
                 className="inline-flex h-10 items-center justify-center whitespace-nowrap rounded-md px-4 py-2 text-sm font-medium transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               >
                 Войти
               </Link>
               <Link
-                href="/instructor/login"
+                href="/instructor/apply"
                 className="inline-flex h-10 items-center justify-center whitespace-nowrap rounded-md border border-border px-4 py-2 text-sm font-medium transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               >
                 Инструктору
               </Link>
             </>
           )}
+          <SupportLauncher />
           <Button
             type="button"
             variant="outline"
@@ -107,6 +169,7 @@ export function SiteHeader() {
         </nav>
 
         <div className="flex items-center gap-2 md:hidden">
+          <SupportLauncher className="h-9 px-2 text-xs" />
           <Button
             type="button"
             variant="outline"
@@ -135,46 +198,64 @@ export function SiteHeader() {
         className={cn("border-t border-border md:hidden", open ? "block" : "hidden")}
       >
         <div className="mx-auto flex max-w-6xl flex-col gap-2 px-4 py-3">
-          {session ? (
+          {showAuthenticatedNav ? (
             isClientUser ? (
               <>
                 <button
                   type="button"
                   className="rounded-md px-3 py-2 text-left hover:bg-muted"
-                  onClick={() => signOutAndClearCache(queryClient)}
+                  onClick={() => signOutAndClearCache(queryClient, role)}
                 >
                   Выйти
                 </button>
-                <Link
-                  className="rounded-md px-3 py-2 hover:bg-muted"
-                  href="/client?personal=1"
-                  onClick={() => setOpen(false)}
+                <button
+                  type="button"
+                  className="rounded-md px-3 py-2 text-left hover:bg-muted"
+                  onClick={() => {
+                    openClientPersonalData(pathname, router);
+                    setOpen(false);
+                  }}
                 >
                   Личные данные
-                </Link>
+                </button>
                 <Link className="rounded-md px-3 py-2 hover:bg-muted" href="/client/orders" onClick={() => setOpen(false)}>
                   Мои заказы
                 </Link>
               </>
             ) : (
               <>
+                {bookHref && bookLabel ? (
+                  <Link
+                    className="rounded-md px-3 py-2 hover:bg-muted"
+                    href={bookHref}
+                    onClick={() => setOpen(false)}
+                  >
+                    {bookLabel}
+                  </Link>
+                ) : null}
                 <Link
                   className="rounded-md px-3 py-2 hover:bg-muted"
                   href={dashboardHref}
-                  onClick={() => {
-                    setOpen(false);
-                    window.location.assign(dashboardHref);
-                  }}
+                  onClick={() => setOpen(false)}
                 >
-                  {session?.user.role === "ADMIN" ? "Админ-панель" : "Кабинет"}
+                  {dashboardLabel}
                 </Link>
-                <Link className="rounded-md px-3 py-2 hover:bg-muted" href={ordersHref}>
+                {profileHref && profileLabel ? (
+                  <Link
+                    className="rounded-md px-3 py-2 hover:bg-muted"
+                    href={profileHref}
+                    onClick={() => setOpen(false)}
+                  >
+                    {profileLabel}
+                  </Link>
+                ) : null}
+                <Link className="rounded-md px-3 py-2 hover:bg-muted" href={ordersHref} onClick={() => setOpen(false)}>
                   {ordersLabel}
                 </Link>
                 <button
                   type="button"
                   className="rounded-md px-3 py-2 text-left hover:bg-muted"
-                  onClick={() => signOutAndClearCache(queryClient)}
+                  onClick={() => signOutAndClearCache(queryClient, session?.user?.role)}
                 >
                   Выйти
                 </button>
@@ -182,12 +263,19 @@ export function SiteHeader() {
             )
           ) : (
             <>
-              <Link className="rounded-md px-3 py-2 hover:bg-muted" href="/login" onClick={() => setOpen(false)}>
+              <div className="px-3 py-1">
+                <SupportLauncher className="w-full justify-center" />
+              </div>
+              <Link
+                className="rounded-md px-3 py-2 hover:bg-muted"
+                href="/login?callbackUrl=%2Fclient"
+                onClick={() => setOpen(false)}
+              >
                 Войти
               </Link>
               <Link
                 className="rounded-md px-3 py-2 hover:bg-muted"
-                href="/instructor/login"
+                href="/instructor/apply"
                 onClick={() => setOpen(false)}
               >
                 Инструктору

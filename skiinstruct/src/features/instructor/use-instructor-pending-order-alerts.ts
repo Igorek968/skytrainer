@@ -37,7 +37,10 @@ function playShortBeep() {
 /**
  * Уведомления о новых заявках PENDING_INSTRUCTOR (в т.ч. без таймера — flexible).
  */
-export function useInstructorPendingOrderAlerts(orders: PendingOrderAlertRow[] | undefined) {
+export function useInstructorPendingOrderAlerts(
+  orders: PendingOrderAlertRow[] | undefined,
+  options?: { suppress?: boolean },
+) {
   const initializedRef = useRef(false);
   const notifiedPendingIdsRef = useRef<Set<string>>(new Set());
   const storageReadyRef = useRef(false);
@@ -69,24 +72,34 @@ export function useInstructorPendingOrderAlerts(orders: PendingOrderAlertRow[] |
 
   useEffect(() => {
     if (!orders) return;
+    if (options?.suppress) return;
     if (!storageReadyRef.current) {
       notifiedPendingIdsRef.current = readPersistedNotified();
       storageReadyRef.current = true;
     }
-    const pending = orders.filter((o) => o.status === "PENDING_INSTRUCTOR");
+    const pending = orders.filter((o) => {
+      if (o.status !== "PENDING_INSTRUCTOR") return false;
+      const relaxed = orderRelaxedInstructorTiming({
+        flexibleInstructorInvite: Boolean(o.flexibleInstructorInvite),
+        requestedDays: o.requestedDays ?? null,
+      });
+      if (relaxed) return true;
+      if (!o.pendingExpiresAt) return false;
+      const expMs = new Date(o.pendingExpiresAt).getTime();
+      return Number.isFinite(expMs) && expMs > Date.now();
+    });
     let newlySeen: PendingOrderAlertRow[] = [];
 
     if (!initializedRef.current) {
-      newlySeen = pending.filter((o) => !notifiedPendingIdsRef.current.has(o.id));
+      // На первом рендере только инициализируем baseline без уведомлений:
+      // иначе всплывают старые «висящие» заявки после перезахода/обновления.
       for (const o of pending) notifiedPendingIdsRef.current.add(o.id);
       writePersistedNotified(notifiedPendingIdsRef.current);
       initializedRef.current = true;
+      return;
     } else {
       newlySeen = pending.filter((o) => !notifiedPendingIdsRef.current.has(o.id));
       for (const o of pending) notifiedPendingIdsRef.current.add(o.id);
-      for (const id of [...notifiedPendingIdsRef.current]) {
-        if (!pending.some((o) => o.id === id)) notifiedPendingIdsRef.current.delete(id);
-      }
       writePersistedNotified(notifiedPendingIdsRef.current);
     }
 
@@ -150,5 +163,5 @@ export function useInstructorPendingOrderAlerts(orders: PendingOrderAlertRow[] |
       });
       n.onclick = () => openFirstOrder();
     }
-  }, [orders]);
+  }, [orders, options?.suppress]);
 }

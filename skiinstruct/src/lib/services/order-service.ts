@@ -1,5 +1,10 @@
 import type { OrderStatus, Prisma } from "@prisma/client";
 
+import {
+  incrementOfferLessonsOnOrderComplete,
+  parseDisciplineFromOrderNotes,
+} from "@/lib/instructor-specialization-offers";
+import { computePayoutEligibleAt } from "@/lib/services/order-payout";
 import { prisma } from "@/lib/prisma";
 
 const VALID_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
@@ -72,11 +77,22 @@ export async function transitionOrderStatus(params: TransitionParams) {
     if (to === "COMPLETED") {
       data.lessonEndedAt = now;
       data.instructorPayoutReleasedAt = now;
+      data.payoutEligibleAt = computePayoutEligibleAt(now);
     }
 
-    return tx.order.update({
+    const updated = await tx.order.update({
       where: { id: orderId },
       data,
     });
+
+    if (to === "COMPLETED") {
+      if (updated.instructorId) {
+        const discipline =
+          updated.disciplineLabel ?? parseDisciplineFromOrderNotes(updated.notes);
+        await incrementOfferLessonsOnOrderComplete(updated.instructorId, discipline);
+      }
+    }
+
+    return updated;
   });
 }

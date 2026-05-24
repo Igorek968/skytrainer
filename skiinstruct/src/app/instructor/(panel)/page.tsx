@@ -2,14 +2,23 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useSession } from "next-auth/react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { CalendarDays, Plus, Star, Trash2, X } from "lucide-react";
 import type { OrderStatus } from "@prisma/client";
 
 import { useThrottledInstructorLocation } from "@/features/geolocation/use-throttled-instructor-location";
+import { devPollInterval } from "@/lib/query-poll";
+import { InstructorComplianceCard } from "@/features/instructor/instructor-compliance-card";
+import { InstructorEventsEditor } from "@/features/instructor/instructor-events-editor";
+import { SpecializationOffersEditor } from "@/features/instructor/specialization-offers-editor";
 import { useInstructorPendingOrderAlerts } from "@/features/instructor/use-instructor-pending-order-alerts";
+import {
+  parseSpecializationOffers,
+  type SpecializationOffer,
+} from "@/lib/instructor-specialization-offers";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Input } from "@/shared/ui/input";
@@ -19,7 +28,14 @@ import { cn } from "@/lib/utils";
 import { INSTRUCTOR_ACTIVITY_LABELS } from "@/lib/services/instructor-match";
 import { orderRelaxedInstructorTiming } from "@/shared/lib/order-flex";
 import { hasLessonTimeWindowInNotes, lessonTimeWindowLineFromNotes } from "@/shared/lib/order-lesson-times";
+import {
+  dismissPendingPrompt,
+  readDismissedPendingPromptIds,
+} from "@/lib/instructor-pending-prompt-storage";
 import { orderStatusLabel } from "@/shared/lib/order-status";
+
+const instructorFetch = (input: RequestInfo | URL, init?: RequestInit) =>
+  fetch(input, { ...init, credentials: "include" });
 
 async function compressImageFile(file: File): Promise<File> {
   if (!file.type.startsWith("image/")) return file;
@@ -83,13 +99,9 @@ type AvailabilitySlot = { day: number; from: string; to: string; busy?: boolean 
 type ProfileField =
   | "certificationLevel"
   | "languagesRaw"
-  | "specializationsRaw"
-  | "hourlyRate"
+  | "specializationOffers"
   | "age"
   | "availabilityRaw"
-  | "telegramUrl"
-  | "whatsappUrl"
-  | "instagramUrl"
   | "videoVisitUrl";
 
 function parseCsv(value: string): string[] {
@@ -193,18 +205,30 @@ function MultiSelectChipsField({
 
 export default function InstructorHomePage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const qc = useQueryClient();
+  const { data: session } = useSession();
+  const signedInAsOtherRole = Boolean(session?.user?.role && session.user.role !== "INSTRUCTOR");
   const [notificationPermission, setNotificationPermission] = useState<
     NotificationPermission | "unsupported"
   >("unsupported");
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, error: profileLoadError } = useQuery({
     queryKey: ["io-online"],
     queryFn: async () => {
-      const r = await fetch("/api/instructor/me");
-      if (!r.ok) throw new Error("me");
-      return r.json() as Promise<{
+      const r = await instructorFetch("/api/instructor/me");
+      const j = (await r.json().catch(() => ({}))) as { error?: unknown };
+      if (!r.ok) {
+        const msg = typeof j.error === "string" ? j.error : "Не удалось загрузить профиль";
+        throw new Error(msg);
+      }
+      return j as {
         isOnline: boolean;
+        verificationStatus: "PENDING" | "APPROVED" | "REJECTED";
+        profileDraftStatus: "NONE" | "PENDING_REVIEW";
+        profilePendingReview: boolean;
+        profileDraftRejectNote: string | null;
+        profileDraftRejectedAt: string | null;
         profile: {
           firstName: string;
           lastName: string;
@@ -214,19 +238,16 @@ export default function InstructorHomePage() {
           skillLevels: string[];
           languages: string[];
           specializations: string[];
+          specializationOffers: SpecializationOffer[];
           additionalServices: string[];
           offeredDurations: string[];
           achievements: string[];
           experienceYears: number | null;
-          totalLessons: number | null;
           age: number | null;
           availabilitySlots: { day: number; from: string; to: string; busy?: boolean }[];
           cancellationPolicy: string;
           supportContact: string;
           legalInfo: string;
-          telegramUrl: string;
-          whatsappUrl: string;
-          instagramUrl: string;
           videoVisitUrl: string;
           hourlyRate: number;
           photoUrl: string;
@@ -234,19 +255,31 @@ export default function InstructorHomePage() {
           ratingAvg: number;
           reviewCount: number;
         } | null;
-      }>;
+      };
+    },
+    retry: false,
+    refetchInterval: (query) => {
+      const pollMs = devPollInterval(8000);
+      if (!pollMs) return false;
+      const snapshot = query.state.data;
+      if (!snapshot) return pollMs;
+      if (snapshot.verificationStatus === "PENDING" || snapshot.profilePendingReview) return pollMs;
+      return false;
     },
   });
 
   const { data: stats } = useQuery({
     queryKey: ["instructor-stats"],
     queryFn: async () => {
-      const r = await fetch("/api/instructor/stats");
+      const r = await instructorFetch("/api/instructor/stats");
       if (!r.ok) throw new Error("stats");
       return r.json() as Promise<{
         orders: number;
         instructorShareTotal: number;
         grossTotal: number;
+        availableForPayout?: number;
+        pendingPayout?: number;
+        payoutWindowHint?: string;
       }>;
     },
   });
@@ -278,10 +311,38 @@ export default function InstructorHomePage() {
         }>;
       }>;
     },
-    refetchInterval: 5000,
+    refetchInterval: devPollInterval(5000),
   });
 
-  useInstructorPendingOrderAlerts(orderAlerts?.orders);
+  const [pendingPromptOrderId, setPendingPromptOrderId] = useState<string | null>(null);
+  const [etaMinutes, setEtaMinutes] = useState<number>(20);
+  const [pendingPromptSecondsLeft, setPendingPromptSecondsLeft] = useState<number | null>(null);
+  const [suppressOrderPrompts, setSuppressOrderPrompts] = useState(false);
+  const seenPendingOrderIdsRef = useRef<Set<string>>(new Set());
+  const pendingPromptsInitializedRef = useRef(false);
+  const dismissedPromptIdsRef = useRef<Set<string> | null>(null);
+  const prevProfilePendingReviewRef = useRef<boolean | null>(null);
+  const prevVerificationStatusRef = useRef<"PENDING" | "APPROVED" | "REJECTED" | null>(null);
+
+  useInstructorPendingOrderAlerts(orderAlerts?.orders, {
+    suppress: suppressOrderPrompts,
+  });
+
+  const activeOrderOptions = useMemo(() => {
+    const active = new Set<OrderStatus>([
+      "PENDING_INSTRUCTOR",
+      "ACCEPTED",
+      "INSTRUCTOR_EN_ROUTE",
+      "LESSON_STARTED",
+      "COMPLETED",
+    ]);
+    return (orderAlerts?.orders ?? [])
+      .filter((o) => active.has(o.status as OrderStatus))
+      .map((o) => ({
+        id: o.id,
+        label: `${o.client?.name ?? "Клиент"} · ${o.id.slice(-6)}`,
+      }));
+  }, [orderAlerts?.orders]);
 
   const { data: recentClientReviews } = useQuery({
     queryKey: ["instructor-client-reviews"],
@@ -313,7 +374,7 @@ export default function InstructorHomePage() {
   const [certificationsRaw, setCertificationsRaw] = useState("");
   const [skillLevelsRaw, setSkillLevelsRaw] = useState("");
   const [languagesRaw, setLanguagesRaw] = useState("");
-  const [specializationsRaw, setSpecializationsRaw] = useState("");
+  const [specializationOffers, setSpecializationOffers] = useState<SpecializationOffer[]>([]);
   const [additionalServicesRaw, setAdditionalServicesRaw] = useState("");
   const [offeredDurationsRaw, setOfferedDurationsRaw] = useState("");
   const [achievementsRaw, setAchievementsRaw] = useState("");
@@ -322,15 +383,10 @@ export default function InstructorHomePage() {
   ]);
   const [age, setAge] = useState<number>(25);
   const [experienceYears, setExperienceYears] = useState<number>(5);
-  const [totalLessons, setTotalLessons] = useState<number>(100);
   const [cancellationPolicy, setCancellationPolicy] = useState("");
   const [supportContact, setSupportContact] = useState("");
   const [legalInfo, setLegalInfo] = useState("");
-  const [telegramUrl, setTelegramUrl] = useState("");
-  const [whatsappUrl, setWhatsappUrl] = useState("");
-  const [instagramUrl, setInstagramUrl] = useState("");
   const [videoVisitUrl, setVideoVisitUrl] = useState("");
-  const [hourlyRate, setHourlyRate] = useState<number>(2500);
   const [photoUrl, setPhotoUrl] = useState("");
   const [photoGallery, setPhotoGallery] = useState<string[]>([]);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
@@ -340,27 +396,103 @@ export default function InstructorHomePage() {
   const [inited, setInited] = useState(false);
   /** Иначе Chrome подставляет «чужие» имя/фамилию из профиля браузера в поля с id вроде first-name. */
   const [publicNameFieldsUnlocked, setPublicNameFieldsUnlocked] = useState(false);
-  const [pendingPromptOrderId, setPendingPromptOrderId] = useState<string | null>(null);
-  const [etaMinutes, setEtaMinutes] = useState<number>(20);
-  const seenPendingOrderIdsRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (searchParams.get("applied") === "1") {
+      toast.success(
+        "Заявка принята. Анкета на модерации — после одобрения администратором включите «онлайн» и принимайте заказы.",
+        { duration: 12_000 },
+      );
+      router.replace("/instructor", { scroll: false });
+    }
+  }, [router, searchParams]);
 
   const effectiveOnline = online ?? data?.isOnline ?? false;
 
   useThrottledInstructorLocation(effectiveOnline);
 
   useEffect(() => {
-    const pending = (orderAlerts?.orders ?? []).filter((o) => o.status === "PENDING_INSTRUCTOR");
-    const pendingIds = new Set(pending.map((o) => o.id));
-    for (const knownId of [...seenPendingOrderIdsRef.current]) {
-      if (!pendingIds.has(knownId)) seenPendingOrderIdsRef.current.delete(knownId);
+    if (orderAlerts?.orders == null) return;
+    if (suppressOrderPrompts) return;
+    if (dismissedPromptIdsRef.current === null) {
+      dismissedPromptIdsRef.current = readDismissedPendingPromptIds();
     }
-    const newlySeen = pending.find((o) => !seenPendingOrderIdsRef.current.has(o.id));
+    const dismissed = dismissedPromptIdsRef.current;
+    const pending = orderAlerts.orders.filter((o) => {
+      if (o.status !== "PENDING_INSTRUCTOR") return false;
+      const relaxed = orderRelaxedInstructorTiming({
+        flexibleInstructorInvite: Boolean(o.flexibleInstructorInvite),
+        requestedDays: o.requestedDays ?? null,
+      });
+      if (relaxed) return true;
+      if (!o.pendingExpiresAt) return false;
+      const expMs = new Date(o.pendingExpiresAt).getTime();
+      return Number.isFinite(expMs) && expMs > Date.now();
+    });
+    if (!pendingPromptsInitializedRef.current) {
+      for (const p of pending) seenPendingOrderIdsRef.current.add(p.id);
+      pendingPromptsInitializedRef.current = true;
+      return;
+    }
+    const newlySeen = pending.find(
+      (o) => !seenPendingOrderIdsRef.current.has(o.id) && !dismissed.has(o.id),
+    );
     for (const p of pending) seenPendingOrderIdsRef.current.add(p.id);
     if (newlySeen) {
       setPendingPromptOrderId(newlySeen.id);
       setEtaMinutes(20);
     }
-  }, [orderAlerts?.orders]);
+  }, [orderAlerts?.orders, suppressOrderPrompts]);
+
+  useEffect(() => {
+    if (!suppressOrderPrompts) return;
+    setPendingPromptOrderId(null);
+    setPendingPromptSecondsLeft(null);
+  }, [suppressOrderPrompts]);
+
+  useEffect(() => {
+    if (data?.profilePendingReview == null) return;
+    const prev = prevProfilePendingReviewRef.current;
+    prevProfilePendingReviewRef.current = data.profilePendingReview;
+    if (prev === null) return;
+
+    // Переход PENDING_REVIEW -> NONE после одобрения админом:
+    // показываем подтверждение и не даём в этот момент всплыть модалке заказа.
+    if (prev && !data.profilePendingReview) {
+      setSuppressOrderPrompts(true);
+      setPendingPromptOrderId(null);
+      setPendingPromptSecondsLeft(null);
+      for (const o of (orderAlerts?.orders ?? []).filter((x) => x.status === "PENDING_INSTRUCTOR")) {
+        seenPendingOrderIdsRef.current.add(o.id);
+      }
+      toast.success("Модерация пройдена: изменения анкеты опубликованы");
+      setInited(false);
+      window.setTimeout(() => setSuppressOrderPrompts(false), 15_000);
+    }
+  }, [data?.profilePendingReview, orderAlerts?.orders]);
+
+  useEffect(() => {
+    if (!data?.verificationStatus) return;
+    const prev = prevVerificationStatusRef.current;
+    prevVerificationStatusRef.current = data.verificationStatus;
+    if (prev === null) return;
+    if (prev === "PENDING" && data.verificationStatus === "APPROVED") {
+      setSuppressOrderPrompts(true);
+      setPendingPromptOrderId(null);
+      setPendingPromptSecondsLeft(null);
+      toast.success(
+        "Анкета одобрена администратором. Заполните профиль и включите «онлайн», чтобы принимать заказы.",
+        { duration: 12_000 },
+      );
+      setInited(false);
+      void qc.invalidateQueries({ queryKey: ["io-online"] });
+      window.setTimeout(() => setSuppressOrderPrompts(false), 15_000);
+    }
+    if (prev === "PENDING" && data.verificationStatus === "REJECTED") {
+      toast.error("Заявка инструктора отклонена. Смотрите комментарий администратора в анкете.");
+      setInited(false);
+    }
+  }, [data?.verificationStatus, qc]);
 
   const activePendingPromptOrder =
     orderAlerts?.orders.find((o) => o.id === pendingPromptOrderId && o.status === "PENDING_INSTRUCTOR") ?? null;
@@ -371,8 +503,6 @@ export default function InstructorHomePage() {
         requestedDays: activePendingPromptOrder.requestedDays ?? null,
       }),
   );
-  const [pendingPromptSecondsLeft, setPendingPromptSecondsLeft] = useState<number | null>(null);
-
   useEffect(() => {
     if (!pendingPromptOrderId) return;
     if (activePendingPromptOrder) return;
@@ -460,26 +590,29 @@ export default function InstructorHomePage() {
     setCertificationsRaw(data.profile.certifications.join(", "));
     setSkillLevelsRaw(data.profile.skillLevels.join(", "));
     setLanguagesRaw(data.profile.languages.join(", "));
-    setSpecializationsRaw(data.profile.specializations.join(", "));
+    setSpecializationOffers(
+      data.profile.specializationOffers?.length
+        ? data.profile.specializationOffers
+        : parseSpecializationOffers(
+            null,
+            data.profile.hourlyRate,
+            data.profile.specializations,
+          ),
+    );
     setAdditionalServicesRaw(data.profile.additionalServices.join(", "));
     setOfferedDurationsRaw(data.profile.offeredDurations.join(", "));
     setAchievementsRaw(data.profile.achievements.join(", "));
     setAge(data.profile.age ?? 25);
     setExperienceYears(data.profile.experienceYears ?? 5);
-    setTotalLessons(data.profile.totalLessons ?? 100);
     setCancellationPolicy(data.profile.cancellationPolicy ?? "");
     setSupportContact(data.profile.supportContact ?? "");
     setLegalInfo(data.profile.legalInfo ?? "");
-    setTelegramUrl(data.profile.telegramUrl ?? "");
-    setWhatsappUrl(data.profile.whatsappUrl ?? "");
-    setInstagramUrl(data.profile.instagramUrl ?? "");
     setVideoVisitUrl(data.profile.videoVisitUrl ?? "");
     setAvailabilitySlots(
       data.profile.availabilitySlots?.length
         ? data.profile.availabilitySlots
         : [{ day: 1, from: "09:00", to: "12:00", busy: false }]
     );
-    setHourlyRate(data.profile.hourlyRate);
     setPhotoUrl(data.profile.photoUrl ?? "");
     setPhotoGallery(data.profile.photoGallery ?? []);
     setPublicNameFieldsUnlocked(false);
@@ -488,7 +621,7 @@ export default function InstructorHomePage() {
 
   const toggle = useMutation({
     mutationFn: async (next: boolean) => {
-      const r = await fetch("/api/instructor/online", {
+      const r = await instructorFetch("/api/instructor/online", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ isOnline: next }),
@@ -518,8 +651,11 @@ export default function InstructorHomePage() {
 
     if (!certificationLevel.trim()) errors.certificationLevel = "Укажите уровень сертификации";
     if (!languagesRaw.trim()) errors.languagesRaw = "Укажите хотя бы один язык";
-    if (!specializationsRaw.trim()) errors.specializationsRaw = "Укажите хотя бы одну специализацию";
-    if (!(hourlyRate >= 500)) errors.hourlyRate = "Минимум 500 ₽/ч";
+    if (!specializationOffers.length) {
+      errors.specializationOffers = "Добавьте хотя бы одно направление с ценой";
+    } else if (specializationOffers.some((o) => o.hourlyRate < 500)) {
+      errors.specializationOffers = "Минимум 500 ₽/ч для каждого направления";
+    }
     if (age > 0 && (age < 14 || age > 90)) errors.age = "Возраст должен быть от 14 до 90";
 
     const normalizedSlots = availabilitySlots
@@ -542,9 +678,6 @@ export default function InstructorHomePage() {
       }
     }
 
-    if (!isValidUrl(telegramUrl)) errors.telegramUrl = "Некорректный URL";
-    if (!isValidUrl(whatsappUrl)) errors.whatsappUrl = "Некорректный URL";
-    if (!isValidUrl(instagramUrl)) errors.instagramUrl = "Некорректный URL";
     if (!isValidUrl(videoVisitUrl)) errors.videoVisitUrl = "Некорректный URL";
 
     setFieldErrors(errors);
@@ -576,6 +709,13 @@ export default function InstructorHomePage() {
   };
 
   const saveProfile = useMutation({
+    onMutate: () => {
+      setSuppressOrderPrompts(true);
+      setPendingPromptOrderId(null);
+      for (const o of (orderAlerts?.orders ?? []).filter((x) => x.status === "PENDING_INSTRUCTOR")) {
+        seenPendingOrderIdsRef.current.add(o.id);
+      }
+    },
     mutationFn: async () => {
       const validation = validateProfileForm();
       if (!validation.ok) {
@@ -586,11 +726,6 @@ export default function InstructorHomePage() {
         .split(",")
         .map((s) => s.trim())
         .filter(Boolean);
-      const specializations = specializationsRaw
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean);
-
       const certifications = certificationsRaw
         .split(",")
         .map((s) => s.trim())
@@ -613,7 +748,7 @@ export default function InstructorHomePage() {
         .filter(Boolean);
       const availabilitySlots = validation.availabilitySlots;
 
-      const r = await fetch("/api/instructor/me", {
+      const r = await instructorFetch("/api/instructor/me", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -624,39 +759,44 @@ export default function InstructorHomePage() {
           certifications,
           skillLevels,
           languages,
-          specializations,
+          specializationOffers,
           additionalServices,
           offeredDurations,
           achievements,
           age: age >= 14 ? age : undefined,
           experienceYears,
-          totalLessons,
           availabilitySlots,
           cancellationPolicy,
           supportContact,
           legalInfo,
-          telegramUrl,
-          whatsappUrl,
-          instagramUrl,
           videoVisitUrl,
-          hourlyRate,
           photoUrl,
         }),
       });
+      const j = (await r.json().catch(() => ({}))) as {
+        error?: unknown;
+        profilePendingReview?: boolean;
+        verificationStatus?: "PENDING" | "APPROVED" | "REJECTED";
+      };
       if (!r.ok) {
-        const j = (await r.json().catch(() => ({}))) as {
-          error?: unknown;
-          details?: unknown;
-        };
-        if (typeof j.error === "string") {
-          throw new Error(j.error);
+        const msg =
+          typeof j.error === "string"
+            ? j.error
+            : "Не удалось сохранить профиль (подробности в логах сервера)";
+        if (r.status === 401) {
+          router.push("/instructor/login");
         }
-        throw new Error("Не удалось сохранить профиль (подробности в логах сервера)");
+        throw new Error(msg);
       }
+      return j;
     },
-    onSuccess: async () => {
+    onSuccess: async (result) => {
       setFieldErrors({});
-      toast.success("Профиль обновлён");
+      toast.success(
+        result.verificationStatus === "APPROVED"
+          ? "Изменения отправлены на проверку администратором"
+          : "Анкета сохранена. Ожидайте одобрения администратором",
+      );
       await qc.invalidateQueries({ queryKey: ["io-online"] });
       await qc.refetchQueries({ queryKey: ["io-online"] });
       setInited(false);
@@ -664,6 +804,9 @@ export default function InstructorHomePage() {
     },
     onError: (e: Error) =>
       toast.error(e.message || "Не удалось сохранить профиль"),
+    onSettled: () => {
+      window.setTimeout(() => setSuppressOrderPrompts(false), 10_000);
+    },
   });
 
   const uploadPhoto = useMutation({
@@ -672,13 +815,14 @@ export default function InstructorHomePage() {
       const toUpload = await compressImageFile(photoFile);
       const fd = new FormData();
       fd.append("file", toUpload);
-      const r = await fetch("/api/instructor/photo", {
+      const r = await instructorFetch("/api/instructor/photo", {
         method: "POST",
         body: fd,
       });
       const j = (await r.json().catch(() => ({}))) as {
         photoUrl?: string;
         photoGallery?: string[];
+        profilePendingReview?: boolean;
         error?: unknown;
       };
       if (!r.ok || !j.photoUrl) {
@@ -690,7 +834,11 @@ export default function InstructorHomePage() {
       setPhotoUrl(payload.photoUrl ?? "");
       setPhotoGallery(payload.photoGallery ?? []);
       setPhotoFile(null);
-      toast.success("Фото загружено");
+      toast.success(
+        payload.profilePendingReview
+          ? "Фото в черновике — ждёт одобрения администратором"
+          : "Фото загружено",
+      );
       await qc.invalidateQueries({ queryKey: ["io-online"] });
       await qc.refetchQueries({ queryKey: ["io-online"] });
       setInited(false);
@@ -701,11 +849,11 @@ export default function InstructorHomePage() {
 
   const removePhoto = useMutation({
     mutationFn: async (urlToRemove?: string) => {
-      const r = await fetch(
+      const r = await instructorFetch(
         urlToRemove
           ? `/api/instructor/photo?photoUrl=${encodeURIComponent(urlToRemove)}`
           : "/api/instructor/photo",
-        { method: "DELETE" }
+        { method: "DELETE" },
       );
       const j = (await r.json().catch(() => ({}))) as {
         photoUrl?: string | null;
@@ -729,7 +877,7 @@ export default function InstructorHomePage() {
 
   const updatePhotoGallery = useMutation({
     mutationFn: async (payload: { photoGallery?: string[]; coverUrl?: string }) => {
-      const r = await fetch("/api/instructor/photo", {
+      const r = await instructorFetch("/api/instructor/photo", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -772,6 +920,8 @@ export default function InstructorHomePage() {
       return payload;
     },
     onSuccess: async ({ orderId, action }) => {
+      dismissPendingPrompt(orderId);
+      dismissedPromptIdsRef.current = readDismissedPendingPromptIds();
       await qc.invalidateQueries({ queryKey: ["instructor-order-alerts"] });
       await qc.invalidateQueries({ queryKey: ["orders"] });
       if (action === "accept") {
@@ -787,6 +937,33 @@ export default function InstructorHomePage() {
 
   return (
     <div className="space-y-6">
+      {signedInAsOtherRole ? (
+        <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-100">
+          <p className="font-medium">
+            В этом браузере активна сессия{" "}
+            {session?.user?.role === "ADMIN" ? "администратора" : "клиента"}, а не инструктора.
+          </p>
+          <p className="mt-1 text-amber-900/90 dark:text-amber-100/90">
+            Если вы одобряли анкету из админки в той же вкладке или браузере, сессия инструктора была
+            заменена. Чтобы снова редактировать анкету, войдите как инструктор (отдельное окно или режим
+            инкогнито для админки удобнее при проверке).
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button type="button" variant="outline" size="sm" asChild>
+              <Link href="/instructor/login?callbackUrl=%2Finstructor">Войти как инструктор</Link>
+            </Button>
+            {session?.user?.role === "ADMIN" ? (
+              <Button type="button" variant="outline" size="sm" asChild>
+                <Link href="/admin/activity">Админ-панель</Link>
+              </Button>
+            ) : (
+              <Button type="button" variant="outline" size="sm" asChild>
+                <Link href="/client">Кабинет клиента</Link>
+              </Button>
+            )}
+          </div>
+        </div>
+      ) : null}
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Кабинет инструктора</h1>
@@ -815,17 +992,30 @@ export default function InstructorHomePage() {
         </div>
       </div>
 
+      <InstructorComplianceCard />
+
       <Card>
         <CardHeader>
           <CardTitle>Финансы (выплаченные заказы)</CardTitle>
-          <CardDescription>Доля инструктора после комиссии платформы.</CardDescription>
+          <CardDescription>Доля инструктора после комиссии платформы (15%).</CardDescription>
         </CardHeader>
         <CardContent className="space-y-1 text-sm">
           <div>Завершённых оплаченных: {stats?.orders ?? "…"}</div>
-          <div>Ваша доля: {stats ? `${stats.instructorShareTotal.toFixed(0)} ₽` : "…"}</div>
-          <div className="text-muted-foreground">
-            Оборот по вашим заказам: {stats ? `${stats.grossTotal.toFixed(0)} ₽` : "…"}
+          <div>Ваша доля (всего): {stats ? `${stats.instructorShareTotal.toFixed(0)} ₽` : "…"}</div>
+          <div>
+            Доступно к выплате:{" "}
+            {stats ? `${stats.availableForPayout?.toFixed(0) ?? "…"} ₽` : "…"}
           </div>
+          <div className="text-muted-foreground">
+            В ожидании срока:{" "}
+            {stats ? `${stats.pendingPayout?.toFixed(0) ?? "…"} ₽` : "…"}
+          </div>
+          <div className="text-muted-foreground">
+            Оборот: {stats ? `${stats.grossTotal.toFixed(0)} ₽` : "…"}
+          </div>
+          {stats?.payoutWindowHint ? (
+            <p className="text-xs text-muted-foreground">{stats.payoutWindowHint}</p>
+          ) : null}
         </CardContent>
       </Card>
 
@@ -875,7 +1065,11 @@ export default function InstructorHomePage() {
         </CardContent>
       </Card>
 
-      <Card className="bg-gradient-to-br from-sky-50/70 to-background dark:from-slate-900">
+      <div id="events">
+        <InstructorEventsEditor activeOrders={activeOrderOptions} />
+      </div>
+
+      <Card id="profile" className="scroll-mt-24 bg-gradient-to-br from-sky-50/70 to-background dark:from-slate-900">
         <CardHeader>
           <CardTitle>Профиль инструктора (для клиентов)</CardTitle>
           <CardDescription>
@@ -883,6 +1077,30 @@ export default function InstructorHomePage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {data?.verificationStatus === "PENDING" ? (
+            <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-100">
+              Анкета на первичной проверке администратором. После одобрения вы появитесь в поиске у клиентов.
+            </p>
+          ) : null}
+          {data?.profilePendingReview ? (
+            <p className="rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-950 dark:border-sky-900 dark:bg-sky-950/40 dark:text-sky-100">
+              Изменения отправлены на модерацию. Клиенты пока видят прежнюю версию анкеты.
+            </p>
+          ) : null}
+          {data?.profileDraftRejectNote && !data.profilePendingReview ? (
+            <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive dark:text-red-200">
+              <p className="font-medium">Изменения отклонены администратором</p>
+              {data.profileDraftRejectedAt ? (
+                <p className="mt-0.5 text-xs opacity-80">
+                  {new Date(data.profileDraftRejectedAt).toLocaleString("ru-RU")}
+                </p>
+              ) : null}
+              <p className="mt-2 whitespace-pre-wrap">{data.profileDraftRejectNote}</p>
+              <p className="mt-2 text-xs opacity-90">
+                Исправьте анкету и сохраните снова — комментарий исчезнет после повторной отправки на модерацию.
+              </p>
+            </div>
+          ) : null}
           {!data?.profile ? (
             <p className="text-sm text-muted-foreground">Профиль ещё не создан.</p>
           ) : (
@@ -932,22 +1150,8 @@ export default function InstructorHomePage() {
                     <p className="text-xs text-destructive">{fieldErrors.certificationLevel}</p>
                   ) : null}
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="rate">Цена за час (₽)</Label>
-                  <Input
-                    id="rate"
-                    type="number"
-                    min={500}
-                    value={hourlyRate}
-                    onChange={(e) => setHourlyRate(Number(e.target.value) || 0)}
-                    className={cn(fieldErrors.hourlyRate && "border-destructive ring-destructive")}
-                  />
-                  {fieldErrors.hourlyRate ? (
-                    <p className="text-xs text-destructive">{fieldErrors.hourlyRate}</p>
-                  ) : null}
-                </div>
               </div>
-              <div className="grid gap-4 md:grid-cols-3">
+              <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="age">Возраст</Label>
                   <Input
@@ -964,10 +1168,6 @@ export default function InstructorHomePage() {
                 <div className="space-y-2">
                   <Label htmlFor="exp">Стаж (лет)</Label>
                   <Input id="exp" type="number" value={experienceYears} onChange={(e) => setExperienceYears(Number(e.target.value) || 0)} />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="lessons">Проведено занятий</Label>
-                  <Input id="lessons" type="number" value={totalLessons} onChange={(e) => setTotalLessons(Number(e.target.value) || 0)} />
                 </div>
               </div>
               <MultiSelectChipsField
@@ -997,17 +1197,15 @@ export default function InstructorHomePage() {
                 error={fieldErrors.languagesRaw}
               />
 
-              <MultiSelectChipsField
-                id="spec"
-                label="Специализации"
-                value={specializationsRaw}
+              <SpecializationOffersEditor
+                offers={specializationOffers}
                 onChange={(next) => {
-                  setSpecializationsRaw(next);
-                  setBio((b) => syncSeedLikeBioFromSpecsCsv(b, next));
+                  setSpecializationOffers(next);
+                  setBio((b) =>
+                    syncSeedLikeBioFromSpecsCsv(b, next.map((o) => o.label).join(", ")),
+                  );
                 }}
-                options={[...INSTRUCTOR_ACTIVITY_LABELS]}
-                placeholder="Горные лыжи, Сноуборд, Фрирайд, Дети"
-                error={fieldErrors.specializationsRaw}
+                error={fieldErrors.specializationOffers}
               />
               <MultiSelectChipsField
                 id="services"
@@ -1262,21 +1460,6 @@ export default function InstructorHomePage() {
               </div>
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="tg">Telegram URL</Label>
-                  <Input id="tg" value={telegramUrl} onChange={(e) => setTelegramUrl(e.target.value)} className={cn(fieldErrors.telegramUrl && "border-destructive ring-destructive")} />
-                  {fieldErrors.telegramUrl ? <p className="text-xs text-destructive">{fieldErrors.telegramUrl}</p> : null}
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="wa">WhatsApp URL</Label>
-                  <Input id="wa" value={whatsappUrl} onChange={(e) => setWhatsappUrl(e.target.value)} className={cn(fieldErrors.whatsappUrl && "border-destructive ring-destructive")} />
-                  {fieldErrors.whatsappUrl ? <p className="text-xs text-destructive">{fieldErrors.whatsappUrl}</p> : null}
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="ig">Instagram URL</Label>
-                  <Input id="ig" value={instagramUrl} onChange={(e) => setInstagramUrl(e.target.value)} className={cn(fieldErrors.instagramUrl && "border-destructive ring-destructive")} />
-                  {fieldErrors.instagramUrl ? <p className="text-xs text-destructive">{fieldErrors.instagramUrl}</p> : null}
-                </div>
-                <div className="space-y-2">
                   <Label htmlFor="yt">Видео-визитка (YouTube URL)</Label>
                   <Input id="yt" value={videoVisitUrl} onChange={(e) => setVideoVisitUrl(e.target.value)} className={cn(fieldErrors.videoVisitUrl && "border-destructive ring-destructive")} />
                   {fieldErrors.videoVisitUrl ? <p className="text-xs text-destructive">{fieldErrors.videoVisitUrl}</p> : null}
@@ -1293,7 +1476,7 @@ export default function InstructorHomePage() {
                 <Button
                   type="button"
                   variant="accent"
-                  disabled={saveProfile.isPending}
+                  disabled={saveProfile.isPending || signedInAsOtherRole}
                   onClick={() => saveProfile.mutate()}
                 >
                   Сохранить профиль
@@ -1354,7 +1537,7 @@ export default function InstructorHomePage() {
         ))}
       </datalist>
 
-      {activePendingPromptOrder ? (
+      {activePendingPromptOrder && !suppressOrderPrompts ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
           <div className="w-full max-w-xl rounded-lg border border-border bg-background p-4 shadow-xl">
             <h2 className="text-lg font-semibold">Новая заявка от клиента</h2>
@@ -1457,7 +1640,11 @@ export default function InstructorHomePage() {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => setPendingPromptOrderId(null)}
+                onClick={() => {
+                  dismissPendingPrompt(activePendingPromptOrder.id);
+                  dismissedPromptIdsRef.current = readDismissedPendingPromptIds();
+                  setPendingPromptOrderId(null);
+                }}
                 disabled={respondToPendingOrder.isPending}
               >
                 Позже

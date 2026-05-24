@@ -10,6 +10,7 @@ import {
   Menu,
   Radio,
   ShieldCheck,
+  Users,
   Wallet,
   X,
 } from "lucide-react";
@@ -32,6 +33,7 @@ const nav = [
   { href: "/admin/pipeline", label: "Воронка заказов", icon: LineChart },
   { href: "/admin/finance", label: "Финансы", icon: Wallet },
   { href: "/admin/orders", label: "Заказы", icon: ListOrdered },
+  { href: "/admin/users", label: "Пользователи", icon: Users },
   { href: "/admin/moderation", label: "Модерация", icon: ShieldCheck },
 ] as const;
 

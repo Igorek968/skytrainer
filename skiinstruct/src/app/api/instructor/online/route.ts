@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { auth } from "@/auth";
+import { isApiErrorResponse, requireInstructorSession } from "@/lib/api-session";
+import { getInstructorComplianceStatus } from "@/lib/instructor-compliance";
 import { prisma } from "@/lib/prisma";
 
 const bodySchema = z.object({
@@ -9,10 +10,9 @@ const bodySchema = z.object({
 });
 
 export async function POST(req: Request) {
-  const session = await auth();
-  if (!session?.user || session.user.role !== "INSTRUCTOR") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const authResult = await requireInstructorSession();
+  if (isApiErrorResponse(authResult)) return authResult;
+  const { userId } = authResult;
 
   let json: unknown;
   try {
@@ -26,8 +26,31 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
+  if (parsed.data.isOnline) {
+    const profile = await prisma.instructorProfile.findUnique({
+      where: { userId },
+      select: { verificationStatus: true },
+    });
+    if (!profile || profile.verificationStatus !== "APPROVED") {
+      return NextResponse.json(
+        { error: "Статус «онлайн» доступен после одобрения анкеты администратором" },
+        { status: 403 },
+      );
+    }
+    const compliance = await getInstructorComplianceStatus(userId);
+    if (!compliance.canAcceptPaidOrders) {
+      return NextResponse.json(
+        {
+          error:
+            "Загрузите и дождитесь одобрения документов (НПД/ИП и страхование) и примите агентский договор в разделе соответствия",
+        },
+        { status: 403 },
+      );
+    }
+  }
+
   await prisma.instructorProfile.updateMany({
-    where: { userId: session.user.id },
+    where: { userId },
     data: { isOnline: parsed.data.isOnline },
   });
 

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 
+import { auth } from "@/auth";
 import { AppProviders } from "@/app/providers";
 import { SiteFooter } from "@/shared/layout/site-footer";
 import { SiteHeader } from "@/shared/layout/site-header";
@@ -37,11 +38,13 @@ export const viewport: Viewport = {
   ],
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const session = await auth();
+
   return (
     <html lang="ru" suppressHydrationWarning>
       <body className={`${inter.variable} min-h-dvh font-sans`}>
-        <AppProviders>
+        <AppProviders session={session}>
           <SiteHeader />
           <main className="mx-auto max-w-6xl px-4 py-6">{children}</main>
           <SiteFooter />

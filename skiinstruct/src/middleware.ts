@@ -1,37 +1,50 @@
 import NextAuth from "next-auth";
 
 import { authConfig } from "@/auth.config";
+import {
+  isAdminPanelPath,
+  isClientAuthRequiredPath,
+  isInstructorPanelPath,
+  roleHomePath,
+} from "@/lib/role-route-access";
 import { NextResponse } from "next/server";
+import type { UserRole } from "@prisma/client";
 
 /**
- * Page routes only. API routes call `auth()` и роли из Node.
- * Здесь только edge-безопасный конфиг (без Prisma) — см. auth.config.ts.
+ * Проверка «вошёл / не вошёл» и разделение кабинетов по роли из JWT.
+ * Роль в JWT обновляется из БД в callbacks.jwt (auth.ts) при каждом запросе.
  */
 export default NextAuth(authConfig).auth((req) => {
-  const { pathname } = req.nextUrl;
+  const pathname = req.nextUrl.pathname.replace(/\/+$/, "") || "/";
 
   if (pathname.startsWith("/api")) {
     return NextResponse.next();
   }
 
-  if (pathname === "/admin/login") {
-    if (!req.auth) return NextResponse.next();
-    if (req.auth.user?.role === "ADMIN") {
-      return NextResponse.redirect(new URL("/admin/activity", req.nextUrl));
-    }
-    return NextResponse.redirect(new URL("/", req.nextUrl));
+  if (pathname === "/instructor/login" || pathname === "/admin/login") {
+    return NextResponse.next();
   }
 
-  const isPublicClientHome =
-    (pathname === "/client" || pathname === "/client/") && !req.auth;
+  /** Карта и заказ — для гостей и для инструкторов/админов «как клиент». */
+  const isClientBookingHome = pathname === "/client" || pathname === "/client/";
   const isPublicInstructorReviewsBrowse = pathname.startsWith("/instructors/");
-  const isPublicOferta = pathname === "/oferta" || pathname.startsWith("/oferta/");
+  const isPublicLegal =
+    pathname === "/oferta" ||
+    pathname.startsWith("/oferta/") ||
+    pathname === "/oferta-instructor" ||
+    pathname.startsWith("/oferta-instructor/") ||
+    pathname === "/privacy" ||
+    pathname.startsWith("/privacy/") ||
+    pathname === "/returns" ||
+    pathname.startsWith("/returns/") ||
+    pathname === "/support" ||
+    pathname.startsWith("/support/");
   const publicPaths = ["/", "/login", "/register", "/instructor/login", "/instructor/apply"];
   if (
     publicPaths.includes(pathname) ||
-    isPublicClientHome ||
+    isClientBookingHome ||
     isPublicInstructorReviewsBrowse ||
-    isPublicOferta
+    isPublicLegal
   ) {
     return NextResponse.next();
   }
@@ -47,34 +60,22 @@ export default NextAuth(authConfig).auth((req) => {
         ? "/instructor/login"
         : "/login";
     const url = new URL(loginPath, req.nextUrl.origin);
-    url.searchParams.set("callbackUrl", pathname);
+    const returnPath = `${pathname}${req.nextUrl.search}`;
+    url.searchParams.set("callbackUrl", returnPath);
     return NextResponse.redirect(url);
   }
 
-  const role = req.auth.user?.role;
-  if (!role) {
-    const loginPath = pathname.startsWith("/admin")
-      ? "/admin/login"
-      : pathname.startsWith("/instructor")
-        ? "/instructor/login"
-        : "/login";
-    const url = new URL(loginPath, req.nextUrl.origin);
-    url.searchParams.set("callbackUrl", pathname);
-    return NextResponse.redirect(url);
-  }
+  const role = req.auth.user?.role as UserRole | undefined;
+  const roleHome = role ? roleHomePath(role) : "/login";
 
-  if (pathname.startsWith("/client") && role !== "CLIENT") {
-    if (role === "INSTRUCTOR") return NextResponse.redirect(new URL("/instructor", req.nextUrl));
-    if (role === "ADMIN") return NextResponse.redirect(new URL("/admin/activity", req.nextUrl));
-    return NextResponse.redirect(new URL("/", req.nextUrl));
+  if (isAdminPanelPath(pathname) && role !== "ADMIN") {
+    return NextResponse.redirect(new URL(roleHome, req.nextUrl.origin));
   }
-  if (pathname.startsWith("/instructor") && role !== "INSTRUCTOR") {
-    if (role === "CLIENT") return NextResponse.redirect(new URL("/client", req.nextUrl));
-    if (role === "ADMIN") return NextResponse.redirect(new URL("/admin/activity", req.nextUrl));
-    return NextResponse.redirect(new URL("/", req.nextUrl));
+  if (isInstructorPanelPath(pathname) && role !== "INSTRUCTOR") {
+    return NextResponse.redirect(new URL(roleHome, req.nextUrl.origin));
   }
-  if (pathname.startsWith("/admin") && role !== "ADMIN") {
-    return NextResponse.redirect(new URL("/", req.nextUrl));
+  if (isClientAuthRequiredPath(pathname) && role !== "CLIENT") {
+    return NextResponse.redirect(new URL(roleHome, req.nextUrl.origin));
   }
 
   return NextResponse.next();
