@@ -1,2 +1,9 @@
 __pycache__
 .env
+.env.qa
+
+# Caddy / Let's Encrypt (приватные ключи — только локально и на VPS)
+deploy/caddy-data/
+deploy/caddy-config/
+!deploy/caddy-data/.gitkeep
+!deploy/caddy-config/.gitkeep

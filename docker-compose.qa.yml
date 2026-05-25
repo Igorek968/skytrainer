@@ -48,10 +48,10 @@ services:
       NODE_ENV: production
       DATABASE_URL: ${SKIINSTRUCT_DATABASE_URL:-postgres://sky:sky@postgres:5432/skytrainer_new?schema=skiinstruct}
       AUTH_SECRET: ${SKIINSTRUCT_AUTH_SECRET}
-      AUTH_URL: https://${APP_DOMAIN}
+      AUTH_URL: ${APP_PUBLIC_URL:-https://${APP_DOMAIN}}
       NEXTAUTH_SECRET: ${SKIINSTRUCT_AUTH_SECRET}
-      NEXTAUTH_URL: https://${APP_DOMAIN}
-      NEXT_PUBLIC_APP_URL: https://${APP_DOMAIN}
+      NEXTAUTH_URL: ${APP_PUBLIC_URL:-https://${APP_DOMAIN}}
+      NEXT_PUBLIC_APP_URL: ${APP_PUBLIC_URL:-https://${APP_DOMAIN}}
       NEXT_SERVER_ACTIONS_ALLOWED_ORIGINS: ${SKIINSTRUCT_SERVER_ACTIONS_ALLOWED_ORIGINS:-${APP_DOMAIN}}
       CRON_SECRET: ${SKIINSTRUCT_CRON_SECRET}
       AUTH_GOOGLE_ID: ${SKIINSTRUCT_AUTH_GOOGLE_ID:-}
@@ -91,9 +91,10 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - skytrainer_qa_caddy_data:/data
-      - skytrainer_qa_caddy_config:/config
+      - ./${CADDYFILE:-Caddyfile}:/etc/caddy/Caddyfile:ro
+      # Сертификаты LE: bind-mount, чтобы переживали деплой (см. scripts/caddy-sync-certs.ps1)
+      - ./deploy/caddy-data:/data
+      - ./deploy/caddy-config:/config
     logging:
       driver: "json-file"
       options:
@@ -103,5 +104,3 @@ services:
 volumes:
   skytrainer_qa_pg:
   skytrainer_qa_redis:
-  skytrainer_qa_caddy_data:
-  skytrainer_qa_caddy_config:

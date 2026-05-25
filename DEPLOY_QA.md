@@ -25,6 +25,20 @@ cp .env.qa.example .env.qa
 - `SKIINSTRUCT_ADMIN_EMAIL`
 - `SKIINSTRUCT_ADMIN_PASSWORD`
 
+## 2.1 TLS (Caddy) — сохранение сертификатов между деплоями
+
+Сертификаты Let's Encrypt лежат в `deploy/caddy-data/` (bind-mount в контейнер, не анонимный том).
+
+1. В `.env.qa`: `APP_DOMAIN=utrainer.ru`, `APP_PUBLIC_URL=https://utrainer.ru`, `CADDYFILE=Caddyfile`.
+2. **A-запись** домена должна указывать на IP VPS (иначе ACME не пройдёт).
+3. После первого успешного выпуска на сервере:
+
+```powershell
+.\scripts\caddy-sync-certs.ps1 -Direction Pull
+```
+
+4. Следующие деплои: `.\scripts\deploy-vps.ps1` — сертификаты уедут на сервер автоматически, если `deploy/caddy-data` не пустой.
+
 ## 3. Запуск QA-стенда
 
 ```bash

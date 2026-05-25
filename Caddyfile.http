@@ -1,0 +1,10 @@
+# HTTP без TLS (IP или пока нет рабочего сертификата). В compose: CADDYFILE=Caddyfile.http
+:80 {
+  encode zstd gzip
+  reverse_proxy skiinstruct:3000
+  header {
+    X-Frame-Options "DENY"
+    X-Content-Type-Options "nosniff"
+    Referrer-Policy "strict-origin-when-cross-origin"
+  }
+}
