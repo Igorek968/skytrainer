@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { toast } from "sonner";
 
+import { playInstructorOrderBeep } from "@/features/instructor/instructor-order-beep";
 import { orderRelaxedInstructorTiming } from "@/shared/lib/order-flex";
 
 export type PendingOrderAlertRow = {
@@ -10,32 +11,21 @@ export type PendingOrderAlertRow = {
   status: string;
   flexibleInstructorInvite?: boolean;
   requestedDays?: number | null;
+  requestedStartDate?: string | Date | null;
   pendingExpiresAt?: string | Date | null;
   client?: { name: string | null } | null;
 };
 
-function playShortBeep() {
-  try {
-    const ctx = new AudioContext();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = "sine";
-    osc.frequency.value = 920;
-    gain.gain.value = 0.001;
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.start();
-    gain.gain.exponentialRampToValueAtTime(0.2, ctx.currentTime + 0.02);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
-    osc.stop(ctx.currentTime + 0.38);
-    void ctx.close();
-  } catch {
-    // noop
-  }
+function timingInput(o: PendingOrderAlertRow) {
+  return {
+    flexibleInstructorInvite: Boolean(o.flexibleInstructorInvite),
+    requestedDays: o.requestedDays ?? null,
+    requestedStartDate: o.requestedStartDate ?? null,
+  };
 }
 
 /**
- * Уведомления о новых заявках PENDING_INSTRUCTOR (в т.ч. без таймера — flexible).
+ * Toast + звук + браузерное уведомление (дополнение к модалке в layout).
  */
 export function useInstructorPendingOrderAlerts(
   orders: PendingOrderAlertRow[] | undefined,
@@ -66,7 +56,7 @@ export function useInstructorPendingOrderAlerts(
         JSON.stringify([...ids]),
       );
     } catch {
-      // ignore storage errors
+      /* ignore */
     }
   };
 
@@ -79,10 +69,7 @@ export function useInstructorPendingOrderAlerts(
     }
     const pending = orders.filter((o) => {
       if (o.status !== "PENDING_INSTRUCTOR") return false;
-      const relaxed = orderRelaxedInstructorTiming({
-        flexibleInstructorInvite: Boolean(o.flexibleInstructorInvite),
-        requestedDays: o.requestedDays ?? null,
-      });
+      const relaxed = orderRelaxedInstructorTiming(timingInput(o));
       if (relaxed) return true;
       if (!o.pendingExpiresAt) return false;
       const expMs = new Date(o.pendingExpiresAt).getTime();
@@ -91,27 +78,20 @@ export function useInstructorPendingOrderAlerts(
     let newlySeen: PendingOrderAlertRow[] = [];
 
     if (!initializedRef.current) {
-      // На первом рендере только инициализируем baseline без уведомлений:
-      // иначе всплывают старые «висящие» заявки после перезахода/обновления.
       for (const o of pending) notifiedPendingIdsRef.current.add(o.id);
       writePersistedNotified(notifiedPendingIdsRef.current);
       initializedRef.current = true;
       return;
-    } else {
-      newlySeen = pending.filter((o) => !notifiedPendingIdsRef.current.has(o.id));
-      for (const o of pending) notifiedPendingIdsRef.current.add(o.id);
-      writePersistedNotified(notifiedPendingIdsRef.current);
     }
+    newlySeen = pending.filter((o) => !notifiedPendingIdsRef.current.has(o.id));
+    for (const o of pending) notifiedPendingIdsRef.current.add(o.id);
+    writePersistedNotified(notifiedPendingIdsRef.current);
 
     if (!newlySeen.length) return;
 
-    playShortBeep();
+    playInstructorOrderBeep();
 
-    const rowRelaxed = (o: PendingOrderAlertRow) =>
-      orderRelaxedInstructorTiming({
-        flexibleInstructorInvite: Boolean(o.flexibleInstructorInvite),
-        requestedDays: o.requestedDays ?? null,
-      });
+    const rowRelaxed = (o: PendingOrderAlertRow) => orderRelaxedInstructorTiming(timingInput(o));
     const anyRelaxed = newlySeen.some((o) => rowRelaxed(o));
     const anyTimed = newlySeen.some((o) => !rowRelaxed(o));
     const first = newlySeen[0];
@@ -122,10 +102,10 @@ export function useInstructorPendingOrderAlerts(
 
     const description =
       anyRelaxed && anyTimed
-        ? "Есть заявки с таймером 60 с и без таймера (запись на дату или несколько дней). Откройте заказы."
+        ? "Есть срочные (60 с) и спокойные заявки (не сегодня, несколько дней или запись на дату)."
         : anyRelaxed
-          ? "Без отсчёта 60 секунд на ответ (запись на дату или бронь на несколько дней). Откройте заказы."
-          : "На принятие — 60 секунд. Если уведомление по тому же заказу повторилось, заявка снова дошла до вас по очереди.";
+          ? "Без отсчёта 60 с — урок не сегодня, несколько дней или запись на дату."
+          : "На принятие — 60 секунд. Повтор — заявка снова в очереди.";
 
     toast.success(`Новая заявка: ${newlySeen.length} шт.`, {
       description,
@@ -155,7 +135,7 @@ export function useInstructorPendingOrderAlerts(
             : [
                 first.client?.name ? `Клиент: ${first.client.name}` : "Новый заказ",
                 firstRelaxed
-                  ? "Без таймера 60 с (запись на дату или несколько дней)."
+                  ? "Без таймера 60 с."
                   : etaHint || "На принятие — 60 секунд.",
               ]
                 .filter(Boolean)

@@ -4,6 +4,10 @@ import type { UserRole } from "@prisma/client";
 import { auth } from "@/auth";
 import { enrichClientEvent } from "@/lib/instructor-events";
 import { prisma } from "@/lib/prisma";
+import {
+  archivePastPublishedInstructorEvents,
+  isVisibleInClientEventFeed,
+} from "@/lib/services/instructor-event-expiry";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -48,11 +52,17 @@ export async function GET(_req: Request, ctx: Ctx) {
     return NextResponse.json({ events: [] });
   }
 
+  const now = new Date();
+  await archivePastPublishedInstructorEvents({ instructorId: order.instructorId, now });
+
   const rows = await prisma.instructorEvent.findMany({
     where: {
       instructorId: order.instructorId,
       moderationStatus: "PUBLISHED",
-      OR: [{ orderId: null }, { orderId }],
+      AND: [
+        { OR: [{ eventAt: null }, { eventAt: { gt: now } }] },
+        { OR: [{ orderId: null }, { orderId: orderId }] },
+      ],
     },
     orderBy: [{ eventAt: "desc" }, { createdAt: "desc" }],
     take: 30,
@@ -64,14 +74,16 @@ export async function GET(_req: Request, ctx: Ctx) {
     },
   });
 
-  const events = await Promise.all(
-    rows.map((row) =>
-      enrichClientEvent(
-        row,
-        order.clientId === uid ? (row.registrations[0] ?? null) : null,
+  const events = (
+    await Promise.all(
+      rows.map((row) =>
+        enrichClientEvent(
+          row,
+          order.clientId === uid ? (row.registrations[0] ?? null) : null,
+        ),
       ),
-    ),
-  );
+    )
+  ).filter((event) => isVisibleInClientEventFeed(event, now));
 
   return NextResponse.json({ events });
 }

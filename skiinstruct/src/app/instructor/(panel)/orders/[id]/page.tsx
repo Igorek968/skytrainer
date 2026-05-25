@@ -12,7 +12,7 @@ import { CancelOrderButton } from "@/features/orders/cancel-order-button";
 import { OrderEventsFeed } from "@/features/orders/order-events-feed";
 import { devPollInterval } from "@/lib/query-poll";
 import { NearbyMapLazy } from "@/features/map/map-loader";
-import { orderRelaxedInstructorTiming } from "@/shared/lib/order-flex";
+import { orderIsFutureLessonDay, orderRelaxedInstructorTiming } from "@/shared/lib/order-flex";
 import { hasLessonTimeWindowInNotes, lessonTimeWindowLineFromNotes } from "@/shared/lib/order-lesson-times";
 import { orderStatusLabel } from "@/shared/lib/order-status";
 import { Button } from "@/shared/ui/button";
@@ -50,6 +50,7 @@ function InstructorOrderDetailContent({
   const relaxedTiming = orderRelaxedInstructorTiming({
     flexibleInstructorInvite: Boolean(safeOrder.flexibleInstructorInvite),
     requestedDays: safeOrder.requestedDays,
+    requestedStartDate: safeOrder.requestedStartDate,
   });
 
   const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
@@ -179,7 +180,9 @@ function InstructorOrderDetailContent({
               {relaxedTiming
                 ? safeOrder.flexibleInstructorInvite
                   ? "Запись на дату — ответ без ограничения по времени."
-                  : "Несколько дней — ответ без таймера 60 с."
+                  : orderIsFutureLessonDay({ requestedStartDate: safeOrder.requestedStartDate })
+                    ? "Урок не сегодня — ответ без таймера 60 с."
+                    : "Несколько дней — ответ без таймера 60 с."
                 : `На решение: ${secondsLeft ?? 0} сек`}
             </div>
           ) : null}

@@ -304,6 +304,7 @@ export async function PATCH(req: Request, ctx: Ctx) {
       const relaxedTiming = orderRelaxedInstructorTiming({
         flexibleInstructorInvite: Boolean(order.flexibleInstructorInvite),
         requestedDays: order.requestedDays,
+        requestedStartDate: order.requestedStartDate,
       });
       const etaMinutes = relaxedTiming ? undefined : action.etaMinutes;
       let extra: Prisma.OrderUpdateInput | undefined;
@@ -331,6 +332,7 @@ export async function PATCH(req: Request, ctx: Ctx) {
         orderRelaxedInstructorTiming({
           flexibleInstructorInvite: Boolean(order.flexibleInstructorInvite),
           requestedDays: order.requestedDays,
+          requestedStartDate: order.requestedStartDate,
         })
       ) {
         return NextResponse.json(

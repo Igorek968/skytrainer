@@ -124,6 +124,7 @@ function ClientOrderDetailContent({
   const relaxedTiming = orderRelaxedInstructorTiming({
     flexibleInstructorInvite: Boolean(o.flexibleInstructorInvite),
     requestedDays: o.requestedDays,
+    requestedStartDate: o.requestedStartDate,
   });
   const discipline =
     extractDiscipline(o.notes) ??

@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { isApiErrorResponse, requireInstructorSession } from "@/lib/api-session";
-import { getInstructorComplianceStatus } from "@/lib/instructor-compliance";
 import { prisma } from "@/lib/prisma";
 
 const bodySchema = z.object({
@@ -34,16 +33,6 @@ export async function POST(req: Request) {
     if (!profile || profile.verificationStatus !== "APPROVED") {
       return NextResponse.json(
         { error: "Статус «онлайн» доступен после одобрения анкеты администратором" },
-        { status: 403 },
-      );
-    }
-    const compliance = await getInstructorComplianceStatus(userId);
-    if (!compliance.canAcceptPaidOrders) {
-      return NextResponse.json(
-        {
-          error:
-            "Загрузите и дождитесь одобрения документов (НПД/ИП и страхование) и примите агентский договор в разделе соответствия",
-        },
         { status: 403 },
       );
     }

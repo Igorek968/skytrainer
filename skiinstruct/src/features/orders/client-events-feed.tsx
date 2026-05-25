@@ -117,7 +117,7 @@ export function ClientEventsFeed() {
     refetchIntervalInBackground: false,
   });
 
-  const events = data?.events ?? [];
+  const events = (data?.events ?? []).filter((ev) => !ev.isCompleted);
 
   if (!enabled) {
     return (

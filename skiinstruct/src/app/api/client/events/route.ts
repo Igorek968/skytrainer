@@ -10,6 +10,11 @@ import {
 } from "@/lib/client-events-geo";
 import { enrichClientEvent } from "@/lib/instructor-events";
 import { prisma } from "@/lib/prisma";
+import {
+  activePublishedEventWhere,
+  archivePastPublishedInstructorEvents,
+  isVisibleInClientEventFeed,
+} from "@/lib/services/instructor-event-expiry";
 
 export const dynamic = "force-dynamic";
 
@@ -35,9 +40,12 @@ export async function GET(req: Request) {
 
   const { lat, lng, radiusKm, unlimited } = parsed.data;
   const origin = resolveClientEventsOrigin(lat, lng);
+  const now = new Date();
+
+  await archivePastPublishedInstructorEvents({ now });
 
   const rows = await prisma.instructorEvent.findMany({
-    where: { moderationStatus: "PUBLISHED" },
+    where: activePublishedEventWhere(now),
     orderBy: [{ eventAt: "desc" }, { createdAt: "desc" }],
     take: 200,
     include: {
@@ -72,10 +80,9 @@ export async function GET(req: Request) {
     }),
   );
 
-  const events = filterAndSortEventsByDistance(withDistance, { unlimited, radiusKm }).slice(
-    0,
-    50,
-  );
+  const activeOnly = withDistance.filter((event) => isVisibleInClientEventFeed(event, now));
+
+  const events = filterAndSortEventsByDistance(activeOnly, { unlimited, radiusKm }).slice(0, 50);
 
   return NextResponse.json({
     events,

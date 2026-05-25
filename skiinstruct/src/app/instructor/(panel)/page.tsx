@@ -14,7 +14,6 @@ import { devPollInterval } from "@/lib/query-poll";
 import { InstructorComplianceCard } from "@/features/instructor/instructor-compliance-card";
 import { InstructorEventsEditor } from "@/features/instructor/instructor-events-editor";
 import { SpecializationOffersEditor } from "@/features/instructor/specialization-offers-editor";
-import { useInstructorPendingOrderAlerts } from "@/features/instructor/use-instructor-pending-order-alerts";
 import {
   parseSpecializationOffers,
   type SpecializationOffer,
@@ -26,13 +25,6 @@ import { Label } from "@/shared/ui/label";
 import { Skeleton } from "@/shared/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { INSTRUCTOR_ACTIVITY_LABELS } from "@/lib/services/instructor-match";
-import { orderRelaxedInstructorTiming } from "@/shared/lib/order-flex";
-import { hasLessonTimeWindowInNotes, lessonTimeWindowLineFromNotes } from "@/shared/lib/order-lesson-times";
-import {
-  dismissPendingPrompt,
-  readDismissedPendingPromptIds,
-} from "@/lib/instructor-pending-prompt-storage";
-import { orderStatusLabel } from "@/shared/lib/order-status";
 
 const instructorFetch = (input: RequestInfo | URL, init?: RequestInit) =>
   fetch(input, { ...init, credentials: "include" });
@@ -314,19 +306,8 @@ export default function InstructorHomePage() {
     refetchInterval: devPollInterval(5000),
   });
 
-  const [pendingPromptOrderId, setPendingPromptOrderId] = useState<string | null>(null);
-  const [etaMinutes, setEtaMinutes] = useState<number>(20);
-  const [pendingPromptSecondsLeft, setPendingPromptSecondsLeft] = useState<number | null>(null);
-  const [suppressOrderPrompts, setSuppressOrderPrompts] = useState(false);
-  const seenPendingOrderIdsRef = useRef<Set<string>>(new Set());
-  const pendingPromptsInitializedRef = useRef(false);
-  const dismissedPromptIdsRef = useRef<Set<string> | null>(null);
   const prevProfilePendingReviewRef = useRef<boolean | null>(null);
   const prevVerificationStatusRef = useRef<"PENDING" | "APPROVED" | "REJECTED" | null>(null);
-
-  useInstructorPendingOrderAlerts(orderAlerts?.orders, {
-    suppress: suppressOrderPrompts,
-  });
 
   const activeOrderOptions = useMemo(() => {
     const active = new Set<OrderStatus>([
@@ -412,45 +393,6 @@ export default function InstructorHomePage() {
   useThrottledInstructorLocation(effectiveOnline);
 
   useEffect(() => {
-    if (orderAlerts?.orders == null) return;
-    if (suppressOrderPrompts) return;
-    if (dismissedPromptIdsRef.current === null) {
-      dismissedPromptIdsRef.current = readDismissedPendingPromptIds();
-    }
-    const dismissed = dismissedPromptIdsRef.current;
-    const pending = orderAlerts.orders.filter((o) => {
-      if (o.status !== "PENDING_INSTRUCTOR") return false;
-      const relaxed = orderRelaxedInstructorTiming({
-        flexibleInstructorInvite: Boolean(o.flexibleInstructorInvite),
-        requestedDays: o.requestedDays ?? null,
-      });
-      if (relaxed) return true;
-      if (!o.pendingExpiresAt) return false;
-      const expMs = new Date(o.pendingExpiresAt).getTime();
-      return Number.isFinite(expMs) && expMs > Date.now();
-    });
-    if (!pendingPromptsInitializedRef.current) {
-      for (const p of pending) seenPendingOrderIdsRef.current.add(p.id);
-      pendingPromptsInitializedRef.current = true;
-      return;
-    }
-    const newlySeen = pending.find(
-      (o) => !seenPendingOrderIdsRef.current.has(o.id) && !dismissed.has(o.id),
-    );
-    for (const p of pending) seenPendingOrderIdsRef.current.add(p.id);
-    if (newlySeen) {
-      setPendingPromptOrderId(newlySeen.id);
-      setEtaMinutes(20);
-    }
-  }, [orderAlerts?.orders, suppressOrderPrompts]);
-
-  useEffect(() => {
-    if (!suppressOrderPrompts) return;
-    setPendingPromptOrderId(null);
-    setPendingPromptSecondsLeft(null);
-  }, [suppressOrderPrompts]);
-
-  useEffect(() => {
     if (data?.profilePendingReview == null) return;
     const prev = prevProfilePendingReviewRef.current;
     prevProfilePendingReviewRef.current = data.profilePendingReview;
@@ -459,15 +401,13 @@ export default function InstructorHomePage() {
     // Переход PENDING_REVIEW -> NONE после одобрения админом:
     // показываем подтверждение и не даём в этот момент всплыть модалке заказа.
     if (prev && !data.profilePendingReview) {
-      setSuppressOrderPrompts(true);
-      setPendingPromptOrderId(null);
-      setPendingPromptSecondsLeft(null);
-      for (const o of (orderAlerts?.orders ?? []).filter((x) => x.status === "PENDING_INSTRUCTOR")) {
-        seenPendingOrderIdsRef.current.add(o.id);
-      }
+      window.dispatchEvent(new CustomEvent("skiinstruct:suppress-order-prompts"));
       toast.success("Модерация пройдена: изменения анкеты опубликованы");
       setInited(false);
-      window.setTimeout(() => setSuppressOrderPrompts(false), 15_000);
+      window.setTimeout(
+        () => window.dispatchEvent(new CustomEvent("skiinstruct:unsuppress-order-prompts")),
+        15_000,
+      );
     }
   }, [data?.profilePendingReview, orderAlerts?.orders]);
 
@@ -477,71 +417,23 @@ export default function InstructorHomePage() {
     prevVerificationStatusRef.current = data.verificationStatus;
     if (prev === null) return;
     if (prev === "PENDING" && data.verificationStatus === "APPROVED") {
-      setSuppressOrderPrompts(true);
-      setPendingPromptOrderId(null);
-      setPendingPromptSecondsLeft(null);
+      window.dispatchEvent(new CustomEvent("skiinstruct:suppress-order-prompts"));
       toast.success(
         "Анкета одобрена администратором. Заполните профиль и включите «онлайн», чтобы принимать заказы.",
         { duration: 12_000 },
       );
       setInited(false);
       void qc.invalidateQueries({ queryKey: ["io-online"] });
-      window.setTimeout(() => setSuppressOrderPrompts(false), 15_000);
+      window.setTimeout(
+        () => window.dispatchEvent(new CustomEvent("skiinstruct:unsuppress-order-prompts")),
+        15_000,
+      );
     }
     if (prev === "PENDING" && data.verificationStatus === "REJECTED") {
       toast.error("Заявка инструктора отклонена. Смотрите комментарий администратора в анкете.");
       setInited(false);
     }
   }, [data?.verificationStatus, qc]);
-
-  const activePendingPromptOrder =
-    orderAlerts?.orders.find((o) => o.id === pendingPromptOrderId && o.status === "PENDING_INSTRUCTOR") ?? null;
-  const pendingRelaxedTiming = Boolean(
-    activePendingPromptOrder &&
-      orderRelaxedInstructorTiming({
-        flexibleInstructorInvite: Boolean(activePendingPromptOrder.flexibleInstructorInvite),
-        requestedDays: activePendingPromptOrder.requestedDays ?? null,
-      }),
-  );
-  useEffect(() => {
-    if (!pendingPromptOrderId) return;
-    if (activePendingPromptOrder) return;
-    setPendingPromptOrderId(null);
-  }, [activePendingPromptOrder, pendingPromptOrderId]);
-
-  useEffect(() => {
-    if (!activePendingPromptOrder || pendingRelaxedTiming) {
-      setPendingPromptSecondsLeft(null);
-      return;
-    }
-    const expRaw = activePendingPromptOrder.pendingExpiresAt;
-    if (!expRaw) {
-      setPendingPromptSecondsLeft(null);
-      return;
-    }
-    const expMs = new Date(expRaw).getTime();
-    if (!Number.isFinite(expMs)) {
-      setPendingPromptSecondsLeft(null);
-      return;
-    }
-    const tick = () => {
-      const left = Math.max(0, Math.ceil((expMs - Date.now()) / 1000));
-      setPendingPromptSecondsLeft(left);
-    };
-    tick();
-    const timerId = window.setInterval(tick, 1000);
-    return () => window.clearInterval(timerId);
-  }, [activePendingPromptOrder, pendingRelaxedTiming]);
-
-  useEffect(() => {
-    if (!activePendingPromptOrder || pendingRelaxedTiming) return;
-    if (pendingPromptSecondsLeft == null || pendingPromptSecondsLeft > 0) return;
-    setPendingPromptOrderId(null);
-    setPendingPromptSecondsLeft(null);
-    toast.info("Время ответа истекло. Заявка передана следующему инструктору.");
-    void qc.invalidateQueries({ queryKey: ["instructor-order-alerts"] });
-    void qc.invalidateQueries({ queryKey: ["orders"] });
-  }, [activePendingPromptOrder, pendingPromptSecondsLeft, pendingRelaxedTiming, qc]);
 
   useEffect(() => {
     if (typeof window === "undefined" || !("Notification" in window)) {
@@ -619,22 +511,54 @@ export default function InstructorHomePage() {
     setInited(true);
   }, [data?.profile, inited]);
 
+  const pushLocationOnce = () => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        void instructorFetch("/api/instructor/location", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+          }),
+        });
+      },
+      () => {
+        /* denied — подсказка уже на экране */
+      },
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 15_000 },
+    );
+  };
+
   const toggle = useMutation({
     mutationFn: async (next: boolean) => {
+      if (next) pushLocationOnce();
       const r = await instructorFetch("/api/instructor/online", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ isOnline: next }),
       });
-      if (!r.ok) throw new Error("toggle");
+      const j = (await r.json().catch(() => ({}))) as { error?: unknown };
+      if (!r.ok) {
+        const msg =
+          typeof j.error === "string"
+            ? j.error
+            : "Не удалось обновить статус";
+        throw new Error(msg);
+      }
       return next;
     },
     onSuccess: (next) => {
       setOnline(next);
       void qc.invalidateQueries({ queryKey: ["io-online"] });
-      toast.success(next ? "Вы на линии" : "Офлайн");
+      toast.success(
+        next
+          ? "Вы на линии — клиенты увидят вас на карте в радиусе"
+          : "Офлайн",
+      );
     },
-    onError: () => toast.error("Не удалось обновить статус"),
+    onError: (e: Error) => toast.error(e.message || "Не удалось обновить статус"),
   });
 
   function validateProfileForm(): { ok: boolean; availabilitySlots: AvailabilitySlot[] } {
@@ -710,11 +634,7 @@ export default function InstructorHomePage() {
 
   const saveProfile = useMutation({
     onMutate: () => {
-      setSuppressOrderPrompts(true);
-      setPendingPromptOrderId(null);
-      for (const o of (orderAlerts?.orders ?? []).filter((x) => x.status === "PENDING_INSTRUCTOR")) {
-        seenPendingOrderIdsRef.current.add(o.id);
-      }
+      window.dispatchEvent(new CustomEvent("skiinstruct:suppress-order-prompts"));
     },
     mutationFn: async () => {
       const validation = validateProfileForm();
@@ -805,7 +725,10 @@ export default function InstructorHomePage() {
     onError: (e: Error) =>
       toast.error(e.message || "Не удалось сохранить профиль"),
     onSettled: () => {
-      window.setTimeout(() => setSuppressOrderPrompts(false), 10_000);
+      window.setTimeout(
+        () => window.dispatchEvent(new CustomEvent("skiinstruct:unsuppress-order-prompts")),
+        10_000,
+      );
     },
   });
 
@@ -898,41 +821,6 @@ export default function InstructorHomePage() {
       await qc.invalidateQueries({ queryKey: ["nearby"], exact: false });
     },
     onError: () => toast.error("Не удалось обновить порядок/обложку"),
-  });
-
-  const respondToPendingOrder = useMutation({
-    mutationFn: async (payload: { orderId: string; action: "accept" | "reject"; etaMinutes?: number }) => {
-      const body =
-        payload.action === "accept"
-          ? payload.etaMinutes != null &&
-              Number.isFinite(payload.etaMinutes) &&
-              payload.etaMinutes > 0
-            ? { action: "accept" as const, etaMinutes: payload.etaMinutes }
-            : { action: "accept" as const }
-          : { action: "reject" as const };
-      const r = await fetch(`/api/orders/${payload.orderId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      const j = (await r.json().catch(() => ({}))) as { error?: unknown };
-      if (!r.ok) throw new Error(typeof j.error === "string" ? j.error : "Не удалось обновить заказ");
-      return payload;
-    },
-    onSuccess: async ({ orderId, action }) => {
-      dismissPendingPrompt(orderId);
-      dismissedPromptIdsRef.current = readDismissedPendingPromptIds();
-      await qc.invalidateQueries({ queryKey: ["instructor-order-alerts"] });
-      await qc.invalidateQueries({ queryKey: ["orders"] });
-      if (action === "accept") {
-        toast.success("Заявка принята");
-        setPendingPromptOrderId(null);
-        router.push(`/instructor/orders/${orderId}`);
-      } else {
-        toast.success("Заявка отклонена");
-      }
-    },
-    onError: (e: Error) => toast.error(e.message),
   });
 
   return (
@@ -1041,7 +929,10 @@ export default function InstructorHomePage() {
       <Card>
         <CardHeader>
           <CardTitle>Доступность</CardTitle>
-          <CardDescription>Онлайн — вы видны клиентам на карте (в радиусе и при одобренной верификации).</CardDescription>
+          <CardDescription>
+            Онлайн — вы видны клиентам в «Инструкторы рядом» и на карте (нужна одобренная анкета и геолокация в
+            браузере). Документы соответствия нужны для платных заказов, не для переключения доступности.
+          </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap items-center gap-3">
           {isLoading && data == null && online == null ? (
@@ -1052,14 +943,29 @@ export default function InstructorHomePage() {
                 type="button"
                 variant={effectiveOnline ? "default" : "outline"}
                 onClick={() => toggle.mutate(!effectiveOnline)}
-                disabled={toggle.isPending}
+                disabled={
+                  toggle.isPending ||
+                  (!effectiveOnline && data?.verificationStatus !== "APPROVED")
+                }
                 aria-pressed={effectiveOnline}
               >
                 {effectiveOnline ? "Онлайн" : "Офлайн"}
               </Button>
-              <p className="text-sm text-muted-foreground">
-                Разрешите доступ к геолокации в браузере — иначе клиенты не увидят вас рядом.
-              </p>
+              {data?.verificationStatus === "PENDING" ? (
+                <p className="text-sm text-amber-800 dark:text-amber-200">
+                  Анкета на проверке — «Онлайн» станет доступен после одобрения администратором.
+                </p>
+              ) : data?.verificationStatus === "REJECTED" ? (
+                <p className="text-sm text-destructive">
+                  Анкета отклонена — исправьте профиль и дождитесь повторного одобрения.
+                </p>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  {effectiveOnline
+                    ? "Разрешите геолокацию в браузере — координаты обновляются каждые ~30 с, пока вы на линии."
+                    : "Нажмите «Офлайн», чтобы выйти на линию. Браузер запросит геолокацию — без неё клиенты не увидят вас рядом."}
+                </p>
+              )}
             </>
           )}
         </CardContent>
@@ -1537,151 +1443,6 @@ export default function InstructorHomePage() {
         ))}
       </datalist>
 
-      {activePendingPromptOrder && !suppressOrderPrompts ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-xl rounded-lg border border-border bg-background p-4 shadow-xl">
-            <h2 className="text-lg font-semibold">Новая заявка от клиента</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Клиент: {activePendingPromptOrder.client?.name || "Без имени"}
-            </p>
-            <div className="mt-3 space-y-2 text-sm">
-              <div className="grid gap-2 rounded-md border border-border bg-muted/20 p-2 md:grid-cols-2">
-                <div>
-                  <span className="text-xs text-muted-foreground">Статус</span>
-                  <div className="font-medium">
-                    {orderStatusLabel(activePendingPromptOrder.status as OrderStatus)}
-                  </div>
-                </div>
-                <div>
-                  <span className="text-xs text-muted-foreground">Создан</span>
-                  <div className="font-medium">
-                    {new Date(activePendingPromptOrder.createdAt).toLocaleString("ru-RU")}
-                  </div>
-                </div>
-                <div>
-                  <span className="text-xs text-muted-foreground">Курорт</span>
-                  <div className="font-medium">{activePendingPromptOrder.resort?.name ?? "Не указан"}</div>
-                </div>
-                <div>
-                  <span className="text-xs text-muted-foreground">Сумма</span>
-                  <div className="font-medium">
-                    {activePendingPromptOrder.amountTotal ? `${Number(activePendingPromptOrder.amountTotal)} ₽` : "—"}
-                  </div>
-                </div>
-              </div>
-              <div className="grid gap-2 rounded-md border border-border bg-muted/20 p-2 md:grid-cols-3">
-                <div>
-                  <span className="text-xs text-muted-foreground">Уровень</span>
-                  <div className="font-medium">{activePendingPromptOrder.skillLevel}</div>
-                </div>
-                <div>
-                  <span className="text-xs text-muted-foreground">Язык</span>
-                  <div className="font-medium">{activePendingPromptOrder.languagePref}</div>
-                </div>
-                <div>
-                  <span className="text-xs text-muted-foreground">Длительность</span>
-                  <div className="font-medium">{activePendingPromptOrder.duration}</div>
-                </div>
-              </div>
-              <div>
-                Точка встречи: {activePendingPromptOrder.meetLat.toFixed(5)}, {activePendingPromptOrder.meetLng.toFixed(5)}
-              </div>
-              {!pendingRelaxedTiming ? (
-                <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-1 font-medium text-amber-800 dark:text-amber-200">
-                  На ознакомление и решение: {pendingPromptSecondsLeft ?? 0} сек
-                </div>
-              ) : activePendingPromptOrder.flexibleInstructorInvite ? (
-                <div className="rounded-md border border-sky-500/40 bg-sky-500/10 px-2 py-1 font-medium text-sky-900 dark:text-sky-200">
-                  Запись на дату без таймера ответа
-                </div>
-              ) : (
-                <div className="rounded-md border border-sky-500/40 bg-sky-500/10 px-2 py-1 font-medium text-sky-900 dark:text-sky-200">
-                  Несколько дней — без таймера 60 с; ETA до клиента при принятии не запрашивается
-                </div>
-              )}
-              {activePendingPromptOrder.requestedStartDate ? (
-                <div>
-                  Даты: {new Date(activePendingPromptOrder.requestedStartDate).toLocaleDateString("ru-RU")}
-                  {activePendingPromptOrder.requestedEndDate
-                    ? ` - ${new Date(activePendingPromptOrder.requestedEndDate).toLocaleDateString("ru-RU")}`
-                    : ""}
-                  {activePendingPromptOrder.requestedDays
-                    ? ` (${activePendingPromptOrder.requestedDays} дн.)`
-                    : ""}
-                </div>
-              ) : null}
-              {hasLessonTimeWindowInNotes(activePendingPromptOrder.notes) ? (
-                <div>
-                  <span className="font-medium">{lessonTimeWindowLineFromNotes(activePendingPromptOrder.notes)}</span>
-                </div>
-              ) : null}
-              {activePendingPromptOrder.notes ? (
-                <p className="rounded-md border border-border bg-muted/30 p-2 text-xs text-muted-foreground">
-                  {activePendingPromptOrder.notes}
-                </p>
-              ) : null}
-            </div>
-
-            {!pendingRelaxedTiming ? (
-              <div className="mt-4 space-y-2">
-                <Label htmlFor="eta-minutes">Через сколько минут сможете быть у клиента</Label>
-                <Input
-                  id="eta-minutes"
-                  type="number"
-                  min={1}
-                  max={240}
-                  value={etaMinutes}
-                  onChange={(e) => setEtaMinutes(Math.min(240, Math.max(1, Number(e.target.value) || 1)))}
-                />
-              </div>
-            ) : null}
-
-            <div className="mt-4 flex flex-wrap justify-end gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  dismissPendingPrompt(activePendingPromptOrder.id);
-                  dismissedPromptIdsRef.current = readDismissedPendingPromptIds();
-                  setPendingPromptOrderId(null);
-                }}
-                disabled={respondToPendingOrder.isPending}
-              >
-                Позже
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() =>
-                  respondToPendingOrder.mutate({ orderId: activePendingPromptOrder.id, action: "reject" })
-                }
-                disabled={respondToPendingOrder.isPending}
-              >
-                Отклонить
-              </Button>
-              <Button
-                type="button"
-                variant="accent"
-                onClick={() =>
-                  respondToPendingOrder.mutate({
-                    orderId: activePendingPromptOrder.id,
-                    action: "accept",
-                    ...(pendingRelaxedTiming ? {} : { etaMinutes }),
-                  })
-                }
-                disabled={
-                  respondToPendingOrder.isPending ||
-                  (!pendingRelaxedTiming &&
-                    pendingPromptSecondsLeft !== null &&
-                    pendingPromptSecondsLeft <= 0)
-                }
-              >
-                Подтвердить и открыть заказ
-              </Button>
-            </div>
-          </div>
-        </div>
-      ) : null}
     </div>
   );
 }

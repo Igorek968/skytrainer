@@ -302,7 +302,8 @@ export function InstructorEventsEditor({
     pending: events.filter((e) => e.moderationStatus === "PENDING_REVIEW"),
     published: events.filter((e) => e.moderationStatus === "PUBLISHED"),
     rejected: events.filter((e) => e.moderationStatus === "REJECTED"),
-    archived: events.filter((e) => e.moderationStatus === "ARCHIVED"),
+    completed: events.filter((e) => e.moderationStatus === "ARCHIVED" && e.isCompleted),
+    archived: events.filter((e) => e.moderationStatus === "ARCHIVED" && !e.isCompleted),
   };
 
   return (
@@ -311,8 +312,9 @@ export function InstructorEventsEditor({
         <CardTitle>Мероприятия</CardTitle>
         <CardDescription>
           Укажите цену участия и лимит мест — клиенты смогут записаться и оплатить через платформу (комиссия 15%).
-          В ленте клиентов видны только мероприятия со статусом «Опубликовано» (после модерации администратором).
-          Скрытые и черновики в ленту не попадают — нажмите «На модерацию», затем одобрение в админке.
+          В ленте клиентов видны только актуальные «Опубликованные» (после модерации). После даты и времени
+          мероприятие автоматически переносится в «Завершённые» и исчезает из ленты.
+          Скрытые вручную — в отдельном блоке. Черновики — «На модерацию», затем одобрение в админке.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -533,6 +535,13 @@ export function InstructorEventsEditor({
             }
           />
         ) : null}
+        {groups.completed.length > 0 ? (
+          <EventList
+            title="Завершённые"
+            events={groups.completed}
+            hint="Дата и время прошли — мероприятие снято с ленты клиентов автоматически."
+          />
+        ) : null}
         {groups.archived.length > 0 ? (
           <EventList
             title="Скрытые"
@@ -572,7 +581,7 @@ function EventList({
   events: InstructorEventDTO[];
   isLoading?: boolean;
   hint?: string;
-  onEdit: (ev: InstructorEventDTO) => void;
+  onEdit?: (ev: InstructorEventDTO) => void;
   onSubmitModeration?: (id: string) => void;
   submitModerationPending?: boolean;
   onDelete?: (ev: InstructorEventDTO) => void;
@@ -619,7 +628,7 @@ function EventList({
               <EventRegistrantsPanel eventId={ev.id} />
             ) : null}
             <div className="mt-2 flex flex-wrap gap-2">
-              {showEventCardEdit(ev) ? (
+              {onEdit && showEventCardEdit(ev) ? (
                 <Button
                   type="button"
                   size="sm"

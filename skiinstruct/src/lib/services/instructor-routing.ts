@@ -13,7 +13,11 @@ import {
   weekdaysFromOrderUtcDates,
 } from "@/lib/services/instructor-match";
 import { haversineKm } from "@/lib/services/geo";
-import { orderRelaxedInstructorTiming, orderSpansMultipleLessonDays } from "@/shared/lib/order-flex";
+import {
+  orderIsFutureLessonDay,
+  orderRelaxedInstructorTiming,
+  orderSpansMultipleLessonDays,
+} from "@/shared/lib/order-flex";
 import { lessonTimeWindowLineFromNotes } from "@/shared/lib/order-lesson-times";
 
 /** Prisma Decimal(10,2): числа JS с плавающей точкой и NaN ломали запись. */
@@ -77,7 +81,9 @@ async function buildNotificationBody(
   const timingLine = opts.flexibleInvite
     ? "Запись на выбранные даты (инструктор мог быть офлайн). Ответьте, когда будете готовы — без ограничения по времени."
     : opts.relaxedTiming
-      ? "Несколько дней: примите заявку без отсчёта 60 секунд. ETA до точки встречи для такого заказа не используется."
+      ? orderIsFutureLessonDay(order)
+        ? "Урок не сегодня: примите заявку без отсчёта 60 секунд — когда будете готовы."
+        : "Несколько дней: примите заявку без отсчёта 60 секунд. ETA до точки встречи для такого заказа не используется."
       : "На принятие заявки: 60 секунд.";
   const timeWindow = lessonTimeWindowLineFromNotes(order.notes);
   return [
@@ -299,7 +305,11 @@ export async function prepareInstructorQueue(orderId: string): Promise<PrepareQu
 
   let queue: string[];
 
-  if (order.flexibleInstructorInvite || orderSpansMultipleLessonDays(order)) {
+  if (
+    order.flexibleInstructorInvite ||
+    orderSpansMultipleLessonDays(order) ||
+    orderIsFutureLessonDay(order)
+  ) {
     queue = [chosenId];
   } else {
     queue = await buildInstructorQueueForOrder({

@@ -32,6 +32,9 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#f8fafc" },
     { media: "(prefers-color-scheme: dark)", color: "#0f172a" },
@@ -46,7 +49,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body className={`${inter.variable} min-h-dvh font-sans`}>
         <AppProviders session={session}>
           <SiteHeader />
-          <main className="mx-auto max-w-6xl px-4 py-6">{children}</main>
+          <main className="mx-auto max-w-6xl px-3 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-4 sm:py-6">
+            {children}
+          </main>
           <SiteFooter />
         </AppProviders>
       </body>

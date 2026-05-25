@@ -8,6 +8,7 @@ import {
   listInstructorEventTitles,
   upsertInstructorEventTitle,
 } from "@/lib/services/instructor-event-titles";
+import { archivePastPublishedInstructorEvents } from "@/lib/services/instructor-event-expiry";
 import { createInstructorEventSchema } from "@/lib/validations/instructor-event";
 
 export const dynamic = "force-dynamic";
@@ -23,6 +24,8 @@ export async function GET() {
   const authResult = await requireInstructorSession();
   if (isApiErrorResponse(authResult)) return authResult;
   const { userId } = authResult;
+
+  await archivePastPublishedInstructorEvents({ instructorId: userId });
 
   const [rows, titles, paidGroups] = await Promise.all([
     prisma.instructorEvent.findMany({

@@ -50,7 +50,7 @@ export function OrderEventsFeed({
     refetchIntervalInBackground: false,
   });
 
-  const events = data?.events ?? [];
+  const events = (data?.events ?? []).filter((ev) => !ev.isCompleted);
 
   return (
     <Card>
