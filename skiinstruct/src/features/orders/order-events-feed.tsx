@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { ClientInstructorEventDTO } from "@/lib/instructor-events";
 import { formatEventDateRu } from "@/lib/instructor-events";
 import { EventRegistrationButton } from "@/features/orders/event-registration-button";
+import { EventFeedPhoto } from "@/features/orders/event-feed-photo";
 import { devPollInterval } from "@/lib/query-poll";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Skeleton } from "@/shared/ui/skeleton";
@@ -21,6 +22,7 @@ function EventFeedItem({
     <article className="border-b border-border pb-4 last:border-0 last:pb-0">
       <time className="text-xs text-muted-foreground">{when}</time>
       <h3 className="mt-1 text-sm font-semibold text-foreground">{event.title}</h3>
+      <EventFeedPhoto event={event} />
       <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
         {event.body}
       </p>

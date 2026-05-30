@@ -7,6 +7,9 @@ export type ClientRegistrationListItem = {
   status: EventRegistrationStatus;
   amountRub: number;
   paidAt: string | null;
+  attendanceConfirmedAt: string | null;
+  needsAttendanceConfirmation: boolean;
+  eventCompleted: boolean;
   createdAt: string;
   event: {
     id: string;

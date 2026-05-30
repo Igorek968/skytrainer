@@ -13,7 +13,9 @@ import {
   snapshotProfileToDraft,
   type InstructorProfileDraftPayload,
 } from "@/lib/instructor-profile-draft";
+import { isAutoInstructorLabel, validateDrivingSchoolDetails } from "@/lib/auto-instructor-offer";
 import {
+  normalizeSpecializationOffer,
   parseSpecializationOffers,
   type SpecializationOffer,
 } from "@/lib/instructor-specialization-offers";
@@ -24,10 +26,23 @@ import {
   syncSyntheticBioLineWithSpecs,
 } from "@/lib/services/instructor-match";
 
+const drivingDetailsSchema = z.object({
+  vehicleOptions: z
+    .array(z.enum(["INSTRUCTOR_CAR", "STUDENT_CAR"]))
+    .min(1)
+    .max(2),
+  transmissions: z.array(z.enum(["MANUAL", "AUTOMATIC", "ANY"])).min(1).max(3),
+  licenseCategories: z
+    .array(z.enum(["M", "A", "B", "C", "D", "BE_CE_DE", "C1_D1", "TM", "TB"]))
+    .min(1)
+    .max(9),
+});
+
 const offerSchema = z.object({
   label: z.string().min(1).max(80),
   hourlyRate: z.number().min(500).max(100_000),
   lessonsCompleted: z.number().int().min(0).max(100_000).optional().default(0),
+  drivingDetails: drivingDetailsSchema.optional(),
 });
 
 const updateSchema = z.object({
@@ -44,6 +59,7 @@ const updateSchema = z.object({
   offeredDurations: z.array(z.string().min(1).max(30)).max(10).optional(),
   achievements: z.array(z.string().min(1).max(200)).max(20).optional(),
   experienceYears: z.number().int().min(0).max(80).optional(),
+  sportsExperienceYears: z.number().int().min(0).max(80).optional(),
   totalLessons: z.number().int().min(0).max(100000).optional(),
   age: z.number().int().min(0).max(90).optional(),
   availabilitySlots: z
@@ -96,6 +112,7 @@ function formatMeProfileResponse(
     offeredDurations: view.offeredDurations,
     achievements: view.achievements,
     experienceYears: view.experienceYears ?? null,
+    sportsExperienceYears: view.sportsExperienceYears ?? null,
     totalLessons: view.totalLessons ?? null,
     age: view.age ?? null,
     availabilitySlots: (view.availabilitySlots as InstructorProfileDraftPayload["availabilitySlots"]) ?? [],
@@ -144,6 +161,7 @@ export async function GET() {
         offeredDurations: true,
         achievements: true,
         experienceYears: true,
+        sportsExperienceYears: true,
         totalLessons: true,
         age: true,
         availabilitySlots: true,
@@ -214,12 +232,19 @@ export async function PATCH(req: Request) {
     for (const row of payload.specializationOffers) {
       const trimmed = row.label.trim();
       if (!trimmed) continue;
-      const label = canonicalizeActivityLabel(trimmed) ?? trimmed;
-      normalizedOffers.push({
-        label,
-        hourlyRate: Math.round(row.hourlyRate),
-        lessonsCompleted: Math.max(0, Math.round(row.lessonsCompleted ?? 0)),
+      const normalized = normalizeSpecializationOffer({
+        label: trimmed,
+        hourlyRate: row.hourlyRate,
+        lessonsCompleted: row.lessonsCompleted ?? 0,
+        drivingDetails: row.drivingDetails,
       });
+      const drivingErr = validateDrivingSchoolDetails(
+        normalized.drivingDetails,
+      );
+      if (drivingErr && isAutoInstructorLabel(normalized.label)) {
+        return NextResponse.json({ error: drivingErr }, { status: 400 });
+      }
+      normalizedOffers.push(normalized);
     }
     if (!normalizedOffers.length) {
       return NextResponse.json({ error: "Укажите хотя бы одно направление с ценой." }, { status: 400 });
@@ -284,6 +309,7 @@ export async function PATCH(req: Request) {
       offeredDurations: true,
       achievements: true,
       experienceYears: true,
+      sportsExperienceYears: true,
       totalLessons: true,
       age: true,
       availabilitySlots: true,

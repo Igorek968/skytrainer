@@ -240,9 +240,10 @@ model InstructorProfile {
   hourlyRate         Decimal @db.Decimal(10, 2)
   photoUrl           String?
   photoGallery       String[] @default([])
-  age                Int?
-  experienceYears    Int?
-  totalLessons       Int?
+  age                    Int?
+  experienceYears        Int?
+  sportsExperienceYears  Int?
+  totalLessons           Int?
   achievements       String[] @default([])
 
   /// Last known position (Geolocation API, max ~1 req / 30s from client)
@@ -413,6 +414,8 @@ model InstructorEvent {
 
   title   String
   body    String @db.Text
+  /// Обложка мероприятия для ленты клиентов.
+  photoUrl String?
   eventAt DateTime?
 
   moderationStatus InstructorEventModerationStatus @default(DRAFT)
@@ -452,6 +455,10 @@ model EventRegistration {
   stripeCheckoutSessionId String?
   stripePaymentIntentId   String?
   paidAt                  DateTime?
+
+  /// Клиент подтвердил участие после окончания мероприятия.
+  attendanceConfirmedAt   DateTime?
+  attendanceReminderSentAt DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

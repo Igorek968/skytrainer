@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 
+import { formatDrivingSchoolDetailsSummary, isAutoInstructorLabel } from "@/lib/auto-instructor-offer";
 import {
   parseSpecializationOffers,
   syncProfileHourlyRateFromOffers,
@@ -21,6 +22,7 @@ export type InstructorProfileDraftPayload = {
   offeredDurations?: string[];
   achievements?: string[];
   experienceYears?: number | null;
+  sportsExperienceYears?: number | null;
   totalLessons?: number | null;
   age?: number | null;
   availabilitySlots?: Prisma.JsonValue;
@@ -50,6 +52,7 @@ type ProfileRow = {
   offeredDurations: string[];
   achievements: string[];
   experienceYears: number | null;
+  sportsExperienceYears: number | null;
   totalLessons: number | null;
   age: number | null;
   availabilitySlots: unknown;
@@ -86,6 +89,7 @@ export function snapshotProfileToDraft(
     offeredDurations: [...profile.offeredDurations],
     achievements: [...profile.achievements],
     experienceYears: profile.experienceYears,
+    sportsExperienceYears: profile.sportsExperienceYears,
     totalLessons: profile.totalLessons,
     age: profile.age,
     availabilitySlots: profile.availabilitySlots as Prisma.JsonValue,
@@ -146,6 +150,9 @@ export function draftToProfileUpdate(
   if (draft.offeredDurations !== undefined) data.offeredDurations = draft.offeredDurations;
   if (draft.achievements !== undefined) data.achievements = draft.achievements;
   if (draft.experienceYears !== undefined) data.experienceYears = draft.experienceYears;
+  if (draft.sportsExperienceYears !== undefined) {
+    data.sportsExperienceYears = draft.sportsExperienceYears;
+  }
   if (draft.totalLessons !== undefined && offers === undefined) data.totalLessons = draft.totalLessons;
   if (draft.age !== undefined) data.age = draft.age;
   if (draft.availabilitySlots !== undefined) {
@@ -193,6 +200,7 @@ export function draftAsProfileView(
     offeredDurations: draft.offeredDurations ?? [],
     achievements: draft.achievements ?? [],
     experienceYears: draft.experienceYears ?? null,
+    sportsExperienceYears: draft.sportsExperienceYears ?? null,
     totalLessons: draft.totalLessons ?? null,
     age: draft.age ?? null,
     availabilitySlots: draft.availabilitySlots ?? [],
@@ -222,6 +230,7 @@ export function buildDraftPatchFromMePayload(input: {
     offeredDurations?: string[];
     achievements?: string[];
     experienceYears?: number;
+    sportsExperienceYears?: number;
     totalLessons?: number;
     age?: number;
     availabilitySlots?: Prisma.JsonValue;
@@ -249,6 +258,9 @@ export function buildDraftPatchFromMePayload(input: {
   if (payload.offeredDurations !== undefined) patch.offeredDurations = payload.offeredDurations;
   if (payload.achievements !== undefined) patch.achievements = payload.achievements;
   if (payload.experienceYears !== undefined) patch.experienceYears = payload.experienceYears;
+  if (payload.sportsExperienceYears !== undefined) {
+    patch.sportsExperienceYears = payload.sportsExperienceYears;
+  }
   if (payload.totalLessons !== undefined) patch.totalLessons = payload.totalLessons;
   if (payload.age !== undefined) patch.age = payload.age >= 14 ? payload.age : undefined;
   if (payload.availabilitySlots !== undefined) patch.availabilitySlots = payload.availabilitySlots;
@@ -285,7 +297,8 @@ const PROFILE_DRAFT_FIELD_LABELS: Record<keyof InstructorProfileDraftPayload, st
   additionalServices: "Дополнительные услуги",
   offeredDurations: "Длительности занятий",
   achievements: "Достижения",
-  experienceYears: "Опыт (лет)",
+  experienceYears: "Стаж инструктора (лет)",
+  sportsExperienceYears: "Стаж в спорте (лет)",
   totalLessons: "Всего занятий",
   age: "Возраст",
   availabilitySlots: "Слоты доступности",
@@ -312,6 +325,7 @@ const PROFILE_DRAFT_FIELD_ORDER: (keyof InstructorProfileDraftPayload)[] = [
   "offeredDurations",
   "achievements",
   "experienceYears",
+  "sportsExperienceYears",
   "totalLessons",
   "age",
   "hourlyRate",
@@ -346,7 +360,13 @@ function formatStringList(values: string[] | undefined): string | null {
 function formatOffersList(offers: SpecializationOffer[] | undefined): string | null {
   if (!offers?.length) return null;
   return offers
-    .map((o) => `${o.label}: ${o.hourlyRate} ₽/ч, ${o.lessonsCompleted} ур.`)
+    .map((o) => {
+      const base = `${o.label}: ${o.hourlyRate} ₽/ч, ${o.lessonsCompleted} ур.`;
+      if (isAutoInstructorLabel(o.label) && o.drivingDetails) {
+        return `${base} (${formatDrivingSchoolDetailsSummary(o.drivingDetails)})`;
+      }
+      return base;
+    })
     .join("; ");
 }
 
@@ -388,6 +408,7 @@ function formatDraftFieldValue(
     case "videoVisitUrl":
       return formatTextValue(draft[key] ?? null);
     case "experienceYears":
+    case "sportsExperienceYears":
     case "totalLessons":
     case "age":
     case "hourlyRate": {

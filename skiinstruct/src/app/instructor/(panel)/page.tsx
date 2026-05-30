@@ -14,6 +14,7 @@ import { devPollInterval } from "@/lib/query-poll";
 import { InstructorComplianceCard } from "@/features/instructor/instructor-compliance-card";
 import { InstructorEventsEditor } from "@/features/instructor/instructor-events-editor";
 import { SpecializationOffersEditor } from "@/features/instructor/specialization-offers-editor";
+import { isAutoInstructorLabel, validateDrivingSchoolDetails } from "@/lib/auto-instructor-offer";
 import {
   parseSpecializationOffers,
   type SpecializationOffer,
@@ -86,6 +87,18 @@ const FULL_DAY_LABELS = [
   "Суббота",
 ];
 
+const INSTRUCTOR_PANEL_SECTIONS = [
+  { id: "profile", label: "Профиль инструктора" },
+  { id: "events", label: "Мероприятия" },
+  { id: "compliance", label: "Соответствие и выплаты" },
+  { id: "finance", label: "Финансы" },
+  { id: "reviews", label: "Отзывы о клиентах" },
+] as const;
+
+function scrollToInstructorSection(sectionId: string) {
+  document.getElementById(sectionId)?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
 type AvailabilitySlot = { day: number; from: string; to: string; busy?: boolean };
 
 type ProfileField =
@@ -93,8 +106,7 @@ type ProfileField =
   | "languagesRaw"
   | "specializationOffers"
   | "age"
-  | "availabilityRaw"
-  | "videoVisitUrl";
+  | "availabilityRaw";
 
 function parseCsv(value: string): string[] {
   return value
@@ -235,12 +247,9 @@ export default function InstructorHomePage() {
           offeredDurations: string[];
           achievements: string[];
           experienceYears: number | null;
+          sportsExperienceYears: number | null;
           age: number | null;
           availabilitySlots: { day: number; from: string; to: string; busy?: boolean }[];
-          cancellationPolicy: string;
-          supportContact: string;
-          legalInfo: string;
-          videoVisitUrl: string;
           hourlyRate: number;
           photoUrl: string;
           photoGallery: string[];
@@ -364,10 +373,7 @@ export default function InstructorHomePage() {
   ]);
   const [age, setAge] = useState<number>(25);
   const [experienceYears, setExperienceYears] = useState<number>(5);
-  const [cancellationPolicy, setCancellationPolicy] = useState("");
-  const [supportContact, setSupportContact] = useState("");
-  const [legalInfo, setLegalInfo] = useState("");
-  const [videoVisitUrl, setVideoVisitUrl] = useState("");
+  const [sportsExperienceYears, setSportsExperienceYears] = useState<number>(0);
   const [photoUrl, setPhotoUrl] = useState("");
   const [photoGallery, setPhotoGallery] = useState<string[]>([]);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
@@ -496,10 +502,7 @@ export default function InstructorHomePage() {
     setAchievementsRaw(data.profile.achievements.join(", "));
     setAge(data.profile.age ?? 25);
     setExperienceYears(data.profile.experienceYears ?? 5);
-    setCancellationPolicy(data.profile.cancellationPolicy ?? "");
-    setSupportContact(data.profile.supportContact ?? "");
-    setLegalInfo(data.profile.legalInfo ?? "");
-    setVideoVisitUrl(data.profile.videoVisitUrl ?? "");
+    setSportsExperienceYears(data.profile.sportsExperienceYears ?? 0);
     setAvailabilitySlots(
       data.profile.availabilitySlots?.length
         ? data.profile.availabilitySlots
@@ -563,15 +566,6 @@ export default function InstructorHomePage() {
 
   function validateProfileForm(): { ok: boolean; availabilitySlots: AvailabilitySlot[] } {
     const errors: Partial<Record<ProfileField, string>> = {};
-    const isValidUrl = (v: string): boolean => {
-      if (!v.trim()) return true;
-      try {
-        new URL(v.trim());
-        return true;
-      } catch {
-        return false;
-      }
-    };
 
     if (!certificationLevel.trim()) errors.certificationLevel = "Укажите уровень сертификации";
     if (!languagesRaw.trim()) errors.languagesRaw = "Укажите хотя бы один язык";
@@ -579,6 +573,15 @@ export default function InstructorHomePage() {
       errors.specializationOffers = "Добавьте хотя бы одно направление с ценой";
     } else if (specializationOffers.some((o) => o.hourlyRate < 500)) {
       errors.specializationOffers = "Минимум 500 ₽/ч для каждого направления";
+    } else {
+      for (const o of specializationOffers) {
+        if (!isAutoInstructorLabel(o.label)) continue;
+        const drivingErr = validateDrivingSchoolDetails(o.drivingDetails);
+        if (drivingErr) {
+          errors.specializationOffers = drivingErr;
+          break;
+        }
+      }
     }
     if (age > 0 && (age < 14 || age > 90)) errors.age = "Возраст должен быть от 14 до 90";
 
@@ -601,8 +604,6 @@ export default function InstructorHomePage() {
         errors.availabilityRaw = "Проверьте интервалы: формат ЧЧ:ММ и время 'с' меньше времени 'до'";
       }
     }
-
-    if (!isValidUrl(videoVisitUrl)) errors.videoVisitUrl = "Некорректный URL";
 
     setFieldErrors(errors);
     return { ok: Object.keys(errors).length === 0, availabilitySlots: normalizedSlots };
@@ -685,11 +686,8 @@ export default function InstructorHomePage() {
           achievements,
           age: age >= 14 ? age : undefined,
           experienceYears,
+          sportsExperienceYears,
           availabilitySlots,
-          cancellationPolicy,
-          supportContact,
-          legalInfo,
-          videoVisitUrl,
           photoUrl,
         }),
       });
@@ -880,53 +878,24 @@ export default function InstructorHomePage() {
         </div>
       </div>
 
-      <InstructorComplianceCard />
+      <nav
+        aria-label="Разделы кабинета"
+        className="flex flex-wrap gap-2 rounded-lg border border-border bg-muted/30 p-3"
+      >
+        {INSTRUCTOR_PANEL_SECTIONS.map(({ id, label }) => (
+          <Button
+            key={id}
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => scrollToInstructorSection(id)}
+          >
+            {label}
+          </Button>
+        ))}
+      </nav>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Финансы (выплаченные заказы)</CardTitle>
-          <CardDescription>Доля инструктора после комиссии платформы (15%).</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-1 text-sm">
-          <div>Завершённых оплаченных: {stats?.orders ?? "…"}</div>
-          <div>Ваша доля (всего): {stats ? `${stats.instructorShareTotal.toFixed(0)} ₽` : "…"}</div>
-          <div>
-            Доступно к выплате:{" "}
-            {stats ? `${stats.availableForPayout?.toFixed(0) ?? "…"} ₽` : "…"}
-          </div>
-          <div className="text-muted-foreground">
-            В ожидании срока:{" "}
-            {stats ? `${stats.pendingPayout?.toFixed(0) ?? "…"} ₽` : "…"}
-          </div>
-          <div className="text-muted-foreground">
-            Оборот: {stats ? `${stats.grossTotal.toFixed(0)} ₽` : "…"}
-          </div>
-          {stats?.payoutWindowHint ? (
-            <p className="text-xs text-muted-foreground">{stats.payoutWindowHint}</p>
-          ) : null}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Ваши отзывы о клиентах</CardTitle>
-          <CardDescription>Показываются в анкете клиента после завершения заказа.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-2 text-sm">
-          {!recentClientReviews?.length ? (
-            <p className="text-muted-foreground">Пока отзывов нет.</p>
-          ) : (
-            recentClientReviews.map((r) => (
-              <div key={r.id} className="rounded-md border border-border bg-muted/30 p-2">
-                <div className="font-medium">Оценка: {r.instructorRating}/5</div>
-                <div className="text-muted-foreground">{r.instructorReview || "Без текста"}</div>
-              </div>
-            ))
-          )}
-        </CardContent>
-      </Card>
-
-      <Card>
+      <Card id="availability" className="scroll-mt-24">
         <CardHeader>
           <CardTitle>Доступность</CardTitle>
           <CardDescription>
@@ -970,10 +939,6 @@ export default function InstructorHomePage() {
           )}
         </CardContent>
       </Card>
-
-      <div id="events">
-        <InstructorEventsEditor activeOrders={activeOrderOptions} />
-      </div>
 
       <Card id="profile" className="scroll-mt-24 bg-gradient-to-br from-sky-50/70 to-background dark:from-slate-900">
         <CardHeader>
@@ -1057,7 +1022,7 @@ export default function InstructorHomePage() {
                   ) : null}
                 </div>
               </div>
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid gap-4 md:grid-cols-3">
                 <div className="space-y-2">
                   <Label htmlFor="age">Возраст</Label>
                   <Input
@@ -1072,8 +1037,24 @@ export default function InstructorHomePage() {
                   ) : null}
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="exp">Стаж (лет)</Label>
-                  <Input id="exp" type="number" value={experienceYears} onChange={(e) => setExperienceYears(Number(e.target.value) || 0)} />
+                  <Label htmlFor="exp">Стаж инструктора (лет)</Label>
+                  <Input
+                    id="exp"
+                    type="number"
+                    min={0}
+                    value={experienceYears}
+                    onChange={(e) => setExperienceYears(Number(e.target.value) || 0)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="sports-exp">Стаж в спорте (лет)</Label>
+                  <Input
+                    id="sports-exp"
+                    type="number"
+                    min={0}
+                    value={sportsExperienceYears}
+                    onChange={(e) => setSportsExperienceYears(Number(e.target.value) || 0)}
+                  />
                 </div>
               </div>
               <MultiSelectChipsField
@@ -1350,27 +1331,6 @@ export default function InstructorHomePage() {
                   </p>
                 )}
               </div>
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="policy">Политика отмены</Label>
-                  <Input id="policy" value={cancellationPolicy} onChange={(e) => setCancellationPolicy(e.target.value)} />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="support">Контакты техподдержки</Label>
-                  <Input id="support" value={supportContact} onChange={(e) => setSupportContact(e.target.value)} />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="legal">Юридическая информация</Label>
-                <Input id="legal" value={legalInfo} onChange={(e) => setLegalInfo(e.target.value)} />
-              </div>
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="yt">Видео-визитка (YouTube URL)</Label>
-                  <Input id="yt" value={videoVisitUrl} onChange={(e) => setVideoVisitUrl(e.target.value)} className={cn(fieldErrors.videoVisitUrl && "border-destructive ring-destructive")} />
-                  {fieldErrors.videoVisitUrl ? <p className="text-xs text-destructive">{fieldErrors.videoVisitUrl}</p> : null}
-                </div>
-              </div>
 
               <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-muted/40 p-3 text-sm">
                 <div className="inline-flex items-center gap-1">
@@ -1389,6 +1349,58 @@ export default function InstructorHomePage() {
                 </Button>
               </div>
             </>
+          )}
+        </CardContent>
+      </Card>
+
+      <div id="events" className="scroll-mt-24">
+        <InstructorEventsEditor activeOrders={activeOrderOptions} />
+      </div>
+
+      <div id="compliance" className="scroll-mt-24">
+        <InstructorComplianceCard />
+      </div>
+
+      <Card id="finance" className="scroll-mt-24">
+        <CardHeader>
+          <CardTitle>Финансы (выплаченные заказы)</CardTitle>
+          <CardDescription>Доля инструктора после комиссии платформы (15%).</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-1 text-sm">
+          <div>Завершённых оплаченных: {stats?.orders ?? "…"}</div>
+          <div>Ваша доля (всего): {stats ? `${stats.instructorShareTotal.toFixed(0)} ₽` : "…"}</div>
+          <div>
+            Доступно к выплате:{" "}
+            {stats ? `${stats.availableForPayout?.toFixed(0) ?? "…"} ₽` : "…"}
+          </div>
+          <div className="text-muted-foreground">
+            В ожидании срока:{" "}
+            {stats ? `${stats.pendingPayout?.toFixed(0) ?? "…"} ₽` : "…"}
+          </div>
+          <div className="text-muted-foreground">
+            Оборот: {stats ? `${stats.grossTotal.toFixed(0)} ₽` : "…"}
+          </div>
+          {stats?.payoutWindowHint ? (
+            <p className="text-xs text-muted-foreground">{stats.payoutWindowHint}</p>
+          ) : null}
+        </CardContent>
+      </Card>
+
+      <Card id="reviews" className="scroll-mt-24">
+        <CardHeader>
+          <CardTitle>Ваши отзывы о клиентах</CardTitle>
+          <CardDescription>Показываются в анкете клиента после завершения заказа.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-2 text-sm">
+          {!recentClientReviews?.length ? (
+            <p className="text-muted-foreground">Пока отзывов нет.</p>
+          ) : (
+            recentClientReviews.map((r) => (
+              <div key={r.id} className="rounded-md border border-border bg-muted/30 p-2">
+                <div className="font-medium">Оценка: {r.instructorRating}/5</div>
+                <div className="text-muted-foreground">{r.instructorReview || "Без текста"}</div>
+              </div>
+            ))
           )}
         </CardContent>
       </Card>

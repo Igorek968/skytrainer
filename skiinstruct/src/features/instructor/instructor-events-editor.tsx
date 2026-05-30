@@ -67,6 +67,8 @@ export function InstructorEventsEditor({
   const [orderId, setOrderId] = useState("");
   const [priceRub, setPriceRub] = useState("");
   const [maxRegistrations, setMaxRegistrations] = useState("");
+  const [photoUrl, setPhotoUrl] = useState("");
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [canEdit, setCanEdit] = useState(true);
   const [loadedStatus, setLoadedStatus] = useState<InstructorEventDTO["moderationStatus"] | null>(null);
   const titleLoadTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -90,6 +92,8 @@ export function InstructorEventsEditor({
     setMaxRegistrations(
       ev.maxRegistrations != null ? String(ev.maxRegistrations) : "",
     );
+    setPhotoUrl(ev.photoUrl ?? "");
+    setPhotoFile(null);
     setCanEdit(ev.canEdit);
     setLoadedStatus(ev.moderationStatus);
   }, []);
@@ -102,6 +106,8 @@ export function InstructorEventsEditor({
     setOrderId("");
     setPriceRub("");
     setMaxRegistrations("");
+    setPhotoUrl("");
+    setPhotoFile(null);
     setCanEdit(true);
     setLoadedStatus(null);
   }, []);
@@ -123,6 +129,8 @@ export function InstructorEventsEditor({
         setOrderId("");
         setPriceRub("");
         setMaxRegistrations("");
+        setPhotoUrl("");
+        setPhotoFile(null);
         setCanEdit(true);
         setLoadedStatus(null);
       }
@@ -237,6 +245,53 @@ export function InstructorEventsEditor({
     onError: (e: Error) => toast.error(e.message === "cancel-event" ? "Не удалось отменить" : e.message),
   });
 
+  const uploadPhoto = useMutation({
+    mutationFn: async () => {
+      if (!editingId || !photoFile) throw new Error("no-file");
+      const fd = new FormData();
+      fd.set("file", photoFile);
+      const r = await instructorFetch(`/api/instructor/events/${editingId}/photo`, {
+        method: "POST",
+        body: fd,
+      });
+      const j = (await r.json().catch(() => ({}))) as { error?: string; event?: InstructorEventDTO };
+      if (!r.ok) throw new Error(typeof j.error === "string" ? j.error : "upload");
+      return j;
+    },
+    onSuccess: async (j) => {
+      if (j.event) loadFormFromEvent(j.event);
+      else if (j.event === undefined && "photoUrl" in j) {
+        setPhotoUrl((j as { photoUrl?: string }).photoUrl ?? "");
+      }
+      setPhotoFile(null);
+      toast.success("Фото загружено");
+      await qc.invalidateQueries({ queryKey: ["instructor-events"] });
+    },
+    onError: (e: Error) =>
+      toast.error(e.message === "upload" ? "Не удалось загрузить фото" : e.message),
+  });
+
+  const removePhoto = useMutation({
+    mutationFn: async () => {
+      if (!editingId) throw new Error("no-event");
+      const r = await instructorFetch(`/api/instructor/events/${editingId}/photo`, {
+        method: "DELETE",
+      });
+      const j = (await r.json().catch(() => ({}))) as { error?: string; event?: InstructorEventDTO };
+      if (!r.ok) throw new Error(typeof j.error === "string" ? j.error : "remove-photo");
+      return j;
+    },
+    onSuccess: async (j) => {
+      if (j.event) loadFormFromEvent(j.event);
+      else setPhotoUrl("");
+      setPhotoFile(null);
+      toast.success("Фото удалено");
+      await qc.invalidateQueries({ queryKey: ["instructor-events"] });
+    },
+    onError: (e: Error) =>
+      toast.error(e.message === "remove-photo" ? "Не удалось удалить фото" : e.message),
+  });
+
   const remove = useMutation({
     mutationFn: async (id: string) => {
       const r = await instructorFetch(`/api/instructor/events/${id}`, { method: "DELETE" });
@@ -251,7 +306,9 @@ export function InstructorEventsEditor({
       if (editingId === id) resetForm();
       await qc.invalidateQueries({ queryKey: ["instructor-events"] });
     },
-    onError: (e: Error) => toast.error(e.message === "delete" ? "Не удалось выполнить действие" : e.message),
+    onError: (e: Error) => {
+      toast.error(e.message === "delete" ? "Не удалось выполнить действие" : e.message);
+    },
   });
 
   const handleCardEdit = useCallback(
@@ -269,6 +326,14 @@ export function InstructorEventsEditor({
     (ev: InstructorEventDTO) => {
       if (ev.moderationStatus === "PUBLISHED") {
         if (confirm("Скрыть из ленты клиентов?")) remove.mutate(ev.id);
+        return;
+      }
+      if (ev.moderationStatus === "ARCHIVED" && ev.isCompleted) {
+        const hasRegs = (ev.paidRegistrationCount ?? 0) > 0;
+        const msg = hasRegs
+          ? "Удалить завершённое мероприятие? Записи участников также будут удалены."
+          : "Удалить завершённое мероприятие?";
+        if (confirm(msg)) remove.mutate(ev.id);
         return;
       }
       const msg =
@@ -311,9 +376,10 @@ export function InstructorEventsEditor({
       <CardHeader>
         <CardTitle>Мероприятия</CardTitle>
         <CardDescription>
-          Укажите цену участия и лимит мест — клиенты смогут записаться и оплатить через платформу (комиссия 15%).
-          В ленте клиентов видны только актуальные «Опубликованные» (после модерации). После даты и времени
-          мероприятие автоматически переносится в «Завершённые» и исчезает из ленты.
+          Укажите цену участия и лимит мест — клиенты записываются без предоплаты; после мероприятия подтверждают
+          участие, и только тогда списывается оплата (комиссия 15%). В ленте клиентов видны только актуальные
+          «Опубликованные» (после модерации). После даты и времени мероприятие автоматически переносится в
+          «Завершённые» и исчезает из ленты.
           Скрытые вручную — в отдельном блоке. Черновики — «На модерацию», затем одобрение в админке.
         </CardDescription>
       </CardHeader>
@@ -378,6 +444,61 @@ export function InstructorEventsEditor({
               maxLength={4000}
               required
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="event-photo">Фото мероприятия</Label>
+            {photoUrl ? (
+              <div className="max-w-sm space-y-2">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={photoUrl}
+                  alt="Фото мероприятия"
+                  className="aspect-[16/9] w-full rounded-md border border-border object-cover"
+                />
+                {!formLocked ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={removePhoto.isPending || uploadPhoto.isPending}
+                    onClick={() => removePhoto.mutate()}
+                  >
+                    Удалить фото
+                  </Button>
+                ) : null}
+              </div>
+            ) : null}
+            {!formLocked ? (
+              <div className="flex flex-wrap items-end gap-2">
+                <Input
+                  id="event-photo"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="max-w-xs"
+                  disabled={uploadPhoto.isPending}
+                  onChange={(e) => setPhotoFile(e.target.files?.[0] ?? null)}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={!editingId || !photoFile || uploadPhoto.isPending}
+                  onClick={() => uploadPhoto.mutate()}
+                >
+                  {uploadPhoto.isPending
+                    ? "Загрузка…"
+                    : editingId
+                      ? "Загрузить фото"
+                      : "Сохраните черновик"}
+                </Button>
+              </div>
+            ) : null}
+            {!formLocked ? (
+              <p className="text-xs text-muted-foreground">
+                JPG, PNG или WEBP до 5 MB. Фото показывается клиентам в ленте мероприятий.
+              </p>
+            ) : null}
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
@@ -488,6 +609,17 @@ export function InstructorEventsEditor({
           </div>
         </form>
 
+        {editingId ? (
+          <div className="rounded-lg border border-border bg-muted/10 p-4">
+            <h3 className="text-sm font-medium">Заявки на участие</h3>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Все записавшиеся участники. После мероприятия они подтверждают участие; для платных событий оплата
+              списывается при подтверждении.
+            </p>
+            <EventRegistrantsPanel eventId={editingId} />
+          </div>
+        ) : null}
+
         <EventList
           title="Черновики"
           events={groups.draft}
@@ -539,6 +671,8 @@ export function InstructorEventsEditor({
           <EventList
             title="Завершённые"
             events={groups.completed}
+            onDelete={handleCardDelete}
+            actionsPending={remove.isPending}
             hint="Дата и время прошли — мероприятие снято с ленты клиентов автоматически."
           />
         ) : null}
@@ -610,11 +744,24 @@ function EventList({
             {ev.eventAt ? (
               <div className="mt-0.5 text-xs text-muted-foreground">{formatEventDateRu(ev.eventAt)}</div>
             ) : null}
+            {ev.photoUrl ? (
+              <div className="mt-2 max-w-xs overflow-hidden rounded-md border border-border">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={ev.photoUrl}
+                  alt={ev.title}
+                  className="aspect-[16/9] w-full object-cover"
+                />
+              </div>
+            ) : null}
             <div className="mt-0.5 text-xs text-muted-foreground">
               {formatEventPriceRu(ev.priceRub)}
               {ev.maxRegistrations != null ? ` · до ${ev.maxRegistrations} мест` : ""}
               {ev.paidRegistrationCount != null && ev.paidRegistrationCount > 0
-                ? ` · записано: ${ev.paidRegistrationCount}`
+                ? ` · заявок: ${ev.paidRegistrationCount}`
+                : ""}
+              {ev.unconfirmedAttendanceCount != null && ev.unconfirmedAttendanceCount > 0
+                ? ` · не подтвердили: ${ev.unconfirmedAttendanceCount}`
                 : ""}
               {ev.registrationRevenueRub != null && ev.registrationRevenueRub > 0
                 ? ` · к выплате: ${ev.registrationRevenueRub.toLocaleString("ru-RU")} ₽`
@@ -624,7 +771,7 @@ function EventList({
             {ev.rejectNote ? (
               <p className="mt-1 text-xs text-destructive">Отклонено: {ev.rejectNote}</p>
             ) : null}
-            {(ev.paidRegistrationCount ?? 0) > 0 ? (
+            {(ev.paidRegistrationCount ?? 0) > 0 || ev.isCompleted ? (
               <EventRegistrantsPanel eventId={ev.id} />
             ) : null}
             <div className="mt-2 flex flex-wrap gap-2">

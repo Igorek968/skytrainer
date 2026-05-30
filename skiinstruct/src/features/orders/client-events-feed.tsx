@@ -12,6 +12,7 @@ import {
   formatDistanceKm,
 } from "@/lib/client-events-geo";
 import { EventRegistrationButton } from "@/features/orders/event-registration-button";
+import { EventFeedPhoto } from "@/features/orders/event-feed-photo";
 import { devPollInterval } from "@/lib/query-poll";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Skeleton } from "@/shared/ui/skeleton";
@@ -40,6 +41,7 @@ function EventFeedItem({
         <p className="mt-0.5 text-xs font-medium text-foreground">{event.instructorName}</p>
       ) : null}
       <h3 className="mt-1 text-sm font-semibold text-foreground">{event.title}</h3>
+      <EventFeedPhoto event={event} />
       <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
         {event.body}
       </p>

@@ -27,7 +27,10 @@ export async function GET(req: Request, ctx: Ctx) {
     },
   });
 
-  if (!instructor?.instructorProfile) {
+  if (
+    !instructor?.instructorProfile ||
+    instructor.instructorProfile.verificationStatus !== "APPROVED"
+  ) {
     return NextResponse.json({ error: "Instructor not found" }, { status: 404 });
   }
 
@@ -118,6 +121,7 @@ export async function GET(req: Request, ctx: Ctx) {
         availabilitySlots: instructor.instructorProfile.availabilitySlots ?? [],
         age: instructor.instructorProfile.age,
         experienceYears: instructor.instructorProfile.experienceYears,
+        sportsExperienceYears: instructor.instructorProfile.sportsExperienceYears,
         totalLessons: lessonsForDiscipline,
         specializationOffers: offers,
         cancellationPolicy: instructor.instructorProfile.cancellationPolicy,

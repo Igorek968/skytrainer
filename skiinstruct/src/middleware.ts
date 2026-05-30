@@ -25,6 +25,16 @@ export default NextAuth(authConfig).auth((req) => {
     return NextResponse.next();
   }
 
+  /** Анкета только со страницы входа («Стать инструктором»); прямой заход с шапки — на login. */
+  if (pathname === "/instructor/apply") {
+    const allowApply =
+      req.nextUrl.searchParams.get("new") === "1" ||
+      req.nextUrl.searchParams.get("register") === "1";
+    if (!allowApply) {
+      return NextResponse.redirect(new URL("/instructor/login", req.nextUrl.origin));
+    }
+  }
+
   /** Карта и заказ — для гостей и для инструкторов/админов «как клиент». */
   const isClientBookingHome = pathname === "/client" || pathname === "/client/";
   const isPublicInstructorReviewsBrowse = pathname.startsWith("/instructors/");

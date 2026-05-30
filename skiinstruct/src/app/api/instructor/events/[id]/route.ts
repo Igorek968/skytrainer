@@ -1,8 +1,13 @@
 import { NextResponse } from "next/server";
 
 import { isApiErrorResponse, requireInstructorSession } from "@/lib/api-session";
-import { canEditInstructorEvent, serializeInstructorEvent } from "@/lib/instructor-events";
+import {
+  canEditInstructorEvent,
+  isInstructorEventCompleted,
+  serializeInstructorEvent,
+} from "@/lib/instructor-events";
 import { prisma } from "@/lib/prisma";
+import { ensureEventReadyForDeletion } from "@/lib/services/event-attendance";
 import { upsertInstructorEventTitle } from "@/lib/services/instructor-event-titles";
 import { updateInstructorEventSchema } from "@/lib/validations/instructor-event";
 
@@ -136,6 +141,23 @@ export async function DELETE(_req: Request, ctx: Ctx) {
   }
 
   if (existing.moderationStatus === "ARCHIVED") {
+    const isCompleted = isInstructorEventCompleted(existing.eventAt);
+    if (isCompleted) {
+      const readiness = await ensureEventReadyForDeletion(id);
+      if (!readiness.ok) {
+        return NextResponse.json(
+          {
+            error: `Не все участники подтвердили участие (${readiness.unconfirmed}). Отправлены напоминания: ${readiness.reminded}. Удаление возможно после подтверждения.`,
+            unconfirmed: readiness.unconfirmed,
+            reminded: readiness.reminded,
+          },
+          { status: 409 },
+        );
+      }
+      await prisma.instructorEvent.delete({ where: { id } });
+      return NextResponse.json({ ok: true });
+    }
+
     const paidCount = await prisma.eventRegistration.count({
       where: { eventId: id, status: "PAID" },
     });

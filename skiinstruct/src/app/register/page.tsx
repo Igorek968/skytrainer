@@ -32,7 +32,7 @@ function RegisterForm() {
 
   useEffect(() => {
     if (asInstructor) {
-      router.replace("/instructor/apply");
+      router.replace("/instructor/login");
     }
   }, [asInstructor, router]);
 
@@ -56,7 +56,7 @@ function RegisterForm() {
             форму — после неё вы попадёте в кабинет инструктора (после одобрения администратором).
           </p>
           <Button asChild variant="accent" className="w-full">
-            <Link href="/instructor/apply">Зарегистрироваться как инструктор</Link>
+            <Link href="/instructor/login">Вход для инструктора</Link>
           </Button>
         </CardContent>
       </Card>
@@ -142,8 +142,8 @@ function RegisterForm() {
           </p>
           <p className="text-center text-sm text-muted-foreground">
             Инструктор?{" "}
-            <Link className="font-medium text-accent underline" href="/instructor/apply">
-              Подать заявку
+            <Link className="font-medium text-accent underline" href="/instructor/login">
+              Вход инструктора
             </Link>
             {" · "}
             <Link className="text-accent underline" href="/instructor/login">

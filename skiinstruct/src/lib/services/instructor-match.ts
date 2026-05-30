@@ -87,6 +87,7 @@ export const INSTRUCTOR_ACTIVITY_LABELS = [
   "🎾 Большой теннис",
   "🛶 Сапсёрфинг",
   "🏐 Волейбол",
+  "🚗 Автоинструктор",
 ] as const;
 
 /** Привести произвольную строку к канону каталога (без эмодзи в БД / из сида тоже совпадает). */
@@ -97,6 +98,24 @@ export function canonicalizeActivityLabel(raw: string): string | null {
   if (!n) return null;
   for (const label of INSTRUCTOR_ACTIVITY_LABELS) {
     if (normalizeText(label) === n) return label;
+  }
+  const autoCanon = canonicalizeAutoInstructorLabelAlias(t);
+  if (autoCanon) return autoCanon;
+  return null;
+}
+
+/** Локальная проверка без циклического импорта с auto-instructor-offer. */
+function canonicalizeAutoInstructorLabelAlias(raw: string): string | null {
+  const t = raw.trim();
+  if (t === "🚗 Автоинструктор") return t;
+  const n = normalizeText(t);
+  if (
+    normalizeText("🚗 Автоинструктор") === n ||
+    (n.includes("авто") && n.includes("инструкт")) ||
+    n === "автоинструктор" ||
+    (n.includes("обучен") && n.includes("вожден"))
+  ) {
+    return "🚗 Автоинструктор";
   }
   return null;
 }

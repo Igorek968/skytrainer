@@ -41,7 +41,7 @@ export function MarketplaceHome() {
               </Link>
             </Button>
             <Button variant="outline" size="lg" className="min-w-[220px]" asChild>
-              <Link href="/instructor/apply">Стать инструктором</Link>
+              <Link href="/instructor/login">Стать инструктором</Link>
             </Button>
           </div>
           <p className="mt-4 text-sm text-muted-foreground">
@@ -132,7 +132,7 @@ export function MarketplaceHome() {
             </div>
           </div>
           <Button variant="accent" asChild>
-            <Link href="/instructor/apply">Подать заявку</Link>
+            <Link href="/instructor/apply?new=1">Подать заявку</Link>
           </Button>
         </div>
       </section>

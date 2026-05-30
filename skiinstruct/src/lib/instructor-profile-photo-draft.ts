@@ -25,6 +25,7 @@ type ProfilePhotoRow = {
   offeredDurations: string[];
   achievements: string[];
   experienceYears: number | null;
+  sportsExperienceYears: number | null;
   totalLessons: number | null;
   age: number | null;
   availabilitySlots: unknown;

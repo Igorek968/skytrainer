@@ -85,26 +85,12 @@ function LoginFormInner() {
       <Card>
         <CardHeader>
           <CardTitle>Вход клиента</CardTitle>
-          <CardDescription>
-            {returningToOrder ? (
-              <>
-                После входа вы вернётесь к оформлению заказа с выбранным инструктором. Используйте аккаунт клиента, не
-                администратора и не инструктора.
-              </>
-            ) : (
-              <>
-                Войдите с email и паролем после{" "}
-                <Link className="text-accent underline" href={registerHref}>
-                  регистрации
-                </Link>
-                , затем оформите заказ на{" "}
-                <Link className="text-accent underline" href="/client">
-                  /client
-                </Link>
-                .
-              </>
-            )}
-          </CardDescription>
+          {returningToOrder ? (
+            <CardDescription>
+              После входа вы вернётесь к оформлению заказа с выбранным инструктором. Используйте аккаунт клиента, не
+              администратора и не инструктора.
+            </CardDescription>
+          ) : null}
         </CardHeader>
         <CardContent className="space-y-4">
           {registered ? (

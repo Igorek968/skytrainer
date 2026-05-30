@@ -1,16 +1,26 @@
 import {
+  canonicalizeAutoInstructorLabel,
+  isAutoInstructorLabel,
+  normalizeDrivingSchoolDetails,
+  parseDrivingSchoolDetails,
+  type DrivingSchoolOfferDetails,
+} from "@/lib/auto-instructor-offer";
+import {
   canonicalizeActivityLabel,
   canonicalizeActivityLabels,
   INSTRUCTOR_ACTIVITY_LABELS,
 } from "@/lib/services/instructor-match";
 
+export type { DrivingSchoolOfferDetails };
+
 export type SpecializationOffer = {
   label: string;
   hourlyRate: number;
   lessonsCompleted: number;
+  drivingDetails?: DrivingSchoolOfferDetails;
 };
 
-function isOfferRow(v: unknown): v is SpecializationOffer {
+function isOfferRowCore(v: unknown): v is Pick<SpecializationOffer, "label" | "hourlyRate" | "lessonsCompleted"> {
   if (!v || typeof v !== "object") return false;
   const o = v as Record<string, unknown>;
   return (
@@ -20,6 +30,26 @@ function isOfferRow(v: unknown): v is SpecializationOffer {
     typeof o.lessonsCompleted === "number" &&
     Number.isFinite(o.lessonsCompleted)
   );
+}
+
+export function normalizeSpecializationOffer(row: SpecializationOffer): SpecializationOffer {
+  const trimmed = row.label.trim();
+  const label =
+    canonicalizeActivityLabel(trimmed) ??
+    canonicalizeAutoInstructorLabel(trimmed) ??
+    trimmed;
+  const base: SpecializationOffer = {
+    label,
+    hourlyRate: Math.min(100_000, Math.max(500, Math.round(row.hourlyRate))),
+    lessonsCompleted: Math.max(0, Math.round(row.lessonsCompleted)),
+  };
+  if (!isAutoInstructorLabel(label)) return base;
+  return {
+    ...base,
+    drivingDetails: normalizeDrivingSchoolDetails(
+      row.drivingDetails ?? parseDrivingSchoolDetails((row as { drivingDetails?: unknown }).drivingDetails),
+    ),
+  };
 }
 
 /** Читает JSON из профиля или собирает из legacy specializations + hourlyRate. */
@@ -33,15 +63,19 @@ export function parseSpecializationOffers(
   if (Array.isArray(raw)) {
     const parsed: SpecializationOffer[] = [];
     for (const row of raw) {
-      if (!isOfferRow(row)) continue;
+      if (!isOfferRowCore(row)) continue;
       const trimmed = row.label.trim();
       if (!trimmed) continue;
-      const label = canonicalizeActivityLabel(trimmed) ?? trimmed;
-      parsed.push({
-        label,
-        hourlyRate: Math.min(100_000, Math.max(500, Math.round(row.hourlyRate))),
-        lessonsCompleted: Math.max(0, Math.round(row.lessonsCompleted)),
-      });
+      parsed.push(
+        normalizeSpecializationOffer({
+          label: trimmed,
+          hourlyRate: row.hourlyRate,
+          lessonsCompleted: row.lessonsCompleted,
+          drivingDetails: parseDrivingSchoolDetails(
+            (row as { drivingDetails?: unknown }).drivingDetails,
+          ),
+        }),
+      );
     }
     if (parsed.length) return dedupeOffers(parsed);
   }
@@ -74,13 +108,16 @@ export function offersFromLabels(
   const rate = defaultRate >= 500 ? defaultRate : 2500;
   return canon.map((label) => {
     const existing = prevMap.get(label);
-    return (
-      existing ?? {
-        label,
-        hourlyRate: rate,
-        lessonsCompleted: 0,
-      }
-    );
+    if (existing) return normalizeSpecializationOffer(existing);
+    const created: SpecializationOffer = {
+      label,
+      hourlyRate: rate,
+      lessonsCompleted: 0,
+    };
+    if (isAutoInstructorLabel(label)) {
+      created.drivingDetails = normalizeDrivingSchoolDetails(undefined);
+    }
+    return created;
   });
 }
 

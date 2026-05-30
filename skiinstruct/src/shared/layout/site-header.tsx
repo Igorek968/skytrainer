@@ -149,7 +149,7 @@ export function SiteHeader() {
                 Войти
               </Link>
               <Link
-                href="/instructor/apply"
+                href="/instructor/login"
                 className="inline-flex h-10 items-center justify-center whitespace-nowrap rounded-md border border-border px-4 py-2 text-sm font-medium transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               >
                 Инструктору
@@ -275,7 +275,7 @@ export function SiteHeader() {
               </Link>
               <Link
                 className="rounded-md px-3 py-2 hover:bg-muted"
-                href="/instructor/apply"
+                href="/instructor/login"
                 onClick={() => setOpen(false)}
               >
                 Инструктору

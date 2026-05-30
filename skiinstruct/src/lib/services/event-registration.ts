@@ -6,6 +6,8 @@ import {
 import { PLATFORM_FEE_PERCENT } from "@/lib/legal-config";
 import { prisma } from "@/lib/prisma";
 
+import { registrationNeedsAttendanceConfirmation } from "./event-attendance-shared";
+
 export const VISIBLE_ORDER_STATUSES_FOR_EVENTS = [
   "PENDING_INSTRUCTOR",
   "ACCEPTED",
@@ -48,10 +50,25 @@ export async function clientCanAccessEvent(
   return Boolean(order);
 }
 
-export async function countPaidRegistrations(eventId: string): Promise<number> {
+export async function countActiveRegistrations(eventId: string): Promise<number> {
   return prisma.eventRegistration.count({
-    where: { eventId, status: "PAID" },
+    where: { eventId, status: { in: ["PAID", "PENDING_PAYMENT"] } },
   });
+}
+
+/** Оплаченные и подтвердившие участие — для выплат инструктору. */
+export async function countSettledRegistrations(eventId: string): Promise<number> {
+  return prisma.eventRegistration.count({
+    where: {
+      eventId,
+      status: "PAID",
+      attendanceConfirmedAt: { not: null },
+    },
+  });
+}
+
+export async function countPaidRegistrations(eventId: string): Promise<number> {
+  return countActiveRegistrations(eventId);
 }
 
 export async function getEventCapacityState(event: {
@@ -82,6 +99,8 @@ export type EventRegistrationSummary = {
   status: EventRegistrationStatus;
   amountRub: number;
   paidAt: string | null;
+  attendanceConfirmedAt?: string | null;
+  needsAttendanceConfirmation?: boolean;
 };
 
 export function serializeEventRegistration(row: {
@@ -89,11 +108,23 @@ export function serializeEventRegistration(row: {
   status: EventRegistrationStatus;
   amountRub: Prisma.Decimal | number;
   paidAt: Date | null;
+  attendanceConfirmedAt?: Date | null;
+  eventAt?: Date | null;
 }): EventRegistrationSummary {
+  const needsAttendanceConfirmation =
+    row.eventAt !== undefined
+      ? registrationNeedsAttendanceConfirmation(
+          { status: row.status, attendanceConfirmedAt: row.attendanceConfirmedAt ?? null },
+          row.eventAt,
+        )
+      : undefined;
+
   return {
     id: row.id,
     status: row.status,
     amountRub: Number(row.amountRub),
     paidAt: row.paidAt?.toISOString() ?? null,
+    attendanceConfirmedAt: row.attendanceConfirmedAt?.toISOString() ?? null,
+    needsAttendanceConfirmation,
   };
 }

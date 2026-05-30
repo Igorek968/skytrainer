@@ -39,14 +39,33 @@ if [ "$MODE" = "dev" ]; then
 fi
 
 PROD_MARKER=".next/.skiinstruct-prod-build"
+SRC_MARKER=".next/.skiinstruct-src-hash"
 HAS_BUILD=0
 if [ -f ".next/BUILD_ID" ]; then
   HAS_BUILD=1
+fi
+SRC_HASH=""
+if [ -d "src" ]; then
+  SRC_HASH=$(find src -type f \( -name '*.ts' -o -name '*.tsx' -o -name '*.mjs' \) -print0 2>/dev/null \
+    | sort -z \
+    | xargs -0 md5sum 2>/dev/null \
+    | md5sum 2>/dev/null \
+    | cut -d' ' -f1)
+fi
+SRC_CHANGED=0
+if [ -n "$SRC_HASH" ] && { [ ! -f "$SRC_MARKER" ] || [ "$(cat "$SRC_MARKER" 2>/dev/null)" != "$SRC_HASH" ]; }; then
+  SRC_CHANGED=1
 fi
 if [ "${SKIINSTRUCT_FORCE_REBUILD:-0}" = "1" ]; then
   echo "[entry] prod: next build (SKIINSTRUCT_FORCE_REBUILD=1)..."
   npm run build
   touch "$PROD_MARKER"
+  [ -n "$SRC_HASH" ] && echo "$SRC_HASH" > "$SRC_MARKER"
+elif [ "$SRC_CHANGED" = "1" ]; then
+  echo "[entry] prod: next build (изменился src/)..."
+  npm run build
+  touch "$PROD_MARKER"
+  [ -n "$SRC_HASH" ] && echo "$SRC_HASH" > "$SRC_MARKER"
 elif [ -f "$PROD_MARKER" ] || [ "$HAS_BUILD" = "1" ]; then
   touch "$PROD_MARKER" 2>/dev/null || true
   echo "[entry] prod: готовый build (пропуск сборки)"
@@ -54,6 +73,7 @@ else
   echo "[entry] prod: next build (первый раз 3–15 мин)..."
   npm run build
   touch "$PROD_MARKER"
+  [ -n "$SRC_HASH" ] && echo "$SRC_HASH" > "$SRC_MARKER"
 fi
 
 echo "[entry] prod: next start :3000"

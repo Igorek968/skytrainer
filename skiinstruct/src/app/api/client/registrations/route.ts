@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 
 import { isApiErrorResponse, requireClientSession } from "@/lib/api-session";
 import type { ClientRegistrationListItem } from "@/lib/client-event-registration";
+import { isInstructorEventCompleted } from "@/lib/instructor-events";
+import { registrationNeedsAttendanceConfirmation } from "@/lib/services/event-attendance-shared";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -32,6 +34,12 @@ export async function GET() {
     status: r.status,
     amountRub: Number(r.amountRub),
     paidAt: r.paidAt?.toISOString() ?? null,
+    attendanceConfirmedAt: r.attendanceConfirmedAt?.toISOString() ?? null,
+    needsAttendanceConfirmation: registrationNeedsAttendanceConfirmation(
+      r,
+      r.event.eventAt,
+    ),
+    eventCompleted: isInstructorEventCompleted(r.event.eventAt),
     createdAt: r.createdAt.toISOString(),
     event: {
       id: r.event.id,

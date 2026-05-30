@@ -27,7 +27,7 @@ export async function GET() {
 
   await archivePastPublishedInstructorEvents({ instructorId: userId });
 
-  const [rows, titles, paidGroups] = await Promise.all([
+  const [rows, titles, activeGroups, settledGroups, unconfirmedGroups] = await Promise.all([
     prisma.instructorEvent.findMany({
       where: { instructorId: userId },
       orderBy: [{ eventAt: "desc" }, { createdAt: "desc" }],
@@ -36,26 +36,53 @@ export async function GET() {
     listInstructorEventTitles(userId),
     prisma.eventRegistration.groupBy({
       by: ["eventId"],
-      where: { status: "PAID", event: { instructorId: userId } },
+      where: {
+        status: { in: ["PAID", "PENDING_PAYMENT"] },
+        event: { instructorId: userId },
+      },
+      _count: { _all: true },
+    }),
+    prisma.eventRegistration.groupBy({
+      by: ["eventId"],
+      where: {
+        status: "PAID",
+        attendanceConfirmedAt: { not: null },
+        event: { instructorId: userId },
+      },
       _count: { _all: true },
       _sum: { instructorShareAmount: true },
     }),
+    prisma.eventRegistration.groupBy({
+      by: ["eventId"],
+      where: {
+        status: { in: ["PAID", "PENDING_PAYMENT"] },
+        attendanceConfirmedAt: null,
+        event: { instructorId: userId, eventAt: { lte: new Date() } },
+      },
+      _count: { _all: true },
+    }),
   ]);
 
-  const statsByEvent = new Map(
-    paidGroups.map((g) => [
+  const activeByEvent = new Map(activeGroups.map((g) => [g.eventId, g._count._all]));
+  const settledByEvent = new Map(
+    settledGroups.map((g) => [
       g.eventId,
       {
-        paidRegistrationCount: g._count._all,
+        settledCount: g._count._all,
         registrationRevenueRub: Number(g._sum.instructorShareAmount ?? 0),
       },
     ]),
   );
+  const unconfirmedByEvent = new Map(unconfirmedGroups.map((g) => [g.eventId, g._count._all]));
 
   return NextResponse.json({
     events: rows.map((row) => {
-      const stats = statsByEvent.get(row.id);
-      return serializeInstructorEvent(row, stats);
+      const settled = settledByEvent.get(row.id);
+      return serializeInstructorEvent(row, {
+        paidRegistrationCount: activeByEvent.get(row.id) ?? 0,
+        registrationRevenueRub: settled?.registrationRevenueRub ?? 0,
+        unconfirmedAttendanceCount: unconfirmedByEvent.get(row.id) ?? 0,
+      });
     }),
     titles,
   });

@@ -25,6 +25,11 @@ import {
   readPendingCheckout,
   savePendingCheckout,
 } from "@/lib/client-pending-checkout";
+import {
+  formatDrivingSchoolDetailsSummary,
+  isAutoInstructorLabel,
+} from "@/lib/auto-instructor-offer";
+import type { SpecializationOffer } from "@/lib/instructor-specialization-offers";
 import { INSTRUCTOR_ACTIVITY_LABELS, isSyntheticInstructorBioLine } from "@/lib/services/instructor-match";
 import { SectionErrorBoundary } from "@/shared/ui/section-error-boundary";
 
@@ -65,16 +70,14 @@ type InstructorProfileResponse = {
       skillLevels: string[];
       languages: string[];
       specializations: string[];
+      specializationOffers?: SpecializationOffer[];
       additionalServices: string[];
       offeredDurations: string[];
       availabilitySlots: { day: number; from: string; to: string; busy?: boolean }[];
       age: number | null;
       experienceYears: number | null;
+      sportsExperienceYears: number | null;
       totalLessons: number | null;
-      cancellationPolicy: string | null;
-      supportContact: string | null;
-      legalInfo: string | null;
-      videoVisitUrl: string | null;
       hourlyRate: number;
       ratingAvg: number;
       reviewCount: number;
@@ -188,8 +191,11 @@ function InstructorSearchExpandedBody({
           <span className="text-muted-foreground">Возраст · </span>
           {p.age ?? "—"}
           <span className="mx-1.5 text-muted-foreground">·</span>
-          <span className="text-muted-foreground">Стаж (лет) · </span>
+          <span className="text-muted-foreground">Стаж инструктора · </span>
           {p.experienceYears ?? "—"}
+          <span className="mx-1.5 text-muted-foreground">·</span>
+          <span className="text-muted-foreground">Стаж в спорте · </span>
+          {p.sportsExperienceYears ?? "—"}
           <span className="mx-1.5 text-muted-foreground">·</span>
           <span className="text-muted-foreground">Занятий по направлению · </span>
           {p.totalLessons ?? "—"}
@@ -233,6 +239,22 @@ function InstructorSearchExpandedBody({
         <p className="font-medium">Специализации</p>
         <p className="mt-1">{p.specializations.length ? p.specializations.join(", ") : "Не указано"}</p>
       </div>
+
+      {(() => {
+        const autoOffer = p.specializationOffers?.find((o) => isAutoInstructorLabel(o.label));
+        if (!autoOffer?.drivingDetails) return null;
+        return (
+          <div className="rounded-md border border-border bg-muted/40 p-2 text-xs">
+            <p className="font-medium">Автоинструктор</p>
+            <p className="mt-1 text-muted-foreground">
+              {formatDrivingSchoolDetailsSummary(autoOffer.drivingDetails)}
+            </p>
+            <p className="mt-1">
+              Ставка: <strong className="text-foreground">{autoOffer.hourlyRate} ₽/ч</strong>
+            </p>
+          </div>
+        );
+      })()}
 
       <div className="grid gap-2 md:grid-cols-2">
         <div className="rounded-md bg-muted/60 p-2 text-xs">
@@ -361,20 +383,6 @@ function InstructorSearchExpandedBody({
         Выбрать инструктора для заказа
       </Button>
 
-      {p.videoVisitUrl?.trim() ? (
-        <div className="space-y-1 text-xs">
-          <p className="font-medium">Видео-визитка</p>
-          <Link href={p.videoVisitUrl} target="_blank" rel="noreferrer" className="text-muted-foreground underline">
-            Смотреть
-          </Link>
-        </div>
-      ) : null}
-
-      <div className="rounded-md border border-border bg-muted/30 p-2 text-xs text-muted-foreground">
-        <p>Политика отмены: {p.cancellationPolicy?.trim() || "Не указано"}</p>
-        <p>Поддержка: {p.supportContact?.trim() || "Не указано"}</p>
-        <p>Юридическая информация: {p.legalInfo?.trim() || "Не указано"}</p>
-      </div>
     </>
   );
 }
@@ -470,6 +478,11 @@ export default function ClientHomePage() {
     const raw = Math.floor((end.getTime() - start.getTime()) / 86_400_000) + 1;
     return Math.min(30, Math.max(1, Number.isFinite(raw) ? raw : 1));
   }, [lessonDate, lessonEndDate]);
+  /** Не «день в день»: в поиске — и офлайн; заявка без таймера 60 с. */
+  const isRelaxedLessonBooking = useMemo(
+    () => flexibleOfflineBooking || lessonDate > todayIso || lessonDays > 1,
+    [flexibleOfflineBooking, lessonDate, todayIso, lessonDays],
+  );
   const [lessonStartTime, setLessonStartTime] = useState("10:00");
   const [lessonEndTime, setLessonEndTime] = useState("12:00");
   const isOutdoorTour = specializationPref.includes("Пешие туры") || specializationPref.includes("Маунтибайк");
@@ -486,10 +499,10 @@ export default function ClientHomePage() {
       lessonDate,
       lessonEndDate,
       lessonDays,
-      flexibleOfflineBooking,
+      isRelaxedLessonBooking,
     ],
     queryFn: async () => {
-      const offline = flexibleOfflineBooking ? "&includeOffline=1" : "";
+      const offline = isRelaxedLessonBooking ? "&includeOffline=1" : "";
       const r = await fetch(
         `/api/instructors/nearby?lat=${meetLat}&lng=${meetLng}&skillLevel=${skillLevel}&languagePref=${encodeURIComponent(languagePref)}&specialization=${encodeURIComponent(specializationPref)}&duration=${duration}&lessonDate=${lessonDate}&lessonEndDate=${lessonEndDate}&lessonDays=${lessonDays}${offline}`,
         { cache: "no-store" },
@@ -585,7 +598,7 @@ export default function ClientHomePage() {
         return m ? m[1] : lessonEndTime;
       })(),
       instructorId,
-      flexibleInstructorInvite: flexibleOfflineBooking,
+      flexibleInstructorInvite: isRelaxedLessonBooking,
     });
 
     const doPost = () =>
@@ -864,9 +877,11 @@ export default function ClientHomePage() {
                 }}
               />
               <p className="text-xs text-muted-foreground">
-                {flexibleOfflineBooking
-                  ? "Даты можно выбрать вперёд на два года; фильтр по слотам календаря инструктора отключён."
-                  : "В списке показываются только инструкторы, у которых есть свободные слоты на весь период."}
+                {isRelaxedLessonBooking
+                  ? lessonDate > todayIso || lessonDays > 1
+                    ? "Урок не сегодня — в списке и офлайн-инструкторы; ответ на заявку без таймера 60 с."
+                    : "Даты можно выбрать вперёд на два года; фильтр по слотам календаря инструктора отключён."
+                  : "На сегодня в списке только инструкторы «на линии» с подходящими слотами."}
               </p>
             </div>
             <div className="space-y-2">
@@ -934,12 +949,12 @@ export default function ClientHomePage() {
         <Card id={CLIENT_SECTION_IDS.nearbyInstructors} className="scroll-mt-24">
           <CardHeader className="flex flex-row items-start justify-between gap-3">
             <div>
-              <CardTitle>{flexibleOfflineBooking ? "Инструкторы" : "Инструкторы рядом"}</CardTitle>
+              <CardTitle>{isRelaxedLessonBooking ? "Инструкторы" : "Инструкторы рядом"}</CardTitle>
               <CardDescription className="max-w-xl space-y-1">
                 <span>
-                {flexibleOfflineBooking
+                {isRelaxedLessonBooking
                   ? "Включая офлайн; на карте — только с координатами."
-                    : "Точка встречи и фильтры слева задают список; данные списка обновляются каждые ~12 с."}
+                    : "Сегодня в списке только инструкторы «на линии»; данные обновляются каждые ~12 с."}
                 </span>
                 <span className="block text-muted-foreground">
                   Если инструктор изменил анкету и пропал из списка, проверьте фильтр «Направление», язык и уровень — они должны совпадать с тем, что указано у инструктора.
@@ -970,9 +985,10 @@ export default function ClientHomePage() {
               <p className="text-sm text-destructive">Не удалось загрузить список</p>
             ) : !data?.instructors.length ? (
               <p className="text-sm text-muted-foreground">
-                Нет подходящих инструкторов: совпадение по направлению, уровню и длительности; для онлайн — в
-                радиусе до ~100 км от точки на карте. Сдвиньте маркер встречи ближе к инструктору или попросите
-                его включить «Онлайн» и геолокацию в кабинете.
+                Нет подходящих инструкторов: совпадение по направлению, уровню и длительности.
+                {isRelaxedLessonBooking
+                  ? " Сдвиньте маркер встречи или ослабьте фильтры."
+                  : " На сегодня показываются только инструкторы «на линии» (до ~100 км). Выберите дату позже или включите «Запись на дату» — тогда появятся и офлайн."}
               </p>
             ) : (
               <ul className="space-y-2" aria-label="Список инструкторов">

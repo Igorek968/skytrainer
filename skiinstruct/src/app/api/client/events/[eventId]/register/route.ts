@@ -5,7 +5,6 @@ import { enrichClientEvent } from "@/lib/instructor-events";
 import { prisma } from "@/lib/prisma";
 import {
   buildRegistrationAmounts,
-  createEventCheckoutUrl,
 } from "@/lib/services/event-checkout";
 import {
   clientCanAccessEvent,
@@ -52,6 +51,10 @@ export async function POST(_req: Request, ctx: Ctx) {
   });
 
   if (existing?.status === "PAID") {
+    return NextResponse.json({ error: "Вы уже записаны" }, { status: 400 });
+  }
+
+  if (existing?.status === "PENDING_PAYMENT" && existing.paidAt) {
     return NextResponse.json({ error: "Вы уже записаны" }, { status: 400 });
   }
 
@@ -118,29 +121,17 @@ export async function POST(_req: Request, ctx: Ctx) {
     });
   }
 
-  try {
-    const checkoutUrl = await createEventCheckoutUrl(registrationId);
-    const myRegistration = await prisma.eventRegistration.findUnique({
-      where: { id: registrationId },
-    });
-    const enriched = await enrichClientEvent(event, myRegistration, null);
+  const myRegistration = await prisma.eventRegistration.findUnique({
+    where: { id: registrationId },
+  });
+  const enriched = await enrichClientEvent(event, myRegistration, null);
 
-    return NextResponse.json({
-      event: enriched,
-      registration: myRegistration,
-      checkoutUrl,
-      registrationPath: `/client/registrations/${registrationId}`,
-      message: "Перейдите к оплате для подтверждения записи",
-    });
-  } catch (e) {
-    const message = e instanceof Error ? e.message : "Не удалось оформить оплату";
-    return NextResponse.json(
-      {
-        error: message,
-        registration: { id: registrationId },
-        registrationPath: `/client/registrations/${registrationId}`,
-      },
-      { status: 502 },
-    );
-  }
+  return NextResponse.json({
+    event: enriched,
+    registration: myRegistration,
+    checkoutUrl: null,
+    registrationPath: `/client/registrations/${registrationId}`,
+    message:
+      "Вы записаны. Оплата будет доступна после мероприятия — подтвердите участие, и средства поступят инструктору.",
+  });
 }

@@ -17,6 +17,7 @@ export type InstructorEventDTO = {
   title: string;
   titleId: string | null;
   body: string;
+  photoUrl: string | null;
   eventAt: string | null;
   moderationStatus: InstructorEventModerationStatus;
   rejectNote: string | null;
@@ -33,6 +34,7 @@ export type InstructorEventDTO = {
   /** Только для инструктора */
   paidRegistrationCount?: number;
   registrationRevenueRub?: number;
+  unconfirmedAttendanceCount?: number;
 };
 
 export type ClientInstructorEventDTO = InstructorEventDTO & {
@@ -89,11 +91,14 @@ export function showEventCardModeration(ev: InstructorEventDTO): boolean {
 export function showEventCardDelete(ev: InstructorEventDTO): boolean {
   if (ev.moderationStatus === "PUBLISHED") return true;
   if (ev.canEdit) return true;
-  return canRestoreArchivedEvent(ev);
+  if (canRestoreArchivedEvent(ev)) return true;
+  if (ev.moderationStatus === "ARCHIVED" && ev.isCompleted) return true;
+  return false;
 }
 
 export function eventCardDeleteLabel(ev: InstructorEventDTO): string {
   if (ev.moderationStatus === "PUBLISHED") return "Скрыть из ленты";
+  if (ev.moderationStatus === "ARCHIVED" && ev.isCompleted) return "Удалить";
   return "Удалить";
 }
 
@@ -129,7 +134,11 @@ export function registrationStatusLabel(status: EventRegistrationStatus): string
 
 export function serializeInstructorEvent(
   row: InstructorEvent,
-  extra?: { paidRegistrationCount?: number; registrationRevenueRub?: number },
+  extra?: {
+    paidRegistrationCount?: number;
+    registrationRevenueRub?: number;
+    unconfirmedAttendanceCount?: number;
+  },
 ): InstructorEventDTO {
   const isCompleted = isInstructorEventCompleted(row.eventAt);
   return {
@@ -137,6 +146,7 @@ export function serializeInstructorEvent(
     title: row.title,
     titleId: row.titleId,
     body: row.body,
+    photoUrl: row.photoUrl,
     eventAt: row.eventAt?.toISOString() ?? null,
     moderationStatus: row.moderationStatus,
     rejectNote: row.rejectNote,
@@ -151,6 +161,7 @@ export function serializeInstructorEvent(
     canEdit: canEditInstructorEvent(row),
     paidRegistrationCount: extra?.paidRegistrationCount,
     registrationRevenueRub: extra?.registrationRevenueRub,
+    unconfirmedAttendanceCount: extra?.unconfirmedAttendanceCount,
   };
 }
 
@@ -173,7 +184,12 @@ export async function enrichClientEvent(
     spotsLeft,
     registrationOpen: registrationOpenForEvent(row, isFull),
     isFree: isEventFree(row.priceRub),
-    myRegistration: myRegistration ? serializeEventRegistration(myRegistration) : null,
+    myRegistration: myRegistration
+      ? serializeEventRegistration({
+          ...myRegistration,
+          eventAt: row.eventAt,
+        })
+      : null,
   };
 }
 

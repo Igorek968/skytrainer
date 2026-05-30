@@ -10,6 +10,7 @@ import {
   computeEventRegistrationCancelQuote,
   cancelEventRegistrationByInstructor,
 } from "@/lib/services/event-registration-cancel";
+import { attendanceStatusLabel } from "@/lib/services/event-attendance-shared";
 import { serializeEventRegistration } from "@/lib/services/event-registration";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -44,12 +45,14 @@ export async function GET(_req: Request, ctx: Ctx) {
     rows.map((r) => r.clientId),
   );
 
-  const paid = rows.filter((r) => r.status === "PAID");
+  const paid = rows.filter((r) => r.status === "PAID" && r.attendanceConfirmedAt);
   const revenueRub = paid.reduce((sum, r) => sum + Number(r.instructorShareAmount ?? 0), 0);
 
   const registrations: (InstructorRegistrationParticipant & {
     canCancel: boolean;
     cancelReason: string | null;
+    attendanceLabel: string;
+    attendanceConfirmedAt: string | null;
   })[] = rows.map((r) => {
     const rating = ratings.get(r.clientId);
     const quote = computeEventRegistrationCancelQuote({
@@ -59,9 +62,18 @@ export async function GET(_req: Request, ctx: Ctx) {
       event: { eventAt: event.eventAt },
     });
     return {
-      ...serializeEventRegistration(r),
+      ...serializeEventRegistration({
+        id: r.id,
+        status: r.status,
+        amountRub: r.amountRub,
+        paidAt: r.paidAt,
+        attendanceConfirmedAt: r.attendanceConfirmedAt,
+        eventAt: event.eventAt,
+      }),
       paidAt: r.paidAt?.toISOString() ?? null,
       createdAt: r.createdAt.toISOString(),
+      attendanceConfirmedAt: r.attendanceConfirmedAt?.toISOString() ?? null,
+      attendanceLabel: attendanceStatusLabel(r, event.eventAt),
       client: {
         id: r.client.id,
         name: r.client.name,

@@ -47,11 +47,8 @@ export function InstructorLoginForm({
         <CardHeader>
           <CardTitle>Вход инструктора</CardTitle>
           <CardDescription>
-            После одобрения заявки администратором войдите с email и паролем, указанными при регистрации. Новая заявка —{" "}
-            <Link className="text-accent underline" href="/instructor/apply">
-              /instructor/apply
-            </Link>
-            .
+            Войдите с email и паролем, указанными при регистрации. После одобрения заявки администратором откроется
+            кабинет инструктора.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -110,11 +107,12 @@ export function InstructorLoginForm({
             <SubmitButton />
           </form>
 
+          <Button variant="outline" className="w-full" asChild>
+            <Link href="/instructor/apply?new=1">Стать инструктором</Link>
+          </Button>
           <p className="text-center text-sm text-muted-foreground">
-            Ещё не подавали заявку?{" "}
-            <Link className="font-medium text-accent underline" href="/instructor/apply">
-              Регистрация инструктора
-            </Link>
+            Заполните анкету и отправьте заявку на модерацию. Пока администратор не одобрит профиль, он не виден
+            клиентам в поиске.
           </p>
           <p className="text-center text-sm text-muted-foreground">
             Клиентам —{" "}

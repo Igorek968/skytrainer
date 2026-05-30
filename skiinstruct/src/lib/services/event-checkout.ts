@@ -1,4 +1,5 @@
 import { isMockCheckoutEnabled } from "@/lib/checkout-config";
+import { isInstructorEventCompleted } from "@/lib/instructor-events";
 import { prisma } from "@/lib/prisma";
 import { getStripe } from "@/lib/stripe";
 
@@ -10,15 +11,25 @@ export async function markEventRegistrationPaid(params: {
 }) {
   const reg = await prisma.eventRegistration.findUnique({
     where: { id: params.registrationId },
-    select: { id: true, status: true },
+    select: {
+      id: true,
+      status: true,
+      attendanceConfirmedAt: true,
+      event: { select: { eventAt: true } },
+    },
   });
   if (!reg || reg.status === "PAID") return reg;
+
+  const eventCompleted = isInstructorEventCompleted(reg.event.eventAt);
 
   return prisma.eventRegistration.update({
     where: { id: params.registrationId },
     data: {
       status: "PAID",
       paidAt: new Date(),
+      ...(eventCompleted && !reg.attendanceConfirmedAt
+        ? { attendanceConfirmedAt: new Date() }
+        : {}),
       ...(params.stripePaymentIntentId
         ? { stripePaymentIntentId: params.stripePaymentIntentId }
         : {}),
@@ -30,12 +41,12 @@ export async function createEventCheckoutUrl(registrationId: string): Promise<st
   const reg = await prisma.eventRegistration.findUnique({
     where: { id: registrationId },
     include: {
-      event: { select: { id: true, title: true } },
+      event: { select: { id: true, title: true, eventAt: true } },
       client: { select: { id: true } },
     },
   });
   if (!reg) throw new Error("Запись не найдена");
-  if (reg.status === "PAID") throw new Error("Уже оплачено");
+  if (reg.status === "PAID" && reg.paidAt) throw new Error("Уже оплачено");
   if (reg.status === "CANCELLED") throw new Error("Запись отменена");
 
   const amount = Number(reg.amountRub);
@@ -43,6 +54,10 @@ export async function createEventCheckoutUrl(registrationId: string): Promise<st
     await markEventRegistrationPaid({ registrationId });
     const origin = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3001";
     return `${origin}/client/registrations/${registrationId}?paid=1`;
+  }
+
+  if (!isInstructorEventCompleted(reg.event.eventAt)) {
+    throw new Error("Оплата будет доступна после окончания мероприятия");
   }
 
   const origin = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3001";

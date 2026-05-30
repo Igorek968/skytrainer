@@ -6,10 +6,7 @@ import { useSession } from "next-auth/react";
 import { toast } from "sonner";
 
 import type { ClientInstructorEventDTO } from "@/lib/instructor-events";
-import {
-  formatEventPriceRu,
-  registrationStatusLabel,
-} from "@/lib/instructor-events";
+import { formatEventPriceRu } from "@/lib/instructor-events";
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
 
@@ -62,7 +59,32 @@ export function EventRegistrationButton({
       await qc.invalidateQueries({ queryKey: ["client-events"] });
 
       const href = registrationHref(j.registration, j.registrationPath);
+      toast.success(j.message ?? "Вы записаны");
+      if (href) router.push(href);
+    },
+    onError: (e: Error & { registrationPath?: string }) => {
+      toast.error(e.message);
+      if (e.registrationPath) router.push(e.registrationPath);
+    },
+  });
 
+  const confirmAttendance = useMutation({
+    mutationFn: async (registrationId: string) => {
+      const r = await fetch(`/api/client/registrations/${registrationId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ action: "confirm_attendance" }),
+      });
+      const j = (await r.json().catch(() => ({}))) as RegisterResponse;
+      if (!r.ok) {
+        throw new Error(typeof j.error === "string" ? j.error : "Не удалось подтвердить участие");
+      }
+      return j;
+    },
+    onSuccess: async (j) => {
+      await qc.invalidateQueries({ queryKey });
+      await qc.invalidateQueries({ queryKey: ["client-events"] });
       if (j.checkoutUrl) {
         if (j.checkoutUrl.includes("/client/registrations/")) {
           router.push(j.checkoutUrl.replace(/^https?:\/\/[^/]+/, "") || j.checkoutUrl);
@@ -71,27 +93,56 @@ export function EventRegistrationButton({
         }
         return;
       }
-
-      toast.success(j.message ?? "Вы записаны");
-      if (href) router.push(href);
+      toast.success(j.message ?? "Участие подтверждено");
     },
-    onError: (e: Error & { registrationPath?: string }) => {
-      toast.error(e.message);
-      if (e.registrationPath) {
-        router.push(`${e.registrationPath}?pay=1`);
-      }
-    },
+    onError: (e: Error) => toast.error(e.message),
   });
 
   if (!isClient) return null;
 
   const my = event.myRegistration;
 
-  if (my?.status === "PAID") {
+  if (my?.needsAttendanceConfirmation) {
+    const paidEvent = !event.isFree && my.amountRub > 0;
+    return (
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <Badge variant="outline" className="text-xs">
+          {paidEvent ? "Подтвердите участие и оплатите" : "Подтвердите участие"}
+        </Badge>
+        <Button
+          type="button"
+          size="sm"
+          variant="accent"
+          disabled={confirmAttendance.isPending}
+          onClick={() => confirmAttendance.mutate(my.id)}
+        >
+          {confirmAttendance.isPending
+            ? "…"
+            : paidEvent
+              ? "Подтвердить и оплатить"
+              : "Подтвердить участие"}
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          onClick={() => router.push(`/client/registrations/${my.id}`)}
+        >
+          Заявка
+        </Button>
+      </div>
+    );
+  }
+
+  if (my && (my.status === "PAID" || my.status === "PENDING_PAYMENT")) {
     return (
       <div className="mt-2 flex flex-wrap items-center gap-2">
         <Badge variant="secondary" className="text-xs">
-          Вы записаны
+          {my.attendanceConfirmedAt
+            ? "Участие подтверждено"
+            : my.status === "PENDING_PAYMENT" && !event.isFree
+              ? "Записаны · оплата после мероприятия"
+              : "Вы записаны"}
         </Badge>
         <Button
           type="button"
@@ -100,33 +151,6 @@ export function EventRegistrationButton({
           onClick={() => router.push(`/client/registrations/${my.id}`)}
         >
           Открыть заявку
-        </Button>
-      </div>
-    );
-  }
-
-  if (my?.status === "PENDING_PAYMENT") {
-    return (
-      <div className="mt-2 flex flex-wrap items-center gap-2">
-        <Badge variant="outline" className="text-xs">
-          {registrationStatusLabel(my.status)}
-        </Badge>
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          onClick={() => router.push(`/client/registrations/${my.id}`)}
-        >
-          Оформить заявку
-        </Button>
-        <Button
-          type="button"
-          size="sm"
-          variant="accent"
-          disabled={register.isPending}
-          onClick={() => register.mutate()}
-        >
-          {register.isPending ? "…" : "Оплатить запись"}
         </Button>
       </div>
     );
@@ -147,6 +171,9 @@ export function EventRegistrationButton({
   return (
     <div className="mt-2 flex flex-wrap items-center gap-2">
       <span className="text-xs font-medium text-foreground">{priceLabel}</span>
+      {!event.isFree ? (
+        <span className="text-xs text-muted-foreground">Оплата после мероприятия</span>
+      ) : null}
       {event.spotsLeft != null ? (
         <span className="text-xs text-muted-foreground">Осталось мест: {event.spotsLeft}</span>
       ) : null}
@@ -157,11 +184,7 @@ export function EventRegistrationButton({
         disabled={register.isPending}
         onClick={() => register.mutate()}
       >
-        {register.isPending
-          ? "Оформляем…"
-          : event.isFree
-            ? "Записаться"
-            : `Записаться · ${priceLabel}`}
+        {register.isPending ? "Оформляем…" : "Записаться"}
       </Button>
     </div>
   );

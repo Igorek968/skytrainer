@@ -239,6 +239,7 @@ async function upsertDemoInstructor(
       reviewCount: template.reviewCount,
       age: 26 + (index % 15),
       experienceYears: 4 + (index % 10),
+      sportsExperienceYears: 8 + (index % 12),
       totalLessons: 60 + index * 22,
     },
     create: {
@@ -261,6 +262,7 @@ async function upsertDemoInstructor(
       reviewCount: template.reviewCount,
       age: 26 + (index % 15),
       experienceYears: 4 + (index % 10),
+      sportsExperienceYears: 8 + (index % 12),
       totalLessons: 60 + index * 22,
     },
   });

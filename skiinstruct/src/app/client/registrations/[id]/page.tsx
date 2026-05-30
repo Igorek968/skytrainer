@@ -32,29 +32,36 @@ export default function ClientRegistrationDetailPage() {
     enabled: Boolean(id),
   });
 
-  const autoPayStarted = useRef(false);
+  const autoConfirmStarted = useRef(false);
 
-  const pay = useMutation({
+  const confirmAttendance = useMutation({
     mutationFn: async () => {
       const r = await fetch(`/api/client/registrations/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ action: "pay" }),
+        body: JSON.stringify({ action: "confirm_attendance" }),
       });
-      const j = (await r.json()) as { checkoutUrl?: string; error?: string };
-      if (!r.ok) throw new Error(typeof j.error === "string" ? j.error : "Не удалось перейти к оплате");
+      const j = (await r.json()) as {
+        checkoutUrl?: string | null;
+        error?: string;
+        message?: string;
+      };
+      if (!r.ok) throw new Error(typeof j.error === "string" ? j.error : "Не удалось подтвердить");
       return j;
     },
     onSuccess: async (j) => {
-      if (!j.checkoutUrl) return;
-      if (j.checkoutUrl.includes("/client/registrations/")) {
-        const path = j.checkoutUrl.replace(/^https?:\/\/[^/]+/, "");
-        router.push(path || j.checkoutUrl);
-        await refetch();
+      await refetch();
+      await qc.invalidateQueries({ queryKey: ["client-events"] });
+      if (j.checkoutUrl) {
+        if (j.checkoutUrl.includes("/client/registrations/")) {
+          router.push(j.checkoutUrl.replace(/^https?:\/\/[^/]+/, "") || j.checkoutUrl);
+        } else {
+          window.location.href = j.checkoutUrl;
+        }
         return;
       }
-      window.location.href = j.checkoutUrl;
+      toast.success(j.message ?? "Участие подтверждено");
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -63,16 +70,16 @@ export default function ClientRegistrationDetailPage() {
 
   useEffect(() => {
     const paid = searchParams.get("paid");
-    if (paid === "1") toast.success("Оплата прошла — вы записаны на мероприятие");
+    if (paid === "1") toast.success("Оплата прошла — участие подтверждено");
     if (paid === "0") toast.message("Оплата не завершена");
   }, [searchParams]);
 
   useEffect(() => {
-    if (searchParams.get("pay") !== "1" || autoPayStarted.current) return;
-    if (!reg || reg.status !== "PENDING_PAYMENT") return;
-    autoPayStarted.current = true;
-    pay.mutate();
-  }, [searchParams, reg, pay]);
+    if (searchParams.get("confirm") !== "1" || autoConfirmStarted.current) return;
+    if (!reg?.needsAttendanceConfirmation) return;
+    autoConfirmStarted.current = true;
+    confirmAttendance.mutate();
+  }, [searchParams, reg, confirmAttendance]);
 
   return (
     <div className="space-y-4">
@@ -115,23 +122,46 @@ export default function ClientRegistrationDetailPage() {
             <p className="text-xs text-muted-foreground">
               Заявка от {new Date(reg.createdAt).toLocaleString("ru-RU")}
               {reg.paidAt ? ` · оплачено ${new Date(reg.paidAt).toLocaleString("ru-RU")}` : ""}
+              {reg.attendanceConfirmedAt
+                ? ` · участие подтверждено ${new Date(reg.attendanceConfirmedAt).toLocaleString("ru-RU")}`
+                : ""}
             </p>
 
-            {reg.status === "PENDING_PAYMENT" ? (
+            {reg.needsAttendanceConfirmation ? (
               <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-100">
-                Заявка создана. Оплатите участие — после оплаты запись будет подтверждена.
+                Мероприятие завершилось. Подтвердите, что вы были на нём
+                {reg.amountRub > 0 && !reg.paidAt
+                  ? " — после подтверждения спишется оплата, средства поступят инструктору."
+                  : "."}
+              </p>
+            ) : null}
+
+            {!reg.eventCompleted && reg.status === "PENDING_PAYMENT" && reg.amountRub > 0 ? (
+              <p className="rounded-md border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+                Вы записаны. Оплата будет доступна после окончания мероприятия — подтвердите участие, и средства
+                поступят инструктору.
+              </p>
+            ) : null}
+
+            {reg.attendanceConfirmedAt ? (
+              <p className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-950 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-100">
+                Участие подтверждено. Спасибо!
               </p>
             ) : null}
 
             <div className="flex flex-wrap gap-2">
-              {reg.status === "PENDING_PAYMENT" ? (
+              {reg.needsAttendanceConfirmation ? (
                 <Button
                   type="button"
                   variant="accent"
-                  disabled={pay.isPending}
-                  onClick={() => pay.mutate()}
+                  disabled={confirmAttendance.isPending}
+                  onClick={() => confirmAttendance.mutate()}
                 >
-                  {pay.isPending ? "Переход к оплате…" : `Оплатить ${reg.amountRub.toLocaleString("ru-RU")} ₽`}
+                  {confirmAttendance.isPending
+                    ? "…"
+                    : reg.amountRub > 0 && !reg.paidAt
+                      ? "Подтвердить участие и оплатить"
+                      : "Подтвердить участие"}
                 </Button>
               ) : null}
               {reg.canCancel ? (
