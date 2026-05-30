@@ -1,0 +1,35 @@
+---
+description: После правок в skiinstruct синхронизировать с Docker на localhost:3001
+globs:
+  - skiinstruct/**
+alwaysApply: false
+---
+
+# SkiInstruct → localhost:3001
+
+Приложение на **http://localhost:3001** работает в Docker (`skiinstruct-web`), режим **prod** (`next build` + `next start`). Bind-mount обновляет только исходники в контейнере; **без пересборки UI/API на порту 3001 не меняются**.
+
+## Обязательно после изменений в `skiinstruct/`
+
+1. Запустить синхронизацию из корня репозитория:
+
+```powershell
+.\scripts\sync-skiinstruct.ps1
+```
+
+2. Дождаться в логах строки `[entry] prod: next start :3000`:
+
+```powershell
+docker compose logs -f skiinstruct
+```
+
+3. Кратко сообщить пользователю, что пересборка запущена или завершена.
+
+## Не делать без запроса
+
+- Не удалять volume `skyinstruct_next_cache` (полная пересборка 5–15 мин) — только `sync-skiinstruct.ps1` или `restart-skiinstruct-fast.ps1` при явной необходимости.
+- Не переключать на `SKIINSTRUCT_NEXT_MODE=dev` без просьбы пользователя.
+
+## Новые API-маршруты
+
+Новые файлы в `skiinstruct/src/app/api/` тоже требуют rebuild — тот же скрипт.

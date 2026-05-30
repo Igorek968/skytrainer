@@ -97,9 +97,15 @@ export function showEventCardDelete(ev: InstructorEventDTO): boolean {
 }
 
 export function eventCardDeleteLabel(ev: InstructorEventDTO): string {
+  if (ev.moderationStatus === "PUBLISHED" && ev.isCompleted) return "Удалить";
   if (ev.moderationStatus === "PUBLISHED") return "Скрыть из ленты";
   if (ev.moderationStatus === "ARCHIVED" && ev.isCompleted) return "Удалить";
   return "Удалить";
+}
+
+/** Завершённое по дате — удаление с проверкой подтверждений участников. */
+export function isCompletedEventPermanentDelete(ev: InstructorEventDTO): boolean {
+  return ev.isCompleted && (ev.moderationStatus === "ARCHIVED" || ev.moderationStatus === "PUBLISHED");
 }
 
 export function moderationStatusLabel(status: InstructorEventModerationStatus): string {

@@ -56,3 +56,8 @@
 .leaflet-container {
   font-family: inherit;
 }
+
+.map-pin-icon {
+  background: transparent;
+  border: none;
+}

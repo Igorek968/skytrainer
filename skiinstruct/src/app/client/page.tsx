@@ -11,6 +11,7 @@ import { ChevronDown, Star, Award, ShieldCheck, CalendarDays, Languages } from "
 import { PersonalDataDialog } from "@/features/client/personal-data-dialog";
 import { ClientOrderCheckoutDialog } from "@/features/client/client-order-checkout-dialog";
 import { ClientEventsFeed } from "@/features/orders/client-events-feed";
+import { MeetAddressSearch } from "@/features/map/meet-address-search";
 import { NearbyMapLazy } from "@/features/map/map-loader";
 import { consumeOpenPersonalDataFlag } from "@/lib/client-personal-data-storage";
 import { useGeolocationMeetInit, useMeetPoint } from "@/features/map/use-client-meet-point";
@@ -760,29 +761,32 @@ export default function ClientHomePage() {
         </nav>
       </div>
 
-      <SectionErrorBoundary title="Карта временно недоступна">
-        <NearbyMapLazy
-          interactive
-          center={center}
-          meetLat={meetLat}
-          meetLng={meetLng}
-          radiusKm={5}
-          selectedInstructorId={selectedId}
-          onInstructorSelect={(id) => setSelectedId(id)}
-          instructors={(data?.instructors ?? [])
-            .filter((i) => i.lat != null && i.lng != null)
-            .map((i) => ({
-              id: i.id,
-              name: i.name,
-              lat: i.lat as number,
-              lng: i.lng as number,
-              hourlyRate: i.hourlyRate,
-              ratingAvg: i.ratingAvg,
-              distanceKm: i.distanceKm,
-            }))}
-          onMeetChange={(lat, lng) => setMeet(lat, lng)}
-        />
-      </SectionErrorBoundary>
+      <div className="space-y-3">
+        <MeetAddressSearch />
+        <SectionErrorBoundary title="Карта временно недоступна">
+          <NearbyMapLazy
+            interactive
+            center={center}
+            meetLat={meetLat}
+            meetLng={meetLng}
+            radiusKm={5}
+            selectedInstructorId={selectedId}
+            onInstructorSelect={(id) => setSelectedId(id)}
+            instructors={(data?.instructors ?? [])
+              .filter((i) => i.lat != null && i.lng != null)
+              .map((i) => ({
+                id: i.id,
+                name: i.name,
+                lat: i.lat as number,
+                lng: i.lng as number,
+                hourlyRate: i.hourlyRate,
+                ratingAvg: i.ratingAvg,
+                distanceKm: i.distanceKm,
+              }))}
+            onMeetChange={(lat, lng) => setMeet(lat, lng)}
+          />
+        </SectionErrorBoundary>
+      </div>
 
       <div className="grid gap-4 md:grid-cols-2">
         <Card id={CLIENT_SECTION_IDS.quickSearch} className="scroll-mt-24">

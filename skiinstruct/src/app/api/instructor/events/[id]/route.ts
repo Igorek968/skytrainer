@@ -133,6 +133,22 @@ export async function DELETE(_req: Request, ctx: Ctx) {
   }
 
   if (existing.moderationStatus === "PUBLISHED") {
+    if (isInstructorEventCompleted(existing.eventAt)) {
+      const readiness = await ensureEventReadyForDeletion(id);
+      if (!readiness.ok) {
+        return NextResponse.json(
+          {
+            error: `Не все участники подтвердили участие (${readiness.unconfirmed}). Отправлены напоминания: ${readiness.reminded}. Удаление возможно после подтверждения.`,
+            unconfirmed: readiness.unconfirmed,
+            reminded: readiness.reminded,
+          },
+          { status: 409 },
+        );
+      }
+      await prisma.instructorEvent.delete({ where: { id } });
+      return NextResponse.json({ ok: true });
+    }
+
     await prisma.instructorEvent.update({
       where: { id },
       data: { moderationStatus: "ARCHIVED" },

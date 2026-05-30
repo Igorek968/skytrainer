@@ -8,6 +8,7 @@ import type { InstructorEventDTO } from "@/lib/instructor-events";
 import {
   canRestoreArchivedEvent,
   eventCardDeleteLabel,
+  isCompletedEventPermanentDelete,
   formatEventDateRu,
   formatEventPriceRu,
   moderationStatusLabel,
@@ -307,7 +308,12 @@ export function InstructorEventsEditor({
       await qc.invalidateQueries({ queryKey: ["instructor-events"] });
     },
     onError: (e: Error) => {
-      toast.error(e.message === "delete" ? "Не удалось выполнить действие" : e.message);
+      const msg = e.message === "delete" ? "Не удалось выполнить действие" : e.message;
+      if (msg.includes("напоминания")) {
+        toast.message(msg, { duration: 8000 });
+      } else {
+        toast.error(msg);
+      }
     },
   });
 
@@ -324,16 +330,19 @@ export function InstructorEventsEditor({
 
   const handleCardDelete = useCallback(
     (ev: InstructorEventDTO) => {
-      if (ev.moderationStatus === "PUBLISHED") {
-        if (confirm("Скрыть из ленты клиентов?")) remove.mutate(ev.id);
-        return;
-      }
-      if (ev.moderationStatus === "ARCHIVED" && ev.isCompleted) {
+      if (isCompletedEventPermanentDelete(ev)) {
         const hasRegs = (ev.paidRegistrationCount ?? 0) > 0;
+        const unconfirmed = ev.unconfirmedAttendanceCount ?? 0;
         const msg = hasRegs
-          ? "Удалить завершённое мероприятие? Записи участников также будут удалены."
+          ? unconfirmed > 0
+            ? `Удалить завершённое мероприятие? ${unconfirmed} участник(ов) ещё не подтвердили участие — им будет отправлено напоминание.`
+            : "Удалить завершённое мероприятие? Записи участников также будут удалены."
           : "Удалить завершённое мероприятие?";
         if (confirm(msg)) remove.mutate(ev.id);
+        return;
+      }
+      if (ev.moderationStatus === "PUBLISHED") {
+        if (confirm("Скрыть из ленты клиентов?")) remove.mutate(ev.id);
         return;
       }
       const msg =
@@ -771,7 +780,9 @@ function EventList({
             {ev.rejectNote ? (
               <p className="mt-1 text-xs text-destructive">Отклонено: {ev.rejectNote}</p>
             ) : null}
-            {(ev.paidRegistrationCount ?? 0) > 0 || ev.isCompleted ? (
+            {ev.moderationStatus === "PUBLISHED" ||
+            ev.moderationStatus === "ARCHIVED" ||
+            (ev.paidRegistrationCount ?? 0) > 0 ? (
               <EventRegistrantsPanel eventId={ev.id} />
             ) : null}
             <div className="mt-2 flex flex-wrap gap-2">

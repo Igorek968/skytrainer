@@ -1,0 +1,5 @@
+{
+  "git.useEditorAsCommitInput": false,
+  "git.terminalGitEditor": false,
+  "git.suggestSmartCommit": false
+}
