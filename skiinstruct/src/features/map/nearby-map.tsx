@@ -8,6 +8,7 @@ import { useEffect } from "react";
 
 import { LocateMeControl } from "@/features/map/locate-me-control";
 import {
+  buildInstructorBalloonHtml,
   createInstructorLeafletIcon,
   type InstructorMapPin,
 } from "@/features/map/instructor-map-marker";
@@ -85,6 +86,7 @@ export function NearbyMap({
   onMeetChange,
   onLocateMe,
   onInstructorSelect,
+  onInstructorFocus,
   selectedInstructorId,
   className,
   interactive,
@@ -98,6 +100,8 @@ export function NearbyMap({
   onLocateMe?: () => Promise<void>;
   /** Выбор инструктора по клику на маркер (иначе кнопка заказа остаётся неактивной). */
   onInstructorSelect?: (id: string) => void;
+  /** Двойной клик — открыть анкету и поднять инструктора в списке. */
+  onInstructorFocus?: (id: string) => void;
   selectedInstructorId?: string | null;
   className?: string;
   interactive: boolean;
@@ -142,27 +146,25 @@ export function NearbyMap({
                 if (e.originalEvent) {
                   L.DomEvent.stopPropagation(e.originalEvent);
                 }
+                const marker = e.target as L.Marker;
                 onInstructorSelect?.(i.id);
+                marker.openPopup();
+              },
+              dblclick: (e) => {
+                if (e.originalEvent) {
+                  L.DomEvent.stopPropagation(e.originalEvent);
+                }
+                const marker = e.target as L.Marker;
+                onInstructorFocus?.(i.id);
+                marker.openPopup();
               },
             }}
           >
-            <Popup>
-              <div className="text-sm space-y-2">
-                <div className="font-medium">{i.name}</div>
-                <div>{i.hourlyRate} ₽/ч</div>
-                <div>
-                  Рейтинг: {i.ratingAvg.toFixed(1)} · {i.distanceKm} км
-                </div>
-                {onInstructorSelect ? (
-                  <button
-                    type="button"
-                    className="w-full rounded-md bg-accent px-2 py-1.5 text-xs font-medium text-accent-foreground hover:bg-accent/90"
-                    onClick={() => onInstructorSelect(i.id)}
-                  >
-                    {selectedInstructorId === i.id ? "Выбран" : "Выбрать для заказа"}
-                  </button>
-                ) : null}
-              </div>
+            <Popup closeOnClick={false} autoPan={false}>
+              <div
+                className="text-sm"
+                dangerouslySetInnerHTML={{ __html: buildInstructorBalloonHtml(i, "class") }}
+              />
             </Popup>
           </Marker>
           );

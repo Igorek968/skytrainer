@@ -4,7 +4,9 @@ import { useEffect, useRef, useState } from "react";
 
 import { LocateMeControl } from "@/features/map/locate-me-control";
 import {
+  buildInstructorBalloonHtml,
   buildInstructorYandexMarkerProperties,
+  getInstructorYandexBalloonLayout,
   getInstructorYandexLayout,
   instructorYandexPlacemarkOptions,
   type InstructorMapPin,
@@ -28,10 +30,21 @@ export type BookingMapProps = {
   onMeetChange: (lat: number, lng: number) => void;
   onLocateMe?: () => Promise<void>;
   onInstructorSelect?: (id: string) => void;
+  /** Двойной клик — открыть анкету и поднять инструктора в списке. */
+  onInstructorFocus?: (id: string) => void;
   selectedInstructorId?: string | null;
   className?: string;
   interactive: boolean;
 };
+
+function buildInstructorsSignature(list: InstructorMapPin[]): string {
+  return list
+    .map(
+      (i) =>
+        `${i.id}|${i.lat}|${i.lng}|${i.hourlyRate}|${i.ratingAvg}|${i.distanceKm}|${i.name}|${i.photoUrl ?? ""}|${i.image ?? ""}`,
+    )
+    .join("\n");
+}
 
 export function YandexBookingMap({
   meetLat,
@@ -41,6 +54,7 @@ export function YandexBookingMap({
   onMeetChange,
   onLocateMe,
   onInstructorSelect,
+  onInstructorFocus,
   selectedInstructorId,
   className,
   interactive,
@@ -53,13 +67,20 @@ export function YandexBookingMap({
   const meetPlacemarkRef = useRef<YmapsGeoObject | null>(null);
   const circleRef = useRef<YmapsGeoObject | null>(null);
   const instructorsRef = useRef<YmapsCollection | null>(null);
+  const placemarksByIdRef = useRef<Map<string, YmapsGeoObject>>(new Map());
+  const suppressMapClickRef = useRef(false);
+  const selectedInstructorIdRef = useRef(selectedInstructorId);
+  const instructorsSignatureRef = useRef("");
   const onMeetChangeRef = useRef(onMeetChange);
   const onInstructorSelectRef = useRef(onInstructorSelect);
+  const onInstructorFocusRef = useRef(onInstructorFocus);
   const [mapReady, setMapReady] = useState(false);
   const [mapError, setMapError] = useState<string | null>(null);
 
   onMeetChangeRef.current = onMeetChange;
   onInstructorSelectRef.current = onInstructorSelect;
+  onInstructorFocusRef.current = onInstructorFocus;
+  selectedInstructorIdRef.current = selectedInstructorId;
 
   useEffect(() => {
     let cancelled = false;
@@ -120,6 +141,7 @@ export function YandexBookingMap({
 
         if (interactive) {
           map.events.add("click", (e) => {
+            if (suppressMapClickRef.current) return;
             pickAtCoords(e.get("coords"));
           });
 
@@ -147,6 +169,7 @@ export function YandexBookingMap({
       meetPlacemarkRef.current = null;
       circleRef.current = null;
       instructorsRef.current = null;
+      placemarksByIdRef.current.clear();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- init once
   }, [interactive, radiusKm]);
@@ -163,37 +186,80 @@ export function YandexBookingMap({
     const ymaps = ymapsRef.current;
     if (!mapReady || !instructorsRef.current || !ymaps) return;
     const layer = instructorsRef.current;
-    layer.removeAll();
     const layout = getInstructorYandexLayout(ymaps);
+    const balloonLayout = getInstructorYandexBalloonLayout(ymaps);
+    const placemarksById = placemarksByIdRef.current;
+    const nextIds = new Set(instructors.map((i) => i.id));
+    const instructorsSignature = buildInstructorsSignature(instructors);
+    const instructorsChanged = instructorsSignature !== instructorsSignatureRef.current;
+    instructorsSignatureRef.current = instructorsSignature;
+
+    for (const id of placemarksById.keys()) {
+      if (!nextIds.has(id)) {
+        const stale = placemarksById.get(id);
+        if (stale) layer.remove(stale);
+        placemarksById.delete(id);
+      }
+    }
 
     for (const i of instructors) {
-      const selected = selectedInstructorId === i.id;
-      const placemark = new ymaps.Placemark(
-        [i.lat, i.lng],
-        {
-          hintContent: i.name ?? "Инструктор",
-          balloonContentHeader: i.name ?? "Инструктор",
-          balloonContentBody: [
-            `<strong>${i.hourlyRate} ₽/ч</strong>`,
-            `Рейтинг: ${i.ratingAvg.toFixed(1)} · ${i.distanceKm} км`,
-            onInstructorSelectRef.current
-              ? `<button type="button" data-instructor-id="${i.id}" class="yandex-pick-instructor" style="margin-top:8px;padding:6px 12px;border-radius:6px;border:none;background:#0f766e;color:#fff;cursor:pointer;">${
-                  selected ? "Выбран" : "Выбрать для заказа"
-                }</button>`
-              : "",
-          ].join("<br/>"),
-          ...buildInstructorYandexMarkerProperties(i, selected),
-        },
-        instructorYandexPlacemarkOptions(layout, selected),
-      );
+      const selected = selectedInstructorIdRef.current === i.id;
+      const markerProps = buildInstructorYandexMarkerProperties(i, selected);
+      const properties = {
+        hintContent: i.name ?? "Инструктор",
+        balloonContentHeader: "",
+        balloonContentBody: buildInstructorBalloonHtml(i, "class"),
+        ...markerProps,
+      };
+      const options = instructorYandexPlacemarkOptions(layout, balloonLayout, selected);
+
+      const existing = placemarksById.get(i.id);
+      if (existing) {
+        existing.geometry.setCoordinates([i.lat, i.lng]);
+        if (instructorsChanged) {
+          existing.properties.set(properties);
+        }
+        continue;
+      }
+
+      const placemark = new ymaps.Placemark([i.lat, i.lng], properties, options);
 
       placemark.events.add("click", () => {
+        suppressMapClickRef.current = true;
+        queueMicrotask(() => {
+          suppressMapClickRef.current = false;
+        });
+
         onInstructorSelectRef.current?.(i.id);
+        placemark.balloon.open();
+      });
+      placemark.events.add("dblclick", () => {
+        suppressMapClickRef.current = true;
+        queueMicrotask(() => {
+          suppressMapClickRef.current = false;
+        });
+
+        onInstructorFocusRef.current?.(i.id);
+        placemark.balloon.open();
       });
 
+      placemarksById.set(i.id, placemark);
       layer.add(placemark);
     }
-  }, [instructors, selectedInstructorId, mapReady]);
+  }, [instructors, mapReady]);
+
+  useEffect(() => {
+    if (!mapReady) return;
+    const placemarksById = placemarksByIdRef.current;
+
+    for (const [id, placemark] of placemarksById) {
+      const selected = selectedInstructorId === id;
+      placemark.properties.set({
+        markerBorderColor: selected ? "#0f766e" : "#ffffff",
+      });
+      placemark.options.set("zIndex", selected ? 650 : 640);
+    }
+  }, [selectedInstructorId, mapReady]);
 
   if (mapError) {
     return (

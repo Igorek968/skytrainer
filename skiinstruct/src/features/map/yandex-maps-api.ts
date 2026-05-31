@@ -27,6 +27,14 @@ export type YmapsNamespace = {
       overrides?: Record<string, unknown>,
     ) => YmapsLayoutClass;
   };
+  shape: {
+    Rectangle: new (geometry: unknown) => unknown;
+  };
+  geometry: {
+    pixel: {
+      Rectangle: new (coordinates: number[][]) => unknown;
+    };
+  };
   geocode: (
     query: string | number[],
     options?: { results?: number; kind?: string },
@@ -60,6 +68,8 @@ export type YmapsGeoObject = {
   };
   events: { add: (type: string, cb: () => void) => void };
   properties: { set: (k: Record<string, unknown>) => void };
+  options: { set: (key: string, value: unknown) => void };
+  balloon: { open: () => void; close: () => void };
 };
 
 export type YmapsEvent = { get: (key: string) => number[] };

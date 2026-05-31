@@ -2,10 +2,11 @@
 set -e
 
 MODE="${SKIINSTRUCT_NEXT_MODE:-prod}"
-if [ -n "${SKIINSTRUCT_NODE_ENV:-}" ]; then
-  export NODE_ENV="$SKIINSTRUCT_NODE_ENV"
-elif [ "$MODE" = "dev" ]; then
+if [ "$MODE" = "dev" ]; then
+  # next dev требует NODE_ENV=development; иначе PostCSS/Tailwind не обрабатывает @tailwind в globals.css.
   export NODE_ENV=development
+elif [ -n "${SKIINSTRUCT_NODE_ENV:-}" ]; then
+  export NODE_ENV="$SKIINSTRUCT_NODE_ENV"
 else
   export NODE_ENV=production
 fi

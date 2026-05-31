@@ -456,6 +456,8 @@ export default function ClientHomePage() {
   const [notes, setNotes] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  /** Инструктор, поднятый в начало списка после двойного клика на карте. */
+  const [listPriorityId, setListPriorityId] = useState<string | null>(null);
   const [showAllReviewsFor, setShowAllReviewsFor] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -529,6 +531,25 @@ export default function ClientHomePage() {
     if (!dataUpdatedAt) return;
     void queryClient.invalidateQueries({ queryKey: ["instructor-profile"], exact: false });
   }, [dataUpdatedAt, queryClient]);
+
+  const instructorsForList = useMemo(() => {
+    const list = data?.instructors ?? [];
+    if (!listPriorityId) return list;
+    const idx = list.findIndex((i) => i.id === listPriorityId);
+    if (idx <= 0) return list;
+    const reordered = [...list];
+    const [picked] = reordered.splice(idx, 1);
+    reordered.unshift(picked);
+    return reordered;
+  }, [data?.instructors, listPriorityId]);
+
+  function focusInstructorFromMap(id: string) {
+    setListPriorityId(id);
+    setSelectedId(id);
+    setExpandedId(id);
+    setShowAllReviewsFor(null);
+    scrollToClientSection(CLIENT_SECTION_IDS.nearbyInstructors);
+  }
 
   const { data: myInstructorReviews } = useQuery({
     queryKey: ["client-instructor-reviews"],
@@ -776,6 +797,7 @@ export default function ClientHomePage() {
             radiusKm={5}
             selectedInstructorId={selectedId}
             onInstructorSelect={(id) => setSelectedId(id)}
+            onInstructorFocus={focusInstructorFromMap}
             instructors={(data?.instructors ?? [])
               .filter((i) => i.lat != null && i.lng != null)
               .map((i) => ({
@@ -1003,7 +1025,7 @@ export default function ClientHomePage() {
               </p>
             ) : (
               <ul className="space-y-2" aria-label="Список инструкторов">
-                {data.instructors.map((i) => {
+                {instructorsForList.map((i) => {
                   const rowAvatar = instructorListAvatar(i);
                   const expandedIns =
                     expandedId === i.id &&

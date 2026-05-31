@@ -21,6 +21,7 @@ export function BookingMap(props: BookingMapProps) {
       onMeetChange={props.onMeetChange}
       onLocateMe={props.onLocateMe}
       onInstructorSelect={props.onInstructorSelect}
+      onInstructorFocus={props.onInstructorFocus}
       selectedInstructorId={props.selectedInstructorId}
       className={props.className}
       interactive={props.interactive}

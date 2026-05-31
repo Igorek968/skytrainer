@@ -53,6 +53,66 @@ function buildStarRatingHtml(rating: number): string {
   return `<span class="instructor-map-marker__stars">${stars}</span><span class="instructor-map-marker__rating-value">${clamped.toFixed(1)}</span>`;
 }
 
+function buildStarRatingInlineHtml(rating: number): string {
+  const clamped = Math.max(0, Math.min(5, rating));
+  const stars = Array.from({ length: 5 }, (_, index) => {
+    const filled = clamped >= index + 1 - 0.25;
+    const color = filled ? "#fbbf24" : "#cbd5e1";
+    return `<span style="font-size:11px;line-height:1;color:${color};" aria-hidden="true">★</span>`;
+  }).join("");
+
+  return `<span style="display:inline-flex;gap:1px;align-items:center;">${stars}</span><span style="margin-left:3px;font-size:12px;font-weight:600;color:#334155;">${clamped.toFixed(1)}</span>`;
+}
+
+/** Компактная карточка для балуна/попапа (выбор — клик по маркеру, без кнопок). */
+export function buildInstructorBalloonHtml(
+  pin: Pick<InstructorMapPin, "name" | "ratingAvg" | "hourlyRate" | "distanceKm" | "photoUrl" | "image">,
+  mode: "class" | "inline" = "class",
+): string {
+  const displayName = pin.name?.trim() || "Инструктор";
+  const photoUrl = resolveInstructorMarkerPhoto(pin);
+
+  if (mode === "inline") {
+    const avatar = photoUrl
+      ? `<img src="${escapeHtml(photoUrl)}" alt="" style="width:100%;height:100%;object-fit:cover;" loading="lazy" />`
+      : `<span style="font-size:13px;font-weight:700;color:#475569;">${escapeHtml(instructorInitials(pin.name))}</span>`;
+
+    return `<div style="min-width:180px;max-width:240px;font-family:system-ui,-apple-system,sans-serif;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div style="display:flex;height:40px;width:40px;flex-shrink:0;align-items:center;justify-content:center;overflow:hidden;border-radius:9999px;background:#e2e8f0;">${avatar}</div>
+        <div style="min-width:0;flex:1;">
+          <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px;font-weight:600;line-height:1.25;color:#0f172a;">${escapeHtml(displayName)}</div>
+          <div style="display:flex;align-items:center;margin-top:2px;">${buildStarRatingInlineHtml(pin.ratingAvg)}</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;margin-top:8px;padding-top:8px;border-top:1px solid #e2e8f0;font-size:12px;color:#64748b;">
+        <span style="font-weight:600;color:#0f172a;">${pin.hourlyRate}&nbsp;₽/ч</span>
+        <span style="color:#cbd5e1;" aria-hidden="true">·</span>
+        <span>${pin.distanceKm}&nbsp;км</span>
+      </div>
+    </div>`;
+  }
+
+  const avatar = photoUrl
+    ? `<img src="${escapeHtml(photoUrl)}" alt="" class="instructor-map-balloon__photo" loading="lazy" />`
+    : `<span class="instructor-map-balloon__initials">${escapeHtml(instructorInitials(pin.name))}</span>`;
+
+  return `<div class="instructor-map-balloon">
+    <div class="instructor-map-balloon__row">
+      <div class="instructor-map-balloon__avatar">${avatar}</div>
+      <div class="instructor-map-balloon__info">
+        <div class="instructor-map-balloon__name">${escapeHtml(displayName)}</div>
+        <div class="instructor-map-balloon__rating">${buildStarRatingHtml(pin.ratingAvg)}</div>
+      </div>
+    </div>
+    <div class="instructor-map-balloon__meta">
+      <span class="instructor-map-balloon__price">${pin.hourlyRate}&nbsp;₽/ч</span>
+      <span class="instructor-map-balloon__sep" aria-hidden="true">·</span>
+      <span class="instructor-map-balloon__distance">${pin.distanceKm}&nbsp;км</span>
+    </div>
+  </div>`;
+}
+
 export function buildInstructorMarkerHtml(
   pin: Pick<InstructorMapPin, "name" | "ratingAvg" | "photoUrl" | "image">,
   selected: boolean,
@@ -105,9 +165,13 @@ type YmapsLayoutFactory = {
 
 type YmapsLayoutClass = unknown;
 
+const INSTRUCTOR_YANDEX_ANCHOR_LEFT = INSTRUCTOR_MARKER_WIDTH / 2;
+const INSTRUCTOR_YANDEX_ANCHOR_TOP = INSTRUCTOR_MARKER_HEIGHT;
+
 const INSTRUCTOR_YANDEX_LAYOUT_TEMPLATE = [
-  '<div class="instructor-map-marker" style="display:flex;width:76px;flex-direction:column;align-items:center;gap:2px;pointer-events:auto;user-select:none;">',
-  '<div style="max-width:76px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;font-weight:600;line-height:1.2;color:#0f172a;text-align:center;text-shadow:0 0 3px #fff,0 0 3px #fff;">{{ properties.markerName }}</div>',
+  '<div style="position:relative;width:0;height:0;">',
+  `<div style="position:absolute;left:-${INSTRUCTOR_YANDEX_ANCHOR_LEFT}px;top:-${INSTRUCTOR_YANDEX_ANCHOR_TOP}px;display:flex;width:${INSTRUCTOR_MARKER_WIDTH}px;flex-direction:column;align-items:center;gap:2px;pointer-events:auto;user-select:none;">`,
+  `<div style="max-width:${INSTRUCTOR_MARKER_WIDTH}px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;font-weight:600;line-height:1.2;color:#0f172a;text-align:center;text-shadow:0 0 3px #fff,0 0 3px #fff;">{{ properties.markerName }}</div>`,
   '<div style="font-size:9px;line-height:1;color:#334155;text-shadow:0 0 2px #fff;letter-spacing:-0.5px;">{{ properties.markerStarsLine }}</div>',
   '<div style="display:flex;height:48px;width:48px;align-items:center;justify-content:center;overflow:hidden;border-radius:9999px;border:2px solid {{ properties.markerBorderColor }};background:#e2e8f0;box-shadow:0 2px 8px rgba(15,23,42,.22);">',
   "{% if properties.markerPhotoUrl %}",
@@ -118,19 +182,52 @@ const INSTRUCTOR_YANDEX_LAYOUT_TEMPLATE = [
   "</div>",
   '<div style="width:0;height:0;margin-top:-1px;border-left:5px solid transparent;border-right:5px solid transparent;border-top:6px solid {{ properties.markerBorderColor }};"></div>',
   "</div>",
+  "</div>",
 ].join("");
 
 let yandexLayoutClass: YmapsLayoutClass | null = null;
+let yandexBalloonLayoutClass: YmapsLayoutClass | null = null;
 
-export function getInstructorYandexLayout(ymaps: { templateLayoutFactory: YmapsLayoutFactory }): YmapsLayoutClass {
+type YmapsWithShape = {
+  templateLayoutFactory: YmapsLayoutFactory;
+  shape: { Rectangle: new (geometry: unknown) => unknown };
+  geometry: { pixel: { Rectangle: new (coordinates: number[][]) => unknown } };
+};
+
+export function getInstructorYandexBalloonLayout(ymaps: YmapsWithShape): YmapsLayoutClass {
+  if (yandexBalloonLayoutClass) return yandexBalloonLayoutClass;
+  yandexBalloonLayoutClass = ymaps.templateLayoutFactory.createClass(
+    '<div class="instructor-map-balloon">{{ properties.balloonContentBody|raw }}</div>',
+  );
+  return yandexBalloonLayoutClass;
+}
+
+export function getInstructorYandexLayout(ymaps: YmapsWithShape): YmapsLayoutClass {
   if (yandexLayoutClass) return yandexLayoutClass;
-  yandexLayoutClass = ymaps.templateLayoutFactory.createClass(INSTRUCTOR_YANDEX_LAYOUT_TEMPLATE);
+  const halfW = INSTRUCTOR_MARKER_WIDTH / 2;
+  const height = INSTRUCTOR_MARKER_HEIGHT;
+  yandexLayoutClass = ymaps.templateLayoutFactory.createClass(INSTRUCTOR_YANDEX_LAYOUT_TEMPLATE, {
+    getShape: function (this: { getElement: () => HTMLElement | null }) {
+      if (!this.getElement()) return null;
+      return new ymaps.shape.Rectangle(
+        new ymaps.geometry.pixel.Rectangle([
+          [-halfW, -height],
+          [halfW, 0],
+        ]),
+      );
+    },
+  });
   return yandexLayoutClass;
 }
 
-export function instructorYandexPlacemarkOptions(layout: YmapsLayoutClass, selected: boolean) {
+export function instructorYandexPlacemarkOptions(
+  layout: YmapsLayoutClass,
+  balloonLayout: YmapsLayoutClass,
+  selected: boolean,
+) {
   return {
     iconLayout: layout,
+    balloonContentLayout: balloonLayout,
     iconShape: {
       type: "Rectangle",
       coordinates: [
@@ -140,5 +237,7 @@ export function instructorYandexPlacemarkOptions(layout: YmapsLayoutClass, selec
     },
     zIndex: selected ? 650 : 640,
     hideIconOnBalloonOpen: false,
+    openBalloonOnClick: false,
+    balloonPanelMaxMapArea: 0,
   };
 }
