@@ -34,9 +34,19 @@ function resolvedNextAuthUrlForClient() {
   );
 }
 
+function resolvedYandexMapsApiKeyForClient() {
+  return (
+    process.env.NEXT_PUBLIC_YANDEX_MAPS_API_KEY?.trim() ||
+    process.env.YANDEX_GEOCODER_API_KEY?.trim() ||
+    process.env.VITE_YANDEX_MAPS_API_KEY?.trim() ||
+    ""
+  );
+}
+
 const nextConfig = {
   env: {
     NEXTAUTH_URL: resolvedNextAuthUrlForClient(),
+    NEXT_PUBLIC_YANDEX_MAPS_API_KEY: resolvedYandexMapsApiKeyForClient(),
   },
   reactStrictMode: true,
   eslint: {

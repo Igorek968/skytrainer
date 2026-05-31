@@ -12,9 +12,13 @@ import { PersonalDataDialog } from "@/features/client/personal-data-dialog";
 import { ClientOrderCheckoutDialog } from "@/features/client/client-order-checkout-dialog";
 import { ClientEventsFeed } from "@/features/orders/client-events-feed";
 import { MeetAddressSearch } from "@/features/map/meet-address-search";
-import { NearbyMapLazy } from "@/features/map/map-loader";
+import { BookingMapLazy } from "@/features/map/map-loader";
 import { consumeOpenPersonalDataFlag } from "@/lib/client-personal-data-storage";
-import { useGeolocationMeetInit, useMeetPoint } from "@/features/map/use-client-meet-point";
+import {
+  locateUserMeetPoint,
+  useGeolocationMeetInit,
+  useMeetPoint,
+} from "@/features/map/use-client-meet-point";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Input } from "@/shared/ui/input";
@@ -764,7 +768,7 @@ export default function ClientHomePage() {
       <div className="space-y-3">
         <MeetAddressSearch />
         <SectionErrorBoundary title="Карта временно недоступна">
-          <NearbyMapLazy
+          <BookingMapLazy
             interactive
             center={center}
             meetLat={meetLat}
@@ -782,8 +786,11 @@ export default function ClientHomePage() {
                 hourlyRate: i.hourlyRate,
                 ratingAvg: i.ratingAvg,
                 distanceKm: i.distanceKm,
+                photoUrl: i.photoUrl,
+                image: i.image,
               }))}
             onMeetChange={(lat, lng) => setMeet(lat, lng)}
+            onLocateMe={locateUserMeetPoint}
           />
         </SectionErrorBoundary>
       </div>

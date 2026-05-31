@@ -72,7 +72,8 @@ services:
       # prod = next build + start (быстрые переходы). dev = hot-reload, но в Docker на Windows очень медленно.
       SKIINSTRUCT_NEXT_MODE: ${SKIINSTRUCT_NEXT_MODE:-prod}
       SKIINSTRUCT_FORCE_REBUILD: ${SKIINSTRUCT_FORCE_REBUILD:-0}
-      NODE_ENV: ${SKIINSTRUCT_NODE_ENV:-production}
+      # В dev-режиме entrypoint сам ставит NODE_ENV=development (next dev + production ломает Tailwind).
+      SKIINSTRUCT_NODE_ENV: ${SKIINSTRUCT_NODE_ENV:-}
       # На Windows bind-mount: polling=true сильно грузит CPU. Включите только если dev-режим «не видит» правки.
       WATCHPACK_POLLING: ${SKIINSTRUCT_USE_POLLING:-false}
       CHOKIDAR_USEPOLLING: ${SKIINSTRUCT_USE_POLLING:-false}
@@ -122,6 +123,8 @@ services:
       TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET:-}
       NEXT_PUBLIC_SUPPORT_EMAIL: ${NEXT_PUBLIC_SUPPORT_EMAIL:-}
       NEXT_PUBLIC_SUPPORT_TELEGRAM_URL: ${NEXT_PUBLIC_SUPPORT_TELEGRAM_URL:-}
+      # Яндекс.Карты + геокодер (см. skiinstruct/docs/YANDEX_MAPS.md)
+      NEXT_PUBLIC_YANDEX_MAPS_API_KEY: ${NEXT_PUBLIC_YANDEX_MAPS_API_KEY:-${VITE_YANDEX_MAPS_API_KEY:-}}
     volumes:
       # Локальные правки в коде сразу видны в контейнере (без полной пересборки образа).
       - ./skiinstruct/src:/app/src

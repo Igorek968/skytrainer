@@ -61,3 +61,109 @@
   background: transparent;
   border: none;
 }
+
+.instructor-map-marker-icon {
+  background: transparent;
+  border: none;
+}
+
+.instructor-map-marker {
+  display: flex;
+  width: 76px;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  pointer-events: auto;
+  user-select: none;
+}
+
+.instructor-map-marker__name {
+  max-width: 76px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+  color: #0f172a;
+  text-align: center;
+  text-shadow:
+    0 0 3px #fff,
+    0 0 3px #fff,
+    0 1px 2px rgb(255 255 255 / 90%);
+}
+
+.instructor-map-marker__rating {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  line-height: 1;
+}
+
+.instructor-map-marker__stars {
+  display: inline-flex;
+  gap: 0;
+}
+
+.instructor-map-marker__star {
+  font-size: 9px;
+  color: #cbd5e1;
+}
+
+.instructor-map-marker__star--filled {
+  color: #fbbf24;
+}
+
+.instructor-map-marker__rating-value {
+  font-size: 10px;
+  font-weight: 600;
+  color: #334155;
+  text-shadow: 0 0 2px #fff;
+}
+
+.instructor-map-marker__photo {
+  display: flex;
+  height: 48px;
+  width: 48px;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 9999px;
+  border: 2px solid #fff;
+  background: #e2e8f0;
+  box-shadow: 0 2px 8px rgb(15 23 42 / 22%);
+}
+
+.instructor-map-marker--selected .instructor-map-marker__photo {
+  border-color: #0f766e;
+  box-shadow:
+    0 0 0 2px rgb(15 118 110 / 35%),
+    0 2px 8px rgb(15 23 42 / 22%);
+}
+
+.instructor-map-marker__photo-img {
+  height: 100%;
+  width: 100%;
+  object-fit: cover;
+}
+
+.instructor-map-marker__photo-fallback {
+  font-size: 14px;
+  font-weight: 700;
+  color: #475569;
+}
+
+.instructor-map-marker__tail {
+  width: 0;
+  height: 0;
+  margin-top: -1px;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 6px solid #fff;
+  filter: drop-shadow(0 1px 1px rgb(15 23 42 / 18%));
+}
+
+.instructor-map-marker--selected .instructor-map-marker__tail {
+  border-top-color: #0f766e;
+}

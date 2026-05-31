@@ -6,17 +6,14 @@ import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import { useEffect } from "react";
 
+import { LocateMeControl } from "@/features/map/locate-me-control";
+import {
+  createInstructorLeafletIcon,
+  type InstructorMapPin,
+} from "@/features/map/instructor-map-marker";
 import { cn } from "@/lib/utils";
 
-type InstructorPin = {
-  id: string;
-  name: string | null;
-  lat: number;
-  lng: number;
-  hourlyRate: number;
-  ratingAvg: number;
-  distanceKm: number;
-};
+type InstructorPin = InstructorMapPin;
 
 function pinIcon(fill: string) {
   return L.divIcon({
@@ -32,7 +29,6 @@ function pinIcon(fill: string) {
 }
 
 const MeetIcon = pinIcon("#2563eb");
-const InstructorIcon = pinIcon("#0f766e");
 
 function MapViewSync({ lat, lng, zoom = 13 }: { lat: number; lng: number; zoom?: number }) {
   const map = useMap();
@@ -87,6 +83,7 @@ export function NearbyMap({
   instructors,
   radiusKm,
   onMeetChange,
+  onLocateMe,
   onInstructorSelect,
   selectedInstructorId,
   className,
@@ -98,6 +95,7 @@ export function NearbyMap({
   instructors: InstructorPin[];
   radiusKm: number;
   onMeetChange: (lat: number, lng: number) => void;
+  onLocateMe?: () => Promise<void>;
   /** Выбор инструктора по клику на маркер (иначе кнопка заказа остаётся неактивной). */
   onInstructorSelect?: (id: string) => void;
   selectedInstructorId?: string | null;
@@ -106,6 +104,7 @@ export function NearbyMap({
 }) {
   return (
     <div className={cn("relative z-0 h-[320px] w-full overflow-hidden rounded-lg md:h-[420px]", className)}>
+      {interactive && onLocateMe ? <LocateMeControl onLocate={onLocateMe} /> : null}
       <MapContainer
         center={center}
         zoom={13}
@@ -114,8 +113,9 @@ export function NearbyMap({
         aria-label="Карта курорта и инструкторов"
       >
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>'
+          url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+          subdomains="abcd"
         />
         <MapViewSync lat={meetLat} lng={meetLng} />
         <Circle
@@ -129,11 +129,14 @@ export function NearbyMap({
           draggable={interactive}
           onDragEnd={onMeetChange}
         />
-        {instructors.map((i) => (
+        {instructors.map((i) => {
+          const selected = selectedInstructorId === i.id;
+          return (
           <Marker
             key={i.id}
             position={[i.lat, i.lng]}
-            icon={InstructorIcon}
+            icon={createInstructorLeafletIcon(i, selected)}
+            zIndexOffset={selected ? 1000 : 0}
             eventHandlers={{
               click: (e) => {
                 if (e.originalEvent) {
@@ -162,7 +165,8 @@ export function NearbyMap({
               </div>
             </Popup>
           </Marker>
-        ))}
+          );
+        })}
       </MapContainer>
     </div>
   );

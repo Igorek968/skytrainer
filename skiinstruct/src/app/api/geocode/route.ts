@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { nominatimSearch } from "@/lib/geocode-nominatim";
+import { photonGeocodeSearch } from "@/lib/geocode-photon";
+import { yandexHttpGeocodeSearch } from "@/lib/yandex-geocode-http";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
@@ -8,11 +11,6 @@ export const dynamic = "force-dynamic";
 const querySchema = z.object({
   q: z.string().trim().min(3).max(300),
 });
-
-const NOMINATIM_USER_AGENT =
-  process.env.NEXT_PUBLIC_SUPPORT_EMAIL != null && process.env.NEXT_PUBLIC_SUPPORT_EMAIL !== ""
-    ? `SkyTrainer/1.0 (${process.env.NEXT_PUBLIC_SUPPORT_EMAIL})`
-    : "SkyTrainer/1.0 (ski instructor booking)";
 
 export async function GET(req: Request) {
   const ip = clientIp(req.headers);
@@ -26,44 +24,35 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Укажите адрес (не менее 3 символов)" }, { status: 400 });
   }
 
-  const nominatimUrl = new URL("https://nominatim.openstreetmap.org/search");
-  nominatimUrl.searchParams.set("format", "json");
-  nominatimUrl.searchParams.set("q", parsed.data.q);
-  nominatimUrl.searchParams.set("limit", "1");
-  nominatimUrl.searchParams.set("addressdetails", "0");
+  const q = parsed.data.q;
 
-  let res: Response;
   try {
-    res = await fetch(nominatimUrl, {
-      headers: {
-        "User-Agent": NOMINATIM_USER_AGENT,
-        Accept: "application/json",
-      },
-      cache: "no-store",
-    });
+    const yandexHit = await yandexHttpGeocodeSearch(q);
+    if (yandexHit) {
+      return NextResponse.json(yandexHit);
+    }
+
+    let nominatimHit: Awaited<ReturnType<typeof nominatimSearch>> = null;
+    try {
+      nominatimHit = await nominatimSearch(q);
+    } catch {
+      /* Nominatim иногда недоступен из Docker (SSL) — пробуем Photon */
+    }
+    if (nominatimHit) {
+      return NextResponse.json({
+        lat: nominatimHit.lat,
+        lng: nominatimHit.lng,
+        displayName: nominatimHit.displayName,
+      });
+    }
+
+    const photonHit = await photonGeocodeSearch(q);
+    if (photonHit) {
+      return NextResponse.json(photonHit);
+    }
   } catch {
     return NextResponse.json({ error: "Сервис геокодирования недоступен" }, { status: 502 });
   }
 
-  if (!res.ok) {
-    return NextResponse.json({ error: "Сервис геокодирования недоступен" }, { status: 502 });
-  }
-
-  const results: unknown = await res.json();
-  if (!Array.isArray(results) || results.length === 0) {
-    return NextResponse.json({ error: "Адрес не найден. Уточните запрос." }, { status: 404 });
-  }
-
-  const hit = results[0] as { lat?: string; lon?: string; display_name?: string };
-  const lat = Number(hit.lat);
-  const lng = Number(hit.lon);
-  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
-    return NextResponse.json({ error: "Некорректный ответ геокодера" }, { status: 502 });
-  }
-
-  return NextResponse.json({
-    lat,
-    lng,
-    displayName: typeof hit.display_name === "string" ? hit.display_name : parsed.data.q,
-  });
+  return NextResponse.json({ error: "Адрес не найден. Уточните запрос." }, { status: 404 });
 }

@@ -2,7 +2,13 @@
 set -e
 
 MODE="${SKIINSTRUCT_NEXT_MODE:-prod}"
-export NODE_ENV="${SKIINSTRUCT_NODE_ENV:-production}"
+if [ -n "${SKIINSTRUCT_NODE_ENV:-}" ]; then
+  export NODE_ENV="$SKIINSTRUCT_NODE_ENV"
+elif [ "$MODE" = "dev" ]; then
+  export NODE_ENV=development
+else
+  export NODE_ENV=production
+fi
 
 echo "[entry] SKIINSTRUCT_NEXT_MODE=$MODE NODE_ENV=$NODE_ENV"
 
