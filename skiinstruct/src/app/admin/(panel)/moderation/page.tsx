@@ -6,16 +6,15 @@ import { AdminModerationSection } from "@/features/admin/sections/admin-moderati
 
 export default function AdminModerationPage() {
   return (
-    <AdminWorkspace
-      title="Модерация"
-      subtitle="Проверка профилей инструкторов, мероприятий и сертификатов перед допуском к работе."
-    >
-      {(data) => (
-        <div className="space-y-6">
-          <AdminModerationSection data={data} />
-          <AdminEventsModerationSection />
-        </div>
-      )}
-    </AdminWorkspace>
+    <div className="space-y-6">
+      <AdminWorkspace
+        title="Модерация"
+        subtitle="Проверка профилей инструкторов и сертификатов перед допуском к работе."
+      >
+        {(data) => <AdminModerationSection data={data} />}
+      </AdminWorkspace>
+      {/* Не зависит от /api/admin/overview — очередь мероприятий доступна даже при сбое сводки. */}
+      <AdminEventsModerationSection />
+    </div>
   );
 }

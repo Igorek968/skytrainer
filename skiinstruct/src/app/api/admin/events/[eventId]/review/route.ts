@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 
 import { isApiErrorResponse, requireAdminSession } from "@/lib/api-session";
+import { resolveRouteParams } from "@/lib/api-route-params";
 import { serializeInstructorEvent } from "@/lib/instructor-events";
 import { prisma } from "@/lib/prisma";
 import { adminEventReviewSchema } from "@/lib/validations/instructor-event";
 
-type Ctx = { params: Promise<{ eventId: string }> };
+type Ctx = { params: { eventId: string } | Promise<{ eventId: string }> };
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +14,10 @@ export async function POST(req: Request, ctx: Ctx) {
   const authResult = await requireAdminSession();
   if (isApiErrorResponse(authResult)) return authResult;
 
-  const { eventId } = await ctx.params;
+  const { eventId } = await resolveRouteParams(ctx.params);
+  if (!eventId?.trim()) {
+    return NextResponse.json({ error: "Не указан id мероприятия" }, { status: 400 });
+  }
 
   let json: unknown;
   try {
@@ -45,7 +49,10 @@ export async function POST(req: Request, ctx: Ctx) {
         rejectNote: note,
       },
     });
-    return NextResponse.json({ event: serializeInstructorEvent(row) });
+    return NextResponse.json({
+      event: serializeInstructorEvent(row),
+      message: "Мероприятие отклонено, инструктор увидит комментарий.",
+    });
   }
 
   const row = await prisma.instructorEvent.update({
@@ -57,5 +64,8 @@ export async function POST(req: Request, ctx: Ctx) {
     },
   });
 
-  return NextResponse.json({ event: serializeInstructorEvent(row) });
+  return NextResponse.json({
+    event: serializeInstructorEvent(row),
+    message: "Мероприятие опубликовано — появится в ленте клиентов.",
+  });
 }

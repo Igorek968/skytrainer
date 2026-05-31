@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { isApiErrorResponse, requireClientSession } from "@/lib/api-session";
+import { resolveOptionalClientUserId } from "@/lib/api-session";
 import {
   CLIENT_EVENTS_RADIUS_KM,
   filterAndSortEventsByDistance,
@@ -29,8 +29,7 @@ const querySchema = z.object({
 });
 
 export async function GET(req: Request) {
-  const resolved = await requireClientSession();
-  if (isApiErrorResponse(resolved)) return resolved;
+  const clientId = await resolveOptionalClientUserId();
 
   const url = new URL(req.url);
   const parsed = querySchema.safeParse(Object.fromEntries(url.searchParams));
@@ -55,10 +54,9 @@ export async function GET(req: Request) {
           instructorProfile: { select: { lat: true, lng: true } },
         },
       },
-      registrations: {
-        where: { clientId: resolved.userId },
-        take: 1,
-      },
+      registrations: clientId
+        ? { where: { clientId }, take: 1 }
+        : { take: 0 },
     },
   });
 

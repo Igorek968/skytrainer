@@ -14,6 +14,17 @@ type PendingEvent = InstructorEventDTO & {
   instructor: { id: string; name: string | null; email: string };
 };
 
+function parseApiError(payload: unknown, fallback: string): string {
+  if (!payload || typeof payload !== "object") return fallback;
+  const err = (payload as { error?: unknown }).error;
+  if (typeof err === "string" && err.trim().length > 0) return err;
+  if (err && typeof err === "object" && "formErrors" in err) {
+    const fe = (err as { formErrors?: string[] }).formErrors;
+    if (fe?.[0]) return fe[0];
+  }
+  return fallback;
+}
+
 export function AdminEventsModerationSection() {
   const qc = useQueryClient();
   const [rejectId, setRejectId] = useState<string | null>(null);
@@ -37,19 +48,31 @@ export function AdminEventsModerationSection() {
         credentials: "include",
         body: JSON.stringify({ action: params.action, rejectNote: params.rejectNote }),
       });
-      if (!r.ok) {
-        const err = (await r.json().catch(() => ({}))) as { error?: string };
-        throw new Error(typeof err.error === "string" ? err.error : "review");
+      const raw = await r.text();
+      let payload: unknown = {};
+      try {
+        payload = raw ? JSON.parse(raw) : {};
+      } catch {
+        payload = {};
       }
-      return r.json();
+      if (!r.ok) {
+        throw new Error(parseApiError(payload, `Ошибка модерации (${r.status})`));
+      }
+      const ok = payload as { message?: string; event?: { title?: string } };
+      if (!ok.event?.title) {
+        throw new Error("Сервер не подтвердил публикацию. Обновите страницу и проверьте статус.");
+      }
+      return ok;
     },
-    onSuccess: async () => {
-      toast.success("Готово");
+    onSuccess: async (result) => {
+      toast.success(result.message ?? `Опубликовано: ${result.event?.title ?? "мероприятие"}`);
       setRejectId(null);
       setRejectNote("");
       await qc.invalidateQueries({ queryKey: ["admin-pending-events"] });
+      await qc.invalidateQueries({ queryKey: ["client-events"] });
+      await qc.invalidateQueries({ queryKey: ["instructor-events"] });
     },
-    onError: (e: Error) => toast.error(e.message === "review" ? "Ошибка модерации" : e.message),
+    onError: (e: Error) => toast.error(e.message),
   });
 
   const events = data?.events ?? [];

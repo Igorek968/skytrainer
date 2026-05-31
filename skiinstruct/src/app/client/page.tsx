@@ -25,7 +25,6 @@ import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
 import { Skeleton } from "@/shared/ui/skeleton";
 import {
-  CLIENT_BOOKING_RETURN_PATH,
   clearPendingCheckout,
   readPendingCheckout,
   savePendingCheckout,
@@ -471,6 +470,7 @@ export default function ClientHomePage() {
   const [personalOpen, setPersonalOpen] = useState(false);
   /** Запись на дату: в списке — и офлайн; после оплаты у инструктора нет таймера 60 с. */
   const [flexibleOfflineBooking, setFlexibleOfflineBooking] = useState(false);
+  const [instructorNameQuery, setInstructorNameQuery] = useState("");
 
   useEffect(() => {
     if (consumeOpenPersonalDataFlag()) setPersonalOpen(true);
@@ -533,15 +533,20 @@ export default function ClientHomePage() {
   }, [dataUpdatedAt, queryClient]);
 
   const instructorsForList = useMemo(() => {
-    const list = data?.instructors ?? [];
-    if (!listPriorityId) return list;
-    const idx = list.findIndex((i) => i.id === listPriorityId);
-    if (idx <= 0) return list;
-    const reordered = [...list];
-    const [picked] = reordered.splice(idx, 1);
-    reordered.unshift(picked);
-    return reordered;
-  }, [data?.instructors, listPriorityId]);
+    let list = data?.instructors ?? [];
+    if (listPriorityId) {
+      const idx = list.findIndex((i) => i.id === listPriorityId);
+      if (idx > 0) {
+        const reordered = [...list];
+        const [picked] = reordered.splice(idx, 1);
+        reordered.unshift(picked);
+        list = reordered;
+      }
+    }
+    const q = instructorNameQuery.trim().toLowerCase();
+    if (!q) return list;
+    return list.filter((i) => (i.name ?? "").toLowerCase().includes(q));
+  }, [data?.instructors, listPriorityId, instructorNameQuery]);
 
   function focusInstructorFromMap(id: string) {
     setListPriorityId(id);
@@ -709,8 +714,6 @@ export default function ClientHomePage() {
     setCheckoutOpen(true);
   }
 
-  const loginHref = `/login?callbackUrl=${encodeURIComponent(CLIENT_BOOKING_RETURN_PATH)}`;
-
   return (
     <div className="space-y-6">
       <Suspense fallback={null}>
@@ -731,17 +734,13 @@ export default function ClientHomePage() {
               офертой, аккаунт и оплата картой, затем заявка уходит инструктору.
             </p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {session?.user ? (
+          {session?.user ? (
+            <div className="flex flex-wrap gap-2">
               <Button variant="outline" asChild>
                 <Link href="/client/orders">Мои заказы</Link>
               </Button>
-            ) : (
-              <Button variant="outline" asChild>
-                <Link href={loginHref}>Войти</Link>
-              </Button>
-            )}
-          </div>
+            </div>
+          ) : null}
         </div>
         <nav
           className="grid w-full grid-cols-2 gap-2 sm:grid-cols-4"
@@ -814,6 +813,12 @@ export default function ClientHomePage() {
             onMeetChange={(lat, lng) => setMeet(lat, lng)}
             onLocateMe={locateUserMeetPoint}
           />
+        </SectionErrorBoundary>
+      </div>
+
+      <div id={CLIENT_SECTION_IDS.events} className="scroll-mt-24">
+        <SectionErrorBoundary title="Мероприятия временно недоступны">
+          <ClientEventsFeed layout="carousel" />
         </SectionErrorBoundary>
       </div>
 
@@ -983,16 +988,19 @@ export default function ClientHomePage() {
           <CardHeader className="flex flex-row items-start justify-between gap-3">
             <div>
               <CardTitle>{isRelaxedLessonBooking ? "Инструкторы" : "Инструкторы рядом"}</CardTitle>
-              <CardDescription className="max-w-xl space-y-1">
-                <span>
+              <CardDescription className="max-w-xl">
                 {isRelaxedLessonBooking
                   ? "Включая офлайн; на карте — только с координатами."
-                    : "Сегодня в списке только инструкторы «на линии»; данные обновляются каждые ~12 с."}
-                </span>
-                <span className="block text-muted-foreground">
-                  Если инструктор изменил анкету и пропал из списка, проверьте фильтр «Направление», язык и уровень — они должны совпадать с тем, что указано у инструктора.
-                </span>
+                  : "Сегодня в списке только инструкторы «на линии»; данные обновляются каждые ~12 с."}
               </CardDescription>
+              <Input
+                type="search"
+                value={instructorNameQuery}
+                onChange={(e) => setInstructorNameQuery(e.target.value)}
+                placeholder="Поиск инструктора по имени"
+                className="mt-2 h-9 max-w-md"
+                aria-label="Поиск инструктора по имени"
+              />
             </div>
             <Button
               type="button"
@@ -1022,6 +1030,10 @@ export default function ClientHomePage() {
                 {isRelaxedLessonBooking
                   ? " Сдвиньте маркер встречи или ослабьте фильтры."
                   : " На сегодня показываются только инструкторы «на линии» (до ~100 км). Выберите дату позже или включите «Запись на дату» — тогда появятся и офлайн."}
+              </p>
+            ) : !instructorsForList.length ? (
+              <p className="text-sm text-muted-foreground">
+                По запросу «{instructorNameQuery.trim()}» никого не найдено. Попробуйте другое имя или очистите поиск.
               </p>
             ) : (
               <ul className="space-y-2" aria-label="Список инструкторов">
@@ -1164,8 +1176,7 @@ export default function ClientHomePage() {
           </CardContent>
         </Card>
 
-        <div className="grid gap-4 md:col-span-2 md:grid-cols-2">
-          <Card id={CLIENT_SECTION_IDS.instructorReviews} className="scroll-mt-24">
+        <Card id={CLIENT_SECTION_IDS.instructorReviews} className="scroll-mt-24 md:col-span-2">
             <CardHeader>
               <CardTitle>Отзывы инструкторов о вас</CardTitle>
               <CardDescription>Показываются после завершения обучения.</CardDescription>
@@ -1187,13 +1198,6 @@ export default function ClientHomePage() {
               )}
             </CardContent>
           </Card>
-
-          <div id={CLIENT_SECTION_IDS.events} className="scroll-mt-24">
-            <SectionErrorBoundary title="Мероприятия временно недоступны">
-              <ClientEventsFeed />
-            </SectionErrorBoundary>
-          </div>
-        </div>
       </div>
 
       <PersonalDataDialog open={personalOpen} onOpenChange={setPersonalOpen} />

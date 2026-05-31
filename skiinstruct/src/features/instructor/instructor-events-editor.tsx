@@ -81,6 +81,10 @@ export function InstructorEventsEditor({
       if (!r.ok) throw new Error("events");
       return r.json() as Promise<{ events: InstructorEventDTO[]; titles: TitleOption[] }>;
     },
+    refetchInterval: (query) => {
+      const list = query.state.data?.events ?? [];
+      return list.some((e) => e.moderationStatus === "PENDING_REVIEW") ? 12_000 : false;
+    },
   });
 
   const loadFormFromEvent = useCallback((ev: InstructorEventDTO) => {
