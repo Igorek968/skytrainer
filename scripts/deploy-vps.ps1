@@ -37,5 +37,5 @@ if ($hasCerts) {
 ssh $SshHost "set -e; mkdir -p $RemoteDir/deploy/caddy-data $RemoteDir/deploy/caddy-config; tar xzf /tmp/skytrainer-deploy.tar.gz -C $RemoteDir; cd $RemoteDir; docker compose --env-file .env.qa -f docker-compose.qa.yml up -d --build; docker compose --env-file .env.qa -f docker-compose.qa.yml ps"
 
 $domain = (Select-String -Path $EnvFile -Pattern '^APP_DOMAIN=' | ForEach-Object { ($_ -split '=', 2)[1].Trim() }) | Select-Object -First 1
-Write-Host "Готово. Проверьте: https://$domain"
-Write-Host "После первого выпуска TLS: .\scripts\caddy-sync-certs.ps1 -Direction Pull"
+Write-Host "Done. Open: https://$domain"
+Write-Host "After first TLS issue: .\scripts\caddy-sync-certs.ps1 -Direction Pull"

@@ -13,6 +13,7 @@ import {
   weekdaysFromOrderUtcDates,
 } from "@/lib/services/instructor-match";
 import { haversineKm } from "@/lib/services/geo";
+import { liveInstructorEmailWhere } from "@/lib/demo-instructor";
 import {
   orderIsFutureLessonDay,
   orderRelaxedInstructorTiming,
@@ -122,6 +123,7 @@ export async function buildInstructorQueueForOrder(input: {
   const users = await prisma.user.findMany({
     where: {
       role: "INSTRUCTOR",
+      ...liveInstructorEmailWhere,
       instructorProfile: {
         isOnline: true,
         verificationStatus: "APPROVED",

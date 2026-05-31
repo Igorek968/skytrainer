@@ -17,6 +17,7 @@ import {
   specializationMatches,
   utcCalendarWeekdaysInclusive,
 } from "@/lib/services/instructor-match";
+import { liveInstructorEmailWhere } from "@/lib/demo-instructor";
 import { DEFAULT_SKI_RESORT_CENTER, haversineKm } from "@/lib/services/geo";
 
 /** Список инструкторов меняется при редактировании профиля — не кэшируем ответ CDN/браузером. */
@@ -100,6 +101,7 @@ export async function GET(req: Request) {
   const instructors = await prisma.user.findMany({
     where: {
       role: "INSTRUCTOR",
+      ...liveInstructorEmailWhere,
       instructorProfile: {
         verificationStatus: "APPROVED",
         ...(includeOffline

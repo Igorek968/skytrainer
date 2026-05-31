@@ -16,6 +16,7 @@
     "db:push": "prisma db push",
     "db:seed": "prisma db seed",
     "db:seed:instructors": "tsx prisma/seed-instructors.ts",
+    "db:delete-demo-instructors": "tsx prisma/delete-demo-instructors.ts",
     "db:clear-instructors": "tsx prisma/delete-all-instructor-users.ts",
     "db:bootstrap-admin": "tsx prisma/bootstrap-admin.ts",
     "db:backfill-instructor-profiles": "tsx scripts/backfill-instructor-profiles.ts",
