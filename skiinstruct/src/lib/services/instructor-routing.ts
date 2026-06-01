@@ -8,7 +8,12 @@ import {
 import { prisma } from "@/lib/prisma";
 import { computeTotals } from "@/lib/pricing";
 import { applyRefundForExpiredOrder } from "@/lib/services/order-refund";
-import { orderIsFutureLessonDay, orderRelaxedInstructorTiming } from "@/shared/lib/order-flex";
+import {
+  orderIsFutureLessonDay,
+  orderIsTodayLessonDay,
+  orderRelaxedInstructorTiming,
+  orderSpansMultipleLessonDays,
+} from "@/shared/lib/order-flex";
 import { lessonTimeWindowLineFromNotes } from "@/shared/lib/order-lesson-times";
 import { resolveMeetAddress } from "@/shared/lib/order-meet-address";
 
@@ -37,7 +42,7 @@ function hourlyRateForOrder(
   return resolveHourlyRateForDiscipline(offers, discipline, fallback);
 }
 
-/** Инструктору даётся столько времени на принятие заявки (срочный урок «сегодня»). */
+/** Окно на принятие, если заявка без «мягкого» режима (нет даты урока в заказе). */
 export const RESPONSE_WINDOW_MS = 60_000;
 
 async function buildNotificationBody(
@@ -61,9 +66,13 @@ async function buildNotificationBody(
   const timingLine = opts.flexibleInvite
     ? "Запись на выбранные даты (инструктор мог быть офлайн). Ответьте, когда будете готовы — без ограничения по времени."
     : opts.relaxedTiming
-      ? orderIsFutureLessonDay(order)
-        ? "Урок не сегодня: примите заявку без отсчёта 60 секунд — когда будете готовы."
-        : "Несколько дней: примите заявку без отсчёта 60 секунд. ETA до точки встречи для такого заказа не используется."
+      ? orderSpansMultipleLessonDays(order)
+        ? "Несколько дней: примите заявку без отсчёта 60 секунд. ETA до точки встречи для такого заказа не используется."
+        : orderIsTodayLessonDay(order)
+          ? "Урок сегодня: примите заявку без отсчёта 60 секунд — когда будете готовы."
+          : orderIsFutureLessonDay(order)
+            ? "Урок не сегодня: примите заявку без отсчёта 60 секунд — когда будете готовы."
+            : "Ответьте на заявку без ограничения по времени."
       : "На принятие заявки: 60 секунд.";
   const timeWindow = lessonTimeWindowLineFromNotes(order.notes);
   const meetPlace = resolveMeetAddress(order);
@@ -266,6 +275,15 @@ export async function processExpiredPendingOrders(): Promise<number> {
   });
   let count = 0;
   for (const row of expired) {
+    const order = await prisma.order.findUnique({ where: { id: row.id } });
+    if (!order) continue;
+    if (orderRelaxedInstructorTiming(order)) {
+      await prisma.order.update({
+        where: { id: row.id },
+        data: { pendingExpiresAt: null },
+      });
+      continue;
+    }
     await assignInstructorByQueue(row.id, "timeout");
     count += 1;
   }
@@ -274,16 +292,20 @@ export async function processExpiredPendingOrders(): Promise<number> {
 
 /** Перед выдачей заказа — если дедлайн прошёл, закрыть заявку (без передачи другим). */
 export async function rerouteOrderIfDeadlinePassed(orderId: string): Promise<void> {
-  const order = await prisma.order.findUnique({
-    where: { id: orderId },
-    select: { status: true, pendingExpiresAt: true },
-  });
-  if (
-    !order ||
-    order.status !== "PENDING_INSTRUCTOR" ||
-    !order.pendingExpiresAt ||
-    order.pendingExpiresAt >= new Date()
-  ) {
+  const order = await prisma.order.findUnique({ where: { id: orderId } });
+  if (!order || order.status !== "PENDING_INSTRUCTOR") {
+    return;
+  }
+  if (orderRelaxedInstructorTiming(order)) {
+    if (order.pendingExpiresAt != null) {
+      await prisma.order.update({
+        where: { id: orderId },
+        data: { pendingExpiresAt: null },
+      });
+    }
+    return;
+  }
+  if (!order.pendingExpiresAt || order.pendingExpiresAt >= new Date()) {
     return;
   }
   await assignInstructorByQueue(orderId, "timeout");

@@ -12,7 +12,12 @@ import { CancelOrderButton } from "@/features/orders/cancel-order-button";
 import { OrderEventsFeed } from "@/features/orders/order-events-feed";
 import { devPollInterval } from "@/lib/query-poll";
 import { NearbyMapLazy } from "@/features/map/map-loader";
-import { orderIsFutureLessonDay, orderRelaxedInstructorTiming } from "@/shared/lib/order-flex";
+import {
+  orderIsFutureLessonDay,
+  orderIsTodayLessonDay,
+  orderRelaxedInstructorTiming,
+  orderSpansMultipleLessonDays,
+} from "@/shared/lib/order-flex";
 import { hasLessonTimeWindowInNotes, lessonTimeWindowLineFromNotes } from "@/shared/lib/order-lesson-times";
 import { orderHasMeetAddress, resolveMeetAddress } from "@/shared/lib/order-meet-address";
 import { orderStatusLabel } from "@/shared/lib/order-status";
@@ -48,11 +53,14 @@ function InstructorOrderDetailContent({
   };
   const safeOrder = data.order;
   const safeStatus = safeOrder.status as OrderStatus;
-  const relaxedTiming = orderRelaxedInstructorTiming({
+  const timingInput = {
     flexibleInstructorInvite: Boolean(safeOrder.flexibleInstructorInvite),
     requestedDays: safeOrder.requestedDays,
     requestedStartDate: safeOrder.requestedStartDate,
-  });
+  };
+  const relaxedTiming = orderRelaxedInstructorTiming(timingInput);
+  const lessonToday = orderIsTodayLessonDay(timingInput);
+  const multiDay = orderSpansMultipleLessonDays(timingInput);
 
   const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
   const [clientRating, setClientRating] = useState(5);
@@ -191,9 +199,13 @@ function InstructorOrderDetailContent({
               {relaxedTiming
                 ? safeOrder.flexibleInstructorInvite
                   ? "Запись на дату — ответ без ограничения по времени."
-                  : orderIsFutureLessonDay({ requestedStartDate: safeOrder.requestedStartDate })
-                    ? "Урок не сегодня — ответ без таймера 60 с."
-                    : "Несколько дней — ответ без таймера 60 с."
+                  : lessonToday
+                    ? "Урок сегодня — ответ без таймера 60 с."
+                    : multiDay
+                      ? "Несколько дней — ответ без таймера 60 с."
+                      : orderIsFutureLessonDay({ requestedStartDate: safeOrder.requestedStartDate })
+                        ? "Урок не сегодня — ответ без таймера 60 с."
+                        : "Ответ без ограничения по времени."
                 : pendingExpiresMs == null
                   ? "Заявка ожидает вашего решения (без автоотмены по таймеру)."
                   : `На решение: ${secondsLeft ?? 0} сек`}

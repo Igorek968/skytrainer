@@ -11,7 +11,11 @@ import { CancelOrderButton, ClaimLateRefundButton } from "@/features/orders/canc
 import { INSTRUCTOR_LATE_GRACE_MINUTES } from "@/lib/legal-config";
 import { devPollInterval } from "@/lib/query-poll";
 import { NearbyMapLazy } from "@/features/map/map-loader";
-import { orderRelaxedInstructorTiming } from "@/shared/lib/order-flex";
+import {
+  orderIsTodayLessonDay,
+  orderRelaxedInstructorTiming,
+  orderSpansMultipleLessonDays,
+} from "@/shared/lib/order-flex";
 import { useCountdownToDeadline } from "@/shared/hooks/use-countdown-to-deadline";
 import {
   extractInstructorEtaMinutes,
@@ -143,11 +147,14 @@ function ClientOrderDetailContent({
   }
 
   const status = o.status as OrderStatus;
-  const relaxedTiming = orderRelaxedInstructorTiming({
+  const timingInput = {
     flexibleInstructorInvite: Boolean(o.flexibleInstructorInvite),
     requestedDays: o.requestedDays,
     requestedStartDate: o.requestedStartDate,
-  });
+  };
+  const relaxedTiming = orderRelaxedInstructorTiming(timingInput);
+  const lessonToday = orderIsTodayLessonDay(timingInput);
+  const multiDay = orderSpansMultipleLessonDays(timingInput);
   const discipline =
     extractDiscipline(o.notes) ??
     o.instructor?.instructorProfile?.specializations?.[0] ??
@@ -305,9 +312,11 @@ function ClientOrderDetailContent({
             <CardTitle className="text-base">
               {o.flexibleInstructorInvite
                 ? "Запись на дату"
-                : relaxedTiming
-                  ? "Бронь на несколько дней"
-                  : "Кому сейчас предложена заявка"}
+                : lessonToday
+                  ? "Заявка на сегодня"
+                  : relaxedTiming
+                    ? "Бронь на несколько дней"
+                    : "Кому сейчас предложена заявка"}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
@@ -317,10 +326,20 @@ function ClientOrderDetailContent({
                   Заявка отправлена выбранному инструктору. Он получил уведомление и может ответить, когда будет
                   готов — <strong>без ограничения по времени</strong>.
                 </p>
-              ) : (
+              ) : lessonToday ? (
+                <p className="text-muted-foreground">
+                  Заявка на сегодня у инструктора <strong>{o.instructor?.name ?? "—"}</strong>. Ответ{" "}
+                  <strong>без таймера 60 с</strong> — он уведомлён и может принять, когда будет готов.
+                </p>
+              ) : multiDay ? (
                 <p className="text-muted-foreground">
                   Заявка на несколько дней у выбранного инструктора: ответ <strong>без таймера 60 с</strong>, без
                   срочного ETA до встречи — согласование по датам и времени в чате или при встрече.
+                </p>
+              ) : (
+                <p className="text-muted-foreground">
+                  Заявка у инструктора <strong>{o.instructor?.name ?? "—"}</strong>. Ответ без ограничения по
+                  времени.
                 </p>
               )
             ) : (
@@ -347,9 +366,11 @@ function ClientOrderDetailContent({
             <CardTitle className="text-base">
               {o.flexibleInstructorInvite
                 ? "Ожидание ответа инструктора"
-                : relaxedTiming
-                  ? "Ожидание ответа (несколько дней)"
-                  : "Ожидание инструктора"}
+                : lessonToday
+                  ? "Ожидание ответа (урок сегодня)"
+                  : relaxedTiming
+                    ? "Ожидание ответа (несколько дней)"
+                    : "Ожидание инструктора"}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
@@ -359,10 +380,20 @@ function ClientOrderDetailContent({
                   Заявка у инструктора <strong>{o.instructor?.name ?? "—"}</strong>. Ответ без таймера — он
                   уведомлён и сможет принять заявку позже.
                 </p>
-              ) : (
+              ) : lessonToday ? (
+                <p className="text-muted-foreground">
+                  Заявка на сегодня у инструктора <strong>{o.instructor?.name ?? "—"}</strong>. Ответ без таймера
+                  60 с — он уведомлён и может принять, когда будет готов.
+                </p>
+              ) : multiDay ? (
                 <p className="text-muted-foreground">
                   Заявка у инструктора <strong>{o.instructor?.name ?? "—"}</strong> на несколько дней. Ответ без
                   таймера 60 с; срочный ETA до встречи не требуется.
+                </p>
+              ) : (
+                <p className="text-muted-foreground">
+                  Заявка у инструктора <strong>{o.instructor?.name ?? "—"}</strong>. Ответ без ограничения по
+                  времени.
                 </p>
               )
             ) : (
