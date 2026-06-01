@@ -128,7 +128,7 @@ export function adminOrderFlowLabel(o: AdminOrderOverviewRow): string {
   if (o.status !== "PENDING_INSTRUCTOR") return "—";
   if (o.flexibleInstructorInvite) return "Запись на дату";
   if (!o.pendingExpiresAt) return "Без таймера 60 с";
-  if (o.pendingExpiresAt) return "Онлайн-очередь (60 с)";
+  if (o.pendingExpiresAt) return "Ожидание ответа (60 с)";
   return "Ожидание инструктора";
 }
 

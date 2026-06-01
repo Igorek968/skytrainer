@@ -9,6 +9,7 @@ import { assertClientHasNoOtherActiveOrder } from "@/lib/services/client-active-
 import { prepareInstructorQueue, processExpiredPendingOrders } from "@/lib/services/instructor-routing";
 import { canonicalizeActivityLabel } from "@/lib/services/instructor-match";
 import { createOrderSchema } from "@/lib/validations/order";
+import { mergeMeetAddressToNotes } from "@/shared/lib/order-meet-address";
 
 /** Счёт календарных дней по YYYY-MM-DD в UTC полдень (без сдвига из‑за DST у полуночи). */
 function calendarSpanDaysInclusive(startIso: string, endIso: string): number {
@@ -104,6 +105,7 @@ export async function POST(req: Request) {
   const {
     meetLat,
     meetLng,
+    meetAddress: meetAddressRaw,
     skillLevel,
     languagePref,
     duration,
@@ -202,9 +204,11 @@ export async function POST(req: Request) {
       }
     : {};
 
+  const meetAddress = meetAddressRaw.trim();
+  const notesWithMeet = mergeMeetAddressToNotes(notesWithLessonDate, meetAddress);
   const notesFinal =
-    notesWithLessonDate != null && String(notesWithLessonDate).trim() !== ""
-      ? String(notesWithLessonDate)
+    notesWithMeet != null && String(notesWithMeet).trim() !== ""
+      ? String(notesWithMeet)
       : null;
 
   const createData = dropUndefined({
@@ -213,6 +217,7 @@ export async function POST(req: Request) {
     status: (instructorId ? "AWAITING_PAYMENT" : "DRAFT") as OrderStatus,
     meetLat: meetLatN,
     meetLng: meetLngN,
+    meetAddress,
     skillLevel: skillLevel as SkillLevel,
     languagePref: languagePref.trim(),
     duration: duration as LessonDuration,
@@ -249,9 +254,7 @@ export async function POST(req: Request) {
         const msg =
           prepared.reason === "NO_PROFILE"
             ? "Выбранный инструктор недоступен для записи"
-            : flexibleInstructorInvite
-              ? "Не удалось подготовить заявку к выбранному инструктору"
-              : "Нет доступных онлайн-инструкторов для этой заявки";
+            : "Не удалось подготовить заявку к выбранному инструктору";
         return NextResponse.json({ error: msg }, { status: 400 });
       }
       const refreshed = await prisma.order.findUnique({

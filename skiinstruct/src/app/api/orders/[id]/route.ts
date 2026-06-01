@@ -22,6 +22,8 @@ import {
   instructorEtaDeadlineFromMinutes,
 } from "@/shared/lib/order-instructor-eta";
 import { clientCanRemoveOrderFromHistory } from "@/shared/lib/order-status";
+import { isLongInstructorEtaMinutes } from "@/shared/lib/order-long-eta";
+import { orderHasMeetAddress } from "@/shared/lib/order-meet-address";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -198,7 +200,7 @@ export async function PATCH(req: Request, ctx: Ctx) {
         const msg =
           prepared.reason === "NO_PROFILE"
             ? "Инструктор недоступен для записи"
-            : "Нет доступных онлайн-инструкторов для этой заявки";
+            : "Не удалось подготовить заявку к выбранному инструктору";
         return NextResponse.json({ error: msg }, { status: 400 });
       }
       const refreshed = await prisma.order.findUnique({
@@ -293,13 +295,42 @@ export async function PATCH(req: Request, ctx: Ctx) {
       });
     }
 
+    if (action.action === "hold_pending_long_eta") {
+      if (order.instructorId !== actor) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+      if (order.status !== "PENDING_INSTRUCTOR") {
+        return NextResponse.json({ error: "Действие доступно только для ожидающей заявки" }, { status: 400 });
+      }
+      if (!isLongInstructorEtaMinutes(action.etaMinutes)) {
+        return NextResponse.json(
+          { error: `Укажите время прибытия больше ${30} минут` },
+          { status: 400 },
+        );
+      }
+      const updated = await prisma.order.update({
+        where: { id },
+        data: { pendingExpiresAt: null },
+      });
+      return NextResponse.json({ order: updated });
+    }
+
     if (action.action === "accept") {
+      if (!orderHasMeetAddress(order)) {
+        return NextResponse.json(
+          { error: "Нельзя принять заявку: клиент не указал место встречи." },
+          { status: 400 },
+        );
+      }
       if (order.pendingExpiresAt && order.pendingExpiresAt < new Date()) {
         const routed = await assignInstructorByQueue(id, "timeout");
         if (!routed || routed.status === "EXPIRED") {
-          return NextResponse.json({ error: "Время истекло, подходящих инструкторов больше нет" }, { status: 400 });
+          return NextResponse.json(
+            { error: "Время ответа инструктора истекло. Заявка закрыта; при оплате оформляется возврат." },
+            { status: 400 },
+          );
         }
-        return NextResponse.json({ error: "Время истекло, заявка передана следующему инструктору" }, { status: 409 });
+        return NextResponse.json({ order: routed.order });
       }
       const relaxedTiming = orderRelaxedInstructorTiming({
         flexibleInstructorInvite: Boolean(order.flexibleInstructorInvite),
@@ -314,6 +345,9 @@ export async function PATCH(req: Request, ctx: Ctx) {
           notes: nextNotes || null,
           instructorEtaAt: instructorEtaDeadlineFromMinutes(etaMinutes),
         };
+        if (isLongInstructorEtaMinutes(etaMinutes)) {
+          extra.pendingExpiresAt = null;
+        }
       }
       const updated = await transitionOrderStatus({
         orderId: id,
@@ -365,15 +399,9 @@ export async function PATCH(req: Request, ctx: Ctx) {
       if (order.instructorId !== actor) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       }
-      const routed = await assignInstructorByQueue(id, "reject");
-      if (!routed || routed.status === "EXPIRED") {
-        const updated = await prisma.order.update({
-          where: { id },
-          data: { status: "EXPIRED", pendingExpiresAt: null },
-        });
-        return NextResponse.json({ order: updated });
-      }
-      return NextResponse.json({ order: routed.order });
+      await assignInstructorByQueue(id, "reject");
+      const updated = await prisma.order.findUnique({ where: { id } });
+      return NextResponse.json({ order: updated });
     }
 
     if (action.action === "en_route") {

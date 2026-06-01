@@ -31,9 +31,16 @@ export function computeCancelRefundQuote(params: {
   if (
     params.status === "AWAITING_PAYMENT" ||
     params.status === "PENDING_INSTRUCTOR" ||
-    params.status === "DRAFT"
+    params.status === "DRAFT" ||
+    params.status === "EXPIRED"
   ) {
-    return { percent: 100, reason: "Отмена до оказания услуги — полный возврат" };
+    return {
+      percent: 100,
+      reason:
+        params.status === "EXPIRED"
+          ? "Инструктор не принял заявку — полный возврат"
+          : "Отмена до оказания услуги — полный возврат",
+    };
   }
 
   if (params.cancelledBy === "INSTRUCTOR" || params.cancelledBy === "PLATFORM") {

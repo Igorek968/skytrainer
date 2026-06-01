@@ -21,6 +21,8 @@ import {
   formatCountdownMmSs,
   resolveInstructorArrivalDeadlineMs,
 } from "@/shared/lib/order-instructor-eta";
+import { isInLessonStartPopupWindow, msUntilLessonStart } from "@/shared/lib/order-lesson-start";
+import { resolveMeetAddress } from "@/shared/lib/order-meet-address";
 import { clientCanRemoveOrderFromHistory, orderStatusLabel } from "@/shared/lib/order-status";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
@@ -116,6 +118,23 @@ function ClientOrderDetailContent({
       statusEarly === "LESSON_STARTED");
   const arrivalSecondsLeft = useCountdownToDeadline(arrivalDeadlineMs, arrivalCountdownEnabled);
 
+  const lessonStartMs = useMemo(() => {
+    if (!o?.requestedStartDate) return null;
+    const t = new Date(o.requestedStartDate).getTime();
+    return Number.isFinite(t) ? t : null;
+  }, [o?.requestedStartDate]);
+
+  const lessonStartCountdownEnabled =
+    lessonStartMs != null &&
+    (statusEarly === "PENDING_INSTRUCTOR" ||
+      statusEarly === "ACCEPTED" ||
+      statusEarly === "INSTRUCTOR_EN_ROUTE" ||
+      statusEarly === "LESSON_STARTED") &&
+    msUntilLessonStart(o?.requestedStartDate) != null &&
+    (msUntilLessonStart(o?.requestedStartDate) ?? 0) > 0;
+
+  const lessonStartSecondsLeft = useCountdownToDeadline(lessonStartMs, lessonStartCountdownEnabled);
+
   if (!o) {
     return <p className="text-destructive">Заказ не найден или данные не загрузились.</p>;
   }
@@ -131,6 +150,7 @@ function ClientOrderDetailContent({
     o.instructor?.instructorProfile?.specializations?.[0] ??
     "Не указано";
   const instructorEtaMinutes = extractInstructorEtaMinutes(o.notes);
+  const meetPlace = resolveMeetAddress(o);
 
   const lateRefundEligible =
     o.paymentStatus === "PAID" &&
@@ -166,18 +186,11 @@ function ClientOrderDetailContent({
           </p>
           {status === "EXPIRED" ? (
             <p className="mt-2 max-w-xl text-sm text-muted-foreground">
-              {relaxedTiming ? (
-                <>
-                  Заявка не была принята выбранным инструктором или в сети не оказалось подходящих
-                  инструкторов. Создайте новый заказ позже или измените параметры (точка встречи, язык, даты).
-                </>
-              ) : (
-                <>
-                  Заявка прошла очередь онлайн-инструкторов: за отведённые 60 секунд никто не принял её на своём
-                  этапе, либо подходящих инструкторов в сети не оказалось. Создайте новый заказ позже или измените
-                  параметры (точка встречи, язык, даты).
-                </>
-              )}
+              Выбранный инструктор не принял заявку в срок, отклонил её или был недоступен онлайн.
+              {o.paymentStatus === "PAID"
+                ? " Оплаченная сумма возвращается на карту (полный возврат)."
+                : null}{" "}
+              Создайте новый заказ позже или выберите другого инструктора.
             </p>
           ) : null}
         </div>
@@ -213,6 +226,38 @@ function ClientOrderDetailContent({
                 /* readonly */
               }}
             />
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {lessonStartMs != null && lessonStartCountdownEnabled && lessonStartSecondsLeft != null ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">До начала встречи</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            <p className="text-muted-foreground">
+              Запланированное начало:{" "}
+              <span className="font-medium text-foreground">
+                {new Date(o.requestedStartDate!).toLocaleString("ru-RU", {
+                  dateStyle: "short",
+                  timeStyle: "short",
+                })}
+              </span>
+            </p>
+            <div
+              className="font-mono text-4xl font-semibold tabular-nums tracking-tight text-sky-700 dark:text-sky-300"
+              aria-live="polite"
+              aria-atomic="true"
+            >
+              {formatCountdownMmSs(lessonStartSecondsLeft)}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              ({formatArrivalCountdownRu(lessonStartSecondsLeft)})
+              {isInLessonStartPopupWindow(o.requestedStartDate)
+                ? " · скоро встреча с инструктором"
+                : null}
+            </p>
           </CardContent>
         </Card>
       ) : null}
@@ -277,11 +322,9 @@ function ClientOrderDetailContent({
               )
             ) : (
               <p className="text-muted-foreground">
-                Программа по очереди предлагает заявку онлайн-инструкторам под ваши параметры. У каждого есть{" "}
-                <strong>60 секунд</strong>, чтобы принять её. Если время истекает или инструктор отклоняет
-                заявку, она автоматически переходит к следующему из очереди. Если доступных инструкторов мало,
-                очередь идёт <strong>по кругу</strong>, пока кто-то не примет заявку или все не перестанут быть
-                доступными.
+                Заявка отправлена выбранному инструктору <strong>{o.instructor?.name ?? "—"}</strong>. У него{" "}
+                <strong>60 секунд</strong>, чтобы принять её. Если время истекает или он отклоняет заявку, заказ
+                закрывается; при оплате оформляется полный возврат — к другим инструкторам заявка не передаётся.
               </p>
             )}
             {!relaxedTiming && pendingExpiresMs != null ? (
@@ -290,24 +333,8 @@ function ClientOrderDetailContent({
                 <span className="font-mono tabular-nums">{formatCountdownMmSs(secondsLeft ?? 0)}</span>
               </div>
             ) : null}
-            <div>
-              <div className="mb-1 font-medium">
-                Сейчас выбран системой:{" "}
-                <span className="text-foreground">{o.instructor?.name ?? "—"}</span>
-              </div>
-              <ol className="list-decimal space-y-1 pl-5 text-muted-foreground">
-                {routingQueue.map((row, i) => (
-                  <li
-                    key={row.userId}
-                    className={
-                      i === o.instructorQueueIndex ? "font-semibold text-foreground" : undefined
-                    }
-                  >
-                    {row.name ?? row.userId}
-                    {i === o.instructorQueueIndex ? " — текущий" : ""}
-                  </li>
-                ))}
-              </ol>
+            <div className="font-medium">
+              Инструктор: <span className="text-foreground">{o.instructor?.name ?? "—"}</span>
             </div>
           </CardContent>
         </Card>
@@ -337,9 +364,8 @@ function ClientOrderDetailContent({
               )
             ) : (
               <p className="text-muted-foreground">
-                Заявка отправлена инструктору <strong>{o.instructor?.name ?? "—"}</strong>. На ответ даётся до{" "}
-                <strong>60 секунд</strong>; при необходимости система передаёт её следующему доступному
-                инструктору по очереди (в том числе по кругу).
+                Заявка только у инструктора <strong>{o.instructor?.name ?? "—"}</strong>. На ответ — до{" "}
+                <strong>60 секунд</strong>; иначе заказ закрывается с полным возвратом, другим не передаётся.
               </p>
             )}
             {!relaxedTiming && pendingExpiresMs != null ? (
@@ -359,9 +385,8 @@ function ClientOrderDetailContent({
           </CardHeader>
           <CardContent className="space-y-2 text-sm text-muted-foreground">
             <p>
-              Средства резервируются на стороне платформы. После успешной оплаты заявка уходит выбранному
-              инструктору
-              {relaxedTiming ? "" : " и очереди онлайн-инструкторов"}.
+              Средства резервируются на стороне платформы. После успешной оплаты заявка уходит только выбранному
+              инструктору.
               Комиссия сервиса уже учтена в сумме (15% от ставки за занятие); после того как инструктор отметит
               урок выполненным, доля инструктора считается переданной за вычетом этой комиссии.
             </p>
@@ -384,6 +409,10 @@ function ClientOrderDetailContent({
           </div>
           <div>
             Дисциплина: <span className="font-medium">{discipline}</span>
+          </div>
+          <div>
+            Место встречи:{" "}
+            <span className="font-medium">{meetPlace ?? "—"}</span>
           </div>
           <div>Сумма: {o.amountTotal ? `${Number(o.amountTotal)} ₽` : "—"}</div>
           <div>Оплата: {o.paymentStatus}</div>

@@ -109,6 +109,47 @@ export async function claimInstructorLateRefund(params: {
   return { order: updated, refundPercent: 100, refundAmount };
 }
 
+/** Полный возврат для оплаченного заказа в EXPIRED (таймаут/отказ выбранного инструктора). */
+export async function applyRefundForExpiredOrder(orderId: string): Promise<void> {
+  const order = await prisma.order.findUnique({ where: { id: orderId } });
+  if (!order || order.status !== "EXPIRED" || order.paymentStatus !== "PAID") return;
+  if (order.refundStatus === "COMPLETED" || order.refundStatus === "PENDING") return;
+
+  const quote = computeCancelRefundQuote({
+    cancelledBy: "PLATFORM",
+    status: "EXPIRED",
+    paymentStatus: order.paymentStatus,
+    requestedStartDate: order.requestedStartDate,
+    acceptedAt: order.acceptedAt,
+  });
+
+  const totalRub = order.amountTotal != null ? Number(order.amountTotal) : 0;
+  const refundAmount = refundAmountFromTotal(totalRub, quote.percent);
+  if (refundAmount <= 0) return;
+
+  let refundStatus: Order["refundStatus"] = "PENDING";
+  let refundNote = quote.reason;
+  try {
+    await executePaymentRefund(order, refundAmount);
+    refundStatus = "COMPLETED";
+    refundNote = `${quote.reason}. Возврат ${refundAmount} ₽ инициирован.`;
+  } catch (e) {
+    refundStatus = "FAILED";
+    refundNote = `${quote.reason}. Ошибка возврата: ${e instanceof Error ? e.message : "unknown"}`;
+  }
+
+  await prisma.order.update({
+    where: { id: orderId },
+    data: {
+      cancelledBy: "PLATFORM",
+      refundPercent: quote.percent,
+      refundAmount,
+      refundStatus,
+      refundNote,
+    },
+  });
+}
+
 async function executePaymentRefund(order: Order, amountRub: number): Promise<void> {
   const pi = order.stripePaymentIntentId;
   if (!pi || order.paymentStatus !== "PAID") return;

@@ -308,6 +308,8 @@ model Order {
 
   meetLat Float
   meetLng Float
+  /// Адрес / описание места встречи от клиента (обязательно для принятия заявки).
+  meetAddress String? @db.VarChar(500)
 
   skillLevel    SkillLevel
   languagePref  String

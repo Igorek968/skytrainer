@@ -194,9 +194,9 @@ function PendingOrderActionModal({
             disabled={pending}
             onClick={() => onAction("next_instructor")}
           >
-            <span className="block font-semibold">Передать следующему инструктору</span>
+            <span className="block font-semibold">Закрыть ожидание ответа</span>
             <span className="mt-0.5 block text-xs font-normal opacity-90">
-              Текущий пропускается, заявка уходит в очередь (новый таймер 60 с или без таймера для «записи на дату»).
+              Статус «Не удалось назначить инструктора»; при оплате — полный возврат. Другим не передаётся.
             </span>
           </Button>
           <Button
@@ -208,8 +208,7 @@ function PendingOrderActionModal({
           >
             <span className="block font-semibold">Снять ожидание</span>
             <span className="mt-0.5 block text-xs font-normal opacity-90">
-              Ожидание закрывается полностью — статус «Не удалось назначить инструктора», следующий в очереди не
-              вызывается.
+              То же, что «Закрыть ожидание»: EXPIRED и возврат при оплате.
             </span>
           </Button>
         </div>

@@ -436,6 +436,7 @@ export default function ClientHomePage() {
   useGeolocationMeetInit();
   const meetLat = useMeetPoint((s) => s.meetLat);
   const meetLng = useMeetPoint((s) => s.meetLng);
+  const meetAddress = useMeetPoint((s) => s.meetAddress);
   const setMeet = useMeetPoint((s) => s.setMeet);
 
   const center = useMemo(() => [meetLat, meetLng] as [number, number], [meetLat, meetLng]);
@@ -609,9 +610,16 @@ export default function ClientHomePage() {
     const disciplineLine = `Дисциплина: ${specializationPref}`;
     const notesLine = notes.trim();
     const mergedNotes = [disciplineLine, notesLine].filter(Boolean).join("\n");
+    const address = meetAddress.trim();
+    if (address.length < 3) {
+      toast.error("Укажите место встречи (адрес на карте, не менее 3 символов)");
+      return null;
+    }
+
     const body = JSON.stringify({
       meetLat,
       meetLng,
+      meetAddress: address,
       skillLevel,
       languagePref,
       duration,
@@ -695,6 +703,10 @@ export default function ClientHomePage() {
     const targetInstructorId = selectedId ?? expandedId;
     if (!targetInstructorId) {
       toast.error("Выберите инструктора на карте или в списке");
+      return;
+    }
+    if (meetAddress.trim().length < 3) {
+      toast.error("Укажите место встречи на карте перед бронированием");
       return;
     }
     const row = data?.instructors.find((i) => i.id === targetInstructorId);

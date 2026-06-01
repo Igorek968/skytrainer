@@ -10,6 +10,7 @@ import {
   clientRegistrationStatusLabel,
   type ClientRegistrationListItem,
 } from "@/lib/client-event-registration";
+import { resolveMeetAddress } from "@/shared/lib/order-meet-address";
 import { clientCanRemoveOrderFromHistory, orderStatusLabel } from "@/shared/lib/order-status";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
@@ -126,7 +127,7 @@ export default function ClientOrdersPage() {
                         </div>
                         <div className="text-xs text-muted-foreground">
                           Урок · {new Date(entry.order.createdAt).toLocaleString("ru-RU")} ·{" "}
-                          {entry.order.resort?.name ?? "Курорт"}
+                          {resolveMeetAddress(entry.order) ?? "Место не указано"}
                         </div>
                       </div>
                       <div className="text-sm text-muted-foreground">

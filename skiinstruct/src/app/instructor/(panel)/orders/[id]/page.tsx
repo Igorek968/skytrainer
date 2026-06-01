@@ -14,6 +14,7 @@ import { devPollInterval } from "@/lib/query-poll";
 import { NearbyMapLazy } from "@/features/map/map-loader";
 import { orderIsFutureLessonDay, orderRelaxedInstructorTiming } from "@/shared/lib/order-flex";
 import { hasLessonTimeWindowInNotes, lessonTimeWindowLineFromNotes } from "@/shared/lib/order-lesson-times";
+import { orderHasMeetAddress, resolveMeetAddress } from "@/shared/lib/order-meet-address";
 import { orderStatusLabel } from "@/shared/lib/order-status";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
@@ -62,6 +63,9 @@ function InstructorOrderDetailContent({
   const pendingExpiresAtRaw = safeOrder.pendingExpiresAt;
   const pendingExpiresMs =
     pendingExpiresAtRaw != null ? new Date(pendingExpiresAtRaw).getTime() : null;
+
+  const meetPlace = resolveMeetAddress(safeOrder);
+  const canAccept = orderHasMeetAddress(safeOrder);
 
   useEffect(() => {
     if (safeStatus !== "PENDING_INSTRUCTOR" || pendingExpiresMs == null) {
@@ -157,6 +161,13 @@ function InstructorOrderDetailContent({
       <Card>
         <CardContent className="space-y-2 py-4 text-sm">
           <div>Клиент: {safeOrder.client.name}</div>
+          <div>
+            Место встречи:{" "}
+            <span className="font-medium">{meetPlace ?? "—"}</span>
+            {!canAccept && safeStatus === "PENDING_INSTRUCTOR" ? (
+              <span className="ml-1 text-destructive">(нельзя принять без адреса)</span>
+            ) : null}
+          </div>
           {safeOrder.requestedStartDate ? (
             <div>
               Период:{" "}
@@ -183,7 +194,9 @@ function InstructorOrderDetailContent({
                   : orderIsFutureLessonDay({ requestedStartDate: safeOrder.requestedStartDate })
                     ? "Урок не сегодня — ответ без таймера 60 с."
                     : "Несколько дней — ответ без таймера 60 с."
-                : `На решение: ${secondsLeft ?? 0} сек`}
+                : pendingExpiresMs == null
+                  ? "Заявка ожидает вашего решения (без автоотмены по таймеру)."
+                  : `На решение: ${secondsLeft ?? 0} сек`}
             </div>
           ) : null}
         </CardContent>
@@ -241,7 +254,7 @@ function InstructorOrderDetailContent({
             <Button
               type="button"
               variant="accent"
-              disabled={patch.isPending}
+              disabled={patch.isPending || !canAccept}
               onClick={() =>
                 patch.mutate(
                   { action: "accept" },

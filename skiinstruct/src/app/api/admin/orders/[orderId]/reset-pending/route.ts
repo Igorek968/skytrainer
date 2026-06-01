@@ -5,6 +5,7 @@ import { isApiErrorResponse, requireAdminSession } from "@/lib/api-session";
 import { mapOrderOverviewRow, orderOverviewSelect } from "@/lib/admin-order-overview";
 import { prisma } from "@/lib/prisma";
 import { assignInstructorByQueue } from "@/lib/services/instructor-routing";
+import { applyRefundForExpiredOrder } from "@/lib/services/order-refund";
 import { orderStatusLabel } from "@/shared/lib/order-status";
 
 type Ctx = { params: Promise<{ orderId: string }> };
@@ -15,8 +16,8 @@ const bodySchema = z.object({
 
 /**
  * Действия админа для заказа PENDING_INSTRUCTOR:
- * - next_instructor — пропустить текущего, передать следующему в очереди
- * - cancel_waiting — снять ожидание полностью (EXPIRED, без следующего инструктора)
+ * - next_instructor — закрыть ожидание (EXPIRED, возврат при оплате; другим не передаётся)
+ * - cancel_waiting — снять ожидание (EXPIRED)
  */
 export async function POST(req: Request, ctx: Ctx) {
   const authResult = await requireAdminSession();
@@ -62,6 +63,7 @@ export async function POST(req: Request, ctx: Ctx) {
         pendingExpiresAt: null,
       },
     });
+    await applyRefundForExpiredOrder(orderId);
   } else {
     await assignInstructorByQueue(orderId, "timeout");
   }
@@ -78,9 +80,7 @@ export async function POST(req: Request, ctx: Ctx) {
   const message =
     parsed.data.action === "cancel_waiting"
       ? "Ожидание снято — заказ закрыт как «Не удалось назначить инструктора»."
-      : updated.status === "PENDING_INSTRUCTOR"
-        ? "Заявка передана следующему инструктору в очереди."
-        : "Очередь исчерпена — заказ переведён в «Не удалось назначить инструктора».";
+      : "Ожидание снято — заказ закрыт как «Не удалось назначить инструктора».";
 
   return NextResponse.json({
     ok: true,

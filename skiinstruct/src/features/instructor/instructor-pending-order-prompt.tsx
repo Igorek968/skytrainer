@@ -16,7 +16,9 @@ import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
 import { orderRelaxedInstructorTiming, orderRelaxedTimingHint } from "@/shared/lib/order-flex";
+import { isLongInstructorEtaMinutes, LONG_INSTRUCTOR_ETA_MINUTES } from "@/shared/lib/order-long-eta";
 import { hasLessonTimeWindowInNotes, lessonTimeWindowLineFromNotes } from "@/shared/lib/order-lesson-times";
+import { orderHasMeetAddress, resolveMeetAddress } from "@/shared/lib/order-meet-address";
 import { orderStatusLabel } from "@/shared/lib/order-status";
 
 type PendingOrderRow = {
@@ -35,7 +37,7 @@ type PendingOrderRow = {
   requestedStartDate: string | null;
   requestedEndDate: string | null;
   requestedDays: number | null;
-  resort: { name: string } | null;
+  meetAddress?: string | null;
   client: { name: string | null } | null;
 };
 
@@ -60,6 +62,7 @@ export function InstructorPendingOrderPrompt() {
   const seenIdsRef = useRef<Set<string>>(new Set());
   const initializedRef = useRef(false);
   const dismissedRef = useRef<Set<string> | null>(null);
+  const heldLongEtaRef = useRef<number | null>(null);
 
   const { data: orderAlerts } = useQuery({
     queryKey: ["instructor-order-alerts"],
@@ -93,7 +96,7 @@ export function InstructorPendingOrderPrompt() {
       if (o.status !== "PENDING_INSTRUCTOR") return false;
       const relaxed = orderRelaxedInstructorTiming(orderTimingInput(o));
       if (relaxed) return true;
-      if (!o.pendingExpiresAt) return false;
+      if (!o.pendingExpiresAt) return true;
       const expMs = new Date(o.pendingExpiresAt).getTime();
       return Number.isFinite(expMs) && expMs > Date.now();
     });
@@ -125,6 +128,10 @@ export function InstructorPendingOrderPrompt() {
     ? orderRelaxedInstructorTiming(orderTimingInput(activeOrder))
     : false;
 
+  const longEtaPending = !relaxedTiming && isLongInstructorEtaMinutes(etaMinutes);
+  const hasMeetPlace = activeOrder ? orderHasMeetAddress(activeOrder) : false;
+  const meetPlaceLabel = activeOrder ? resolveMeetAddress(activeOrder) : null;
+
   const relaxedHint = activeOrder ? orderRelaxedTimingHint(orderTimingInput(activeOrder)) : "";
 
   useEffect(() => {
@@ -133,8 +140,22 @@ export function InstructorPendingOrderPrompt() {
     setPendingPromptOrderId(null);
   }, [activeOrder, pendingPromptOrderId]);
 
+  const holdLongEta = useMutation({
+    mutationFn: async (payload: { orderId: string; etaMinutes: number }) => {
+      const r = await fetch(`/api/orders/${payload.orderId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ action: "hold_pending_long_eta", etaMinutes: payload.etaMinutes }),
+      });
+      const j = (await r.json().catch(() => ({}))) as { error?: unknown };
+      if (!r.ok) throw new Error(typeof j.error === "string" ? j.error : "Не удалось сохранить время");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   useEffect(() => {
-    if (!activeOrder || relaxedTiming) {
+    if (!activeOrder || relaxedTiming || longEtaPending) {
       setPendingPromptSecondsLeft(null);
       return;
     }
@@ -154,17 +175,28 @@ export function InstructorPendingOrderPrompt() {
     tick();
     const id = window.setInterval(tick, 1000);
     return () => window.clearInterval(id);
-  }, [activeOrder, relaxedTiming]);
+  }, [activeOrder, relaxedTiming, longEtaPending]);
 
   useEffect(() => {
-    if (!activeOrder || relaxedTiming) return;
+    if (!activeOrder || relaxedTiming || !longEtaPending) {
+      heldLongEtaRef.current = null;
+      return;
+    }
+    if (heldLongEtaRef.current === etaMinutes) return;
+    heldLongEtaRef.current = etaMinutes;
+    holdLongEta.mutate({ orderId: activeOrder.id, etaMinutes });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only when ETA crosses long threshold
+  }, [activeOrder?.id, longEtaPending, etaMinutes]);
+
+  useEffect(() => {
+    if (!activeOrder || relaxedTiming || longEtaPending) return;
     if (pendingPromptSecondsLeft == null || pendingPromptSecondsLeft > 0) return;
     setPendingPromptOrderId(null);
     setPendingPromptSecondsLeft(null);
-    toast.info("Время ответа истекло. Заявка передана следующему инструктору.");
+    toast.info("Время ответа истекло. Заявка закрыта для клиента.");
     void qc.invalidateQueries({ queryKey: ["instructor-order-alerts"] });
     void qc.invalidateQueries({ queryKey: ["orders"] });
-  }, [activeOrder, pendingPromptSecondsLeft, relaxedTiming, qc]);
+  }, [activeOrder, pendingPromptSecondsLeft, relaxedTiming, longEtaPending, qc]);
 
   const respond = useMutation({
     mutationFn: async (payload: { orderId: string; action: "accept" | "reject"; etaMinutes?: number }) => {
@@ -230,9 +262,13 @@ export function InstructorPendingOrderPrompt() {
                 {new Date(activeOrder.createdAt).toLocaleString("ru-RU")}
               </div>
             </div>
-            <div>
-              <span className="text-xs text-muted-foreground">Курорт</span>
-              <div className="font-medium">{activeOrder.resort?.name ?? "Не указан"}</div>
+            <div className="sm:col-span-2">
+              <span className="text-xs text-muted-foreground">Место встречи</span>
+              <div className="font-medium">
+                {meetPlaceLabel ?? (
+                  <span className="text-destructive">Не указано клиентом — принять нельзя</span>
+                )}
+              </div>
             </div>
             <div>
               <span className="text-xs text-muted-foreground">Сумма</span>
@@ -241,7 +277,12 @@ export function InstructorPendingOrderPrompt() {
               </div>
             </div>
           </div>
-          {!relaxedTiming ? (
+          {longEtaPending ? (
+            <div className="rounded-md border border-sky-500/40 bg-sky-500/10 px-2 py-1 font-medium text-sky-900 dark:text-sky-200">
+              Прибытие более {LONG_INSTRUCTOR_ETA_MINUTES} мин — заявка не закроется автоматически, пока вы не
+              отклоните её или клиент не отменит.
+            </div>
+          ) : !relaxedTiming ? (
             <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-1 font-medium text-amber-800 dark:text-amber-200">
               На ознакомление и решение: {pendingPromptSecondsLeft ?? 0} сек
             </div>
@@ -314,7 +355,11 @@ export function InstructorPendingOrderPrompt() {
             }
             disabled={
               respond.isPending ||
-              (!relaxedTiming && pendingPromptSecondsLeft !== null && pendingPromptSecondsLeft <= 0)
+              !hasMeetPlace ||
+              (!relaxedTiming &&
+                !longEtaPending &&
+                pendingPromptSecondsLeft !== null &&
+                pendingPromptSecondsLeft <= 0)
             }
           >
             Подтвердить и открыть заказ

@@ -22,6 +22,7 @@ export const createOrderSchema = z
   .object({
     meetLat: z.coerce.number().min(-90).max(90),
     meetLng: z.coerce.number().min(-180).max(180),
+    meetAddress: z.string().trim().min(3, "Укажите место встречи").max(500),
     skillLevel: z.enum(["BEGINNER", "INTERMEDIATE", "ADVANCED"]),
     languagePref: z.string().min(1).max(64),
     duration: z.enum(["ONE_HOUR", "TWO_HOURS", "HALF_DAY", "FULL_DAY"]),
@@ -82,6 +83,10 @@ export const orderActionSchema = z.discriminatedUnion("action", [
     etaMinutes: z.number().int().min(1).max(240).optional(),
   }),
   z.object({ action: z.literal("reject") }),
+  z.object({
+    action: z.literal("hold_pending_long_eta"),
+    etaMinutes: z.number().int().min(31).max(240),
+  }),
   z.object({ action: z.literal("en_route") }),
   z.object({ action: z.literal("start_lesson") }),
   z.object({ action: z.literal("complete_lesson") }),
