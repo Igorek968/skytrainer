@@ -8,12 +8,10 @@ import { toast } from "sonner";
 
 import { OrderChat } from "@/features/chat/order-chat";
 import { CancelOrderButton, ClaimLateRefundButton } from "@/features/orders/cancel-order-button";
-import { OrderEventsFeed } from "@/features/orders/order-events-feed";
 import { INSTRUCTOR_LATE_GRACE_MINUTES } from "@/lib/legal-config";
 import { devPollInterval } from "@/lib/query-poll";
 import { NearbyMapLazy } from "@/features/map/map-loader";
 import { orderRelaxedInstructorTiming } from "@/shared/lib/order-flex";
-import { hasLessonTimeWindowInNotes, lessonTimeWindowLineFromNotes } from "@/shared/lib/order-lesson-times";
 import { useCountdownToDeadline } from "@/shared/hooks/use-countdown-to-deadline";
 import {
   extractInstructorEtaMinutes,
@@ -23,7 +21,11 @@ import {
 } from "@/shared/lib/order-instructor-eta";
 import { isInLessonStartPopupWindow, msUntilLessonStart } from "@/shared/lib/order-lesson-start";
 import { resolveMeetAddress } from "@/shared/lib/order-meet-address";
-import { clientCanRemoveOrderFromHistory, orderStatusLabel } from "@/shared/lib/order-status";
+import {
+  clientCanRemoveOrderFromHistory,
+  clientPaymentStatusLabel,
+  orderStatusLabel,
+} from "@/shared/lib/order-status";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Input } from "@/shared/ui/input";
@@ -134,6 +136,7 @@ function ClientOrderDetailContent({
     (msUntilLessonStart(o?.requestedStartDate) ?? 0) > 0;
 
   const lessonStartSecondsLeft = useCountdownToDeadline(lessonStartMs, lessonStartCountdownEnabled);
+  const meetCountdownSecondsLeft = useCountdownToDeadline(lessonStartMs, lessonStartMs != null);
 
   if (!o) {
     return <p className="text-destructive">Заказ не найден или данные не загрузились.</p>;
@@ -415,7 +418,33 @@ function ClientOrderDetailContent({
             <span className="font-medium">{meetPlace ?? "—"}</span>
           </div>
           <div>Сумма: {o.amountTotal ? `${Number(o.amountTotal)} ₽` : "—"}</div>
-          <div>Оплата: {o.paymentStatus}</div>
+          <div>
+            Оплата: <span className="font-medium">{clientPaymentStatusLabel(o.paymentStatus)}</span>
+          </div>
+          <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+            <span>
+              Время:{" "}
+              <span className="font-medium">
+                {new Date(o.createdAt).toLocaleTimeString("ru-RU", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  second: "2-digit",
+                })}
+              </span>
+            </span>
+            {lessonStartMs != null && meetCountdownSecondsLeft != null ? (
+              <span
+                className="font-mono tabular-nums text-foreground"
+                aria-live="polite"
+                aria-atomic="true"
+              >
+                до встречи{" "}
+                {meetCountdownSecondsLeft > 0
+                  ? formatArrivalCountdownRu(meetCountdownSecondsLeft)
+                  : "встреча прошла"}
+              </span>
+            ) : null}
+          </div>
           {o.requestedStartDate ? (
             <div>
               Период занятий:{" "}
@@ -430,11 +459,6 @@ function ClientOrderDetailContent({
               </span>
             </div>
           ) : null}
-          {hasLessonTimeWindowInNotes(o.notes) ? (
-            <div>
-              <span className="font-medium">{lessonTimeWindowLineFromNotes(o.notes)}</span>
-            </div>
-          ) : null}
           {instructorEtaMinutes != null ? <div>ETA: ~{instructorEtaMinutes} мин</div> : null}
           {status === "COMPLETED" ? (
             <div className="rounded-md border border-border bg-muted/20 p-2">
@@ -444,30 +468,6 @@ function ClientOrderDetailContent({
           ) : null}
         </CardContent>
       </Card>
-
-      {o.instructorId &&
-      status !== "PENDING_INSTRUCTOR" &&
-      status !== "AWAITING_PAYMENT" &&
-      status !== "CANCELLED" ? (
-        <div className="grid gap-4 md:grid-cols-2">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Отзыв инструктора о вас</CardTitle>
-            </CardHeader>
-            <CardContent className="text-sm">
-              {o.instructorRating != null ? (
-                <>
-                  <div>Оценка: {o.instructorRating}/5</div>
-                  <p className="mt-1 text-muted-foreground">{o.instructorReview || "Без текста"}</p>
-                </>
-              ) : (
-                <p className="text-muted-foreground">Пока нет отзыва от инструктора.</p>
-              )}
-            </CardContent>
-          </Card>
-          <OrderEventsFeed orderId={id} instructorName={o.instructor?.name} />
-        </div>
-      ) : null}
 
       <div className="flex flex-wrap gap-2">
         {(status === "DRAFT" ||

@@ -1,4 +1,4 @@
-import type { OrderStatus } from "@prisma/client";
+import type { OrderStatus, PaymentStatus } from "@prisma/client";
 
 /** Заказы в этих статусах клиент может удалить из списка «Мои заказы». */
 export function clientCanRemoveOrderFromHistory(status: OrderStatus): boolean {
@@ -10,6 +10,22 @@ export function clientCanRemoveOrderFromHistory(status: OrderStatus): boolean {
     status === "REJECTED" ||
     status === "COMPLETED"
   );
+}
+
+/** Подпись статуса оплаты на экране заявки клиента. */
+export function clientPaymentStatusLabel(s: PaymentStatus): string {
+  switch (s) {
+    case "PAID":
+      return "сумма зарезервирована";
+    case "PENDING":
+      return "ожидает оплаты";
+    case "FAILED":
+      return "ошибка оплаты";
+    default: {
+      const _e: never = s;
+      return _e;
+    }
+  }
 }
 
 export function orderStatusLabel(s: OrderStatus): string {
