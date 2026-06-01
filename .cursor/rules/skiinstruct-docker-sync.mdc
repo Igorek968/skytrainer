@@ -1,35 +1,39 @@
 ---
-description: После правок в skiinstruct синхронизировать с Docker на localhost:3001
-globs:
-  - skiinstruct/**
-alwaysApply: false
+description: После правок в skiinstruct — сразу показать на localhost:3001
+alwaysApply: true
 ---
 
-# SkiInstruct → localhost:3001
+# SkiInstruct → localhost:3001 (обязательно)
 
-Приложение на **http://localhost:3001** работает в Docker (`skiinstruct-web`), режим **prod** (`next build` + `next start`). Bind-mount обновляет только исходники в контейнере; **без пересборки UI/API на порту 3001 не меняются**.
+Пользователь смотрит приложение на **http://localhost:3001** (Docker `skiinstruct-web`).
 
-## Обязательно после изменений в `skiinstruct/`
+## После ЛЮБЫХ правок в `skiinstruct/`
 
-1. Запустить синхронизацию из корня репозитория:
+**В конце ответа, до завершения задачи**, из корня репозитория выполнить:
 
 ```powershell
-.\scripts\sync-skiinstruct.ps1
+.\scripts\refresh-skiinstruct-3001.ps1
 ```
 
-2. Дождаться в логах строки `[entry] prod: next start :3000`:
+Не заканчивать задачу, пока команда не запущена. Кратко написать пользователю: «Обновление :3001 запущено» и как проверить логи.
+
+Хук Cursor (`stop` + `afterFileEdit`) тоже запускает refresh, но **агент всё равно обязан вызвать скрипт сам** — пользователь не должен напоминать.
+
+## Режим по умолчанию
+
+- **dev** + polling: правки в `skiinstruct/src` видны через hot-reload (обновить страницу).
+- Переключить контейнер на dev один раз: `.\scripts\use-skiinstruct-dev-3001.ps1`
+- Prod (медленный build): только если в `.env` явно `SKIINSTRUCT_NEXT_MODE=prod` — тогда `refresh-skiinstruct-3001.ps1` делает полную пересборку.
+
+## Проверка
 
 ```powershell
 docker compose logs -f skiinstruct
 ```
 
-3. Кратко сообщить пользователю, что пересборка запущена или завершена.
+- dev: `Ready` / `compiled`
+- prod: `[entry] prod: next start :3000`
 
 ## Не делать без запроса
 
-- Не удалять volume `skyinstruct_next_cache` (полная пересборка 5–15 мин) — только `sync-skiinstruct.ps1` или `restart-skiinstruct-fast.ps1` при явной необходимости.
-- Не переключать на `SKIINSTRUCT_NEXT_MODE=dev` без просьбы пользователя.
-
-## Новые API-маршруты
-
-Новые файлы в `skiinstruct/src/app/api/` тоже требуют rebuild — тот же скрипт.
+- Не удалять volume `skytrainer_skiinstruct_next_cache` без явной просьбы.

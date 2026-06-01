@@ -30,6 +30,7 @@ import {
   clientPaymentStatusLabel,
   orderStatusLabel,
 } from "@/shared/lib/order-status";
+import { OrderCancellationSide } from "@/shared/ui/order-cancellation-side";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Input } from "@/shared/ui/input";
@@ -117,13 +118,6 @@ function ClientOrderDetailContent({
       }),
     [o?.instructorEtaAt, o?.acceptedAt, o?.notes],
   );
-  const arrivalCountdownEnabled =
-    arrivalDeadlineMs != null &&
-    (statusEarly === "ACCEPTED" ||
-      statusEarly === "INSTRUCTOR_EN_ROUTE" ||
-      statusEarly === "LESSON_STARTED");
-  const arrivalSecondsLeft = useCountdownToDeadline(arrivalDeadlineMs, arrivalCountdownEnabled);
-
   const lessonStartMs = useMemo(() => {
     if (!o?.requestedStartDate) return null;
     const t = new Date(o.requestedStartDate).getTime();
@@ -140,7 +134,15 @@ function ClientOrderDetailContent({
     (msUntilLessonStart(o?.requestedStartDate) ?? 0) > 0;
 
   const lessonStartSecondsLeft = useCountdownToDeadline(lessonStartMs, lessonStartCountdownEnabled);
-  const meetCountdownSecondsLeft = useCountdownToDeadline(lessonStartMs, lessonStartMs != null);
+  const meetArrivalCountdownEnabled =
+    arrivalDeadlineMs != null &&
+    (statusEarly === "ACCEPTED" ||
+      statusEarly === "INSTRUCTOR_EN_ROUTE" ||
+      statusEarly === "LESSON_STARTED");
+  const meetArrivalSecondsLeft = useCountdownToDeadline(
+    arrivalDeadlineMs,
+    meetArrivalCountdownEnabled,
+  );
 
   if (!o) {
     return <p className="text-destructive">Заказ не найден или данные не загрузились.</p>;
@@ -272,40 +274,6 @@ function ClientOrderDetailContent({
         </Card>
       ) : null}
 
-      {arrivalDeadlineMs != null &&
-      (status === "ACCEPTED" || status === "INSTRUCTOR_EN_ROUTE" || status === "LESSON_STARTED") ? (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Ожидаемое прибытие инструктора</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            {arrivalSecondsLeft != null ? (
-              <>
-                <p className="text-muted-foreground">
-                  Инструктор указал ETA ~{instructorEtaMinutes ?? "—"} мин. До встречи осталось:
-                </p>
-                <div
-                  className="font-mono text-4xl font-semibold tabular-nums tracking-tight text-emerald-700 dark:text-emerald-300"
-                  aria-live="polite"
-                  aria-atomic="true"
-                  data-eta-countdown="live"
-                >
-                  {formatCountdownMmSs(arrivalSecondsLeft)}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  ({formatArrivalCountdownRu(arrivalSecondsLeft)})
-                  {arrivalSecondsLeft === 0
-                    ? " · ожидаем инструктора у точки встречи — напишите в чат, если задержка"
-                    : null}
-                </p>
-              </>
-            ) : (
-              <p className="text-muted-foreground">Загрузка таймера…</p>
-            )}
-          </CardContent>
-        </Card>
-      ) : null}
-
       {status === "PENDING_INSTRUCTOR" && routingQueue && routingQueue.length > 0 ? (
         <Card>
           <CardHeader>
@@ -328,13 +296,13 @@ function ClientOrderDetailContent({
                 </p>
               ) : lessonToday ? (
                 <p className="text-muted-foreground">
-                  Заявка на сегодня у инструктора <strong>{o.instructor?.name ?? "—"}</strong>. Ответ{" "}
-                  <strong>без таймера 60 с</strong> — он уведомлён и может принять, когда будет готов.
+                  Заявка на сегодня у инструктора <strong>{o.instructor?.name ?? "—"}</strong>. Он уведомлён и
+                  может принять, когда будет готов.
                 </p>
               ) : multiDay ? (
                 <p className="text-muted-foreground">
-                  Заявка на несколько дней у выбранного инструктора: ответ <strong>без таймера 60 с</strong>, без
-                  срочного ETA до встречи — согласование по датам и времени в чате или при встрече.
+                  Заявка на несколько дней у выбранного инструктора: без срочного ETA до встречи — согласование
+                  по датам и времени в чате или при встрече.
                 </p>
               ) : (
                 <p className="text-muted-foreground">
@@ -377,18 +345,18 @@ function ClientOrderDetailContent({
             {relaxedTiming ? (
               o.flexibleInstructorInvite ? (
                 <p className="text-muted-foreground">
-                  Заявка у инструктора <strong>{o.instructor?.name ?? "—"}</strong>. Ответ без таймера — он
-                  уведомлён и сможет принять заявку позже.
+                  Заявка у инструктора <strong>{o.instructor?.name ?? "—"}</strong>. Он уведомлён и сможет
+                  принять заявку позже.
                 </p>
               ) : lessonToday ? (
                 <p className="text-muted-foreground">
-                  Заявка на сегодня у инструктора <strong>{o.instructor?.name ?? "—"}</strong>. Ответ без таймера
-                  60 с — он уведомлён и может принять, когда будет готов.
+                  Заявка на сегодня у инструктора <strong>{o.instructor?.name ?? "—"}</strong>. Он уведомлён и
+                  может принять, когда будет готов.
                 </p>
               ) : multiDay ? (
                 <p className="text-muted-foreground">
-                  Заявка у инструктора <strong>{o.instructor?.name ?? "—"}</strong> на несколько дней. Ответ без
-                  таймера 60 с; срочный ETA до встречи не требуется.
+                  Заявка у инструктора <strong>{o.instructor?.name ?? "—"}</strong> на несколько дней. Срочный
+                  ETA до встречи не требуется.
                 </p>
               ) : (
                 <p className="text-muted-foreground">
@@ -444,14 +412,34 @@ function ClientOrderDetailContent({
           <div>
             Дисциплина: <span className="font-medium">{discipline}</span>
           </div>
-          <div>
-            Место встречи:{" "}
-            <span className="font-medium">{meetPlace ?? "—"}</span>
+          <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+            <span>
+              Место встречи:{" "}
+              <span className="font-medium">{meetPlace ?? "—"}</span>
+            </span>
+            {meetArrivalCountdownEnabled && meetArrivalSecondsLeft != null ? (
+              <span
+                className="shrink-0 text-right font-mono text-xl font-semibold tabular-nums leading-tight text-emerald-700 dark:text-emerald-300 sm:text-2xl"
+                aria-live="polite"
+                aria-atomic="true"
+                data-eta-countdown="live"
+              >
+                {instructorEtaMinutes != null ? (
+                  <span className="mr-1.5 font-sans text-base font-semibold text-emerald-800/90 dark:text-emerald-200/90 sm:text-lg">
+                    ~{instructorEtaMinutes} мин ·
+                  </span>
+                ) : null}
+                {meetArrivalSecondsLeft > 0
+                  ? formatCountdownMmSs(meetArrivalSecondsLeft)
+                  : "ожидаем на месте"}
+              </span>
+            ) : null}
           </div>
           <div>Сумма: {o.amountTotal ? `${Number(o.amountTotal)} ₽` : "—"}</div>
           <div>
             Оплата: <span className="font-medium">{clientPaymentStatusLabel(o.paymentStatus)}</span>
           </div>
+          <OrderCancellationSide status={status} cancelledBy={o.cancelledBy} />
           <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
             <span>
               Время:{" "}
@@ -463,16 +451,16 @@ function ClientOrderDetailContent({
                 })}
               </span>
             </span>
-            {lessonStartMs != null && meetCountdownSecondsLeft != null ? (
+            {lessonStartMs != null && lessonStartSecondsLeft != null ? (
               <span
-                className="font-mono tabular-nums text-foreground"
+                className="shrink-0 font-mono text-lg font-semibold tabular-nums text-foreground sm:text-xl"
                 aria-live="polite"
                 aria-atomic="true"
               >
-                до встречи{" "}
-                {meetCountdownSecondsLeft > 0
-                  ? formatArrivalCountdownRu(meetCountdownSecondsLeft)
-                  : "встреча прошла"}
+                до начала занятия{" "}
+                {lessonStartSecondsLeft > 0
+                  ? formatArrivalCountdownRu(lessonStartSecondsLeft)
+                  : "началось"}
               </span>
             ) : null}
           </div>
@@ -490,7 +478,9 @@ function ClientOrderDetailContent({
               </span>
             </div>
           ) : null}
-          {instructorEtaMinutes != null ? <div>ETA: ~{instructorEtaMinutes} мин</div> : null}
+          {instructorEtaMinutes != null && !meetArrivalCountdownEnabled ? (
+            <div>Инструктор на месте встречи через ~{instructorEtaMinutes} мин</div>
+          ) : null}
           {status === "COMPLETED" ? (
             <div className="rounded-md border border-border bg-muted/20 p-2">
               <div>Начало занятия: {formatDateTimeRu(o.lessonStartedAt)}</div>

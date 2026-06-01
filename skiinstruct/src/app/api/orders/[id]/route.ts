@@ -16,7 +16,7 @@ import { cancelOrderWithRefund, claimInstructorLateRefund } from "@/lib/services
 import { canClaimInstructorLateRefund, computeCancelRefundQuote } from "@/lib/refund-policy";
 import { transitionOrderStatus } from "@/lib/services/order-service";
 import { orderActionSchema } from "@/lib/validations/order";
-import { orderRelaxedInstructorTiming } from "@/shared/lib/order-flex";
+import { orderRelaxedInstructorTiming, orderSkipsInstructorEta } from "@/shared/lib/order-flex";
 import {
   extractInstructorEtaMinutes,
   instructorEtaDeadlineFromMinutes,
@@ -332,12 +332,22 @@ export async function PATCH(req: Request, ctx: Ctx) {
         }
         return NextResponse.json({ order: routed.order });
       }
-      const relaxedTiming = orderRelaxedInstructorTiming({
+      const timingInput = {
         flexibleInstructorInvite: Boolean(order.flexibleInstructorInvite),
         requestedDays: order.requestedDays,
         requestedStartDate: order.requestedStartDate,
-      });
-      const etaMinutes = relaxedTiming ? undefined : action.etaMinutes;
+      };
+      const skipsEta = orderSkipsInstructorEta(timingInput);
+      const etaMinutes = skipsEta ? undefined : action.etaMinutes;
+      if (
+        !skipsEta &&
+        (typeof etaMinutes !== "number" || !Number.isFinite(etaMinutes) || etaMinutes < 1)
+      ) {
+        return NextResponse.json(
+          { error: "Укажите, через сколько минут вы сможете быть на месте встречи." },
+          { status: 400 },
+        );
+      }
       let extra: Prisma.OrderUpdateInput | undefined;
       if (typeof etaMinutes === "number" && Number.isFinite(etaMinutes) && etaMinutes > 0) {
         const nextNotes = mergeEtaToNotes(order.notes, etaMinutes);
@@ -363,10 +373,9 @@ export async function PATCH(req: Request, ctx: Ctx) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       }
       if (
-        orderRelaxedInstructorTiming({
+        orderSkipsInstructorEta({
           flexibleInstructorInvite: Boolean(order.flexibleInstructorInvite),
           requestedDays: order.requestedDays,
-          requestedStartDate: order.requestedStartDate,
         })
       ) {
         return NextResponse.json(

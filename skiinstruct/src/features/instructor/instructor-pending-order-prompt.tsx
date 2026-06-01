@@ -15,9 +15,13 @@ import {
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
-import { orderRelaxedInstructorTiming, orderRelaxedTimingHint } from "@/shared/lib/order-flex";
+import {
+  orderRelaxedInstructorTiming,
+  orderRelaxedTimingHint,
+  orderSkipsInstructorEta,
+} from "@/shared/lib/order-flex";
 import { isLongInstructorEtaMinutes, LONG_INSTRUCTOR_ETA_MINUTES } from "@/shared/lib/order-long-eta";
-import { hasLessonTimeWindowInNotes, lessonTimeWindowLineFromNotes } from "@/shared/lib/order-lesson-times";
+import { OrderLessonTimeBlock } from "@/shared/ui/order-lesson-time-block";
 import { orderHasMeetAddress, resolveMeetAddress } from "@/shared/lib/order-meet-address";
 import { orderStatusLabel } from "@/shared/lib/order-status";
 
@@ -127,8 +131,9 @@ export function InstructorPendingOrderPrompt() {
   const relaxedTiming = activeOrder
     ? orderRelaxedInstructorTiming(orderTimingInput(activeOrder))
     : false;
+  const skipsEta = activeOrder ? orderSkipsInstructorEta(orderTimingInput(activeOrder)) : false;
 
-  const longEtaPending = !relaxedTiming && isLongInstructorEtaMinutes(etaMinutes);
+  const longEtaPending = !skipsEta && isLongInstructorEtaMinutes(etaMinutes);
   const hasMeetPlace = activeOrder ? orderHasMeetAddress(activeOrder) : false;
   const meetPlaceLabel = activeOrder ? resolveMeetAddress(activeOrder) : null;
 
@@ -300,14 +305,12 @@ export function InstructorPendingOrderPrompt() {
               {activeOrder.requestedDays ? ` (${activeOrder.requestedDays} дн.)` : ""}
             </div>
           ) : null}
-          {hasLessonTimeWindowInNotes(activeOrder.notes) ? (
-            <div className="font-medium">{lessonTimeWindowLineFromNotes(activeOrder.notes)}</div>
-          ) : null}
+          <OrderLessonTimeBlock order={activeOrder} timeClassName="font-medium" />
         </div>
 
-        {!relaxedTiming ? (
+        {!skipsEta ? (
           <div className="mt-4 space-y-2">
-            <Label htmlFor="instructor-eta-minutes">Через сколько минут сможете быть у клиента</Label>
+            <Label htmlFor="instructor-eta-minutes">Через сколько минут будете на месте встречи</Label>
             <Input
               id="instructor-eta-minutes"
               type="number"
@@ -350,7 +353,7 @@ export function InstructorPendingOrderPrompt() {
               respond.mutate({
                 orderId: activeOrder.id,
                 action: "accept",
-                ...(relaxedTiming ? {} : { etaMinutes }),
+                ...(skipsEta ? {} : { etaMinutes }),
               })
             }
             disabled={

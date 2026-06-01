@@ -14,6 +14,7 @@ import {
 import { formatEventDateRu } from "@/lib/instructor-events";
 import { devPollInterval } from "@/lib/query-poll";
 import { orderStatusLabel } from "@/shared/lib/order-status";
+import { OrderCancellationSide } from "@/shared/ui/order-cancellation-side";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Skeleton } from "@/shared/ui/skeleton";
@@ -132,8 +133,9 @@ export default function InstructorOrdersPage() {
         </Card>
       ) : (
         <ul className="space-y-3">
-          {entries.map((entry) =>
-            entry.kind === "lesson" ? (
+          {entries.map((entry) => {
+            if (entry.kind === "lesson") {
+              return (
               <li key={`order-${entry.order.id}`}>
                 <Link href={`/instructor/orders/${entry.order.id}`}>
                   <Card className="transition-colors hover:bg-muted/40">
@@ -145,6 +147,11 @@ export default function InstructorOrdersPage() {
                         <div className="text-xs text-muted-foreground">
                           Урок · {new Date(entry.order.createdAt).toLocaleString("ru-RU")}
                         </div>
+                        <OrderCancellationSide
+                          status={entry.order.status as OrderStatus}
+                          cancelledBy={entry.order.cancelledBy}
+                          className="text-xs"
+                        />
                       </div>
                       <div className="text-sm text-muted-foreground">
                         {entry.order.amountTotal ? `${Number(entry.order.amountTotal)} ₽` : "—"}
@@ -153,7 +160,9 @@ export default function InstructorOrdersPage() {
                   </Card>
                 </Link>
               </li>
-            ) : (
+              );
+            }
+            return (
               <li key={`reg-${entry.registration.id}`}>
                 <Link href={`/instructor/registrations/${entry.registration.id}`}>
                   <Card className="transition-colors hover:bg-muted/40">
@@ -188,8 +197,8 @@ export default function InstructorOrdersPage() {
                   </Card>
                 </Link>
               </li>
-            ),
-          )}
+            );
+          })}
         </ul>
       )}
     </div>

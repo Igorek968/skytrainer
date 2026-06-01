@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { playInstructorOrderBeep } from "@/features/instructor/instructor-order-beep";
 import { devPollInterval } from "@/lib/query-poll";
 import { isInLessonStartPopupWindow } from "@/shared/lib/order-lesson-start";
-import { hasLessonTimeWindowInNotes, lessonTimeWindowLineFromNotes } from "@/shared/lib/order-lesson-times";
+import { OrderLessonTimeBlock } from "@/shared/ui/order-lesson-time-block";
 import { orderRelaxedInstructorTiming } from "@/shared/lib/order-flex";
 import { resolveMeetAddress } from "@/shared/lib/order-meet-address";
 import { Button } from "@/shared/ui/button";
@@ -131,9 +131,7 @@ export function InstructorLessonSoonPrompt() {
             <span className="text-xs text-muted-foreground">Место встречи</span>
             <div className="font-medium">{meetPlace ?? "—"}</div>
           </div>
-          {hasLessonTimeWindowInNotes(activeOrder.notes) ? (
-            <div className="font-medium">{lessonTimeWindowLineFromNotes(activeOrder.notes)}</div>
-          ) : null}
+          <OrderLessonTimeBlock order={activeOrder} timeClassName="font-medium" />
         </div>
         <div className="mt-4 space-y-2">
           <Label htmlFor="lesson-soon-eta">Через сколько минут будете у клиента</Label>

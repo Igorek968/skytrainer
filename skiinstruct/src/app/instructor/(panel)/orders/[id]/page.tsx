@@ -16,11 +16,13 @@ import {
   orderIsFutureLessonDay,
   orderIsTodayLessonDay,
   orderRelaxedInstructorTiming,
+  orderSkipsInstructorEta,
   orderSpansMultipleLessonDays,
 } from "@/shared/lib/order-flex";
-import { hasLessonTimeWindowInNotes, lessonTimeWindowLineFromNotes } from "@/shared/lib/order-lesson-times";
+import { OrderLessonTimeBlock } from "@/shared/ui/order-lesson-time-block";
 import { orderHasMeetAddress, resolveMeetAddress } from "@/shared/lib/order-meet-address";
 import { orderStatusLabel } from "@/shared/lib/order-status";
+import { OrderCancellationSide } from "@/shared/ui/order-cancellation-side";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Input } from "@/shared/ui/input";
@@ -59,6 +61,7 @@ function InstructorOrderDetailContent({
     requestedStartDate: safeOrder.requestedStartDate,
   };
   const relaxedTiming = orderRelaxedInstructorTiming(timingInput);
+  const skipsEta = orderSkipsInstructorEta(timingInput);
   const lessonToday = orderIsTodayLessonDay(timingInput);
   const multiDay = orderSpansMultipleLessonDays(timingInput);
 
@@ -190,21 +193,20 @@ function InstructorOrderDetailContent({
                 : null}
             </div>
           ) : null}
-          {hasLessonTimeWindowInNotes(safeOrder.notes) ? (
-            <div>{lessonTimeWindowLineFromNotes(safeOrder.notes)}</div>
-          ) : null}
+          <OrderLessonTimeBlock order={safeOrder} />
           <div>Сумма: {safeOrder.amountTotal ? `${Number(safeOrder.amountTotal)} ₽` : "—"}</div>
+          <OrderCancellationSide status={safeStatus} cancelledBy={safeOrder.cancelledBy} />
           {safeStatus === "PENDING_INSTRUCTOR" ? (
             <div className="font-medium text-amber-600">
               {relaxedTiming
                 ? safeOrder.flexibleInstructorInvite
                   ? "Запись на дату — ответ без ограничения по времени."
                   : lessonToday
-                    ? "Урок сегодня — ответ без таймера 60 с."
+                    ? "Урок сегодня"
                     : multiDay
-                      ? "Несколько дней — ответ без таймера 60 с."
+                      ? "Несколько дней"
                       : orderIsFutureLessonDay({ requestedStartDate: safeOrder.requestedStartDate })
-                        ? "Урок не сегодня — ответ без таймера 60 с."
+                        ? "Урок не сегодня"
                         : "Ответ без ограничения по времени."
                 : pendingExpiresMs == null
                   ? "Заявка ожидает вашего решения (без автоотмены по таймеру)."
@@ -217,10 +219,10 @@ function InstructorOrderDetailContent({
       {(safeStatus === "ACCEPTED" ||
         safeStatus === "INSTRUCTOR_EN_ROUTE" ||
         safeStatus === "LESSON_STARTED") &&
-      !relaxedTiming ? (
+      !skipsEta ? (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Время прибытия до клиента (ETA)</CardTitle>
+            <CardTitle className="text-base">Время прибытия на место встречи</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="text-xs text-muted-foreground">
@@ -260,6 +262,34 @@ function InstructorOrderDetailContent({
         </Card>
       ) : null}
 
+      {safeStatus === "PENDING_INSTRUCTOR" && !skipsEta ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Прибытие на место встречи</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Укажите, через сколько минут вы сможете быть у точки встречи — клиент увидит обратный отсчёт.
+            </p>
+            <div className="grid gap-3 md:grid-cols-[200px_1fr]">
+              <select
+                aria-label="Минуты до места встречи"
+                size={6}
+                className="h-40 rounded-md border border-input bg-background px-2 py-1 text-sm"
+                value={etaMinutes}
+                onChange={(e) => setEtaMinutes(Number(e.target.value))}
+              >
+                {etaOptions.map((m) => (
+                  <option key={m} value={m}>
+                    ~{m} мин
+                  </option>
+                ))}
+              </select>
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
+
       <div className="flex flex-wrap gap-2">
         {safeStatus === "PENDING_INSTRUCTOR" ? (
           <>
@@ -269,7 +299,7 @@ function InstructorOrderDetailContent({
               disabled={patch.isPending || !canAccept}
               onClick={() =>
                 patch.mutate(
-                  { action: "accept" },
+                  skipsEta ? { action: "accept" } : { action: "accept", etaMinutes },
                   { onSuccess: () => toast.success("Принято") }
                 )
               }

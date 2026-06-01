@@ -1,4 +1,4 @@
-# Деплой SkiInstruct QA на VPS (SSH host "vps" из ~/.ssh/config).
+﻿# Деплой SkiInstruct QA на VPS (SSH host "vps" из ~/.ssh/config).
 param(
   [string]$SshHost = "vps",
   [string]$RemoteDir = "/opt/skytrainer",
@@ -36,6 +36,15 @@ if ($hasCerts) {
 
 ssh $SshHost "set -e; mkdir -p $RemoteDir/deploy/caddy-data $RemoteDir/deploy/caddy-config; tar xzf /tmp/skytrainer-deploy.tar.gz -C $RemoteDir; cd $RemoteDir; docker compose --env-file .env.qa -f docker-compose.qa.yml up -d --build; docker compose --env-file .env.qa -f docker-compose.qa.yml ps"
 
-$domain = (Select-String -Path $EnvFile -Pattern '^APP_DOMAIN=' | ForEach-Object { ($_ -split '=', 2)[1].Trim() }) | Select-Object -First 1
-Write-Host "Done. Open: https://$domain"
-Write-Host "After first TLS issue: .\scripts\caddy-sync-certs.ps1 -Direction Pull"
+$domain = $null
+Get-Content -LiteralPath $EnvFile | ForEach-Object {
+  if ($null -eq $domain -and $_ -match '^\s*APP_DOMAIN=(.+)$') {
+    $domain = $Matches[1].Trim()
+  }
+}
+if (-not $domain) {
+  Write-Warning "APP_DOMAIN не найден в $EnvFile"
+  $domain = "localhost"
+}
+Write-Host "Готово. Откройте: https://$domain"
+Write-Host "После первой выдачи TLS: .\scripts\caddy-sync-certs.ps1 -Direction Pull"

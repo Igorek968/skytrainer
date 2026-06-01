@@ -69,14 +69,14 @@ services:
     env_file:
       - .env
     environment:
-      # prod = next build + start (быстрые переходы). dev = hot-reload, но в Docker на Windows очень медленно.
-      SKIINSTRUCT_NEXT_MODE: ${SKIINSTRUCT_NEXT_MODE:-prod}
+      # dev = hot-reload на :3001 (по умолчанию). prod = next build + start (быстрее в рантайме, нужен rebuild).
+      SKIINSTRUCT_NEXT_MODE: ${SKIINSTRUCT_NEXT_MODE:-dev}
       SKIINSTRUCT_FORCE_REBUILD: ${SKIINSTRUCT_FORCE_REBUILD:-0}
       # В dev-режиме entrypoint сам ставит NODE_ENV=development (next dev + production ломает Tailwind).
       SKIINSTRUCT_NODE_ENV: ${SKIINSTRUCT_NODE_ENV:-}
-      # На Windows bind-mount: polling=true сильно грузит CPU. Включите только если dev-режим «не видит» правки.
-      WATCHPACK_POLLING: ${SKIINSTRUCT_USE_POLLING:-false}
-      CHOKIDAR_USEPOLLING: ${SKIINSTRUCT_USE_POLLING:-false}
+      # На Windows bind-mount без polling dev часто не видит правки — по умолчанию true.
+      WATCHPACK_POLLING: ${SKIINSTRUCT_USE_POLLING:-true}
+      CHOKIDAR_USEPOLLING: ${SKIINSTRUCT_USE_POLLING:-true}
       NEXT_TELEMETRY_DISABLED: "1"
       # Меньше фоновых запросов в Docker — страницы не «висят» из-за опроса API.
       NEXT_PUBLIC_DISABLE_NEARBY_POLL: "1"

@@ -52,6 +52,14 @@ export function orderRelaxedInstructorTiming(order: {
   );
 }
 
+/** Без ETA при принятии: только запись на дату или бронь на несколько дней. */
+export function orderSkipsInstructorEta(order: {
+  flexibleInstructorInvite: boolean;
+  requestedDays: number | null;
+}): boolean {
+  return order.flexibleInstructorInvite === true || orderSpansMultipleLessonDays(order);
+}
+
 /** Подпись для UI (модалка, карточка заказа). */
 export function orderRelaxedTimingHint(order: {
   flexibleInstructorInvite: boolean;
@@ -62,7 +70,7 @@ export function orderRelaxedTimingHint(order: {
     return "Запись на дату — без таймера ответа";
   }
   if (orderSpansMultipleLessonDays(order)) {
-    return "Несколько дней — без таймера 60 с; ETA при принятии не запрашивается";
+    return "Несколько дней — без таймера 60 с; время прибытия согласуйте в чате";
   }
   if (orderIsTodayLessonDay(order)) {
     return "Урок сегодня — ответьте, когда будете готовы (без 60 с)";

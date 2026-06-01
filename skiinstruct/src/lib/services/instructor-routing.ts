@@ -1,4 +1,4 @@
-import { Prisma } from "@prisma/client";
+import { Prisma, type OrderCancelledBy } from "@prisma/client";
 
 import {
   parseDisciplineFromOrderNotes,
@@ -8,14 +8,7 @@ import {
 import { prisma } from "@/lib/prisma";
 import { computeTotals } from "@/lib/pricing";
 import { applyRefundForExpiredOrder } from "@/lib/services/order-refund";
-import {
-  orderIsFutureLessonDay,
-  orderIsTodayLessonDay,
-  orderRelaxedInstructorTiming,
-  orderSpansMultipleLessonDays,
-} from "@/shared/lib/order-flex";
-import { lessonTimeWindowLineFromNotes } from "@/shared/lib/order-lesson-times";
-import { resolveMeetAddress } from "@/shared/lib/order-meet-address";
+import { orderRelaxedInstructorTiming } from "@/shared/lib/order-flex";
 
 /** Prisma Decimal(10,2): числа JS с плавающей точкой и NaN ломали запись. */
 function orderMoneyDecimal(value: number): Prisma.Decimal {
@@ -45,61 +38,24 @@ function hourlyRateForOrder(
 /** Окно на принятие, если заявка без «мягкого» режима (нет даты урока в заказе). */
 export const RESPONSE_WINDOW_MS = 60_000;
 
-async function buildNotificationBody(
-  order: {
-    id: string;
-    requestedStartDate: Date | null;
-    requestedEndDate: Date | null;
-    requestedDays: number | null;
-    flexibleInstructorInvite: boolean;
-    duration: string;
-    languagePref: string;
-    skillLevel: string;
-    notes: string | null;
-    meetAddress?: string | null;
-  },
-  opts: { flexibleInvite: boolean; relaxedTiming: boolean }
-) {
-  const start = order.requestedStartDate ? order.requestedStartDate.toISOString().slice(0, 10) : "не указана";
-  const end = order.requestedEndDate ? order.requestedEndDate.toISOString().slice(0, 10) : start;
-  const days = order.requestedDays ?? 1;
-  const timingLine = opts.flexibleInvite
-    ? "Запись на выбранные даты (инструктор мог быть офлайн). Ответьте, когда будете готовы — без ограничения по времени."
-    : opts.relaxedTiming
-      ? orderSpansMultipleLessonDays(order)
-        ? "Несколько дней: примите заявку без отсчёта 60 секунд. ETA до точки встречи для такого заказа не используется."
-        : orderIsTodayLessonDay(order)
-          ? "Урок сегодня: примите заявку без отсчёта 60 секунд — когда будете готовы."
-          : orderIsFutureLessonDay(order)
-            ? "Урок не сегодня: примите заявку без отсчёта 60 секунд — когда будете готовы."
-            : "Ответьте на заявку без ограничения по времени."
-      : "На принятие заявки: 60 секунд.";
-  const timeWindow = lessonTimeWindowLineFromNotes(order.notes);
-  const meetPlace = resolveMeetAddress(order);
-  return [
-    `Новая заявка #${order.id}`,
-    `Период: ${start}${end ? ` - ${end}` : ""} (${days} дн.)`,
-    meetPlace ? `Место встречи: ${meetPlace}` : "Место встречи: не указано",
-    timeWindow,
-    `Уровень: ${order.skillLevel}`,
-    `Язык: ${order.languagePref}`,
-    `Длительность: ${order.duration}`,
-    timingLine,
-    order.notes ? `Комментарий: ${order.notes}` : null,
-  ]
-    .filter(Boolean)
-    .join("\n");
+function cancelledByForExpiredReason(
+  reason: "timeout" | "reject" | "unavailable",
+): OrderCancelledBy {
+  if (reason === "reject") return "INSTRUCTOR";
+  return "SYSTEM";
 }
 
 async function markOrderExpired(
   tx: Prisma.TransactionClient,
   orderId: string,
+  expiredReason: "timeout" | "reject" | "unavailable",
 ): Promise<{ status: "EXPIRED" }> {
   await tx.order.update({
     where: { id: orderId },
     data: {
       status: "EXPIRED",
       pendingExpiresAt: null,
+      cancelledBy: cancelledByForExpiredReason(expiredReason),
     },
   });
   return { status: "EXPIRED" };
@@ -120,11 +76,11 @@ export async function assignInstructorByQueue(orderId: string, reason: "initial"
 
     const queue = Array.isArray(order.instructorQueue) ? (order.instructorQueue as string[]) : [];
     if (!queue.length) {
-      return markOrderExpired(tx, orderId);
+      return markOrderExpired(tx, orderId, "unavailable");
     }
 
     if (reason !== "initial") {
-      return markOrderExpired(tx, orderId);
+      return markOrderExpired(tx, orderId, reason === "reject" ? "reject" : "timeout");
     }
 
     const nextInstructorId = queue[0]!;
@@ -141,12 +97,12 @@ export async function assignInstructorByQueue(orderId: string, reason: "initial"
     });
 
     if (!instr?.instructorProfile) {
-      return markOrderExpired(tx, orderId);
+      return markOrderExpired(tx, orderId, "unavailable");
     }
 
     const hourlyRate = hourlyRateForOrder(instr.instructorProfile, order);
     if (!Number.isFinite(hourlyRate) || hourlyRate < 500) {
-      return markOrderExpired(tx, orderId);
+      return markOrderExpired(tx, orderId, "unavailable");
     }
 
     const totals = computeTotals({
@@ -180,18 +136,6 @@ export async function assignInstructorByQueue(orderId: string, reason: "initial"
             instructorShareAmount: orderMoneyDecimal(totals.instructorShare),
             platformFeePercent: 15,
           },
-    });
-
-    const body = await buildNotificationBody(updated, {
-      flexibleInvite: updated.flexibleInstructorInvite === true,
-      relaxedTiming: orderRelaxedInstructorTiming(updated),
-    });
-    await tx.message.create({
-      data: {
-        orderId: order.id,
-        senderId: order.clientId,
-        body,
-      },
     });
 
     return { status: "PENDING_INSTRUCTOR" as const, order: updated };

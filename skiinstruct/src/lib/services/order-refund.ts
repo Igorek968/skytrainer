@@ -141,7 +141,7 @@ export async function applyRefundForExpiredOrder(orderId: string): Promise<void>
   await prisma.order.update({
     where: { id: orderId },
     data: {
-      cancelledBy: "PLATFORM",
+      ...(order.cancelledBy ? {} : { cancelledBy: "PLATFORM" as const }),
       refundPercent: quote.percent,
       refundAmount,
       refundStatus,

@@ -12,6 +12,7 @@ import {
 } from "@/lib/client-event-registration";
 import { resolveMeetAddress } from "@/shared/lib/order-meet-address";
 import { clientCanRemoveOrderFromHistory, orderStatusLabel } from "@/shared/lib/order-status";
+import { OrderCancellationSide } from "@/shared/ui/order-cancellation-side";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Skeleton } from "@/shared/ui/skeleton";
@@ -112,8 +113,9 @@ export default function ClientOrdersPage() {
         </Card>
       ) : (
         <ul className="space-y-3">
-          {entries.map((entry) =>
-            entry.kind === "lesson" ? (
+          {entries.map((entry) => {
+            if (entry.kind === "lesson") {
+              return (
               <li key={`order-${entry.order.id}`}>
                 <Card className="transition-colors hover:bg-muted/40">
                   <CardContent className="flex flex-wrap items-center justify-between gap-3 py-4">
@@ -129,6 +131,11 @@ export default function ClientOrdersPage() {
                           Урок · {new Date(entry.order.createdAt).toLocaleString("ru-RU")} ·{" "}
                           {resolveMeetAddress(entry.order) ?? "Место не указано"}
                         </div>
+                        <OrderCancellationSide
+                          status={entry.order.status as OrderStatus}
+                          cancelledBy={entry.order.cancelledBy}
+                          className="text-xs"
+                        />
                       </div>
                       <div className="text-sm text-muted-foreground">
                         {entry.order.amountTotal ? `${Number(entry.order.amountTotal)} ₽` : "—"}
@@ -158,7 +165,9 @@ export default function ClientOrdersPage() {
                   </CardContent>
                 </Card>
               </li>
-            ) : (
+              );
+            }
+            return (
               <li key={`reg-${entry.registration.id}`}>
                 <Card className="transition-colors hover:bg-muted/40">
                   <CardContent className="py-4">
@@ -186,8 +195,8 @@ export default function ClientOrdersPage() {
                   </CardContent>
                 </Card>
               </li>
-            ),
-          )}
+            );
+          })}
         </ul>
       )}
     </div>
