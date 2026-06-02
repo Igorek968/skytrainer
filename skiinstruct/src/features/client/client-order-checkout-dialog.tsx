@@ -12,6 +12,7 @@ import { LEGAL_ROUTES } from "@/lib/legal";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
+import { useQuery } from "@tanstack/react-query";
 
 type InstructorSummary = {
   id: string;
@@ -28,6 +29,7 @@ type Props = {
 };
 
 type Step = "legal" | "account" | "pay" | "wrongRole" | "busy";
+type CardStatus = { hasCard: boolean; brand: string | null; last4: string | null };
 
 export function ClientOrderCheckoutDialog({ open, onOpenChange, instructor, onCreateOrder }: Props) {
   const router = useRouter();
@@ -46,6 +48,15 @@ export function ClientOrderCheckoutDialog({ open, onOpenChange, instructor, onCr
   const loggedIn = sessionStatus === "authenticated" && Boolean(session?.user);
   const loggedInAsClient = loggedIn && sessionRole === "CLIENT";
   const loggedInWrongRole = loggedIn && sessionRole !== "CLIENT";
+  const cardQuery = useQuery({
+    queryKey: ["me-card-status", session?.user?.id],
+    queryFn: async () => {
+      const r = await fetch("/api/me/payment-method", { cache: "no-store" });
+      if (!r.ok) throw new Error("card");
+      return r.json() as Promise<CardStatus>;
+    },
+    enabled: open && loggedInAsClient,
+  });
 
   useEffect(() => {
     if (!open) return;
@@ -71,6 +82,10 @@ export function ClientOrderCheckoutDialog({ open, onOpenChange, instructor, onCr
   function goNextFromLegal() {
     if (!legalOk) {
       toast.error("Подтвердите согласие с офертой и обработкой персональных данных");
+      return;
+    }
+    if (sessionStatus === "loading") {
+      toast.error("Проверяем вашу сессию, подождите секунду");
       return;
     }
     if (loggedInWrongRole) setStep("wrongRole");
@@ -316,10 +331,10 @@ export function ClientOrderCheckoutDialog({ open, onOpenChange, instructor, onCr
                 Уже есть аккаунт?{" "}
                 <Link
                   className="text-accent underline"
-                  href={`/register?callbackUrl=${encodeURIComponent(CLIENT_BOOKING_RETURN_PATH)}`}
+                  href={`/login?callbackUrl=${encodeURIComponent(CLIENT_BOOKING_RETURN_PATH)}`}
                   onClick={() => onOpenChange(false)}
                 >
-                  Регистрация на отдельной странице
+                  Вход на отдельной странице
                 </Link>
               </p>
             ) : null}
@@ -373,10 +388,22 @@ export function ClientOrderCheckoutDialog({ open, onOpenChange, instructor, onCr
             ) : null}
             <div className="rounded-md border border-border bg-muted/30 p-3 text-sm">
               <p className="font-medium">Оплата картой</p>
-              <p className="mt-1 text-muted-foreground">
-                Банк проверит карту и спишет сумму занятия (с учётом комиссии платформы). После успешной оплаты заявка
-                автоматически уйдёт инструктору — это фиксирует договорённость для сторон.
-              </p>
+              {cardQuery.isLoading ? (
+                <p className="mt-1 text-muted-foreground">Проверяем, привязана ли карта…</p>
+              ) : cardQuery.data?.hasCard ? (
+                <p className="mt-1 text-muted-foreground">
+                  Привязанная карта{" "}
+                  <span className="text-foreground">
+                    {cardQuery.data.brand?.toUpperCase() ?? "CARD"} •••• {cardQuery.data.last4 ?? "****"}
+                  </span>{" "}
+                  будет использована для оплаты. После успешной оплаты заявка автоматически уйдёт инструктору.
+                </p>
+              ) : (
+                <p className="mt-1 text-muted-foreground">
+                  Перед первой оплатой нужно добавить карту. После успешной оплаты заявка автоматически уйдёт
+                  инструктору — это фиксирует договорённость для сторон.
+                </p>
+              )}
               {estimatedTotal ? <p className="mt-2 text-xs">{estimatedTotal}</p> : null}
             </div>
             <div className="flex justify-between gap-2">
@@ -388,7 +415,7 @@ export function ClientOrderCheckoutDialog({ open, onOpenChange, instructor, onCr
                 Назад
               </Button>
               <Button type="button" variant="accent" onClick={() => void payAndSend()}>
-                Привязать карту и отправить заявку
+                {cardQuery.data?.hasCard ? "Оплатить и отправить заявку" : "Добавить карту и отправить заявку"}
               </Button>
             </div>
           </div>

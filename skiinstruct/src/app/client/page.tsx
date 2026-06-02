@@ -427,6 +427,22 @@ function ResumeCheckoutFromQuery({
   const router = useRouter();
 
   useEffect(() => {
+    const cardState = searchParams.get("card");
+    if (cardState === "updated") {
+      toast.success("Карта успешно привязана");
+      router.replace("/client", { scroll: false });
+      return;
+    }
+    if (cardState === "cancelled") {
+      toast.message("Привязка карты отменена");
+      router.replace("/client", { scroll: false });
+      return;
+    }
+    if (cardState === "mock") {
+      toast.success("Тестовый режим: карта считается привязанной");
+      router.replace("/client", { scroll: false });
+      return;
+    }
     if (searchParams.get("checkout") !== "1") return;
     const pending = readPendingCheckout();
     if (!pending) {

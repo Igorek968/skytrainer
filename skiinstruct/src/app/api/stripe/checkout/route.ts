@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { assignInstructorByQueue } from "@/lib/services/instructor-routing";
 import { isMockCheckoutEnabled } from "@/lib/checkout-config";
 import { getStripe } from "@/lib/stripe";
+import { findStripeCustomerByEmail } from "@/lib/stripe-customer";
 
 const bodySchema = z.object({
   orderId: z.string().cuid(),
@@ -84,8 +85,12 @@ export async function POST(req: Request) {
     }
 
     const stripe = getStripe();
+    const email = resolved.session.user.email?.trim().toLowerCase();
+    const existingCustomer = await findStripeCustomerByEmail(stripe, email);
     const checkout = await stripe.checkout.sessions.create({
       mode: "payment",
+      customer: existingCustomer?.id,
+      customer_email: existingCustomer ? undefined : email,
       line_items: [
         {
           quantity: 1,

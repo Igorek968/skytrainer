@@ -18,6 +18,13 @@ type MeProfile = {
   birthDate: string | null;
 };
 
+type CardStatus = {
+  hasCard: boolean;
+  brand: string | null;
+  last4: string | null;
+  mock?: boolean;
+};
+
 export function PersonalDataDialog({
   open,
   onOpenChange,
@@ -37,6 +44,16 @@ export function PersonalDataDialog({
       const r = await fetch("/api/me/profile", { cache: "no-store" });
       if (!r.ok) throw new Error("profile");
       return r.json() as Promise<MeProfile>;
+    },
+    enabled: open && Boolean(userId),
+  });
+
+  const cardQuery = useQuery({
+    queryKey: ["me-card-status", userId],
+    queryFn: async () => {
+      const r = await fetch("/api/me/payment-method", { cache: "no-store" });
+      if (!r.ok) throw new Error("card");
+      return r.json() as Promise<CardStatus>;
     },
     enabled: open && Boolean(userId),
   });
@@ -111,6 +128,21 @@ export function PersonalDataDialog({
       toast.success("Фото обновлено");
     },
     onError: (e: Error) => toast.error(e.message || "Не удалось загрузить фото"),
+  });
+
+  const setupCard = useMutation({
+    mutationFn: async () => {
+      const r = await fetch("/api/stripe/setup", { method: "POST" });
+      const j = (await r.json().catch(() => ({}))) as { url?: string; error?: unknown };
+      if (!r.ok || !j.url) {
+        throw new Error(typeof j.error === "string" ? j.error : "Не удалось открыть привязку карты");
+      }
+      return j.url;
+    },
+    onSuccess: (url) => {
+      window.location.href = url;
+    },
+    onError: (e: Error) => toast.error(e.message || "Не удалось открыть привязку карты"),
   });
 
   if (!open) return null;
@@ -204,6 +236,35 @@ export function PersonalDataDialog({
                 {!data.phone ? " (меняется только через поддержку)." : "."}
               </p>
             ) : null}
+
+            <div className="rounded-md border border-border bg-muted/30 p-3 text-xs">
+              <p className="font-medium text-foreground">Банковская карта</p>
+              {cardQuery.isLoading ? (
+                <p className="mt-1 text-muted-foreground">Проверяем статус карты…</p>
+              ) : cardQuery.data?.hasCard ? (
+                <p className="mt-1 text-muted-foreground">
+                  Карта привязана:{" "}
+                  <span className="text-foreground">
+                    {cardQuery.data.brand?.toUpperCase() ?? "CARD"} •••• {cardQuery.data.last4 ?? "****"}
+                  </span>
+                </p>
+              ) : (
+                <p className="mt-1 text-muted-foreground">
+                  Карта пока не привязана. Добавьте ее здесь, чтобы при заказе не проходить этот шаг заново.
+                </p>
+              )}
+              <div className="mt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={setupCard.isPending}
+                  onClick={() => setupCard.mutate()}
+                >
+                  {cardQuery.data?.hasCard ? "Обновить карту" : "Привязать карту"}
+                </Button>
+              </div>
+            </div>
 
             <div className="flex flex-wrap justify-end gap-2 pt-2">
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
