@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "hooks": {
+    "afterFileEdit": [
+      {
+        "command": "powershell -NoProfile -ExecutionPolicy Bypass -File .cursor/hooks/mark-skiinstruct-dirty.ps1",
+        "timeout": 5
+      }
+    ],
+    "stop": [
+      {
+        "command": "powershell -NoProfile -ExecutionPolicy Bypass -File .cursor/hooks/refresh-skiinstruct-on-stop.ps1",
+        "timeout": 900
+      }
+    ]
+  }
+}

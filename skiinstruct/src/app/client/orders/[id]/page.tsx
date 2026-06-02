@@ -20,24 +20,49 @@ import { useCountdownToDeadline } from "@/shared/hooks/use-countdown-to-deadline
 import {
   extractInstructorEtaMinutes,
   formatArrivalCountdownRu,
-  formatCountdownMmSs,
   resolveInstructorArrivalDeadlineMs,
 } from "@/shared/lib/order-instructor-eta";
 import { isInLessonStartPopupWindow, msUntilLessonStart } from "@/shared/lib/order-lesson-start";
 import { resolveMeetAddress } from "@/shared/lib/order-meet-address";
+import { extractClientWishNotes, skillLevelLabelRu } from "@/shared/lib/order-booking-labels";
+import {
+  formatOrderSumWithDuration,
+  lessonDurationLabelRu,
+  resolveOrderDisplayDuration,
+} from "@/shared/lib/order-duration";
+import { parseDisciplineFromOrderNotes } from "@/lib/instructor-specialization-offers";
 import {
   clientCanRemoveOrderFromHistory,
   clientPaymentStatusLabel,
   orderStatusLabel,
 } from "@/shared/lib/order-status";
 import { OrderCancellationSide } from "@/shared/ui/order-cancellation-side";
+import { OrderLessonTimeBlock } from "@/shared/ui/order-lesson-time-block";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Input } from "@/shared/ui/input";
 import { Skeleton } from "@/shared/ui/skeleton";
-import type { Order, OrderStatus } from "@prisma/client";
+import type { LessonDuration, Order, OrderStatus, SkillLevel } from "@prisma/client";
 
 type RoutingMember = { userId: string; name: string | null };
+
+function formatCountdownHhMmSs(totalSeconds: number): string {
+  const s = Math.max(0, Math.floor(totalSeconds));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:${sec
+    .toString()
+    .padStart(2, "0")}`;
+}
+
+function formatCountdownRuHms(totalSeconds: number): string {
+  const s = Math.max(0, Math.floor(totalSeconds));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  return `${h} ч ${m} мин ${sec} сек`;
+}
 
 type OrderDTO = Order & {
   client: { id: string; name: string | null; image: string | null };
@@ -68,17 +93,6 @@ function parsePendingExpiresMs(raw: OrderDTO["pendingExpiresAt"]): number | null
   if (raw == null) return null;
   const t = new Date(raw as string | Date).getTime();
   return Number.isFinite(t) ? t : null;
-}
-
-function extractDiscipline(notes: string | null | undefined): string | null {
-  if (!notes) return null;
-  const line = notes
-    .split("\n")
-    .map((s) => s.trim())
-    .find((s) => s.toLowerCase().startsWith("дисциплина:"));
-  if (!line) return null;
-  const value = line.slice("дисциплина:".length).trim();
-  return value || null;
 }
 
 function formatDateTimeRu(raw: string | Date | null | undefined): string {
@@ -158,9 +172,19 @@ function ClientOrderDetailContent({
   const lessonToday = orderIsTodayLessonDay(timingInput);
   const multiDay = orderSpansMultipleLessonDays(timingInput);
   const discipline =
-    extractDiscipline(o.notes) ??
-    o.instructor?.instructorProfile?.specializations?.[0] ??
+    o.disciplineLabel?.trim() ||
+    parseDisciplineFromOrderNotes(o.notes) ||
+    o.instructor?.instructorProfile?.specializations?.[0] ||
     "Не указано";
+  const clientWishes = extractClientWishNotes(o.notes);
+  const displayDuration = resolveOrderDisplayDuration({
+    duration: o.duration as LessonDuration,
+    requestedStartDate: o.requestedStartDate,
+    requestedEndDate: o.requestedEndDate,
+    notes: o.notes,
+    amountTotal: o.amountTotal != null ? Number(o.amountTotal) : null,
+    agreedHourlyRate: o.agreedHourlyRate != null ? Number(o.agreedHourlyRate) : null,
+  });
   const instructorEtaMinutes = extractInstructorEtaMinutes(o.notes);
   const meetPlace = resolveMeetAddress(o);
 
@@ -262,10 +286,11 @@ function ClientOrderDetailContent({
               aria-live="polite"
               aria-atomic="true"
             >
-              {formatCountdownMmSs(lessonStartSecondsLeft)}
+              {formatCountdownHhMmSs(lessonStartSecondsLeft)}
             </div>
+            <p className="text-xs text-muted-foreground">Формат: чч:мм:сс</p>
             <p className="text-xs text-muted-foreground">
-              ({formatArrivalCountdownRu(lessonStartSecondsLeft)})
+              ({formatCountdownRuHms(lessonStartSecondsLeft)})
               {isInLessonStartPopupWindow(o.requestedStartDate)
                 ? " · скоро встреча с инструктором"
                 : null}
@@ -320,7 +345,7 @@ function ClientOrderDetailContent({
             {!relaxedTiming && pendingExpiresMs != null ? (
               <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 font-medium text-amber-800 dark:text-amber-200">
                 Ожидание ответа текущего инструктора:{" "}
-                <span className="font-mono tabular-nums">{formatCountdownMmSs(secondsLeft ?? 0)}</span>
+                <span className="font-mono tabular-nums">{formatCountdownHhMmSs(secondsLeft ?? 0)}</span>
               </div>
             ) : null}
             <div className="font-medium">
@@ -373,7 +398,7 @@ function ClientOrderDetailContent({
             {!relaxedTiming && pendingExpiresMs != null ? (
               <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 font-medium text-amber-800 dark:text-amber-200">
                 Осталось:{" "}
-                <span className="font-mono tabular-nums">{formatCountdownMmSs(secondsLeft ?? 0)}</span>
+                <span className="font-mono tabular-nums">{formatCountdownHhMmSs(secondsLeft ?? 0)}</span>
               </div>
             ) : null}
           </CardContent>
@@ -407,11 +432,43 @@ function ClientOrderDetailContent({
         </CardHeader>
         <CardContent className="space-y-2 text-sm">
           <div>
+            Статус: <span className="font-medium">{orderStatusLabel(status)}</span>
+          </div>
+          <div>
+            Создан: <span className="font-medium">{formatDateTimeRu(o.createdAt)}</span>
+          </div>
+          <div>
             Инструктор: <span className="font-medium">{o.instructor?.name ?? "—"}</span>
           </div>
           <div>
             Дисциплина: <span className="font-medium">{discipline}</span>
           </div>
+          <div>
+            Уровень:{" "}
+            <span className="font-medium">{skillLevelLabelRu(o.skillLevel as SkillLevel)}</span>
+          </div>
+          <div>
+            Длительность:{" "}
+            <span className="font-medium">{lessonDurationLabelRu(displayDuration)}</span>
+          </div>
+          <div>
+            Язык инструктора: <span className="font-medium">{o.languagePref?.trim() || "—"}</span>
+          </div>
+          {o.requestedStartDate ? (
+            <div>
+              Период занятий:{" "}
+              <span className="font-medium">
+                {new Date(o.requestedStartDate).toLocaleDateString("ru-RU")}
+                {o.requestedEndDate &&
+                new Date(o.requestedEndDate).toDateString() !==
+                  new Date(o.requestedStartDate).toDateString()
+                  ? ` — ${new Date(o.requestedEndDate).toLocaleDateString("ru-RU")}`
+                  : null}
+                {o.requestedDays != null && o.requestedDays > 1 ? ` (${o.requestedDays} дн.)` : null}
+              </span>
+            </div>
+          ) : null}
+          <OrderLessonTimeBlock order={o} timeClassName="font-medium" />
           <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
             <span>
               Место встречи:{" "}
@@ -430,52 +487,39 @@ function ClientOrderDetailContent({
                   </span>
                 ) : null}
                 {meetArrivalSecondsLeft > 0
-                  ? formatCountdownMmSs(meetArrivalSecondsLeft)
+                  ? formatCountdownHhMmSs(meetArrivalSecondsLeft)
                   : "ожидаем на месте"}
               </span>
             ) : null}
           </div>
-          <div>Сумма: {o.amountTotal ? `${Number(o.amountTotal)} ₽` : "—"}</div>
+          <div>
+            Сумма:{" "}
+            <span className="font-medium">
+              {formatOrderSumWithDuration(
+                o.amountTotal != null ? Number(o.amountTotal) : null,
+                displayDuration,
+              )}
+            </span>
+          </div>
           <div>
             Оплата: <span className="font-medium">{clientPaymentStatusLabel(o.paymentStatus)}</span>
           </div>
           <OrderCancellationSide status={status} cancelledBy={o.cancelledBy} />
-          <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-            <span>
-              Время:{" "}
-              <span className="font-medium">
-                {new Date(o.createdAt).toLocaleTimeString("ru-RU", {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                  second: "2-digit",
-                })}
-              </span>
-            </span>
-            {lessonStartMs != null && lessonStartSecondsLeft != null ? (
-              <span
-                className="shrink-0 font-mono text-lg font-semibold tabular-nums text-foreground sm:text-xl"
-                aria-live="polite"
-                aria-atomic="true"
-              >
-                до начала занятия{" "}
-                {lessonStartSecondsLeft > 0
-                  ? formatArrivalCountdownRu(lessonStartSecondsLeft)
-                  : "началось"}
-              </span>
-            ) : null}
-          </div>
-          {o.requestedStartDate ? (
-            <div>
-              Период занятий:{" "}
-              <span className="font-medium">
-                {new Date(o.requestedStartDate).toLocaleDateString("ru-RU")}
-                {o.requestedEndDate &&
-                new Date(o.requestedEndDate).toDateString() !==
-                  new Date(o.requestedStartDate).toDateString()
-                  ? ` — ${new Date(o.requestedEndDate).toLocaleDateString("ru-RU")}`
-                  : null}
-                {o.requestedDays != null && o.requestedDays > 1 ? ` (${o.requestedDays} дн.)` : null}
-              </span>
+          {clientWishes ? (
+            <div className="whitespace-pre-wrap">
+              Пожелания: <span className="font-medium">{clientWishes}</span>
+            </div>
+          ) : null}
+          {lessonStartMs != null && lessonStartSecondsLeft != null ? (
+            <div
+              className="font-mono text-lg font-semibold tabular-nums text-foreground sm:text-xl"
+              aria-live="polite"
+              aria-atomic="true"
+            >
+              До начала занятия:{" "}
+              {lessonStartSecondsLeft > 0
+                ? formatArrivalCountdownRu(lessonStartSecondsLeft)
+                : "началось"}
             </div>
           ) : null}
           {instructorEtaMinutes != null && !meetArrivalCountdownEnabled ? (

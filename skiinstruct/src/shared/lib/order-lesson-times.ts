@@ -2,7 +2,7 @@
  * Время первого/последнего дня брони кодируется в `notes` (см. POST /api/orders),
  * чтобы не зависеть от отдельных колонок Prisma и старых сгенерированных клиентов.
  */
-const LESSON_TIMES_IN_NOTES =
+export const LESSON_TIMES_IN_NOTES =
   /Время:\s*с\s*(\d{2}:\d{2})\s*\(день начала\)\s*до\s*(\d{2}:\d{2})\s*\(день окончания\)/;
 
 /** Подпись у блока времени заявки (ETA при принятии). */
@@ -10,6 +10,31 @@ export const ORDER_LESSON_ARRIVAL_HINT = "Минимальное время пр
 
 export function hasLessonTimeWindowInNotes(notes: string | null | undefined): boolean {
   return LESSON_TIMES_IN_NOTES.test(notes ?? "");
+}
+
+function clockHmToMinutes(hm: string): number {
+  const m = hm.trim().match(/^(\d{2}):(\d{2})/);
+  if (!m) return 0;
+  return Number(m[1]) * 60 + Number(m[2]);
+}
+
+/** Длина окна занятия в минутах (по датам заказа или строке в notes). */
+export function orderLessonSpanMinutes(order: {
+  requestedStartDate?: Date | string | null;
+  requestedEndDate?: Date | string | null;
+  notes?: string | null;
+}): number | null {
+  if (order.requestedStartDate && order.requestedEndDate) {
+    const startMs = new Date(order.requestedStartDate).getTime();
+    const endMs = new Date(order.requestedEndDate).getTime();
+    if (Number.isFinite(startMs) && Number.isFinite(endMs) && endMs > startMs) {
+      return Math.round((endMs - startMs) / 60_000);
+    }
+  }
+  const m = (order.notes ?? "").match(LESSON_TIMES_IN_NOTES);
+  if (!m) return null;
+  const span = clockHmToMinutes(m[2]) - clockHmToMinutes(m[1]);
+  return span > 0 ? span : null;
 }
 
 function formatLessonClockHm(date: Date | string): string {

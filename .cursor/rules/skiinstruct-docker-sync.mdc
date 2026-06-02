@@ -21,9 +21,10 @@ alwaysApply: true
 
 ## Режим по умолчанию
 
-- **dev** + polling: правки в `skiinstruct/src` видны через hot-reload (обновить страницу).
-- Переключить контейнер на dev один раз: `.\scripts\use-skiinstruct-dev-3001.ps1`
-- Prod (медленный build): только если в `.env` явно `SKIINSTRUCT_NEXT_MODE=prod` — тогда `refresh-skiinstruct-3001.ps1` делает полную пересборку.
+- **prod** (`next start`) — быстрый сайт на :3001. Переключение: `.\scripts\use-skiinstruct-prod-3001.ps1`
+- **dev** в Docker на Windows — очень медленно (минуты на страницу). Только для правок: `.\scripts\use-skiinstruct-dev-3001.ps1`
+- После правок в prod: `docker compose exec skiinstruct npm run build` и `docker compose restart skiinstruct`, либо `SKIINSTRUCT_FORCE_REBUILD=1` + refresh.
+- Быстрее dev без Docker: `cd skiinstruct; npm run dev` (порт 3000).
 
 ## Проверка
 

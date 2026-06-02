@@ -23,6 +23,7 @@ import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
+import { TimeInput24, normalizeTimeInput24 } from "@/shared/ui/time-input-24";
 import { Skeleton } from "@/shared/ui/skeleton";
 import {
   clearPendingCheckout,
@@ -35,7 +36,24 @@ import {
 } from "@/lib/auto-instructor-offer";
 import type { SpecializationOffer } from "@/lib/instructor-specialization-offers";
 import { INSTRUCTOR_ACTIVITY_LABELS, isSyntheticInstructorBioLine } from "@/lib/services/instructor-match";
+import type { LessonDuration } from "@prisma/client";
+import {
+  buildLessonBookingPreview,
+  defaultLessonTimeWindow,
+  lessonEndHmFromStartAndDuration,
+  minutesToHm,
+} from "@/shared/lib/lesson-booking-time";
+import { lessonDurationLabelRu } from "@/shared/lib/order-duration";
 import { SectionErrorBoundary } from "@/shared/ui/section-error-boundary";
+
+function currentLocalTimeHm(): string {
+  const now = new Date();
+  return minutesToHm(now.getHours() * 60 + now.getMinutes());
+}
+
+function normalizeHm(value: string): string {
+  return value.trim().match(/^(\d{2}:\d{2})/)?.[1] ?? value.trim();
+}
 
 /** В Docker dev отключите опрос через NEXT_PUBLIC_DISABLE_NEARBY_POLL=1 (см. docker-compose.yml). */
 const disableNearbyPoll = process.env.NEXT_PUBLIC_DISABLE_NEARBY_POLL === "1";
@@ -491,9 +509,45 @@ export default function ClientHomePage() {
     () => flexibleOfflineBooking || lessonDate > todayIso || lessonDays > 1,
     [flexibleOfflineBooking, lessonDate, todayIso, lessonDays],
   );
-  const [lessonStartTime, setLessonStartTime] = useState("10:00");
-  const [lessonEndTime, setLessonEndTime] = useState("12:00");
+  const initialLessonWindow = useMemo(() => defaultLessonTimeWindow(undefined, "TWO_HOURS"), []);
+  const [lessonStartTime, setLessonStartTime] = useState(initialLessonWindow.start);
+  const [lessonEndTime, setLessonEndTime] = useState(initialLessonWindow.end);
+  const [startTimeZoneHint, setStartTimeZoneHint] = useState<string | null>(null);
+  const userTimeZone = useMemo(() => Intl.DateTimeFormat().resolvedOptions().timeZone, []);
   const isOutdoorTour = specializationPref.includes("Пешие туры") || specializationPref.includes("Маунтибайк");
+
+  const lessonDuration = duration as LessonDuration;
+
+  const syncLessonEndTime = (startHm: string, dur: LessonDuration) => {
+    setLessonEndTime(lessonEndHmFromStartAndDuration(normalizeHm(startHm), dur));
+  };
+
+  const refreshStartTimeZoneHint = () => {
+    const now = new Date();
+    setStartTimeZoneHint(
+      `Сейчас ${now.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })} · ${userTimeZone}`,
+    );
+  };
+
+  const applyCurrentLessonStartTime = () => {
+    const nowHm = currentLocalTimeHm();
+    setLessonStartTime(nowHm);
+    syncLessonEndTime(nowHm, lessonDuration);
+    refreshStartTimeZoneHint();
+  };
+
+  const bookingPreview = useMemo(
+    () =>
+      buildLessonBookingPreview({
+        lessonDate,
+        lessonEndDate,
+        lessonStartTime,
+        lessonEndTime,
+        lessonDays,
+        duration: lessonDuration,
+      }),
+    [lessonDate, lessonEndDate, lessonStartTime, lessonEndTime, lessonDays, lessonDuration],
+  );
 
   const { data, isLoading, error, refetch, dataUpdatedAt } = useQuery({
     queryKey: [
@@ -633,8 +687,8 @@ export default function ClientHomePage() {
         return m ? m[1] : lessonStartTime;
       })(),
       lessonEndTime: (() => {
-        const m = lessonEndTime.trim().match(/^(\d{2}:\d{2})/);
-        return m ? m[1] : lessonEndTime;
+        const startHm = lessonStartTime.trim().match(/^(\d{2}:\d{2})/)?.[1] ?? lessonStartTime;
+        return lessonEndHmFromStartAndDuration(startHm, duration as LessonDuration);
       })(),
       instructorId,
       flexibleInstructorInvite: isRelaxedLessonBooking,
@@ -870,18 +924,71 @@ export default function ClientHomePage() {
               </select>
             </div>
             <div className="space-y-2">
+              <Label htmlFor="workout-start-time">Начало тренировки</Label>
+              <div className="flex flex-wrap items-center gap-2">
+                <TimeInput24
+                  id="workout-start-time"
+                  value={lessonStartTime}
+                  onFocus={refreshStartTimeZoneHint}
+                  onChange={(next) => {
+                    setLessonStartTime(next);
+                    const normalized = normalizeTimeInput24(next);
+                    if (normalized) syncLessonEndTime(normalized, lessonDuration);
+                  }}
+                  className="min-w-[8.5rem] flex-1"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-10 shrink-0 px-2 text-xs"
+                  onClick={applyCurrentLessonStartTime}
+                >
+                  Сейчас
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {startTimeZoneHint ??
+                  `Время в вашем часовом поясе (${userTimeZone}). Нажмите на поле или иконку часов, чтобы выбрать время.`}
+              </p>
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="duration">Длительность</Label>
               <select
                 id="duration"
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                 value={duration}
-                onChange={(e) => setDuration(e.target.value)}
+                onChange={(e) => {
+                  const next = e.target.value as LessonDuration;
+                  setDuration(next);
+                  syncLessonEndTime(lessonStartTime, next);
+                }}
               >
                 <option value="ONE_HOUR">1 час</option>
                 <option value="TWO_HOURS">2 часа</option>
                 <option value="HALF_DAY">Полдня</option>
                 <option value="FULL_DAY">Весь день</option>
               </select>
+            </div>
+            <div
+              className="rounded-lg border border-primary/20 bg-primary/5 p-3 text-sm leading-relaxed"
+              aria-live="polite"
+            >
+              <p className="font-medium text-foreground">На что вы подписываетесь</p>
+              <p className="mt-1 text-foreground">{bookingPreview.scheduleLine}</p>
+              <p className="mt-1 text-muted-foreground">
+                Длительность тренировки: <strong>{lessonDurationLabelRu(lessonDuration)}</strong>
+                {lessonDate === lessonEndDate ? (
+                  <>
+                    {" "}
+                    · начало в <strong>{normalizeHm(lessonStartTime)}</strong>
+                  </>
+                ) : null}
+              </p>
+              <p className="mt-2 text-xs text-muted-foreground">{bookingPreview.tariffLine}</p>
+              {bookingPreview.leadLine ? (
+                <p className="mt-1 text-xs text-muted-foreground">{bookingPreview.leadLine}</p>
+              ) : null}
             </div>
             <Button
               type="button"
@@ -936,12 +1043,15 @@ export default function ClientHomePage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="lesson-start-time">Время начала (в день начала)</Label>
-              <Input
+              <TimeInput24
                 id="lesson-start-time"
-                type="time"
                 value={lessonStartTime}
-                onChange={(e) => setLessonStartTime(e.target.value)}
-                className="w-full max-w-[12rem]"
+                onFocus={refreshStartTimeZoneHint}
+                onChange={(next) => {
+                  setLessonStartTime(next);
+                  const normalized = normalizeTimeInput24(next);
+                  if (normalized) syncLessonEndTime(normalized, lessonDuration);
+                }}
               />
               <p className="text-xs text-muted-foreground">
                 Когда в первый день периода вам удобно начать занятие с инструктором.
@@ -961,12 +1071,10 @@ export default function ClientHomePage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="lesson-end-time">Время окончания (в день окончания)</Label>
-              <Input
+              <TimeInput24
                 id="lesson-end-time"
-                type="time"
                 value={lessonEndTime}
-                onChange={(e) => setLessonEndTime(e.target.value)}
-                className="w-full max-w-[12rem]"
+                onChange={setLessonEndTime}
               />
               <p className="text-xs text-muted-foreground">
                 В последний день периода — до какого времени нужен инструктор. В один календарный день время

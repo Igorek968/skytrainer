@@ -21,6 +21,7 @@ import {
 } from "@/shared/lib/order-flex";
 import { OrderLessonTimeBlock } from "@/shared/ui/order-lesson-time-block";
 import { orderHasMeetAddress, resolveMeetAddress } from "@/shared/lib/order-meet-address";
+import { lessonDurationLabelRu, resolveOrderDisplayDuration } from "@/shared/lib/order-duration";
 import { orderStatusLabel } from "@/shared/lib/order-status";
 import { OrderCancellationSide } from "@/shared/ui/order-cancellation-side";
 import { Button } from "@/shared/ui/button";
@@ -77,6 +78,15 @@ function InstructorOrderDetailContent({
 
   const meetPlace = resolveMeetAddress(safeOrder);
   const canAccept = orderHasMeetAddress(safeOrder);
+  const displayDuration = resolveOrderDisplayDuration({
+    duration: safeOrder.duration,
+    requestedStartDate: safeOrder.requestedStartDate,
+    requestedEndDate: safeOrder.requestedEndDate,
+    notes: safeOrder.notes,
+    amountTotal: safeOrder.amountTotal != null ? Number(safeOrder.amountTotal) : null,
+    agreedHourlyRate:
+      safeOrder.agreedHourlyRate != null ? Number(safeOrder.agreedHourlyRate) : null,
+  });
 
   useEffect(() => {
     if (safeStatus !== "PENDING_INSTRUCTOR" || pendingExpiresMs == null) {
@@ -194,6 +204,7 @@ function InstructorOrderDetailContent({
             </div>
           ) : null}
           <OrderLessonTimeBlock order={safeOrder} />
+          <div>Длительность занятия: {lessonDurationLabelRu(displayDuration)}</div>
           <div>Сумма: {safeOrder.amountTotal ? `${Number(safeOrder.amountTotal)} ₽` : "—"}</div>
           <OrderCancellationSide status={safeStatus} cancelledBy={safeOrder.cancelledBy} />
           {safeStatus === "PENDING_INSTRUCTOR" ? (
