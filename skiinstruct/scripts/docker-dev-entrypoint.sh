@@ -63,6 +63,12 @@ SRC_CHANGED=0
 if [ -n "$SRC_HASH" ] && { [ ! -f "$SRC_MARKER" ] || [ "$(cat "$SRC_MARKER" 2>/dev/null)" != "$SRC_HASH" ]; }; then
   SRC_CHANGED=1
 fi
+if ! node -e "require.resolve('nodemailer')" >/dev/null 2>&1; then
+  echo "[entry] npm install nodemailer (образ без пакета из package.json)..."
+  # NODE_ENV=production иначе npm prune снимает devDependencies (autoprefixer и т.д.)
+  NODE_ENV=development npm install nodemailer@^7.0.7 --no-audit --no-fund
+fi
+
 if [ "${SKIINSTRUCT_FORCE_REBUILD:-0}" = "1" ]; then
   echo "[entry] prod: next build (SKIINSTRUCT_FORCE_REBUILD=1)..."
   npm run build

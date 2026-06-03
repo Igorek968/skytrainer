@@ -13,10 +13,12 @@ import { useThrottledInstructorLocation } from "@/features/geolocation/use-throt
 import { devPollInterval } from "@/lib/query-poll";
 import { InstructorComplianceCard } from "@/features/instructor/instructor-compliance-card";
 import { InstructorEventsEditor } from "@/features/instructor/instructor-events-editor";
+import { InstructorWeekScheduleCalendar } from "@/features/instructor/instructor-week-schedule-calendar";
 import {
-  InstructorWeekScheduleCalendar,
+  normalizeAvailabilitySlots,
+  validateAvailabilitySlots,
   type AvailabilitySlot,
-} from "@/features/instructor/instructor-week-schedule-calendar";
+} from "@/shared/lib/instructor-availability-slots";
 import { SpecializationOffersEditor } from "@/features/instructor/specialization-offers-editor";
 import { isAutoInstructorLabel, validateDrivingSchoolDetails } from "@/lib/auto-instructor-offer";
 import {
@@ -577,24 +579,10 @@ export default function InstructorHomePage() {
     }
     if (age > 0 && (age < 14 || age > 90)) errors.age = "Возраст должен быть от 14 до 90";
 
-    const normalizedSlots = availabilitySlots
-      .map((slot) => ({ ...slot, from: slot.from.trim(), to: slot.to.trim(), busy: false }))
-      .filter((slot) => slot.from && slot.to);
-
-    if (!normalizedSlots.length) {
-      errors.availabilityRaw = "Добавьте хотя бы один свободный интервал в календаре";
-    } else {
-      const invalidSlot = normalizedSlots.find(
-        (slot) =>
-          slot.day < 0 ||
-          slot.day > 6 ||
-          !/^\d{2}:\d{2}$/.test(slot.from) ||
-          !/^\d{2}:\d{2}$/.test(slot.to) ||
-          slot.from >= slot.to
-      );
-      if (invalidSlot) {
-        errors.availabilityRaw = "Проверьте интервалы: формат ЧЧ:ММ и время 'с' меньше времени 'до'";
-      }
+    const normalizedSlots = normalizeAvailabilitySlots(availabilitySlots);
+    const availabilityErr = validateAvailabilitySlots(normalizedSlots);
+    if (availabilityErr) {
+      errors.availabilityRaw = availabilityErr;
     }
 
     setFieldErrors(errors);
@@ -890,6 +878,7 @@ export default function InstructorHomePage() {
       <InstructorWeekScheduleCalendar
         availabilitySlots={availabilitySlots}
         availabilityError={fieldErrors.availabilityRaw}
+        onAvailabilityChange={setAvailabilitySlots}
         onAddSlotForDay={addSlotForDay}
         onUpdateSlot={updateSlot}
         onRemoveSlot={removeSlot}
