@@ -102,7 +102,13 @@ export async function sendPasswordResetEmailViaSmtp(payload: PasswordResetEmailP
     });
     return true;
   } catch (e) {
-    console.error("[password-reset] SMTP send failed:", e instanceof Error ? e.message : e);
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[password-reset] SMTP send failed:", msg);
+    if (msg.includes("535") || /invalid login/i.test(msg)) {
+      console.error(
+        "[password-reset] Проверьте пароль ящика в Beget (Почта → noreply@utrainer.ru) и SKIINSTRUCT_SMTP_PASSWORD в .env.qa",
+      );
+    }
     return false;
   }
 }
