@@ -16,25 +16,14 @@ import { cancelOrderWithRefund, claimInstructorLateRefund } from "@/lib/services
 import { canClaimInstructorLateRefund, computeCancelRefundQuote } from "@/lib/refund-policy";
 import { transitionOrderStatus } from "@/lib/services/order-service";
 import { orderActionSchema } from "@/lib/validations/order";
-import { orderRelaxedInstructorTiming, orderSkipsInstructorEta } from "@/shared/lib/order-flex";
 import {
   extractInstructorEtaMinutes,
   instructorEtaDeadlineFromMinutes,
 } from "@/shared/lib/order-instructor-eta";
 import { clientCanRemoveOrderFromHistory } from "@/shared/lib/order-status";
-import { isLongInstructorEtaMinutes } from "@/shared/lib/order-long-eta";
 import { orderHasMeetAddress } from "@/shared/lib/order-meet-address";
 
 type Ctx = { params: Promise<{ id: string }> };
-
-function mergeEtaToNotes(rawNotes: string | null | undefined, etaMinutes: number): string {
-  const etaLine = `ETA инструктора: ~${Math.round(etaMinutes)} мин.`;
-  const notesWithoutOldEta = (rawNotes ?? "")
-    .split("\n")
-    .map((line) => line.trimEnd())
-    .filter((line) => !line.startsWith("ETA инструктора:"));
-  return [...notesWithoutOldEta, etaLine].filter(Boolean).join("\n").trim();
-}
 
 export async function GET(_req: Request, ctx: Ctx) {
   const session = await auth();
@@ -296,23 +285,10 @@ export async function PATCH(req: Request, ctx: Ctx) {
     }
 
     if (action.action === "hold_pending_long_eta") {
-      if (order.instructorId !== actor) {
-        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-      }
-      if (order.status !== "PENDING_INSTRUCTOR") {
-        return NextResponse.json({ error: "Действие доступно только для ожидающей заявки" }, { status: 400 });
-      }
-      if (!isLongInstructorEtaMinutes(action.etaMinutes)) {
-        return NextResponse.json(
-          { error: `Укажите время прибытия больше ${30} минут` },
-          { status: 400 },
-        );
-      }
-      const updated = await prisma.order.update({
-        where: { id },
-        data: { pendingExpiresAt: null },
-      });
-      return NextResponse.json({ order: updated });
+      return NextResponse.json(
+        { error: "ETA отключён. Доступны только действия: принять или отклонить." },
+        { status: 400 },
+      );
     }
 
     if (action.action === "accept") {
@@ -337,28 +313,10 @@ export async function PATCH(req: Request, ctx: Ctx) {
         requestedDays: order.requestedDays,
         requestedStartDate: order.requestedStartDate,
       };
-      const skipsEta = orderSkipsInstructorEta(timingInput);
-      const etaMinutes = skipsEta ? undefined : action.etaMinutes;
-      if (
-        !skipsEta &&
-        (typeof etaMinutes !== "number" || !Number.isFinite(etaMinutes) || etaMinutes < 1)
-      ) {
-        return NextResponse.json(
-          { error: "Укажите, через сколько минут вы сможете быть на месте встречи." },
-          { status: 400 },
-        );
-      }
-      let extra: Prisma.OrderUpdateInput | undefined;
-      if (typeof etaMinutes === "number" && Number.isFinite(etaMinutes) && etaMinutes > 0) {
-        const nextNotes = mergeEtaToNotes(order.notes, etaMinutes);
-        extra = {
-          notes: nextNotes || null,
-          instructorEtaAt: instructorEtaDeadlineFromMinutes(etaMinutes),
-        };
-        if (isLongInstructorEtaMinutes(etaMinutes)) {
-          extra.pendingExpiresAt = null;
-        }
-      }
+      void timingInput;
+      let extra: Prisma.OrderUpdateInput | undefined = {
+        pendingExpiresAt: null,
+      };
       const updated = await transitionOrderStatus({
         orderId: id,
         actorUserId: actor,
@@ -369,39 +327,10 @@ export async function PATCH(req: Request, ctx: Ctx) {
     }
 
     if (action.action === "set_eta") {
-      if (order.instructorId !== actor) {
-        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-      }
-      if (
-        orderSkipsInstructorEta({
-          flexibleInstructorInvite: Boolean(order.flexibleInstructorInvite),
-          requestedDays: order.requestedDays,
-        })
-      ) {
-        return NextResponse.json(
-          {
-            error:
-              "Для этой заявки ETA до клиента не используется (запись на дату или бронь на несколько дней).",
-          },
-          { status: 400 },
-        );
-      }
-      if (
-        order.status !== "ACCEPTED" &&
-        order.status !== "INSTRUCTOR_EN_ROUTE" &&
-        order.status !== "LESSON_STARTED"
-      ) {
-        return NextResponse.json({ error: "Указать ETA можно только для активного заказа" }, { status: 400 });
-      }
-      const nextNotes = mergeEtaToNotes(order.notes, action.etaMinutes);
-      const updated = await prisma.order.update({
-        where: { id },
-        data: {
-          notes: nextNotes || null,
-          instructorEtaAt: instructorEtaDeadlineFromMinutes(action.etaMinutes),
-        },
-      });
-      return NextResponse.json({ order: updated });
+      return NextResponse.json(
+        { error: "ETA отключён. Доступны только действия: принять или отклонить." },
+        { status: 400 },
+      );
     }
 
     if (action.action === "reject") {

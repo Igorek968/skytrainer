@@ -19,10 +19,16 @@ export function durationHours(d: LessonDuration): number {
 
 export function computeTotals(params: {
   hourlyRate: number;
-  duration: LessonDuration;
+  duration?: LessonDuration;
+  hours?: number;
   platformFeePercent: number;
 }) {
-  const hours = durationHours(params.duration);
+  const hours =
+    params.hours != null
+      ? Math.max(0.5, params.hours)
+      : params.duration != null
+        ? durationHours(params.duration)
+        : 1;
   const subtotal = params.hourlyRate * hours;
   const fee = Math.round((subtotal * params.platformFeePercent) / 100);
   const instructorShare = subtotal - fee;

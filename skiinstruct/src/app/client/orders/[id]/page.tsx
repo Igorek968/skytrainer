@@ -99,7 +99,31 @@ function formatDateTimeRu(raw: string | Date | null | undefined): string {
   if (!raw) return "—";
   const d = new Date(raw);
   if (!Number.isFinite(d.getTime())) return "—";
-  return d.toLocaleString("ru-RU");
+  return d.toLocaleString("ru-RU", { timeZone: "Europe/Moscow" });
+}
+
+function formatDateRu(raw: string | Date | null | undefined): string {
+  if (!raw) return "—";
+  const d = new Date(raw);
+  if (!Number.isFinite(d.getTime())) return "—";
+  return d.toLocaleDateString("ru-RU", { timeZone: "Europe/Moscow" });
+}
+
+function calendarYmdMoscow(raw: string | Date | null | undefined): string | null {
+  if (!raw) return null;
+  const d = new Date(raw);
+  if (!Number.isFinite(d.getTime())) return null;
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Moscow",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(d);
+  const y = parts.find((p) => p.type === "year")?.value;
+  const m = parts.find((p) => p.type === "month")?.value;
+  const day = parts.find((p) => p.type === "day")?.value;
+  if (!y || !m || !day) return null;
+  return `${y}-${m}-${day}`;
 }
 
 function ClientOrderDetailContent({
@@ -218,7 +242,7 @@ function ClientOrderDetailContent({
           </div>
           <h1 className="text-2xl font-semibold tracking-tight">{orderStatusLabel(status)}</h1>
           <p className="text-sm text-muted-foreground">
-            Создан: {new Date(o.createdAt).toLocaleString("ru-RU")}
+            Создан: {formatDateTimeRu(o.createdAt)}
           </p>
           {status === "EXPIRED" ? (
             <p className="mt-2 max-w-xl text-sm text-muted-foreground">
@@ -278,6 +302,7 @@ function ClientOrderDetailContent({
                 {new Date(o.requestedStartDate!).toLocaleString("ru-RU", {
                   dateStyle: "short",
                   timeStyle: "short",
+                  timeZone: "Europe/Moscow",
                 })}
               </span>
             </p>
@@ -458,11 +483,11 @@ function ClientOrderDetailContent({
             <div>
               Период занятий:{" "}
               <span className="font-medium">
-                {new Date(o.requestedStartDate).toLocaleDateString("ru-RU")}
+                {formatDateRu(o.requestedStartDate)}
                 {o.requestedEndDate &&
-                new Date(o.requestedEndDate).toDateString() !==
-                  new Date(o.requestedStartDate).toDateString()
-                  ? ` — ${new Date(o.requestedEndDate).toLocaleDateString("ru-RU")}`
+                calendarYmdMoscow(o.requestedEndDate) !==
+                  calendarYmdMoscow(o.requestedStartDate)
+                  ? ` — ${formatDateRu(o.requestedEndDate)}`
                   : null}
                 {o.requestedDays != null && o.requestedDays > 1 ? ` (${o.requestedDays} дн.)` : null}
               </span>

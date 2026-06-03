@@ -19,6 +19,7 @@ import {
 } from "@/lib/services/instructor-match";
 import { liveInstructorEmailWhere } from "@/lib/demo-instructor";
 import { DEFAULT_SKI_RESORT_CENTER, haversineKm } from "@/lib/services/geo";
+import { findInstructorScheduleConflict } from "@/lib/services/instructor-schedule";
 
 /** Список инструкторов меняется при редактировании профиля — не кэшируем ответ CDN/браузером. */
 export const dynamic = "force-dynamic";
@@ -41,6 +42,15 @@ const querySchema = z
       .regex(/^\d{4}-\d{2}-\d{2}$/)
       .optional(),
     lessonDays: z.coerce.number().int().min(1).max(30).optional().default(1),
+    lessonStartTime: z
+      .string()
+      .regex(/^\d{2}:\d{2}$/)
+      .optional(),
+    lessonEndTime: z
+      .string()
+      .regex(/^\d{2}:\d{2}$/)
+      .optional(),
+    lessonTimeZoneOffsetMinutes: z.coerce.number().int().min(-840).max(840).optional(),
     /** Показать одобренных инструкторов, даже офлайн; слоты по дням недели не фильтруем. */
     includeOffline: z
       .enum(["0", "1", "true", "false"])
@@ -86,6 +96,9 @@ export async function GET(req: Request) {
     lessonEndDate,
     lessonDays,
     includeOffline,
+    lessonStartTime,
+    lessonEndTime,
+    lessonTimeZoneOffsetMinutes,
   } = parsed.data;
 
   const skillLabel = skillLevel ? SKILL_LEVEL_TO_LABEL[skillLevel] : null;
@@ -202,16 +215,6 @@ export async function GET(req: Request) {
         x.hasLanguage &&
         x.hasSpecialization,
     )
-    .map(
-      ({
-        hasAvailabilityForSelectedDate: _unused,
-        hasSkillLevel: _unused2,
-        hasDuration: _unused3,
-        hasLanguage: _unused4,
-        hasSpecialization: _unused5,
-        ...rest
-      }) => rest,
-    )
     .sort((a, b) => {
       if (a.isOnline !== b.isOnline) return a.isOnline ? -1 : 1;
       const dist = a.distanceKm - b.distanceKm;
@@ -221,8 +224,41 @@ export async function GET(req: Request) {
       return b.reviewCount - a.reviewCount;
     });
 
+  let instructorsOut = withDistance.map(
+    ({
+      hasAvailabilityForSelectedDate: _unused,
+      hasSkillLevel: _unused2,
+      hasDuration: _unused3,
+      hasLanguage: _unused4,
+      hasSpecialization: _unused5,
+      ...rest
+    }) => rest,
+  );
+
+  if (
+    lessonDate &&
+    lessonStartTime &&
+    lessonEndTime &&
+    duration
+  ) {
+    const available: typeof instructorsOut = [];
+    for (const instr of instructorsOut) {
+      const conflict = await findInstructorScheduleConflict({
+        instructorId: instr.id,
+        lessonDate,
+        lessonEndDate: lessonEndDate ?? lessonDate,
+        lessonStartTime,
+        lessonEndTime,
+        duration,
+        lessonTimeZoneOffsetMinutes: lessonTimeZoneOffsetMinutes ?? 0,
+      });
+      if (!conflict) available.push(instr);
+    }
+    instructorsOut = available;
+  }
+
   return NextResponse.json(
-    { instructors: withDistance },
+    { instructors: instructorsOut },
     {
       headers: {
         "Cache-Control": "private, no-store, max-age=0",

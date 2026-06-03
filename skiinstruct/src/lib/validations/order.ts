@@ -44,6 +44,11 @@ export const createOrderSchema = z
     lessonStartTime: optionalClockHm,
     /** Время окончания в день окончания (ЧЧ:ММ). */
     lessonEndTime: optionalClockHm,
+    /** Смещение часового пояса клиента в минутах (Date#getTimezoneOffset). */
+    lessonTimeZoneOffsetMinutes: z.preprocess(
+      (v) => (v === null || v === undefined || v === "" ? undefined : v),
+      z.coerce.number().int().min(-840).max(840).optional(),
+    ),
     resortId: z.preprocess(
       (v) => (v === null || v === undefined || v === "" ? undefined : v),
       z.string().cuid().optional(),

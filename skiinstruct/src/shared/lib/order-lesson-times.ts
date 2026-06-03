@@ -5,9 +5,6 @@
 export const LESSON_TIMES_IN_NOTES =
   /Время:\s*с\s*(\d{2}:\d{2})\s*\(день начала\)\s*до\s*(\d{2}:\d{2})\s*\(день окончания\)/;
 
-/** Подпись у блока времени заявки (ETA при принятии). */
-export const ORDER_LESSON_ARRIVAL_HINT = "Минимальное время прибытия — до 1 ч";
-
 export function hasLessonTimeWindowInNotes(notes: string | null | undefined): boolean {
   return LESSON_TIMES_IN_NOTES.test(notes ?? "");
 }
@@ -62,6 +59,10 @@ export function orderLessonActualTimeLine(order: {
   requestedEndDate?: Date | string | null;
   notes?: string | null;
 }): string | null {
+  const m = (order.notes ?? "").match(LESSON_TIMES_IN_NOTES);
+  if (m) {
+    return `Время заявки: ${m[1]} — ${m[2]}`;
+  }
   if (order.requestedStartDate) {
     const startHm = formatLessonClockHm(order.requestedStartDate);
     if (order.requestedEndDate) {
@@ -78,9 +79,7 @@ export function orderLessonActualTimeLine(order: {
     }
     return `Время заявки: ${startHm}`;
   }
-  const m = (order.notes ?? "").match(LESSON_TIMES_IN_NOTES);
-  if (!m) return null;
-  return `Время заявки: ${m[1]} — ${m[2]}`;
+  return null;
 }
 
 /** @deprecated Используйте {@link orderLessonActualTimeLine}; оставлено для совместимости уведомлений. */

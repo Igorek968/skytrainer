@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { playInstructorOrderBeep } from "@/features/instructor/instructor-order-beep";
-import { devPollInterval } from "@/lib/query-poll";
+import { instructorAlertPollInterval } from "@/lib/query-poll";
 import { isInLessonStartPopupWindow } from "@/shared/lib/order-lesson-start";
 import { OrderLessonTimeBlock } from "@/shared/ui/order-lesson-time-block";
 import { orderRelaxedInstructorTiming } from "@/shared/lib/order-flex";
@@ -51,7 +51,9 @@ export function InstructorLessonSoonPrompt() {
       if (!r.ok) throw new Error("orders-alerts");
       return r.json() as Promise<{ orders: SoonOrderRow[] }>;
     },
-    refetchInterval: devPollInterval(5000),
+    refetchInterval: instructorAlertPollInterval(5000),
+    refetchIntervalInBackground: true,
+    refetchOnWindowFocus: true,
   });
 
   const soonOrders =

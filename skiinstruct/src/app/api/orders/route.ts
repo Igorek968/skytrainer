@@ -6,10 +6,14 @@ import { Prisma } from "@prisma/client";
 import { isApiErrorResponse, requireAuthSession, requireClientSession } from "@/lib/api-session";
 import { prisma } from "@/lib/prisma";
 import { assertClientHasNoOtherActiveOrder } from "@/lib/services/client-active-order";
+import { findInstructorScheduleConflict } from "@/lib/services/instructor-schedule";
 import { prepareInstructorQueue, processExpiredPendingOrders } from "@/lib/services/instructor-routing";
 import { canonicalizeActivityLabel } from "@/lib/services/instructor-match";
 import { createOrderSchema } from "@/lib/validations/order";
 import { mergeMeetAddressToNotes } from "@/shared/lib/order-meet-address";
+import { inferLessonDurationFromBillableHours } from "@/shared/lib/order-duration";
+import { parseWallDateTime } from "@/shared/lib/lesson-wall-datetime";
+import { resolveBillableHours } from "@/shared/lib/order-billing-hours";
 
 /** Счёт календарных дней по YYYY-MM-DD в UTC полдень (без сдвига из‑за DST у полуночи). */
 function calendarSpanDaysInclusive(startIso: string, endIso: string): number {
@@ -24,14 +28,6 @@ function calendarSpanDaysInclusive(startIso: string, endIso: string): number {
   if (t0 == null || t1 == null) return 1;
   const span = Math.floor((t1 - t0) / 86_400_000) + 1;
   return Math.min(30, Math.max(1, span));
-}
-
-function parseWallDateTime(ymd: string, hm: string): Date | null {
-  const y = ymd.trim();
-  const t = hm.trim();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(y) || !/^\d{2}:\d{2}$/.test(t)) return null;
-  const d = new Date(`${y}T${t}:00`);
-  return Number.isFinite(d.getTime()) ? d : null;
 }
 
 /** Prisma strictUndefinedChecks / сериализация: явный `undefined` в `data` иногда даёт PrismaClientValidationError. */
@@ -119,6 +115,7 @@ export async function POST(req: Request) {
     flexibleInstructorInvite,
     lessonStartTime: lessonStartTimeRaw,
     lessonEndTime: lessonEndTimeRaw,
+    lessonTimeZoneOffsetMinutes,
   } =
     parsed.data;
 
@@ -137,12 +134,16 @@ export async function POST(req: Request) {
     return Math.min(30, Math.max(1, n));
   })();
 
+  const tzOffset = Number.isFinite(lessonTimeZoneOffsetMinutes)
+    ? Number(lessonTimeZoneOffsetMinutes)
+    : 0;
+
   let requestedStartDate: Date | null = null;
   let requestedEndDate: Date | null = null;
   if (lessonDate) {
     const endYmd = lessonEndDate ?? lessonDate;
-    const startDt = parseWallDateTime(lessonDate, lessonStartTime);
-    const endDt = parseWallDateTime(endYmd, lessonEndTime);
+    const startDt = parseWallDateTime(lessonDate, lessonStartTime, tzOffset);
+    const endDt = parseWallDateTime(endYmd, lessonEndTime, tzOffset);
     if (!startDt || !endDt) {
       return NextResponse.json({ error: "Некорректная дата или время урока." }, { status: 400 });
     }
@@ -188,6 +189,35 @@ export async function POST(req: Request) {
     );
   }
 
+  const billableHours =
+    requestedStartDate && requestedEndDate
+      ? resolveBillableHours({
+          duration: duration as LessonDuration,
+          requestedStartDate,
+          requestedEndDate,
+          notes: notesWithLessonDate,
+        })
+      : null;
+  const durationForOrder =
+    billableHours != null
+      ? (inferLessonDurationFromBillableHours(billableHours) ?? (duration as LessonDuration))
+      : (duration as LessonDuration);
+
+  if (instructorId && lessonDate) {
+    const conflict = await findInstructorScheduleConflict({
+      instructorId,
+      lessonDate,
+      lessonEndDate: lessonEndDate ?? lessonDate,
+      lessonStartTime,
+      lessonEndTime,
+      duration: durationForOrder,
+      lessonTimeZoneOffsetMinutes: tzOffset,
+    });
+    if (conflict) {
+      return NextResponse.json({ error: conflict.message, code: "SCHEDULE_CONFLICT" }, { status: 409 });
+    }
+  }
+
   const meetLatN = safeCoord(meetLat, -90, 90);
   const meetLngN = safeCoord(meetLng, -180, 180);
   if (meetLatN == null || meetLngN == null) {
@@ -220,7 +250,7 @@ export async function POST(req: Request) {
     meetAddress,
     skillLevel: skillLevel as SkillLevel,
     languagePref: languagePref.trim(),
-    duration: duration as LessonDuration,
+    duration: durationForOrder,
     notes: notesFinal,
     disciplineLabel: disciplineLabelRaw?.trim()
       ? canonicalizeActivityLabel(disciplineLabelRaw.trim()) || undefined

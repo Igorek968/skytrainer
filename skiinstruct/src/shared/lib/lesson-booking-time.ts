@@ -1,6 +1,7 @@
 import type { LessonDuration } from "@prisma/client";
 
 import { durationHours } from "@/lib/pricing";
+import { billableHoursFromLessonWallWindow } from "@/shared/lib/lesson-wall-datetime";
 import { lessonDurationLabelRu } from "@/shared/lib/order-duration";
 
 /** Минимальный запас до начала занятия при заказе «на сегодня». */
@@ -102,7 +103,16 @@ export function buildLessonBookingPreview(input: {
     scheduleLine = `${dateRu} ${startHm} — ${endDateRu} ${endHm} (${input.lessonDays} дн.)`;
   }
 
-  const tariffLine = `Тариф для оплаты: ${lessonDurationLabelRu(input.duration)}`;
+  const billable =
+    billableHoursFromLessonWallWindow({
+      lessonDate: input.lessonDate,
+      lessonEndDate: input.lessonEndDate,
+      lessonStartTime: startHm,
+      lessonEndTime: endHm,
+    }) ?? durationHours(input.duration);
+  const hoursLabel =
+    billable % 1 === 0 ? `${billable} ч` : `${billable.toLocaleString("ru-RU")} ч`;
+  const tariffLine = `К оплате по окну времени: ${hoursLabel}`;
 
   const now = input.now ?? new Date();
   const leadLine =

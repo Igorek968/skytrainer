@@ -5,9 +5,9 @@ import { durationHours } from "@/lib/pricing";
 import { sendWebPushToUser } from "@/lib/push-web";
 
 const MS = 1_000;
-/** Окно «за минуту до начала»: старт через 55–80 с от текущего момента (cron ~1 раз в минуту). */
-const START_REMINDER_MIN_MS = 55 * MS;
-const START_REMINDER_MAX_MS = 80 * MS;
+/** Окно «за час до начала»: старт через 55–61 мин от текущего момента (cron ~1 раз в минуту). */
+const START_REMINDER_MIN_MS = 55 * 60 * MS;
+const START_REMINDER_MAX_MS = 61 * 60 * MS;
 
 /** Напоминание о завершении: с планового конца урока до +20 мин, один раз. */
 const END_GRACE_AFTER_MS = 20 * 60 * MS;
@@ -18,7 +18,7 @@ function expectedLessonEndMs(startedAt: Date, duration: LessonDuration): number 
 }
 
 /**
- * Напоминания Web Push: за ~1 мин до requestedStartDate; после планового конца урока — «нажмите завершить».
+ * Напоминания Web Push: за ~1 час до requestedStartDate; после планового конца урока — «нажмите завершить».
  */
 export async function processLessonPushReminders(): Promise<{
   startReminders: number;
@@ -54,7 +54,7 @@ export async function processLessonPushReminders(): Promise<{
       : "";
     const payload = {
       title: "Скоро начало урока",
-      body: `Через около минуты начало занятия (${startLabel}). Откройте заказ.`,
+      body: `Через ~1 час начало занятия (${startLabel}). Откройте заказ.`,
       tag: `lesson-start-${o.id}`,
     };
     const r1 = await sendWebPushToUser(o.clientId, {

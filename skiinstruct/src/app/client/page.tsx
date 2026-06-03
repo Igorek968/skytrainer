@@ -40,7 +40,10 @@ import type { LessonDuration } from "@prisma/client";
 import {
   buildLessonBookingPreview,
   defaultLessonTimeWindow,
+  earliestBookableStartHm,
   lessonEndHmFromStartAndDuration,
+  LESSON_BOOKING_MIN_LEAD_MINUTES,
+  localTodayYmd,
   minutesToHm,
 } from "@/shared/lib/lesson-booking-time";
 import { lessonDurationLabelRu } from "@/shared/lib/order-duration";
@@ -475,7 +478,12 @@ export default function ClientHomePage() {
 
   const center = useMemo(() => [meetLat, meetLng] as [number, number], [meetLat, meetLng]);
 
-  const todayIso = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const todayIso = useMemo(() => localTodayYmd(), []);
+  const tomorrowIso = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    return localTodayYmd(d);
+  }, []);
   const maxLessonIso = useMemo(() => {
     const d = new Date();
     d.setFullYear(d.getFullYear() + 2);
@@ -503,6 +511,8 @@ export default function ClientHomePage() {
   } | null>(null);
   const [showAdvancedParams, setShowAdvancedParams] = useState(false);
   const [personalOpen, setPersonalOpen] = useState(false);
+  const [scheduleConflictOpen, setScheduleConflictOpen] = useState(false);
+  const [scheduleConflictMessage, setScheduleConflictMessage] = useState("");
   /** Запись на дату: в списке — и офлайн; после оплаты у инструктора нет таймера 60 с. */
   const [flexibleOfflineBooking, setFlexibleOfflineBooking] = useState(false);
   const [instructorNameQuery, setInstructorNameQuery] = useState("");
@@ -513,6 +523,17 @@ export default function ClientHomePage() {
     window.addEventListener("skiinstruct:open-personal", onOpenPersonal);
     return () => window.removeEventListener("skiinstruct:open-personal", onOpenPersonal);
   }, []);
+
+  /** Быстрый поиск — сегодня; блок «Даты…» (заявка не день в день) — по умолчанию завтра. */
+  useEffect(() => {
+    if (!showAdvancedParams) {
+      setLessonDate(todayIso);
+      setLessonEndDate(todayIso);
+      return;
+    }
+    setLessonDate((d) => (d <= todayIso ? tomorrowIso : d));
+    setLessonEndDate((d) => (d <= todayIso ? tomorrowIso : d));
+  }, [showAdvancedParams, todayIso, tomorrowIso]);
 
   const lessonDays = useMemo(() => {
     const start = new Date(`${lessonDate}T00:00:00`);
@@ -525,11 +546,13 @@ export default function ClientHomePage() {
     () => flexibleOfflineBooking || lessonDate > todayIso || lessonDays > 1,
     [flexibleOfflineBooking, lessonDate, todayIso, lessonDays],
   );
-  const initialLessonWindow = useMemo(() => defaultLessonTimeWindow(undefined, "TWO_HOURS"), []);
-  const [lessonStartTime, setLessonStartTime] = useState(initialLessonWindow.start);
-  const [lessonEndTime, setLessonEndTime] = useState(initialLessonWindow.end);
+  // SSR/CSR must render identical initial clock values to avoid hydration mismatch.
+  const [lessonStartTime, setLessonStartTime] = useState("10:00");
+  const [lessonEndTime, setLessonEndTime] = useState("12:00");
   const [startTimeZoneHint, setStartTimeZoneHint] = useState<string | null>(null);
-  const userTimeZone = useMemo(() => Intl.DateTimeFormat().resolvedOptions().timeZone, []);
+  const [userTimeZone, setUserTimeZone] = useState("местное время");
+  /** Только на клиенте — иначе SSR (UTC) и браузер (MSK) дают разный текст и ломают hydration. */
+  const [todayLeadLine, setTodayLeadLine] = useState<string | null>(null);
   const isOutdoorTour = specializationPref.includes("Пешие туры") || specializationPref.includes("Маунтибайк");
 
   const lessonDuration = duration as LessonDuration;
@@ -545,6 +568,10 @@ export default function ClientHomePage() {
     );
   };
 
+  useEffect(() => {
+    setUserTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone || "местное время");
+  }, []);
+
   const applyCurrentLessonStartTime = () => {
     const nowHm = currentLocalTimeHm();
     setLessonStartTime(nowHm);
@@ -552,18 +579,59 @@ export default function ClientHomePage() {
     refreshStartTimeZoneHint();
   };
 
-  const bookingPreview = useMemo(
+  useEffect(() => {
+    const nowWindow = defaultLessonTimeWindow(undefined, "TWO_HOURS");
+    setLessonStartTime(nowWindow.start);
+    setLessonEndTime(nowWindow.end);
+  }, []);
+
+  const nearbyLessonDate = showAdvancedParams ? lessonDate : todayIso;
+  const nearbyLessonEndDate = showAdvancedParams ? lessonEndDate : todayIso;
+  const nearbyLessonDays = showAdvancedParams ? lessonDays : 1;
+
+  useEffect(() => {
+    const activeDate = showAdvancedParams ? lessonDate : todayIso;
+    if (activeDate === localTodayYmd()) {
+      setTodayLeadLine(
+        `Сегодня ближайшее начало — с ${earliestBookableStartHm()} (не раньше чем через ${LESSON_BOOKING_MIN_LEAD_MINUTES} мин).`,
+      );
+    } else {
+      setTodayLeadLine(null);
+    }
+  }, [showAdvancedParams, lessonDate, todayIso]);
+
+  const nearbyRelaxed = useMemo(
+    () =>
+      showAdvancedParams &&
+      (flexibleOfflineBooking || lessonDate > todayIso || lessonDays > 1),
+    [showAdvancedParams, flexibleOfflineBooking, lessonDate, todayIso, lessonDays],
+  );
+
+  const quickSearchPreview = useMemo(
     () =>
       buildLessonBookingPreview({
-        lessonDate,
-        lessonEndDate,
+        lessonDate: showAdvancedParams ? lessonDate : todayIso,
+        lessonEndDate: showAdvancedParams ? lessonEndDate : todayIso,
         lessonStartTime,
         lessonEndTime,
-        lessonDays,
+        lessonDays: showAdvancedParams ? lessonDays : 1,
         duration: lessonDuration,
       }),
-    [lessonDate, lessonEndDate, lessonStartTime, lessonEndTime, lessonDays, lessonDuration],
+    [
+      showAdvancedParams,
+      lessonDate,
+      lessonEndDate,
+      lessonDays,
+      todayIso,
+      lessonStartTime,
+      lessonEndTime,
+      lessonDuration,
+    ],
   );
+
+  const nearbyLessonStartTime = normalizeHm(lessonStartTime);
+  const nearbyLessonEndTime = normalizeHm(lessonEndTime);
+  const nearbyTzOffset = new Date().getTimezoneOffset();
 
   const { data, isLoading, error, refetch, dataUpdatedAt } = useQuery({
     queryKey: [
@@ -574,15 +642,19 @@ export default function ClientHomePage() {
       languagePref,
       specializationPref,
       duration,
-      lessonDate,
-      lessonEndDate,
-      lessonDays,
-      isRelaxedLessonBooking,
+      nearbyLessonDate,
+      nearbyLessonEndDate,
+      nearbyLessonDays,
+      nearbyRelaxed,
+      nearbyLessonStartTime,
+      nearbyLessonEndTime,
+      nearbyTzOffset,
     ],
     queryFn: async () => {
-      const offline = isRelaxedLessonBooking ? "&includeOffline=1" : "";
+      const offline = nearbyRelaxed ? "&includeOffline=1" : "";
+      const timeParams = `&lessonStartTime=${encodeURIComponent(nearbyLessonStartTime)}&lessonEndTime=${encodeURIComponent(nearbyLessonEndTime)}&lessonTimeZoneOffsetMinutes=${nearbyTzOffset}`;
       const r = await fetch(
-        `/api/instructors/nearby?lat=${meetLat}&lng=${meetLng}&skillLevel=${skillLevel}&languagePref=${encodeURIComponent(languagePref)}&specialization=${encodeURIComponent(specializationPref)}&duration=${duration}&lessonDate=${lessonDate}&lessonEndDate=${lessonEndDate}&lessonDays=${lessonDays}${offline}`,
+        `/api/instructors/nearby?lat=${meetLat}&lng=${meetLng}&skillLevel=${skillLevel}&languagePref=${encodeURIComponent(languagePref)}&specialization=${encodeURIComponent(specializationPref)}&duration=${duration}&lessonDate=${nearbyLessonDate}&lessonEndDate=${nearbyLessonEndDate}&lessonDays=${nearbyLessonDays}${timeParams}${offline}`,
         { cache: "no-store" },
       );
       if (!r.ok) throw new Error("nearby");
@@ -695,19 +767,20 @@ export default function ClientHomePage() {
       duration,
       notes: mergedNotes || undefined,
       disciplineLabel: specializationPref,
-      lessonDate,
-      lessonEndDate,
-      lessonDays,
+      lessonDate: showAdvancedParams ? lessonDate : todayIso,
+      lessonEndDate: showAdvancedParams ? lessonEndDate : todayIso,
+      lessonDays: showAdvancedParams ? lessonDays : 1,
       lessonStartTime: (() => {
         const m = lessonStartTime.trim().match(/^(\d{2}:\d{2})/);
         return m ? m[1] : lessonStartTime;
       })(),
       lessonEndTime: (() => {
-        const startHm = lessonStartTime.trim().match(/^(\d{2}:\d{2})/)?.[1] ?? lessonStartTime;
-        return lessonEndHmFromStartAndDuration(startHm, duration as LessonDuration);
+        const m = lessonEndTime.trim().match(/^(\d{2}:\d{2})/);
+        return m ? m[1] : lessonEndTime;
       })(),
+      lessonTimeZoneOffsetMinutes: new Date().getTimezoneOffset(),
       instructorId,
-      flexibleInstructorInvite: isRelaxedLessonBooking,
+      flexibleInstructorInvite: nearbyRelaxed,
     });
 
     const doPost = () =>
@@ -752,6 +825,11 @@ export default function ClientHomePage() {
           typeof err === "string"
             ? err
             : fallback || "Не удалось создать заказ";
+        if (res.status === 409) {
+          setScheduleConflictMessage(msg);
+          setScheduleConflictOpen(true);
+          return null;
+        }
         toast.error(msg);
         return null;
       }
@@ -991,19 +1069,25 @@ export default function ClientHomePage() {
               aria-live="polite"
             >
               <p className="font-medium text-foreground">На что вы подписываетесь</p>
-              <p className="mt-1 text-foreground">{bookingPreview.scheduleLine}</p>
+              <p className="mt-1 text-foreground">{quickSearchPreview.scheduleLine}</p>
               <p className="mt-1 text-muted-foreground">
-                Длительность тренировки: <strong>{lessonDurationLabelRu(lessonDuration)}</strong>
-                {lessonDate === lessonEndDate ? (
+                {showAdvancedParams ? (
                   <>
-                    {" "}
-                    · начало в <strong>{normalizeHm(lessonStartTime)}</strong>
+                    Окно занятия: <strong>{normalizeHm(lessonStartTime)}</strong>
+                    {" — "}
+                    <strong>{normalizeHm(lessonEndTime)}</strong>
                   </>
-                ) : null}
+                ) : (
+                  <>
+                    Длительность: <strong>{lessonDurationLabelRu(lessonDuration)}</strong>
+                    {" "}
+                    · начало <strong>{normalizeHm(lessonStartTime)}</strong>
+                  </>
+                )}
               </p>
-              <p className="mt-2 text-xs text-muted-foreground">{bookingPreview.tariffLine}</p>
-              {bookingPreview.leadLine ? (
-                <p className="mt-1 text-xs text-muted-foreground">{bookingPreview.leadLine}</p>
+              <p className="mt-2 text-xs text-muted-foreground">{quickSearchPreview.tariffLine}</p>
+              {todayLeadLine ? (
+                <p className="mt-1 text-xs text-muted-foreground">{todayLeadLine}</p>
               ) : null}
             </div>
             <Button
@@ -1123,9 +1207,9 @@ export default function ClientHomePage() {
         <Card id={CLIENT_SECTION_IDS.nearbyInstructors} className="scroll-mt-24">
           <CardHeader className="flex flex-row items-start justify-between gap-3">
             <div>
-              <CardTitle>{isRelaxedLessonBooking ? "Инструкторы" : "Инструкторы рядом"}</CardTitle>
+              <CardTitle>{nearbyRelaxed ? "Инструкторы" : "Инструкторы рядом"}</CardTitle>
               <CardDescription className="max-w-xl">
-                {isRelaxedLessonBooking
+                {nearbyRelaxed
                   ? "Включая офлайн; на карте — только с координатами."
                   : "Сегодня в списке только инструкторы «на линии»; данные обновляются каждые ~12 с."}
               </CardDescription>
@@ -1163,7 +1247,7 @@ export default function ClientHomePage() {
             ) : !data?.instructors.length ? (
               <p className="text-sm text-muted-foreground">
                 Нет подходящих инструкторов: совпадение по направлению, уровню и длительности.
-                {isRelaxedLessonBooking
+                {nearbyRelaxed
                   ? " Сдвиньте маркер встречи или ослабьте фильтры."
                   : " На сегодня показываются только инструкторы «на линии» (до ~100 км). Выберите дату позже или включите «Запись на дату» — тогда появятся и офлайн."}
               </p>
@@ -1351,6 +1435,30 @@ export default function ClientHomePage() {
           return postOrder(id);
         }}
       />
+
+      {scheduleConflictOpen ? (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4"
+          role="alertdialog"
+          aria-modal="true"
+          aria-labelledby="schedule-conflict-title"
+        >
+          <div className="w-full max-w-md rounded-lg border border-destructive/40 bg-background p-5 shadow-lg">
+            <h2 id="schedule-conflict-title" className="text-lg font-semibold text-destructive">
+              Часы заняты
+            </h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              {scheduleConflictMessage ||
+                "На выбранную дату и время у инструктора уже есть запись. Поменяйте часы тренировки."}
+            </p>
+            <div className="mt-4 flex justify-end">
+              <Button type="button" onClick={() => setScheduleConflictOpen(false)}>
+                Понятно
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {previewUrl ? (
         <div

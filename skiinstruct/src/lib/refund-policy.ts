@@ -51,6 +51,17 @@ export function computeCancelRefundQuote(params: {
     return { percent: 100, reason: "Техническая отмена — полный возврат" };
   }
 
+  // Новая логика: после принятия инструктором заявка невозвратная для клиента.
+  if (
+    params.cancelledBy === "CLIENT" &&
+    (params.status === "ACCEPTED" ||
+      params.status === "INSTRUCTOR_EN_ROUTE" ||
+      params.status === "LESSON_STARTED" ||
+      params.status === "COMPLETED")
+  ) {
+    return { percent: 0, reason: "После принятия инструктором заказ невозвратный" };
+  }
+
   const lessonStart = getLessonStartAt({
     requestedStartDate: params.requestedStartDate,
     acceptedAt: params.acceptedAt,

@@ -6,13 +6,17 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { CalendarDays, Plus, Star, Trash2, X } from "lucide-react";
+import { Star, X } from "lucide-react";
 import type { OrderStatus } from "@prisma/client";
 
 import { useThrottledInstructorLocation } from "@/features/geolocation/use-throttled-instructor-location";
 import { devPollInterval } from "@/lib/query-poll";
 import { InstructorComplianceCard } from "@/features/instructor/instructor-compliance-card";
 import { InstructorEventsEditor } from "@/features/instructor/instructor-events-editor";
+import {
+  InstructorWeekScheduleCalendar,
+  type AvailabilitySlot,
+} from "@/features/instructor/instructor-week-schedule-calendar";
 import { SpecializationOffersEditor } from "@/features/instructor/specialization-offers-editor";
 import { isAutoInstructorLabel, validateDrivingSchoolDetails } from "@/lib/auto-instructor-offer";
 import {
@@ -23,7 +27,6 @@ import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
-import { Skeleton } from "@/shared/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { INSTRUCTOR_ACTIVITY_LABELS } from "@/lib/services/instructor-match";
 
@@ -77,17 +80,8 @@ const SERVICE_OPTIONS = [
   "Фотосъёмка на склоне",
 ];
 const DURATION_OPTIONS = ["1 ч", "1.5 ч", "2 ч", "Полдня", "День"];
-const FULL_DAY_LABELS = [
-  "Воскресенье",
-  "Понедельник",
-  "Вторник",
-  "Среда",
-  "Четверг",
-  "Пятница",
-  "Суббота",
-];
-
 const INSTRUCTOR_PANEL_SECTIONS = [
+  { id: "lesson-schedule", label: "Календарь" },
   { id: "profile", label: "Профиль инструктора" },
   { id: "events", label: "Мероприятия" },
   { id: "compliance", label: "Соответствие и выплаты" },
@@ -98,8 +92,6 @@ const INSTRUCTOR_PANEL_SECTIONS = [
 function scrollToInstructorSection(sectionId: string) {
   document.getElementById(sectionId)?.scrollIntoView({ behavior: "smooth", block: "start" });
 }
-
-type AvailabilitySlot = { day: number; from: string; to: string; busy?: boolean };
 
 type ProfileField =
   | "certificationLevel"
@@ -895,50 +887,20 @@ export default function InstructorHomePage() {
         ))}
       </nav>
 
-      <Card id="availability" className="scroll-mt-24">
-        <CardHeader>
-          <CardTitle>Доступность</CardTitle>
-          <CardDescription>
-            Онлайн — вы видны клиентам в «Инструкторы рядом» и на карте (нужна одобренная анкета и геолокация в
-            браузере). Документы соответствия нужны для платных заказов, не для переключения доступности.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-wrap items-center gap-3">
-          {isLoading && data == null && online == null ? (
-            <Skeleton className="h-10 w-40" />
-          ) : (
-            <>
-              <Button
-                type="button"
-                variant={effectiveOnline ? "default" : "outline"}
-                onClick={() => toggle.mutate(!effectiveOnline)}
-                disabled={
-                  toggle.isPending ||
-                  (!effectiveOnline && data?.verificationStatus !== "APPROVED")
-                }
-                aria-pressed={effectiveOnline}
-              >
-                {effectiveOnline ? "Онлайн" : "Офлайн"}
-              </Button>
-              {data?.verificationStatus === "PENDING" ? (
-                <p className="text-sm text-amber-800 dark:text-amber-200">
-                  Анкета на проверке — «Онлайн» станет доступен после одобрения администратором.
-                </p>
-              ) : data?.verificationStatus === "REJECTED" ? (
-                <p className="text-sm text-destructive">
-                  Анкета отклонена — исправьте профиль и дождитесь повторного одобрения.
-                </p>
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  {effectiveOnline
-                    ? "Разрешите геолокацию в браузере — координаты обновляются каждые ~30 с, пока вы на линии."
-                    : "Нажмите «Офлайн», чтобы выйти на линию. Браузер запросит геолокацию — без неё клиенты не увидят вас рядом."}
-                </p>
-              )}
-            </>
-          )}
-        </CardContent>
-      </Card>
+      <InstructorWeekScheduleCalendar
+        availabilitySlots={availabilitySlots}
+        availabilityError={fieldErrors.availabilityRaw}
+        onAddSlotForDay={addSlotForDay}
+        onUpdateSlot={updateSlot}
+        onRemoveSlot={removeSlot}
+        onFillWeekdays={fillWeekdays}
+        onClearSlots={() => setAvailabilitySlots([])}
+        effectiveOnline={effectiveOnline}
+        toggleOnlinePending={toggle.isPending}
+        onToggleOnline={() => toggle.mutate(!effectiveOnline)}
+        verificationStatus={data?.verificationStatus}
+        loadingOnlineState={isLoading && data == null && online == null}
+      />
 
       <Card id="profile" className="scroll-mt-24 bg-gradient-to-br from-sky-50/70 to-background dark:from-slate-900">
         <CardHeader>
@@ -1238,100 +1200,6 @@ export default function InstructorHomePage() {
                   placeholder="ISIA Level 3, стаж 12 лет, работал в Швейцарии..."
                 />
               </div>
-              <div className="space-y-3">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <Label>Календарь доступности</Label>
-                  <div className="flex gap-2">
-                    <Button type="button" size="sm" variant="outline" onClick={fillWeekdays}>
-                      Будни 09:00-18:00
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setAvailabilitySlots([])}
-                    >
-                      Очистить
-                    </Button>
-                  </div>
-                </div>
-                <div
-                  className={cn(
-                    "grid gap-2 rounded-md border border-border p-3 md:grid-cols-2 xl:grid-cols-7",
-                    fieldErrors.availabilityRaw && "border-destructive"
-                  )}
-                >
-                  {FULL_DAY_LABELS.map((dayLabel, day) => {
-                    const daySlots = availabilitySlots
-                      .map((slot, index) => ({ slot, index }))
-                      .filter(({ slot }) => slot.day === day);
-                    return (
-                      <div key={dayLabel} className="rounded-md border border-border bg-muted/20 p-2">
-                        <div className="mb-2 flex items-center justify-between gap-2">
-                          <p className="inline-flex items-center gap-1 text-xs font-medium">
-                            <CalendarDays className="h-3.5 w-3.5" />
-                            {dayLabel}
-                          </p>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => addSlotForDay(day)}
-                          >
-                            <Plus className="mr-1 h-3.5 w-3.5" />
-                            Слот
-                          </Button>
-                        </div>
-                        <div className="space-y-2">
-                          {!daySlots.length ? (
-                            <p className="text-xs text-muted-foreground">Нет свободных интервалов</p>
-                          ) : (
-                            daySlots.map(({ slot, index }) => (
-                              <div key={`${day}-${index}`} className="rounded border border-border bg-background p-2">
-                                <div className="grid grid-cols-[1fr_1fr_auto] items-end gap-2">
-                                  <div className="space-y-1">
-                                    <Label className="text-[11px] text-muted-foreground">С</Label>
-                                    <Input
-                                      type="time"
-                                      value={slot.from}
-                                      onChange={(e) => updateSlot(index, { from: e.target.value })}
-                                    />
-                                  </div>
-                                  <div className="space-y-1">
-                                    <Label className="text-[11px] text-muted-foreground">До</Label>
-                                    <Input
-                                      type="time"
-                                      value={slot.to}
-                                      onChange={(e) => updateSlot(index, { to: e.target.value })}
-                                    />
-                                  </div>
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => removeSlot(index)}
-                                    aria-label="Удалить интервал"
-                                  >
-                                    <Trash2 className="h-4 w-4 text-muted-foreground" />
-                                  </Button>
-                                </div>
-                              </div>
-                            ))
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-                {fieldErrors.availabilityRaw ? (
-                  <p className="text-xs text-destructive">{fieldErrors.availabilityRaw}</p>
-                ) : (
-                  <p className="text-xs text-muted-foreground">
-                    Отмечайте свободные интервалы на каждый день недели. Эти окна увидят клиенты.
-                  </p>
-                )}
-              </div>
-
               <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-muted/40 p-3 text-sm">
                 <div className="inline-flex items-center gap-1">
                   <Star className="h-4 w-4 fill-amber-400 text-amber-400" />

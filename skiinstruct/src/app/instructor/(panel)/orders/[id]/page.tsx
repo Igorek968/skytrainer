@@ -12,13 +12,7 @@ import { CancelOrderButton } from "@/features/orders/cancel-order-button";
 import { OrderEventsFeed } from "@/features/orders/order-events-feed";
 import { devPollInterval } from "@/lib/query-poll";
 import { NearbyMapLazy } from "@/features/map/map-loader";
-import {
-  orderIsFutureLessonDay,
-  orderIsTodayLessonDay,
-  orderRelaxedInstructorTiming,
-  orderSkipsInstructorEta,
-  orderSpansMultipleLessonDays,
-} from "@/shared/lib/order-flex";
+import { orderRelaxedInstructorTiming, orderSkipsInstructorEta } from "@/shared/lib/order-flex";
 import { OrderLessonTimeBlock } from "@/shared/ui/order-lesson-time-block";
 import { orderHasMeetAddress, resolveMeetAddress } from "@/shared/lib/order-meet-address";
 import { lessonDurationLabelRu, resolveOrderDisplayDuration } from "@/shared/lib/order-duration";
@@ -63,8 +57,6 @@ function InstructorOrderDetailContent({
   };
   const relaxedTiming = orderRelaxedInstructorTiming(timingInput);
   const skipsEta = orderSkipsInstructorEta(timingInput);
-  const lessonToday = orderIsTodayLessonDay(timingInput);
-  const multiDay = orderSpansMultipleLessonDays(timingInput);
 
   const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
   const [clientRating, setClientRating] = useState(5);
@@ -207,21 +199,11 @@ function InstructorOrderDetailContent({
           <div>Длительность занятия: {lessonDurationLabelRu(displayDuration)}</div>
           <div>Сумма: {safeOrder.amountTotal ? `${Number(safeOrder.amountTotal)} ₽` : "—"}</div>
           <OrderCancellationSide status={safeStatus} cancelledBy={safeOrder.cancelledBy} />
-          {safeStatus === "PENDING_INSTRUCTOR" ? (
+          {safeStatus === "PENDING_INSTRUCTOR" && !relaxedTiming ? (
             <div className="font-medium text-amber-600">
-              {relaxedTiming
-                ? safeOrder.flexibleInstructorInvite
-                  ? "Запись на дату — ответ без ограничения по времени."
-                  : lessonToday
-                    ? "Урок сегодня"
-                    : multiDay
-                      ? "Несколько дней"
-                      : orderIsFutureLessonDay({ requestedStartDate: safeOrder.requestedStartDate })
-                        ? "Урок не сегодня"
-                        : "Ответ без ограничения по времени."
-                : pendingExpiresMs == null
-                  ? "Заявка ожидает вашего решения (без автоотмены по таймеру)."
-                  : `На решение: ${secondsLeft ?? 0} сек`}
+              {pendingExpiresMs == null
+                ? "Заявка ожидает вашего решения (без автоотмены по таймеру)."
+                : `На решение: ${secondsLeft ?? 0} сек`}
             </div>
           ) : null}
         </CardContent>

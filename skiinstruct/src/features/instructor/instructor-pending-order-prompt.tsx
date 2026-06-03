@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import type { OrderStatus } from "@prisma/client";
 
 import { playInstructorOrderBeep } from "@/features/instructor/instructor-order-beep";
-import { devPollInterval } from "@/lib/query-poll";
+import { instructorAlertPollInterval } from "@/lib/query-poll";
 import {
   dismissPendingPrompt,
   readDismissedPendingPromptIds,
@@ -15,11 +15,7 @@ import {
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
-import {
-  orderRelaxedInstructorTiming,
-  orderRelaxedTimingHint,
-  orderSkipsInstructorEta,
-} from "@/shared/lib/order-flex";
+import { orderRelaxedInstructorTiming, orderSkipsInstructorEta } from "@/shared/lib/order-flex";
 import { isLongInstructorEtaMinutes, LONG_INSTRUCTOR_ETA_MINUTES } from "@/shared/lib/order-long-eta";
 import { OrderLessonTimeBlock } from "@/shared/ui/order-lesson-time-block";
 import { orderHasMeetAddress, resolveMeetAddress } from "@/shared/lib/order-meet-address";
@@ -53,6 +49,38 @@ function orderTimingInput(o: PendingOrderRow) {
   };
 }
 
+function notifyInstructorNewOrder(order: PendingOrderRow) {
+  if (typeof window === "undefined" || !("Notification" in window)) return;
+  if (Notification.permission !== "granted") return;
+  try {
+    const n = new Notification("Новая заявка от клиента", {
+      body: order.client?.name
+        ? `Клиент: ${order.client.name}. Откройте кабинет инструктора.`
+        : "Поступила новая заявка. Откройте кабинет инструктора.",
+      tag: `instructor-order-${order.id}`,
+      requireInteraction: true,
+    });
+    n.onclick = () => {
+      window.focus();
+      window.location.href = `/instructor/orders/${order.id}`;
+      n.close();
+    };
+  } catch {
+    /* ignore */
+  }
+}
+
+function pickNewPendingOrder(
+  pending: PendingOrderRow[],
+  seenIds: Set<string>,
+  dismissed: Set<string>,
+): PendingOrderRow | null {
+  const candidates = pending.filter((o) => !seenIds.has(o.id) && !dismissed.has(o.id));
+  if (candidates.length) return candidates[0]!;
+  if (seenIds.size > 0) return null;
+  return pending.find((o) => !dismissed.has(o.id)) ?? null;
+}
+
 /**
  * Всплывающее окно + звук при новой заявке PENDING_INSTRUCTOR (все страницы кабинета).
  */
@@ -75,7 +103,9 @@ export function InstructorPendingOrderPrompt() {
       if (!r.ok) throw new Error("orders-alerts");
       return r.json() as Promise<{ orders: PendingOrderRow[] }>;
     },
-    refetchInterval: devPollInterval(5000),
+    refetchInterval: instructorAlertPollInterval(5000),
+    refetchIntervalInBackground: true,
+    refetchOnWindowFocus: true,
   });
 
   useEffect(() => {
@@ -106,18 +136,24 @@ export function InstructorPendingOrderPrompt() {
     });
 
     if (!initializedRef.current) {
-      for (const p of pending) seenIdsRef.current.add(p.id);
       initializedRef.current = true;
+      const toPrompt = pickNewPendingOrder(pending, seenIdsRef.current, dismissed);
+      for (const p of pending) seenIdsRef.current.add(p.id);
+      if (toPrompt) {
+        playInstructorOrderBeep();
+        notifyInstructorNewOrder(toPrompt);
+        setPendingPromptOrderId(toPrompt.id);
+        setEtaMinutes(20);
+      }
       return;
     }
 
-    const newlySeen = pending.find(
-      (o) => !seenIdsRef.current.has(o.id) && !dismissed.has(o.id),
-    );
+    const newlySeen = pickNewPendingOrder(pending, seenIdsRef.current, dismissed);
     for (const p of pending) seenIdsRef.current.add(p.id);
 
     if (newlySeen) {
       playInstructorOrderBeep();
+      notifyInstructorNewOrder(newlySeen);
       setPendingPromptOrderId(newlySeen.id);
       setEtaMinutes(20);
     }
@@ -136,8 +172,6 @@ export function InstructorPendingOrderPrompt() {
   const longEtaPending = !skipsEta && isLongInstructorEtaMinutes(etaMinutes);
   const hasMeetPlace = activeOrder ? orderHasMeetAddress(activeOrder) : false;
   const meetPlaceLabel = activeOrder ? resolveMeetAddress(activeOrder) : null;
-
-  const relaxedHint = activeOrder ? orderRelaxedTimingHint(orderTimingInput(activeOrder)) : "";
 
   useEffect(() => {
     if (!pendingPromptOrderId) return;
@@ -241,7 +275,7 @@ export function InstructorPendingOrderPrompt() {
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-end justify-center bg-black/60 p-3 sm:items-center sm:p-4"
+      className="fixed inset-0 z-[9999] flex items-end justify-center bg-black/60 p-3 sm:items-center sm:p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="instructor-new-order-title"
@@ -290,10 +324,6 @@ export function InstructorPendingOrderPrompt() {
           ) : !relaxedTiming ? (
             <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-1 font-medium text-amber-800 dark:text-amber-200">
               На ознакомление и решение: {pendingPromptSecondsLeft ?? 0} сек
-            </div>
-          ) : relaxedHint ? (
-            <div className="rounded-md border border-sky-500/40 bg-sky-500/10 px-2 py-1 font-medium text-sky-900 dark:text-sky-200">
-              {relaxedHint}
             </div>
           ) : null}
           {activeOrder.requestedStartDate ? (

@@ -1,5 +1,4 @@
 import {
-  ORDER_LESSON_ARRIVAL_HINT,
   hasOrderLessonActualTime,
   orderLessonActualTimeLine,
 } from "@/shared/lib/order-lesson-times";
@@ -25,7 +24,6 @@ export function OrderLessonTimeBlock({
   return (
     <div className={className}>
       <div className={timeClassName}>{line}</div>
-      <p className="mt-0.5 text-xs text-muted-foreground">{ORDER_LESSON_ARRIVAL_HINT}</p>
     </div>
   );
 }

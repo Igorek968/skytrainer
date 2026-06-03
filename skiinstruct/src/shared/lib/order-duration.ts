@@ -15,7 +15,8 @@ export function lessonDurationLabelRu(duration: LessonDuration): string {
   return DURATION_LABEL_RU[duration];
 }
 
-function durationFromHours(hours: number): LessonDuration | null {
+/** Ближайший тарифный enum по фактическим часам окна занятия. */
+export function inferLessonDurationFromBillableHours(hours: number): LessonDuration | null {
   if (!Number.isFinite(hours) || hours <= 0) return null;
   if (hours >= durationHours("FULL_DAY") - 0.25) return "FULL_DAY";
   if (hours >= durationHours("HALF_DAY") - 0.25) return "HALF_DAY";
@@ -41,7 +42,7 @@ export function resolveOrderDisplayDuration(order: OrderDurationInput): LessonDu
   const rate = order.agreedHourlyRate != null ? Number(order.agreedHourlyRate) : NaN;
   const total = order.amountTotal != null ? Number(order.amountTotal) : NaN;
   if (Number.isFinite(rate) && rate > 0 && Number.isFinite(total) && total > 0) {
-    const fromPayment = durationFromHours(total / rate);
+    const fromPayment = inferLessonDurationFromBillableHours(total / rate);
     if (fromPayment) return fromPayment;
   }
 
@@ -51,7 +52,7 @@ export function resolveOrderDisplayDuration(order: OrderDurationInput): LessonDu
 
   const spanMin = orderLessonSpanMinutes(order);
   if (spanMin != null) {
-    const fromSpan = durationFromHours(spanMin / 60);
+    const fromSpan = inferLessonDurationFromBillableHours(spanMin / 60);
     if (fromSpan) return fromSpan;
   }
 

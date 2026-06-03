@@ -7,8 +7,9 @@ import {
 } from "@/lib/instructor-specialization-offers";
 import { prisma } from "@/lib/prisma";
 import { computeTotals } from "@/lib/pricing";
+import { autoAcceptOrderIfScheduled } from "@/lib/services/instructor-order-auto-accept";
 import { applyRefundForExpiredOrder } from "@/lib/services/order-refund";
-import { orderRelaxedInstructorTiming } from "@/shared/lib/order-flex";
+import { resolveBillableHours } from "@/shared/lib/order-billing-hours";
 
 /** Prisma Decimal(10,2): числа JS с плавающей точкой и NaN ломали запись. */
 function orderMoneyDecimal(value: number): Prisma.Decimal {
@@ -34,9 +35,6 @@ function hourlyRateForOrder(
     order.disciplineLabel ?? parseDisciplineFromOrderNotes(order.notes);
   return resolveHourlyRateForDiscipline(offers, discipline, fallback);
 }
-
-/** Окно на принятие, если заявка без «мягкого» режима (нет даты урока в заказе). */
-export const RESPONSE_WINDOW_MS = 60_000;
 
 function cancelledByForExpiredReason(
   reason: "timeout" | "reject" | "unavailable",
@@ -71,8 +69,8 @@ export async function assignInstructorByQueue(orderId: string, reason: "initial"
     if (!order) return null;
 
     const flexibleInvite = order.flexibleInstructorInvite === true;
-    const relaxedTiming = orderRelaxedInstructorTiming(order);
-    const requireOnline = !flexibleInvite;
+    /** Клиент уже выбрал инструктора — не требуем isOnline при оплате (день в день и запись на дату). */
+    const requireOnline = !flexibleInvite && !order.instructorId;
 
     const queue = Array.isArray(order.instructorQueue) ? (order.instructorQueue as string[]) : [];
     if (!queue.length) {
@@ -105,9 +103,15 @@ export async function assignInstructorByQueue(orderId: string, reason: "initial"
       return markOrderExpired(tx, orderId, "unavailable");
     }
 
+    const billableHours = resolveBillableHours({
+      duration: order.duration,
+      requestedStartDate: order.requestedStartDate,
+      requestedEndDate: order.requestedEndDate,
+      notes: order.notes,
+    });
     const totals = computeTotals({
       hourlyRate,
-      duration: order.duration,
+      hours: billableHours,
       platformFeePercent: 15,
     });
 
@@ -116,7 +120,6 @@ export async function assignInstructorByQueue(orderId: string, reason: "initial"
       order.amountTotal != null &&
       order.instructorShareAmount != null;
 
-    const pendingExpiresAt = relaxedTiming ? null : new Date(Date.now() + RESPONSE_WINDOW_MS);
     const updated = await tx.order.update({
       where: { id: orderId },
       data: prepaid
@@ -124,13 +127,13 @@ export async function assignInstructorByQueue(orderId: string, reason: "initial"
             instructorId: nextInstructorId,
             instructorQueueIndex: 0,
             status: "PENDING_INSTRUCTOR",
-            pendingExpiresAt,
+            pendingExpiresAt: null,
           }
         : {
             instructorId: nextInstructorId,
             instructorQueueIndex: 0,
             status: "PENDING_INSTRUCTOR",
-            pendingExpiresAt,
+            pendingExpiresAt: null,
             agreedHourlyRate: orderMoneyDecimal(hourlyRate),
             amountTotal: orderMoneyDecimal(totals.total),
             instructorShareAmount: orderMoneyDecimal(totals.instructorShare),
@@ -143,6 +146,14 @@ export async function assignInstructorByQueue(orderId: string, reason: "initial"
 
   if (result?.status === "EXPIRED") {
     await applyRefundForExpiredOrder(orderId);
+  }
+
+  if (result?.status === "PENDING_INSTRUCTOR") {
+    await autoAcceptOrderIfScheduled(orderId);
+    const accepted = await prisma.order.findUnique({ where: { id: orderId } });
+    if (accepted?.status === "ACCEPTED") {
+      return { status: "ACCEPTED" as const, order: accepted };
+    }
   }
 
   return result;
@@ -186,9 +197,15 @@ export async function prepareInstructorQueue(orderId: string): Promise<PrepareQu
     return { ok: false, reason: "NO_PROFILE" };
   }
 
+  const billableHours = resolveBillableHours({
+    duration: order.duration,
+    requestedStartDate: order.requestedStartDate,
+    requestedEndDate: order.requestedEndDate,
+    notes: order.notes,
+  });
   const totals = computeTotals({
     hourlyRate,
-    duration: order.duration,
+    hours: billableHours,
     platformFeePercent: 15,
   });
 
@@ -209,29 +226,20 @@ export async function prepareInstructorQueue(orderId: string): Promise<PrepareQu
 
 /** Cron / фон: просроченные ожидания ответа → EXPIRED и возврат при оплате. */
 export async function processExpiredPendingOrders(): Promise<number> {
-  const now = new Date();
-  const expired = await prisma.order.findMany({
+  const withDeadline = await prisma.order.findMany({
     where: {
       status: "PENDING_INSTRUCTOR",
-      pendingExpiresAt: { lt: now },
+      pendingExpiresAt: { not: null },
     },
     select: { id: true },
   });
-  let count = 0;
-  for (const row of expired) {
-    const order = await prisma.order.findUnique({ where: { id: row.id } });
-    if (!order) continue;
-    if (orderRelaxedInstructorTiming(order)) {
-      await prisma.order.update({
-        where: { id: row.id },
-        data: { pendingExpiresAt: null },
-      });
-      continue;
-    }
-    await assignInstructorByQueue(row.id, "timeout");
-    count += 1;
+  for (const row of withDeadline) {
+    await prisma.order.update({
+      where: { id: row.id },
+      data: { pendingExpiresAt: null },
+    });
   }
-  return count;
+  return 0;
 }
 
 /** Перед выдачей заказа — если дедлайн прошёл, закрыть заявку (без передачи другим). */
@@ -240,19 +248,12 @@ export async function rerouteOrderIfDeadlinePassed(orderId: string): Promise<voi
   if (!order || order.status !== "PENDING_INSTRUCTOR") {
     return;
   }
-  if (orderRelaxedInstructorTiming(order)) {
-    if (order.pendingExpiresAt != null) {
-      await prisma.order.update({
-        where: { id: orderId },
-        data: { pendingExpiresAt: null },
-      });
-    }
-    return;
+  if (order.pendingExpiresAt != null) {
+    await prisma.order.update({
+      where: { id: orderId },
+      data: { pendingExpiresAt: null },
+    });
   }
-  if (!order.pendingExpiresAt || order.pendingExpiresAt >= new Date()) {
-    return;
-  }
-  await assignInstructorByQueue(orderId, "timeout");
 }
 
 export async function loadRoutingQueueLabels(queueIds: string[]) {

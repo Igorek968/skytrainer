@@ -1,9 +1,6 @@
 /**
  * «Мягкий» ответ инструктора: без 60 с и без срочного ETA.
- * — запись на дату (flexibleInstructorInvite);
- * — бронь на несколько дней;
- * — урок в календарный день «сегодня» (день в день);
- * — урок позже «сегодня».
+ * Единая логика для день-в-день, будущих дат и записи на дату.
  */
 
 export function lessonCalendarYmd(date: Date | string | null | undefined): string | null {
@@ -57,7 +54,8 @@ export function orderSkipsInstructorEta(order: {
   flexibleInstructorInvite: boolean;
   requestedDays: number | null;
 }): boolean {
-  return order.flexibleInstructorInvite === true || orderSpansMultipleLessonDays(order);
+  void order;
+  return true;
 }
 
 /** Подпись для UI (модалка, карточка заказа). */
@@ -76,7 +74,7 @@ export function orderRelaxedTimingHint(order: {
     return "Урок сегодня — ответьте, когда будете готовы (без 60 с)";
   }
   if (orderIsFutureLessonDay(order)) {
-    return "Урок не сегодня — ответьте, когда будете готовы (без 60 с)";
+    return "Урок не сегодня — запись подтверждается автоматически после оплаты";
   }
   return "";
 }
