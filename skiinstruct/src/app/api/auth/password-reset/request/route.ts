@@ -7,6 +7,7 @@ import {
   generatePasswordResetToken,
   getPasswordResetBaseUrl,
   sha256Hex,
+  isPasswordResetEmailConfigured,
   trySendPasswordResetEmail,
 } from "@/lib/services/password-reset";
 
@@ -64,9 +65,14 @@ export async function POST(req: Request) {
   const resetLink = `${baseUrl}/reset-password?token=${encodeURIComponent(token)}`;
 
   const sent = await trySendPasswordResetEmail({ to: email, resetLink });
+  if (!sent && process.env.NODE_ENV === "production") {
+    console.error(
+      "[password-reset] письмо не отправлено: задайте SMTP_HOST, SMTP_USER, SMTP_PASSWORD (Beget) или PASSWORD_RESET_EMAIL_WEBHOOK_URL",
+    );
+  }
   const allowDebugLink =
     process.env.SKIINSTRUCT_PASSWORD_RESET_DEBUG === "1" ||
-    (process.env.NODE_ENV !== "production" && !sent);
+    (!isPasswordResetEmailConfigured() && !sent);
   const debugToken = !sent && allowDebugLink ? token : undefined;
 
   return NextResponse.json({ ok: true, sent, debugToken, resetLink: debugToken ? resetLink : undefined });

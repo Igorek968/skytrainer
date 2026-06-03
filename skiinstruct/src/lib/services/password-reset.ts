@@ -1,5 +1,13 @@
 import crypto from "crypto";
 
+import {
+  buildPasswordResetEmailContent,
+  isPasswordResetEmailConfigured,
+  passwordResetEmailDefaults,
+  sendPasswordResetEmailViaSmtp,
+  sendPasswordResetEmailViaWebhook,
+} from "@/lib/services/password-reset-email";
+
 function toBase64Url(s: string): string {
   return s.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
 }
@@ -26,41 +34,19 @@ export function getPasswordResetBaseUrl(): string {
   );
 }
 
-/**
- * Отправка email через внешний вебхук (чтобы не тащить SMTP/провайдер в код).
- *
- * Ожидается, что ваш сервис обработает POST JSON:
- * { to, subject, text, html }
- */
+/** Письмо на email пользователя: SMTP (Beget) или webhook. */
 export async function trySendPasswordResetEmail(params: {
   to: string;
   resetLink: string;
 }): Promise<boolean> {
-  const webhookUrl = process.env.PASSWORD_RESET_EMAIL_WEBHOOK_URL?.trim();
-  if (!webhookUrl) return false;
+  const { from, subject } = passwordResetEmailDefaults();
+  const { text, html } = buildPasswordResetEmailContent(params.resetLink);
+  const payload = { to: params.to, from, subject, text, html };
 
-  const subject = process.env.PASSWORD_RESET_EMAIL_SUBJECT?.trim() ?? "SkiInstruct: восстановление пароля";
-  const from = process.env.PASSWORD_RESET_EMAIL_FROM?.trim() ?? "SkiInstruct <no-reply@skiinstruct.local>";
-
-  const resetCode = params.resetLink;
-  const text = `Здравствуйте! Используйте ссылку для восстановления пароля:\n${resetCode}\n\nСсылка действительна ограниченное время.`;
-  const html = `<p>Здравствуйте!</p><p>Используйте ссылку для восстановления пароля:</p><p><a href="${resetCode}">${resetCode}</a></p><p>Ссылка действительна ограниченное время.</p>`;
-
-  try {
-    const r = await fetch(webhookUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        to: params.to,
-        from,
-        subject,
-        text,
-        html,
-      }),
-    });
-    return r.ok;
-  } catch {
-    return false;
-  }
+  if (await sendPasswordResetEmailViaSmtp(payload)) return true;
+  if (await sendPasswordResetEmailViaWebhook(payload)) return true;
+  return false;
 }
+
+export { isPasswordResetEmailConfigured };
 
