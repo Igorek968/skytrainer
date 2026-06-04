@@ -21,20 +21,26 @@ YOOKASSA_SECRET_KEY=
 SKIINSTRUCT_PUBLIC_APP_URL=https://your-domain.ru
 ```
 
-Опционально отключить mock на проде:
+На проде mock отключён в `skiinstruct/.env.production` и в корневом `.env`:
 
 ```env
 ALLOW_MOCK_CHECKOUT=0
+YOOKASSA_SHOP_ID=...
+YOOKASSA_SECRET_KEY=...
 ```
+
+**Webhook в ЛК ЮKassa:** `https://utrainer.ru/api/webhooks/yookassa`  
+**Событие:** `payment.succeeded`  
+**Чеки:** включить «Чеки от ЮKassa» (receipt передаётся при создании платежа в API).
 
 ## Точки интеграции в коде
 
 | Шаг | Файл / действие |
 |-----|------------------|
-| 1 | `POST /api/stripe/checkout` → новый `POST /api/payments/yookassa/create` (создание платежа ЮKassa) |
-| 2 | `POST /api/webhooks/yookassa` — подтверждение `payment.succeeded`, обновление `Order.paymentStatus`, вызов `assignInstructorByQueue` (как в Stripe webhook) |
-| 3 | UI: `client-order-checkout-dialog.tsx`, `client/orders/[id]/page.tsx` — кнопка «Оплатить» ведёт на URL ЮKassa |
-| 4 | Prisma: поля `yookassaPaymentId` на `Order` / `Payment` (по аналогии со `stripePaymentIntentId`) |
+| 1 | `POST /api/payments/yookassa/create` — создание платежа ЮKassa (чек + return_url) |
+| 2 | `POST /api/webhooks/yookassa` — `payment.succeeded`, `Order.paymentStatus`, `assignInstructorByQueue` |
+| 3 | UI: `client-order-checkout-dialog.tsx`, `client/orders/[id]/page.tsx` — `redirectToOrderCheckout()` |
+| 4 | Prisma: `yookassaPaymentId` на `Order` и `Payment` |
 | 5 | Редиректы success/cancel: `/client/orders/[id]?paid=1` |
 
 Референс в репозитории: `api/src/services/yookassa.ts`, `api/src/routes/payment.ts`.

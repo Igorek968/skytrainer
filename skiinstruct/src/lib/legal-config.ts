@@ -27,4 +27,4 @@ export const LEGAL_PLATFORM_NAME =
   process.env.NEXT_PUBLIC_APP_NAME?.trim() || "Инструктор для тебя";
 
 export const LEGAL_PLATFORM_URL =
-  process.env.NEXT_PUBLIC_APP_URL?.trim() || "https://example.com";
+  process.env.NEXT_PUBLIC_APP_URL?.trim() || "https://utrainer.ru";

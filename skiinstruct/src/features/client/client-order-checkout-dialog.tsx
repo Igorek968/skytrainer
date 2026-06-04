@@ -9,10 +9,10 @@ import { toast } from "sonner";
 import { signInClientSessionAction } from "@/app/actions/client-order-sign-in";
 import { CLIENT_BOOKING_RETURN_PATH } from "@/lib/client-pending-checkout";
 import { LEGAL_ROUTES } from "@/lib/legal";
+import { redirectToOrderCheckout } from "@/lib/payments/redirect-to-checkout";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
-import { useQuery } from "@tanstack/react-query";
 
 type InstructorSummary = {
   id: string;
@@ -28,47 +28,37 @@ type Props = {
   onCreateOrder: () => Promise<string | null>;
 };
 
-type Step = "legal" | "account" | "pay" | "wrongRole" | "busy";
-type CardStatus = { hasCard: boolean; brand: string | null; last4: string | null };
+type Step = "account" | "pay" | "wrongRole" | "busy";
 
 export function ClientOrderCheckoutDialog({ open, onOpenChange, instructor, onCreateOrder }: Props) {
   const router = useRouter();
   const { data: session, status: sessionStatus } = useSession();
-  const [step, setStep] = useState<Step>("legal");
-  const [acceptOferta, setAcceptOferta] = useState(false);
-  const [acceptPd, setAcceptPd] = useState(false);
+  const [step, setStep] = useState<Step>("account");
+  const [acceptLegal, setAcceptLegal] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "register">("register");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [passwordConfirm, setPasswordConfirm] = useState("");
   const [name, setName] = useState("");
 
-  const legalOk = acceptOferta && acceptPd;
   const sessionRole = session?.user?.role;
   const loggedIn = sessionStatus === "authenticated" && Boolean(session?.user);
   const loggedInAsClient = loggedIn && sessionRole === "CLIENT";
   const loggedInWrongRole = loggedIn && sessionRole !== "CLIENT";
-  const cardQuery = useQuery({
-    queryKey: ["me-card-status", session?.user?.id],
-    queryFn: async () => {
-      const r = await fetch("/api/me/payment-method", { cache: "no-store" });
-      if (!r.ok) throw new Error("card");
-      return r.json() as Promise<CardStatus>;
-    },
-    enabled: open && loggedInAsClient,
-  });
 
   useEffect(() => {
     if (!open) return;
-    setStep("legal");
-    setAcceptOferta(false);
-    setAcceptPd(false);
+    setAcceptLegal(false);
     setEmail("");
     setPassword("");
     setPasswordConfirm("");
     setName("");
     setAuthMode("register");
-  }, [open]);
+    if (sessionStatus === "loading") return;
+    if (loggedInWrongRole) setStep("wrongRole");
+    else if (loggedInAsClient) setStep("pay");
+    else setStep("account");
+  }, [open, sessionStatus, loggedInAsClient, loggedInWrongRole]);
 
   const estimatedTotal = useMemo(() => {
     if (!instructor?.hourlyRate) return null;
@@ -79,27 +69,8 @@ export function ClientOrderCheckoutDialog({ open, onOpenChange, instructor, onCr
     onOpenChange(false);
   }
 
-  function goNextFromLegal() {
-    if (!legalOk) {
-      toast.error("Подтвердите согласие с офертой и обработкой персональных данных");
-      return;
-    }
-    if (sessionStatus === "loading") {
-      toast.error("Проверяем вашу сессию, подождите секунду");
-      return;
-    }
-    if (loggedInWrongRole) setStep("wrongRole");
-    else if (loggedInAsClient) setStep("pay");
-    else setStep("account");
-  }
-
   async function submitAccount(e: React.FormEvent) {
     e.preventDefault();
-    if (!legalOk) {
-      toast.error("Сначала подтвердите согласия");
-      setStep("legal");
-      return;
-    }
     setStep("busy");
     try {
       if (authMode === "register") {
@@ -139,9 +110,8 @@ export function ClientOrderCheckoutDialog({ open, onOpenChange, instructor, onCr
   }
 
   async function payAndSend() {
-    if (!legalOk) {
-      setStep("legal");
-      toast.error("Подтвердите согласия");
+    if (!acceptLegal) {
+      toast.error("Подтвердите согласие с офертой и обработкой персональных данных");
       return;
     }
     if (loggedInWrongRole) {
@@ -160,28 +130,9 @@ export function ClientOrderCheckoutDialog({ open, onOpenChange, instructor, onCr
         setStep("pay");
         return;
       }
-      const r = await fetch("/api/stripe/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderId }),
-        credentials: "include",
-      });
-      const raw = await r.text();
-      const j = (() => {
-        try {
-          return (raw ? JSON.parse(raw) : {}) as { url?: string; error?: string };
-        } catch {
-          return {};
-        }
-      })();
-      if (!r.ok || !j.url) {
-        toast.error(typeof j.error === "string" ? j.error : "Не удалось перейти к оплате");
-        setStep("pay");
-        return;
-      }
-      window.location.href = j.url;
-    } catch {
-      toast.error("Сеть недоступна");
+      await redirectToOrderCheckout(orderId);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Сеть недоступна");
       setStep("pay");
     }
   }
@@ -206,52 +157,6 @@ export function ClientOrderCheckoutDialog({ open, onOpenChange, instructor, onCr
         <p className="mt-1 text-sm text-muted-foreground">
           Инструктор: <span className="font-medium text-foreground">{instructor.name ?? "—"}</span>
         </p>
-
-        {step === "legal" ? (
-          <div className="mt-4 space-y-4">
-            <p className="text-xs text-muted-foreground">
-              Для юридически корректного оказания услуги на территории РФ: договор-оферта платформы, согласие на
-              обработку персональных данных (152-ФЗ) и подтверждение платёжеспособности банковской картой перед
-              отправкой заявки инструктору.
-            </p>
-            <label className="flex cursor-pointer gap-2 text-sm">
-              <input
-                type="checkbox"
-                className="mt-1"
-                checked={acceptOferta}
-                onChange={(e) => setAcceptOferta(e.target.checked)}
-              />
-              <span>
-                Принимаю{" "}
-                <Link className="text-accent underline" href={LEGAL_ROUTES.oferta} target="_blank">
-                  публичную оферту
-                </Link>
-                ,{" "}
-                <Link className="text-accent underline" href={LEGAL_ROUTES.returns} target="_blank">
-                  возвраты и отмену
-                </Link>
-              </span>
-            </label>
-            <label className="flex cursor-pointer gap-2 text-sm">
-              <input type="checkbox" className="mt-1" checked={acceptPd} onChange={(e) => setAcceptPd(e.target.checked)} />
-              <span>
-                Согласен(на) на{" "}
-                <Link className="text-accent underline" href={LEGAL_ROUTES.privacy} target="_blank">
-                  обработку персональных данных
-                </Link>{" "}
-                для оформления заказа, оплаты и связи с инструктором
-              </span>
-            </label>
-            <div className="flex justify-end gap-2 pt-2">
-              <Button type="button" variant="outline" onClick={() => closeAll()}>
-                Отмена
-              </Button>
-              <Button type="button" variant="accent" onClick={() => goNextFromLegal()}>
-                Далее
-              </Button>
-            </div>
-          </div>
-        ) : null}
 
         {step === "account" ? (
           <form className="mt-4 space-y-3" onSubmit={(e) => void submitAccount(e)}>
@@ -326,21 +231,9 @@ export function ClientOrderCheckoutDialog({ open, onOpenChange, instructor, onCr
                 />
               </div>
             ) : null}
-            {authMode === "register" ? (
-              <p className="text-xs text-muted-foreground">
-                Уже есть аккаунт?{" "}
-                <Link
-                  className="text-accent underline"
-                  href={`/login?callbackUrl=${encodeURIComponent(CLIENT_BOOKING_RETURN_PATH)}`}
-                  onClick={() => onOpenChange(false)}
-                >
-                  Вход на отдельной странице
-                </Link>
-              </p>
-            ) : null}
-            <div className="flex justify-between gap-2 pt-2">
-              <Button type="button" variant="outline" onClick={() => setStep("legal")}>
-                Назад
+            <div className="flex justify-end gap-2 pt-2">
+              <Button type="button" variant="outline" onClick={() => closeAll()}>
+                Отмена
               </Button>
               <Button type="submit" variant="accent">
                 Продолжить
@@ -363,15 +256,13 @@ export function ClientOrderCheckoutDialog({ open, onOpenChange, instructor, onCr
               . Чтобы оформить занятие и оплатить, нужен аккаунт <strong>клиента</strong>.
             </p>
             <div className="flex flex-wrap justify-between gap-2">
-              <Button type="button" variant="outline" onClick={() => setStep("legal")}>
-                Назад
+              <Button type="button" variant="outline" onClick={() => closeAll()}>
+                Отмена
               </Button>
               <Button
                 type="button"
                 variant="accent"
-                onClick={() =>
-                  void signOut({ callbackUrl: CLIENT_BOOKING_RETURN_PATH })
-                }
+                onClick={() => void signOut({ callbackUrl: CLIENT_BOOKING_RETURN_PATH })}
               >
                 Выйти и войти как клиент
               </Button>
@@ -388,34 +279,37 @@ export function ClientOrderCheckoutDialog({ open, onOpenChange, instructor, onCr
             ) : null}
             <div className="rounded-md border border-border bg-muted/30 p-3 text-sm">
               <p className="font-medium">Оплата картой</p>
-              {cardQuery.isLoading ? (
-                <p className="mt-1 text-muted-foreground">Проверяем, привязана ли карта…</p>
-              ) : cardQuery.data?.hasCard ? (
-                <p className="mt-1 text-muted-foreground">
-                  Привязанная карта{" "}
-                  <span className="text-foreground">
-                    {cardQuery.data.brand?.toUpperCase() ?? "CARD"} •••• {cardQuery.data.last4 ?? "****"}
-                  </span>{" "}
-                  будет использована для оплаты. После успешной оплаты заявка автоматически уйдёт инструктору.
-                </p>
-              ) : (
-                <p className="mt-1 text-muted-foreground">
-                  Перед первой оплатой нужно добавить карту. После успешной оплаты заявка автоматически уйдёт
-                  инструктору — это фиксирует договорённость для сторон.
-                </p>
-              )}
+              <p className="mt-1 text-muted-foreground">
+                Оплата через ЮKassa (банковская карта). После успешной оплаты заявка автоматически уйдёт инструктору.
+              </p>
               {estimatedTotal ? <p className="mt-2 text-xs">{estimatedTotal}</p> : null}
             </div>
+            <label className="flex cursor-pointer gap-2 text-sm">
+              <input
+                type="checkbox"
+                className="mt-1"
+                required
+                checked={acceptLegal}
+                onChange={(e) => setAcceptLegal(e.target.checked)}
+              />
+              <span>
+                Я принимаю условия{" "}
+                <Link className="text-accent underline" href={LEGAL_ROUTES.oferta} target="_blank">
+                  Договора-оферты
+                </Link>{" "}
+                и даю согласие на обработку{" "}
+                <Link className="text-accent underline" href={LEGAL_ROUTES.privacy} target="_blank">
+                  персональных данных
+                </Link>
+                .
+              </span>
+            </label>
             <div className="flex justify-between gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => (loggedInAsClient ? setStep("legal") : setStep("account"))}
-              >
-                Назад
+              <Button type="button" variant="outline" onClick={() => (loggedInAsClient ? closeAll() : setStep("account"))}>
+                {loggedInAsClient ? "Отмена" : "Назад"}
               </Button>
-              <Button type="button" variant="accent" onClick={() => void payAndSend()}>
-                {cardQuery.data?.hasCard ? "Оплатить и отправить заявку" : "Добавить карту и отправить заявку"}
+              <Button type="button" variant="accent" disabled={!acceptLegal} onClick={() => void payAndSend()}>
+                Оплатить
               </Button>
             </div>
           </div>

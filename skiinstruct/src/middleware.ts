@@ -47,6 +47,8 @@ export default NextAuth(authConfig).auth((req) => {
     pathname.startsWith("/privacy/") ||
     pathname === "/returns" ||
     pathname.startsWith("/returns/") ||
+    pathname === "/requisites" ||
+    pathname.startsWith("/requisites/") ||
     pathname === "/support" ||
     pathname.startsWith("/support/");
   const publicPaths = ["/", "/login", "/register", "/instructor/login", "/instructor/apply"];

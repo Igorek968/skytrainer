@@ -1,55 +1,42 @@
 import Link from "next/link";
 
+import { LEGAL_AGENT } from "@/lib/legal-entity";
 import { LEGAL_ROUTES } from "@/lib/legal";
 import { SupportLauncher } from "@/features/support/support-launcher";
 
 export function SiteFooter() {
+  const telHref = `tel:${LEGAL_AGENT.phone.replace(/[^\d+]/g, "")}`;
+
   return (
     <footer className="border-t border-border bg-muted/20 py-6 text-center text-xs text-muted-foreground">
-      <div className="mx-auto flex max-w-6xl flex-col items-center gap-4 px-4">
+      <div className="mx-auto max-w-6xl space-y-4 px-4">
         <SupportLauncher />
-        <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
-          <Link className="underline decoration-muted-foreground/50 underline-offset-2 hover:text-foreground" href={LEGAL_ROUTES.oferta}>
-            Оферта (клиент)
-          </Link>
-          <span className="hidden sm:inline" aria-hidden>
-            ·
-          </span>
-          <Link
-            className="underline decoration-muted-foreground/50 underline-offset-2 hover:text-foreground"
-            href={LEGAL_ROUTES.ofertaInstructor}
-          >
-            Договор инструктора
-          </Link>
-          <span className="hidden sm:inline" aria-hidden>
-            ·
-          </span>
-          <Link
-            className="underline decoration-muted-foreground/50 underline-offset-2 hover:text-foreground"
-            href={LEGAL_ROUTES.privacy}
-          >
-            Персональные данные (152-ФЗ)
-          </Link>
-          <span className="hidden sm:inline" aria-hidden>
-            ·
-          </span>
-          <Link
-            className="underline decoration-muted-foreground/50 underline-offset-2 hover:text-foreground"
-            href={LEGAL_ROUTES.returns}
-          >
-            Возвраты и отмена
-          </Link>
-          <span className="hidden sm:inline" aria-hidden>
-            ·
-          </span>
-          <Link
-            className="underline decoration-muted-foreground/50 underline-offset-2 hover:text-foreground"
-            href={LEGAL_ROUTES.support}
-          >
-            Поддержка
-          </Link>
-        </div>
-        <span>Документы носят информационный характер; реквизиты исполнителя задаются в настройках сервиса.</span>
+        <p className="leading-relaxed">
+          {LEGAL_AGENT.shortName} | ИНН {LEGAL_AGENT.inn} |{" "}
+          <Link className="underline underline-offset-2 hover:text-foreground" href={LEGAL_ROUTES.requisites}>
+            Реквизиты
+          </Link>{" "}
+          |{" "}
+          <Link className="underline underline-offset-2 hover:text-foreground" href={LEGAL_ROUTES.oferta}>
+            Оферта
+          </Link>{" "}
+          |{" "}
+          <Link className="underline underline-offset-2 hover:text-foreground" href={LEGAL_ROUTES.privacy}>
+            Политика ПД
+          </Link>{" "}
+          |{" "}
+          <Link className="underline underline-offset-2 hover:text-foreground" href={LEGAL_ROUTES.returns}>
+            Возврат
+          </Link>{" "}
+          | Телефон:{" "}
+          <a className="underline underline-offset-2 hover:text-foreground" href={telHref}>
+            {LEGAL_AGENT.phone}
+          </a>{" "}
+          | Email:{" "}
+          <a className="underline underline-offset-2 hover:text-foreground" href={`mailto:${LEGAL_AGENT.email}`}>
+            {LEGAL_AGENT.email}
+          </a>
+        </p>
       </div>
     </footer>
   );

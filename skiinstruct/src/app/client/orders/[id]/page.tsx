@@ -8,7 +8,9 @@ import { toast } from "sonner";
 
 import { OrderChat } from "@/features/chat/order-chat";
 import { CancelOrderButton, ClaimLateRefundButton } from "@/features/orders/cancel-order-button";
+import { LEGAL_ROUTES } from "@/lib/legal";
 import { INSTRUCTOR_LATE_GRACE_MINUTES } from "@/lib/legal-config";
+import { redirectToOrderCheckout } from "@/lib/payments/redirect-to-checkout";
 import { devPollInterval } from "@/lib/query-poll";
 import { NearbyMapLazy } from "@/features/map/map-loader";
 import {
@@ -85,7 +87,7 @@ type OrderPayload = { order: OrderDTO; routingQueue?: RoutingMember[] };
 type DetailMutations = {
   patch: UseMutationResult<unknown, Error, Record<string, unknown>>;
   removeFromHistory: UseMutationResult<void, Error, void>;
-  payStripe: UseMutationResult<void, Error, void>;
+  payOrder: UseMutationResult<void, Error, void>;
 };
 
 /** Контент с хуками, зависящими от загруженного заказа — монтируется только когда `data` есть. */
@@ -135,7 +137,8 @@ function ClientOrderDetailContent({
   data: OrderPayload;
   mutations: DetailMutations;
 }) {
-  const { patch, removeFromHistory, payStripe } = mutations;
+  const { patch, removeFromHistory, payOrder } = mutations;
+  const [acceptLegal, setAcceptLegal] = useState(false);
   const queryClient = useQueryClient();
   const o = data.order;
   const routingQueue = data.routingQueue;
@@ -443,9 +446,42 @@ function ClientOrderDetailContent({
               урок выполненным, доля инструктора считается переданной за вычетом этой комиссии.
             </p>
             {o.paymentStatus === "PENDING" && o.amountTotal ? (
-              <Button type="button" variant="accent" disabled={payStripe.isPending} onClick={() => payStripe.mutate()}>
-                Оплатить и отправить заявку
-              </Button>
+              <div className="space-y-3">
+                <label className="flex cursor-pointer gap-2">
+                  <input
+                    type="checkbox"
+                    className="mt-1"
+                    required
+                    checked={acceptLegal}
+                    onChange={(e) => setAcceptLegal(e.target.checked)}
+                  />
+                  <span>
+                    Я принимаю условия{" "}
+                    <Link className="text-accent underline" href={LEGAL_ROUTES.oferta} target="_blank">
+                      Договора-оферты
+                    </Link>{" "}
+                    и даю согласие на обработку{" "}
+                    <Link className="text-accent underline" href={LEGAL_ROUTES.privacy} target="_blank">
+                      персональных данных
+                    </Link>
+                    .
+                  </span>
+                </label>
+                <Button
+                  type="button"
+                  variant="accent"
+                  disabled={!acceptLegal || payOrder.isPending}
+                  onClick={() => {
+                    if (!acceptLegal) {
+                      toast.error("Подтвердите согласие с офертой и обработкой персональных данных");
+                      return;
+                    }
+                    payOrder.mutate();
+                  }}
+                >
+                  Оплатить и отправить заявку
+                </Button>
+              </div>
             ) : null}
           </CardContent>
         </Card>
@@ -594,8 +630,8 @@ function ClientOrderDetailContent({
 
         {status === "COMPLETED" && o.paymentStatus === "PENDING" ? (
           <>
-            <Button type="button" variant="accent" onClick={() => payStripe.mutate()}>
-              Оплатить картой (Stripe)
+            <Button type="button" variant="accent" onClick={() => payOrder.mutate()}>
+              Оплатить картой
             </Button>
             <Button
               type="button"
@@ -615,8 +651,8 @@ function ClientOrderDetailContent({
 
         {status === "COMPLETED" && o.paymentStatus === "FAILED" ? (
           <>
-            <Button type="button" variant="accent" onClick={() => payStripe.mutate()}>
-              Оплатить картой (Stripe)
+            <Button type="button" variant="accent" onClick={() => payOrder.mutate()}>
+              Оплатить картой
             </Button>
             <Button
               type="button"
@@ -733,24 +769,9 @@ export default function ClientOrderPage() {
     },
   });
 
-  const payStripe = useMutation({
+  const payOrder = useMutation({
     mutationFn: async () => {
-      const r = await fetch("/api/stripe/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderId: id }),
-      });
-      const raw = await r.text();
-      const j = (() => {
-        try {
-          return (raw ? JSON.parse(raw) : {}) as { url?: string; error?: unknown };
-        } catch {
-          return {} as { url?: string; error?: unknown };
-        }
-      })();
-      if (!r.ok) throw new Error(typeof j.error === "string" ? j.error : "stripe");
-      if (!j.url) throw new Error("Не удалось создать ссылку оплаты");
-      window.location.href = j.url;
+      await redirectToOrderCheckout(id);
     },
     onError: (e: Error) => toast.error(e.message || "Ошибка оплаты"),
   });
@@ -773,7 +794,7 @@ export default function ClientOrderPage() {
       key={id}
       id={id}
       data={data}
-      mutations={{ patch, removeFromHistory, payStripe }}
+      mutations={{ patch, removeFromHistory, payOrder }}
     />
   );
 }

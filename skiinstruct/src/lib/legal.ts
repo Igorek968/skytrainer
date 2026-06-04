@@ -14,5 +14,6 @@ export const LEGAL_ROUTES = {
   ofertaInstructor: "/oferta-instructor",
   privacy: "/privacy",
   returns: "/returns",
+  requisites: "/requisites",
   support: "/support",
 } as const;

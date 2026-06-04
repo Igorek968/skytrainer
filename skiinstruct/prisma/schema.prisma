@@ -368,6 +368,7 @@ model Order {
 
   stripeCheckoutSessionId String?
   stripePaymentIntentId     String?
+  yookassaPaymentId         String? @unique
 
   /// Total charged to client (platform + instructor share)
   amountTotal Decimal? @db.Decimal(10, 2)
@@ -491,6 +492,7 @@ model Payment {
   order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
   stripePaymentIntentId String?
+  yookassaPaymentId     String?
   amount                Decimal  @db.Decimal(10, 2)
   currency              String   @default("rub")
   status                PaymentStatus

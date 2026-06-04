@@ -2,12 +2,10 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { isApiErrorResponse, requireClientSession } from "@/lib/api-session";
+import { isMockCheckoutEnabled } from "@/lib/checkout-config";
 import { prisma } from "@/lib/prisma";
 import { completeOrderPrepayment } from "@/lib/services/order-prepayment";
-import { isMockCheckoutEnabled } from "@/lib/checkout-config";
-import { isYooKassaConfigured } from "@/lib/yookassa";
-import { getStripe } from "@/lib/stripe";
-import { findStripeCustomerByEmail } from "@/lib/stripe-customer";
+import { createYooKassaPayment, isYooKassaConfigured } from "@/lib/yookassa";
 
 const bodySchema = z.object({
   orderId: z.string().cuid(),
@@ -34,6 +32,7 @@ export async function POST(req: Request) {
     if (!order || order.clientId !== resolved.userId) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
+
     const prepayOk =
       order.status === "AWAITING_PAYMENT" &&
       order.paymentStatus === "PENDING" &&
@@ -48,61 +47,52 @@ export async function POST(req: Request) {
     }
 
     const origin = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3001";
+    const returnUrl = `${origin}/client/orders/${order.id}?paid=1`;
+    const amountRub = Number(order.amountTotal);
 
-    if (isYooKassaConfigured()) {
+    if (!isYooKassaConfigured()) {
+      if (isMockCheckoutEnabled()) {
+        const mockPaymentId = `mock_yoo_${order.id.slice(0, 12)}_${Date.now()}`;
+        await completeOrderPrepayment({
+          orderId: order.id,
+          paymentMethod: "CARD",
+          yookassaPaymentId: mockPaymentId,
+          paymentRecordAmount: amountRub,
+        });
+        return NextResponse.json({ url: `${returnUrl}&mock=1` });
+      }
       return NextResponse.json(
-        { error: "Используйте ЮKassa", code: "USE_YOOKASSA" },
-        { status: 400 },
+        { error: "ЮKassa не настроена", code: "NOT_CONFIGURED" },
+        { status: 503 },
       );
     }
 
-    if (isMockCheckoutEnabled()) {
-      const mockIntentId = `mock_pi_${order.id.slice(0, 12)}_${Date.now()}`;
-      await completeOrderPrepayment({
-        orderId: order.id,
-        paymentMethod: "CARD",
-        stripePaymentIntentId: mockIntentId,
-        paymentRecordAmount: Number(order.amountTotal ?? 0),
-      });
-      return NextResponse.json({ url: `${origin}/client/orders/${order.id}?paid=1&mock=1` });
+    const email = resolved.session.user.email?.trim();
+    if (!email) {
+      return NextResponse.json({ error: "Укажите email в профиле для чека" }, { status: 400 });
     }
 
-    const stripe = getStripe();
-    const email = resolved.session.user.email?.trim().toLowerCase();
-    const existingCustomer = await findStripeCustomerByEmail(stripe, email);
-    const checkout = await stripe.checkout.sessions.create({
-      mode: "payment",
-      customer: existingCustomer?.id,
-      customer_email: existingCustomer ? undefined : email,
-      line_items: [
-        {
-          quantity: 1,
-          price_data: {
-            currency: "rub",
-            unit_amount: Math.round(Number(order.amountTotal) * 100),
-            product_data: {
-              name: `SkiInstruct — заказ ${order.id.slice(0, 8)}`,
-            },
-          },
-        },
-      ],
-      success_url: `${origin}/client/orders/${order.id}?paid=1`,
-      cancel_url: `${origin}/client/orders/${order.id}?paid=0`,
-      metadata: { orderId: order.id },
-      payment_intent_data: {
-        metadata: { orderId: order.id },
-      },
+    const pay = await createYooKassaPayment({
+      orderId: order.id,
+      amountRub,
+      description: `uTrainer — заказ ${order.id.slice(0, 8)}`,
+      customerEmail: email,
+      returnUrl,
     });
+
+    if (!pay.confirmationUrl) {
+      return NextResponse.json({ error: "ЮKassa не вернула ссылку на оплату" }, { status: 502 });
+    }
 
     await prisma.order.update({
       where: { id: order.id },
       data: {
-        stripeCheckoutSessionId: checkout.id,
+        yookassaPaymentId: pay.paymentId,
         paymentMethod: "CARD",
       },
     });
 
-    return NextResponse.json({ url: checkout.url });
+    return NextResponse.json({ url: pay.confirmationUrl, paymentId: pay.paymentId });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Не удалось создать оплату";
     return NextResponse.json({ error: message }, { status: 400 });

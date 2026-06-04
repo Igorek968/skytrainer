@@ -34,6 +34,9 @@ export function LegalDocLayout({
           <Link className="underline underline-offset-2 hover:text-foreground" href={LEGAL_ROUTES.returns}>
             Возвраты и отмена
           </Link>
+          <Link className="underline underline-offset-2 hover:text-foreground" href={LEGAL_ROUTES.requisites}>
+            Реквизиты
+          </Link>
         </nav>
       </div>
       {children}
