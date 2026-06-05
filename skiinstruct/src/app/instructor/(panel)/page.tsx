@@ -275,6 +275,8 @@ export default function InstructorHomePage() {
         grossTotal: number;
         availableForPayout?: number;
         pendingPayout?: number;
+        canWithdraw?: boolean;
+        payoutMinRub?: number;
         payoutWindowHint?: string;
       }>;
     },
