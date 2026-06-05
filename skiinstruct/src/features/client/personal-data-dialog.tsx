@@ -151,16 +151,17 @@ export function PersonalDataDialog({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+      className="fixed inset-0 z-50 overflow-y-auto bg-black/60 p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="personal-data-title"
       onClick={() => onOpenChange(false)}
     >
-      <div
-        className="w-full max-w-md rounded-lg border border-border bg-background p-5 shadow-lg"
-        onClick={(e) => e.stopPropagation()}
-      >
+      <div className="flex min-h-full items-center justify-center">
+        <div
+          className="my-auto w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain rounded-lg border border-border bg-background p-5 shadow-lg"
+          onClick={(e) => e.stopPropagation()}
+        >
         <h2 id="personal-data-title" className="text-lg font-semibold tracking-tight">
           Личные данные
         </h2>
@@ -276,6 +277,7 @@ export function PersonalDataDialog({
             </div>
           </div>
         )}
+        </div>
       </div>
     </div>
   );

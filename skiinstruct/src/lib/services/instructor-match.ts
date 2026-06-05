@@ -2,6 +2,8 @@
  * Общая логика отбора инструкторов под параметры заказа / поиска рядом.
  */
 
+import { publicUploadDisplaySrc } from "@/lib/public-uploads-display";
+
 export type AvailabilitySlot = { day: number; from: string; to: string; busy?: boolean };
 
 export function parseAvailabilitySlots(value: unknown): AvailabilitySlot[] {
@@ -242,12 +244,9 @@ export function specializationMatches(available: string[], requestedRaw: string)
   });
 }
 
-/** Публичный URL файла в /public или абсолютная ссылка. */
+/** Публичный URL файла в /public или абсолютная ссылка (для клиентского UI — через /api/media). */
 export function normalizePublicAssetUrl(url: string | null | undefined): string | null {
-  const t = url?.trim();
-  if (!t) return null;
-  if (/^https?:\/\//i.test(t)) return t;
-  return t.startsWith("/") ? t : `/${t}`;
+  return publicUploadDisplaySrc(url);
 }
 
 function coerceStringArray(raw: unknown): string[] {
@@ -263,15 +262,16 @@ function coerceStringArray(raw: unknown): string[] {
   return [];
 }
 
-/** Обложка для списков: профиль, галерея, запасной аватар User.image. */
+/** Обложка для списков: последние фото галереи, обложка, аватар User.image. */
 export function resolveInstructorListAvatar(input: {
   photoUrl: string | null | undefined;
   photoGallery: unknown;
   userImage: string | null | undefined;
 }): string | null {
-  const gallery = coerceStringArray(input.photoGallery);
-  const galleryFirst = gallery.map((u) => u.trim()).find(Boolean);
-  const candidates = [input.photoUrl, galleryFirst, input.userImage];
+  const gallery = coerceStringArray(input.photoGallery)
+    .map((u) => u.trim())
+    .filter(Boolean);
+  const candidates = [...[...gallery].reverse(), input.photoUrl, input.userImage];
   for (const c of candidates) {
     const n = normalizePublicAssetUrl(typeof c === "string" ? c : null);
     if (n) return n;

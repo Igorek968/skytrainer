@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { effectivePhotoGallery } from "@/lib/instructor-profile-photo-draft";
 import { prisma } from "@/lib/prisma";
 import {
   parseSpecializationOffers,
@@ -158,9 +159,10 @@ export async function GET(req: Request) {
       const hasSpecialization =
         specializationNeedle.length > 0 ? specializationMatches(p.specializations, specialization ?? "") : true;
 
+      const effectivePhotos = effectivePhotoGallery(p, u.name);
       const listPhotoUrl = resolveInstructorListAvatar({
-        photoUrl: p.photoUrl,
-        photoGallery: p.photoGallery,
+        photoUrl: effectivePhotos.photoUrl,
+        photoGallery: effectivePhotos.photoGallery,
         userImage: u.image,
       });
 

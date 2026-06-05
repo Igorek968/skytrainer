@@ -1,6 +1,4 @@
 import { randomUUID } from "crypto";
-import { mkdir, writeFile } from "fs/promises";
-import path from "path";
 
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -12,6 +10,20 @@ import {
   effectivePhotoGallery,
 } from "@/lib/instructor-profile-photo-draft";
 import { prisma } from "@/lib/prisma";
+import { publicUploadDisplaySrc, publicUploadDisplaySrcs } from "@/lib/public-uploads-display";
+import { writePublicUpload } from "@/lib/public-uploads";
+
+function formatPhotoApiResponse(result: {
+  photoUrl: string | null;
+  photoGallery: string[];
+  profilePendingReview?: boolean;
+}) {
+  return {
+    ...result,
+    photoUrl: publicUploadDisplaySrc(result.photoUrl),
+    photoGallery: publicUploadDisplaySrcs(result.photoGallery),
+  };
+}
 
 const MAX_SIZE_BYTES = 5 * 1024 * 1024;
 const ALLOWED = new Set(["image/jpeg", "image/png", "image/webp"]);
@@ -43,14 +55,8 @@ export async function POST(req: Request) {
     file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg";
   const filename = `${userId}-${randomUUID()}.${ext}`;
 
-  const dir = path.join(process.cwd(), "public", "uploads", "instructors");
-  await mkdir(dir, { recursive: true });
-  const filepath = path.join(dir, filename);
-
   const buffer = Buffer.from(await file.arrayBuffer());
-  await writeFile(filepath, buffer);
-
-  const photoUrl = `/uploads/instructors/${filename}`;
+  const photoUrl = await writePublicUpload("instructors", filename, buffer);
   await ensureInstructorProfile(userId);
   const [profile, user] = await Promise.all([
     prisma.instructorProfile.findUnique({
@@ -107,7 +113,7 @@ export async function POST(req: Request) {
     photoGallery: nextGallery,
   });
 
-  return NextResponse.json(result);
+  return NextResponse.json(formatPhotoApiResponse(result));
 }
 
 export async function DELETE(req: Request) {
@@ -165,7 +171,7 @@ export async function DELETE(req: Request) {
     photoGallery: nextGallery,
   });
 
-  return NextResponse.json({ ok: true, ...result });
+  return NextResponse.json({ ok: true, ...formatPhotoApiResponse(result) });
 }
 
 export async function PATCH(req: Request) {
@@ -250,5 +256,5 @@ export async function PATCH(req: Request) {
     photoGallery: nextGallery,
   });
 
-  return NextResponse.json(result);
+  return NextResponse.json(formatPhotoApiResponse(result));
 }

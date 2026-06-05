@@ -1,32 +1,16 @@
 import { randomUUID } from "crypto";
-import { mkdir, unlink, writeFile } from "fs/promises";
-import path from "path";
 
 import { NextResponse } from "next/server";
 
 import { isApiErrorResponse, requireInstructorSession } from "@/lib/api-session";
 import { canEditInstructorEvent, serializeInstructorEvent } from "@/lib/instructor-events";
 import { prisma } from "@/lib/prisma";
+import { removePublicUploadByUrl, writePublicUpload } from "@/lib/public-uploads";
 
 const MAX_SIZE_BYTES = 5 * 1024 * 1024;
 const ALLOWED = new Set(["image/jpeg", "image/png", "image/webp"]);
-const UPLOAD_PREFIX = "/uploads/events/";
 
 type Ctx = { params: Promise<{ id: string }> };
-
-function isEventPhotoUrl(url: string | null | undefined): url is string {
-  return typeof url === "string" && url.startsWith(UPLOAD_PREFIX);
-}
-
-async function removeEventPhotoFile(photoUrl: string | null | undefined) {
-  if (!isEventPhotoUrl(photoUrl)) return;
-  const filepath = path.join(process.cwd(), "public", photoUrl.replace(/^\//, ""));
-  try {
-    await unlink(filepath);
-  } catch {
-    /* file may already be gone */
-  }
-}
 
 export async function POST(req: Request, ctx: Ctx) {
   const authResult = await requireInstructorSession();
@@ -64,15 +48,9 @@ export async function POST(req: Request, ctx: Ctx) {
     file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg";
   const filename = `${id}-${randomUUID()}.${ext}`;
 
-  const dir = path.join(process.cwd(), "public", "uploads", "events");
-  await mkdir(dir, { recursive: true });
-  const filepath = path.join(dir, filename);
-
   const buffer = Buffer.from(await file.arrayBuffer());
-  await writeFile(filepath, buffer);
-
-  const photoUrl = `${UPLOAD_PREFIX}${filename}`;
-  await removeEventPhotoFile(existing.photoUrl);
+  const photoUrl = await writePublicUpload("events", filename, buffer);
+  await removePublicUploadByUrl(existing.photoUrl);
 
   const row = await prisma.instructorEvent.update({
     where: { id },
@@ -102,7 +80,7 @@ export async function DELETE(_req: Request, ctx: Ctx) {
     );
   }
 
-  await removeEventPhotoFile(existing.photoUrl);
+  await removePublicUploadByUrl(existing.photoUrl);
 
   const row = await prisma.instructorEvent.update({
     where: { id },

@@ -1067,15 +1067,10 @@ export default function InstructorHomePage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="photo">Фото (URL)</Label>
-                <Input
-                  id="photo"
-                  value={photoUrl}
-                  onChange={(e) => setPhotoUrl(e.target.value)}
-                  placeholder="https://..."
-                />
+                <Label htmlFor="photo-upload">Фото профиля</Label>
                 <div className="flex flex-wrap items-center gap-2">
                   <Input
+                    id="photo-upload"
                     type="file"
                     accept="image/png,image/jpeg,image/webp"
                     onChange={(e) => setPhotoFile(e.target.files?.[0] ?? null)}

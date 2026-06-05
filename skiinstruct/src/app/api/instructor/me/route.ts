@@ -4,6 +4,7 @@ import { Prisma } from "@prisma/client";
 
 import { isApiErrorResponse, requireInstructorSession } from "@/lib/api-session";
 import { ensureInstructorProfile } from "@/lib/instructor-profile-defaults";
+import { publicUploadDisplaySrc, publicUploadDisplaySrcs } from "@/lib/public-uploads-display";
 import { prisma } from "@/lib/prisma";
 import {
   buildDraftPatchFromMePayload,
@@ -121,8 +122,8 @@ function formatMeProfileResponse(
     legalInfo: view.legalInfo ?? "",
     videoVisitUrl: view.videoVisitUrl ?? "",
     hourlyRate: Number(view.hourlyRate),
-    photoUrl: view.photoUrl ?? "",
-    photoGallery: view.photoGallery,
+    photoUrl: publicUploadDisplaySrc(view.photoUrl) ?? "",
+    photoGallery: publicUploadDisplaySrcs(view.photoGallery),
     ratingAvg,
     reviewCount,
   };

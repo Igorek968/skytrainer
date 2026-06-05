@@ -6,6 +6,8 @@ import {
   resolveHourlyRateForDiscipline,
   resolveLessonsForDiscipline,
 } from "@/lib/instructor-specialization-offers";
+import { effectivePhotoGallery } from "@/lib/instructor-profile-photo-draft";
+import { publicUploadDisplaySrcs } from "@/lib/public-uploads-display";
 import {
   canonicalizeActivityLabels,
   repairStaleCatalogSyntheticBio,
@@ -76,10 +78,11 @@ export async function GET(req: Request, ctx: Ctx) {
     return acc + (h > 0 ? h : 0);
   }, 0);
 
-  const gallery = instructor.instructorProfile.photoGallery ?? [];
+  const effectivePhotos = effectivePhotoGallery(instructor.instructorProfile, instructor.name);
+  const gallery = effectivePhotos.photoGallery;
   /** Та же цепочка, что в `/api/instructors/nearby`: обложка → галерея → аватар учётной записи. */
   const resolvedPhotoUrl = resolveInstructorListAvatar({
-    photoUrl: instructor.instructorProfile.photoUrl,
+    photoUrl: effectivePhotos.photoUrl,
     photoGallery: gallery,
     userImage: instructor.image,
   });
@@ -110,7 +113,7 @@ export async function GET(req: Request, ctx: Ctx) {
       profile: {
         bio: repairStaleCatalogSyntheticBio(instructor.instructorProfile.bio, canonSpecs),
         photoUrl: resolvedPhotoUrl,
-        photoGallery: gallery,
+        photoGallery: publicUploadDisplaySrcs(gallery),
         certificationLevel: instructor.instructorProfile.certificationLevel,
         certifications: instructor.instructorProfile.certifications,
         skillLevels: instructor.instructorProfile.skillLevels,

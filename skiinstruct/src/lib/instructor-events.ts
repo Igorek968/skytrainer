@@ -11,6 +11,7 @@ import {
   serializeEventRegistration,
   type EventRegistrationSummary,
 } from "@/lib/services/event-registration";
+import { publicUploadDisplaySrc } from "@/lib/public-uploads-display";
 
 export type InstructorEventDTO = {
   id: string;
@@ -152,7 +153,7 @@ export function serializeInstructorEvent(
     title: row.title,
     titleId: row.titleId,
     body: row.body,
-    photoUrl: row.photoUrl,
+    photoUrl: publicUploadDisplaySrc(row.photoUrl),
     eventAt: row.eventAt?.toISOString() ?? null,
     moderationStatus: row.moderationStatus,
     rejectNote: row.rejectNote,

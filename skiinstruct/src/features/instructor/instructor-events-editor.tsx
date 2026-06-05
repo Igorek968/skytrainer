@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import type { InstructorEventDTO } from "@/lib/instructor-events";
+import { publicUploadDisplaySrc } from "@/lib/public-uploads-display";
 import {
   canRestoreArchivedEvent,
   eventCardDeleteLabel,
@@ -465,7 +466,7 @@ export function InstructorEventsEditor({
               <div className="max-w-sm space-y-2">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={photoUrl}
+                  src={publicUploadDisplaySrc(photoUrl) ?? photoUrl}
                   alt="Фото мероприятия"
                   className="aspect-[16/9] w-full rounded-md border border-border object-cover"
                 />
@@ -761,7 +762,7 @@ function EventList({
               <div className="mt-2 max-w-xs overflow-hidden rounded-md border border-border">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={ev.photoUrl}
+                  src={publicUploadDisplaySrc(ev.photoUrl) ?? ev.photoUrl ?? ""}
                   alt={ev.title}
                   className="aspect-[16/9] w-full object-cover"
                 />

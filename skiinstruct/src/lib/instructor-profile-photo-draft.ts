@@ -85,5 +85,34 @@ export async function applyInstructorPhotoUpdate(
   profile: ProfilePhotoRow,
   patch: Pick<InstructorProfileDraftPayload, "photoUrl" | "photoGallery">,
 ) {
+  const photoUrl = patch.photoUrl ?? null;
+  const photoGallery = patch.photoGallery ?? [];
+
+  // Одобренным инструкторам фото публикуем сразу — клиенты видят без модерации анкеты.
+  if (profile.verificationStatus === "APPROVED") {
+    const updateData: Prisma.InstructorProfileUpdateInput = {
+      photoUrl,
+      photoGallery,
+    };
+
+    if (profile.profileDraftStatus === "PENDING_REVIEW") {
+      const parsed = parseProfileDraft(profile.profileDraft);
+      const base = parsed ?? snapshotProfileToDraft(profile, userName);
+      const merged = mergeProfileDraft(base, patch);
+      updateData.profileDraft = merged as Prisma.InputJsonValue;
+    }
+
+    await prisma.instructorProfile.update({
+      where: { userId },
+      data: updateData,
+    });
+
+    return {
+      photoUrl,
+      photoGallery,
+      profilePendingReview: profile.profileDraftStatus === "PENDING_REVIEW",
+    };
+  }
+
   return savePhotoDraft(userId, profile, userName, patch);
 }

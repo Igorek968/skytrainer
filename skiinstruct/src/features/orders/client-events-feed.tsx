@@ -15,6 +15,7 @@ import {
 } from "@/lib/client-events-geo";
 import { EventRegistrationButton } from "@/features/orders/event-registration-button";
 import { EventFeedPhoto } from "@/features/orders/event-feed-photo";
+import { publicUploadDisplaySrc } from "@/lib/public-uploads-display";
 import { devPollInterval } from "@/lib/query-poll";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
@@ -135,10 +136,10 @@ function EventPosterCard({
         )}
       >
         <div className={cn("relative overflow-hidden bg-muted", selected ? "aspect-[16/10]" : "aspect-[2/3]")}>
-          {event.photoUrl ? (
+          {publicUploadDisplaySrc(event.photoUrl) ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={event.photoUrl}
+              src={publicUploadDisplaySrc(event.photoUrl)!}
               alt={event.title}
               className="h-full w-full object-cover"
               loading="lazy"
