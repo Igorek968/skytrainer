@@ -1,11 +1,15 @@
 import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
+import { markEventRegistrationPaid } from "@/lib/services/event-checkout";
 import { completeOrderPrepayment } from "@/lib/services/order-prepayment";
 import {
+  eventRegistrationIdFromYooMetadata,
   fetchYooKassaPayment,
   isYooKassaConfigured,
+  isYooKassaWebhookIpAllowed,
   orderIdFromYooMetadata,
+  type YooKassaPaymentMetadata,
 } from "@/lib/yookassa";
 
 export const runtime = "nodejs";
@@ -15,7 +19,7 @@ type YooWebhookBody = {
   object?: {
     id?: string;
     status?: string;
-    metadata?: { orderId?: string; order_id?: string };
+    metadata?: YooKassaPaymentMetadata;
   };
 };
 
@@ -29,7 +33,24 @@ async function resolveOrderId(paymentId: string, hintOrderId: string | null): Pr
   return byPayment?.id ?? null;
 }
 
+async function resolveEventRegistrationId(
+  paymentId: string,
+  hintId: string | null,
+): Promise<string | null> {
+  if (hintId) return hintId;
+
+  const byPayment = await prisma.eventRegistration.findFirst({
+    where: { yookassaPaymentId: paymentId },
+    select: { id: true },
+  });
+  return byPayment?.id ?? null;
+}
+
 export async function POST(req: Request) {
+  if (!isYooKassaWebhookIpAllowed(req)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   let body: YooWebhookBody;
   try {
     body = (await req.json()) as YooWebhookBody;
@@ -45,7 +66,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ received: true });
   }
 
-  let orderId = orderIdFromYooMetadata(obj?.metadata);
+  let metadata = obj?.metadata;
   let status = obj?.status;
 
   if (isYooKassaConfigured()) {
@@ -53,12 +74,40 @@ export async function POST(req: Request) {
     if (!verified || verified.status !== "succeeded") {
       return NextResponse.json({ received: true });
     }
-    orderId = orderIdFromYooMetadata(verified.metadata) ?? orderId;
+    metadata = verified.metadata;
     status = verified.status;
   } else if (status !== "succeeded") {
     return NextResponse.json({ received: true });
   }
 
+  const paymentType = metadata?.type;
+  const eventRegistrationId = eventRegistrationIdFromYooMetadata(metadata);
+
+  if (paymentType === "event" || eventRegistrationId) {
+    const regId = await resolveEventRegistrationId(paymentId, eventRegistrationId);
+    if (!regId) return NextResponse.json({ received: true });
+
+    try {
+      const reg = await prisma.eventRegistration.findUnique({
+        where: { id: regId },
+        select: { id: true, status: true },
+      });
+      if (!reg) return NextResponse.json({ received: true });
+      if (reg.status === "PAID") {
+        await prisma.eventRegistration.update({
+          where: { id: regId },
+          data: { yookassaPaymentId: paymentId },
+        });
+        return NextResponse.json({ received: true });
+      }
+      await markEventRegistrationPaid({ registrationId: regId, yookassaPaymentId: paymentId });
+    } catch (e) {
+      console.error("[yookassa webhook event]", e);
+    }
+    return NextResponse.json({ received: true });
+  }
+
+  let orderId = orderIdFromYooMetadata(metadata);
   orderId = await resolveOrderId(paymentId, orderId);
   if (!orderId) {
     return NextResponse.json({ received: true });

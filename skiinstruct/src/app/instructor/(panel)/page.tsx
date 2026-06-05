@@ -12,6 +12,7 @@ import type { OrderStatus } from "@prisma/client";
 import { useThrottledInstructorLocation } from "@/features/geolocation/use-throttled-instructor-location";
 import { devPollInterval } from "@/lib/query-poll";
 import { InstructorComplianceCard } from "@/features/instructor/instructor-compliance-card";
+import { InstructorPayoutPanel } from "@/features/instructor/instructor-payout-panel";
 import { InstructorEventsEditor } from "@/features/instructor/instructor-events-editor";
 import { InstructorWeekScheduleCalendar } from "@/features/instructor/instructor-week-schedule-calendar";
 import {
@@ -1235,6 +1236,11 @@ export default function InstructorHomePage() {
           {stats?.payoutWindowHint ? (
             <p className="text-xs text-muted-foreground">{stats.payoutWindowHint}</p>
           ) : null}
+          <InstructorPayoutPanel
+            canWithdraw={stats?.canWithdraw}
+            payoutMinRub={stats?.payoutMinRub}
+            availableForPayout={stats?.availableForPayout}
+          />
         </CardContent>
       </Card>
 

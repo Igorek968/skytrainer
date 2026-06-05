@@ -109,6 +109,13 @@ enum EventRegistrationStatus {
   CANCELLED
 }
 
+enum PayoutRequestStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  REJECTED
+}
+
 // Auth.js / NextAuth models
 model User {
   id            String    @id @default(cuid())
@@ -146,6 +153,7 @@ model User {
   instructorEvents      InstructorEvent[]
   instructorEventTitles InstructorEventTitle[]
   eventRegistrations    EventRegistration[]
+  payoutRequests        InstructorPayoutRequest[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -345,6 +353,10 @@ model Order {
   instructorPayoutReleasedAt DateTime?
   /// С какого момента доля доступна к выплате (подтверждение + срок из оферты).
   payoutEligibleAt DateTime?
+  /// Фактическая выплата инструктору (после обработки заявки админом).
+  instructorPayoutPaidAt DateTime?
+  payoutRequestId String?
+  payoutRequest   InstructorPayoutRequest? @relation(fields: [payoutRequestId], references: [id], onDelete: SetNull)
 
   cancelledBy     OrderCancelledBy?
   refundPercent   Int?
@@ -457,6 +469,7 @@ model EventRegistration {
 
   stripeCheckoutSessionId String?
   stripePaymentIntentId   String?
+  yookassaPaymentId       String? @unique
   paidAt                  DateTime?
 
   /// Клиент подтвердил участие после окончания мероприятия.
@@ -484,6 +497,25 @@ model Message {
   createdAt DateTime @default(now())
 
   @@index([orderId, createdAt])
+}
+
+/// Заявка инструктора на вывод заработанной доли.
+model InstructorPayoutRequest {
+  id           String @id @default(cuid())
+  instructorId String
+  instructor   User   @relation(fields: [instructorId], references: [id], onDelete: Cascade)
+
+  amountRub   Decimal @db.Decimal(10, 2)
+  status      PayoutRequestStatus @default(PENDING)
+  adminNote   String? @db.Text
+  processedAt DateTime?
+
+  orders Order[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([instructorId, status])
 }
 
 model Payment {

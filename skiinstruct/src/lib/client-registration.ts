@@ -3,6 +3,7 @@ import { hash } from "bcryptjs";
 import { z } from "zod";
 
 import { prisma } from "@/lib/prisma";
+import { sendEmailVerification } from "@/lib/services/email-verification";
 
 const registerSchema = z.object({
   email: z.string().trim().email("Некорректный email").max(254).transform((s) => s.toLowerCase()),
@@ -69,6 +70,10 @@ export async function createClientUser(input: {
     }
     throw e;
   }
+
+  void sendEmailVerification(email).catch((e) => {
+    console.error("[register] email verification send failed", e);
+  });
 
   return { ok: true, email };
 }

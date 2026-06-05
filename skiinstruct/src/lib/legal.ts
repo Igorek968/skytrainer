@@ -1,12 +1,10 @@
+import { LEGAL_AGENT } from "@/lib/legal-entity";
+
 /**
  * Оператор сервиса для юридических страниц (задаётся в env на проде).
- * TODO перед коммерческим запуском: юрист + NEXT_PUBLIC_LEGAL_ENTITY_NAME — см. LAUNCH_CHECKLIST.md
  */
 export function legalOperatorName(): string {
-  return (
-    process.env.NEXT_PUBLIC_LEGAL_ENTITY_NAME?.trim() ||
-    "оператор программного сервиса «Инструктор для тебя» (реквизиты уточняются у администрации)"
-  );
+  return process.env.NEXT_PUBLIC_LEGAL_ENTITY_NAME?.trim() || LEGAL_AGENT.shortName;
 }
 
 export const LEGAL_ROUTES = {

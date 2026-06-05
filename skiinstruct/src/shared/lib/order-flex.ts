@@ -1,3 +1,6 @@
+/** Секунды на принятие срочной заявки инструктором. */
+export const PENDING_INSTRUCTOR_DEADLINE_SEC = 60;
+
 /**
  * «Мягкий» ответ инструктора: без 60 с и без срочного ETA.
  * Единая логика для день-в-день, будущих дат и записи на дату.
@@ -77,4 +80,16 @@ export function orderRelaxedTimingHint(order: {
     return "Урок не сегодня — запись подтверждается автоматически после оплаты";
   }
   return "";
+}
+
+/** Дедлайн принятия заявки: только для срочных заказов без relaxed timing. */
+export function computePendingExpiresAt(order: {
+  flexibleInstructorInvite: boolean;
+  requestedDays: number | null;
+  requestedStartDate?: Date | string | null;
+  now?: Date;
+}): Date | null {
+  if (orderRelaxedInstructorTiming(order)) return null;
+  const base = order.now ?? new Date();
+  return new Date(base.getTime() + PENDING_INSTRUCTOR_DEADLINE_SEC * 1000);
 }

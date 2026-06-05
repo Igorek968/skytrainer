@@ -2,12 +2,17 @@ import { isMockCheckoutEnabled } from "@/lib/checkout-config";
 import { isInstructorEventCompleted } from "@/lib/instructor-events";
 import { prisma } from "@/lib/prisma";
 import { getStripe } from "@/lib/stripe";
+import {
+  createYooKassaEventPayment,
+  isYooKassaConfigured,
+} from "@/lib/yookassa";
 
 import { computeEventPaymentShares } from "./event-registration";
 
 export async function markEventRegistrationPaid(params: {
   registrationId: string;
   stripePaymentIntentId?: string | null;
+  yookassaPaymentId?: string | null;
 }) {
   const reg = await prisma.eventRegistration.findUnique({
     where: { id: params.registrationId },
@@ -33,16 +38,20 @@ export async function markEventRegistrationPaid(params: {
       ...(params.stripePaymentIntentId
         ? { stripePaymentIntentId: params.stripePaymentIntentId }
         : {}),
+      ...(params.yookassaPaymentId ? { yookassaPaymentId: params.yookassaPaymentId } : {}),
     },
   });
 }
 
-export async function createEventCheckoutUrl(registrationId: string): Promise<string> {
+export async function createEventCheckoutUrl(
+  registrationId: string,
+  customerEmail?: string | null,
+): Promise<string> {
   const reg = await prisma.eventRegistration.findUnique({
     where: { id: registrationId },
     include: {
       event: { select: { id: true, title: true, eventAt: true } },
-      client: { select: { id: true } },
+      client: { select: { id: true, email: true } },
     },
   });
   if (!reg) throw new Error("Запись не найдена");
@@ -61,6 +70,7 @@ export async function createEventCheckoutUrl(registrationId: string): Promise<st
   }
 
   const origin = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3001";
+  const returnUrl = `${origin}/client/registrations/${registrationId}?paid=1`;
 
   if (isMockCheckoutEnabled()) {
     const mockIntentId = `mock_event_${registrationId.slice(0, 12)}_${Date.now()}`;
@@ -68,7 +78,29 @@ export async function createEventCheckoutUrl(registrationId: string): Promise<st
       registrationId,
       stripePaymentIntentId: mockIntentId,
     });
-    return `${origin}/client/registrations/${registrationId}?paid=1&mock=1`;
+    return `${returnUrl}&mock=1`;
+  }
+
+  if (isYooKassaConfigured()) {
+    const email = (customerEmail ?? reg.client.email)?.trim();
+    if (!email) throw new Error("Укажите email для чека");
+
+    const pay = await createYooKassaEventPayment({
+      eventRegistrationId: registrationId,
+      amountRub: amount,
+      description: `uTrainer — ${reg.event.title.slice(0, 80)}`,
+      customerEmail: email,
+      returnUrl,
+    });
+
+    if (!pay.confirmationUrl) throw new Error("ЮKassa не вернула ссылку на оплату");
+
+    await prisma.eventRegistration.update({
+      where: { id: registrationId },
+      data: { yookassaPaymentId: pay.paymentId },
+    });
+
+    return pay.confirmationUrl;
   }
 
   const stripe = getStripe();
@@ -86,7 +118,7 @@ export async function createEventCheckoutUrl(registrationId: string): Promise<st
         },
       },
     ],
-    success_url: `${origin}/client/registrations/${registrationId}?paid=1`,
+    success_url: returnUrl,
     cancel_url: `${origin}/client/registrations/${registrationId}?paid=0`,
     metadata: {
       eventRegistrationId: registrationId,

@@ -3,6 +3,7 @@ import type { Order, OrderCancelledBy, Prisma } from "@prisma/client";
 import { refundAmountFromTotal } from "@/lib/refund-policy";
 import { prisma } from "@/lib/prisma";
 import { getStripe } from "@/lib/stripe";
+import { createYooKassaRefund, isYooKassaConfigured } from "@/lib/yookassa";
 import { transitionOrderStatus } from "@/lib/services/order-service";
 import { computeCancelRefundQuote } from "@/lib/refund-policy";
 
@@ -151,10 +152,22 @@ export async function applyRefundForExpiredOrder(orderId: string): Promise<void>
 }
 
 async function executePaymentRefund(order: Order, amountRub: number): Promise<void> {
-  const pi = order.stripePaymentIntentId;
-  if (!pi || order.paymentStatus !== "PAID") return;
+  if (order.paymentStatus !== "PAID" || amountRub <= 0) return;
 
-  if (pi.startsWith("mock_pi_")) {
+  const yooId = order.yookassaPaymentId?.trim();
+  if (yooId) {
+    if (!isYooKassaConfigured() && !yooId.startsWith("mock_yoo_")) {
+      throw new Error("ЮKassa не настроена для возврата");
+    }
+    await createYooKassaRefund(yooId, amountRub);
+    return;
+  }
+
+  const pi = order.stripePaymentIntentId?.trim();
+  if (!pi) {
+    throw new Error("Нет идентификатора платежа для возврата");
+  }
+  if (pi.startsWith("mock_pi_") || pi.startsWith("mock_event_")) {
     return;
   }
 

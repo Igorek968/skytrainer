@@ -10,6 +10,7 @@ import { computeTotals } from "@/lib/pricing";
 import { autoAcceptOrderIfScheduled } from "@/lib/services/instructor-order-auto-accept";
 import { applyRefundForExpiredOrder } from "@/lib/services/order-refund";
 import { resolveBillableHours } from "@/shared/lib/order-billing-hours";
+import { computePendingExpiresAt } from "@/shared/lib/order-flex";
 
 /** Prisma Decimal(10,2): числа JS с плавающей точкой и NaN ломали запись. */
 function orderMoneyDecimal(value: number): Prisma.Decimal {
@@ -120,6 +121,13 @@ export async function assignInstructorByQueue(orderId: string, reason: "initial"
       order.amountTotal != null &&
       order.instructorShareAmount != null;
 
+    const timingInput = {
+      flexibleInstructorInvite: Boolean(order.flexibleInstructorInvite),
+      requestedDays: order.requestedDays,
+      requestedStartDate: order.requestedStartDate,
+    };
+    const pendingExpiresAt = computePendingExpiresAt(timingInput);
+
     const updated = await tx.order.update({
       where: { id: orderId },
       data: prepaid
@@ -127,13 +135,13 @@ export async function assignInstructorByQueue(orderId: string, reason: "initial"
             instructorId: nextInstructorId,
             instructorQueueIndex: 0,
             status: "PENDING_INSTRUCTOR",
-            pendingExpiresAt: null,
+            pendingExpiresAt,
           }
         : {
             instructorId: nextInstructorId,
             instructorQueueIndex: 0,
             status: "PENDING_INSTRUCTOR",
-            pendingExpiresAt: null,
+            pendingExpiresAt,
             agreedHourlyRate: orderMoneyDecimal(hourlyRate),
             amountTotal: orderMoneyDecimal(totals.total),
             instructorShareAmount: orderMoneyDecimal(totals.instructorShare),
@@ -226,20 +234,23 @@ export async function prepareInstructorQueue(orderId: string): Promise<PrepareQu
 
 /** Cron / фон: просроченные ожидания ответа → EXPIRED и возврат при оплате. */
 export async function processExpiredPendingOrders(): Promise<number> {
-  const withDeadline = await prisma.order.findMany({
+  const now = new Date();
+  const overdue = await prisma.order.findMany({
     where: {
       status: "PENDING_INSTRUCTOR",
-      pendingExpiresAt: { not: null },
+      pendingExpiresAt: { not: null, lt: now },
     },
     select: { id: true },
   });
-  for (const row of withDeadline) {
-    await prisma.order.update({
-      where: { id: row.id },
-      data: { pendingExpiresAt: null },
-    });
+
+  let count = 0;
+  for (const row of overdue) {
+    const result = await assignInstructorByQueue(row.id, "timeout");
+    if (!result || result.status === "EXPIRED") {
+      count += 1;
+    }
   }
-  return 0;
+  return count;
 }
 
 /** Перед выдачей заказа — если дедлайн прошёл, закрыть заявку (без передачи другим). */
@@ -248,11 +259,8 @@ export async function rerouteOrderIfDeadlinePassed(orderId: string): Promise<voi
   if (!order || order.status !== "PENDING_INSTRUCTOR") {
     return;
   }
-  if (order.pendingExpiresAt != null) {
-    await prisma.order.update({
-      where: { id: orderId },
-      data: { pendingExpiresAt: null },
-    });
+  if (order.pendingExpiresAt != null && order.pendingExpiresAt < new Date()) {
+    await assignInstructorByQueue(orderId, "timeout");
   }
 }
 

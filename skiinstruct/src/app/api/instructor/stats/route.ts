@@ -6,6 +6,7 @@ import {
   PLATFORM_FEE_PERCENT,
 } from "@/lib/legal-config";
 import { formatPayoutWindowHint, canRequestWithdrawal } from "@/lib/services/order-payout";
+import { computeAvailablePayoutRub } from "@/lib/services/payout-request";
 import { prisma } from "@/lib/prisma";
 
 export async function GET() {
@@ -35,7 +36,6 @@ export async function GET() {
   });
 
   let earnedTotal = 0;
-  let availableForPayout = 0;
   let pendingPayout = 0;
   let missingNpdReceipts = 0;
 
@@ -43,15 +43,15 @@ export async function GET() {
     const share = Number(o.instructorShareAmount ?? 0);
     earnedTotal += share;
     const eligible = o.payoutEligibleAt && o.payoutEligibleAt <= now;
-    if (eligible) {
-      availableForPayout += share;
-    } else if (o.instructorPayoutReleasedAt) {
+    if (!eligible && o.instructorPayoutReleasedAt) {
       pendingPayout += share;
     }
     if (!o.npdReceiptUrl && o.lessonEndedAt) {
       missingNpdReceipts += 1;
     }
   }
+
+  const availableForPayout = await computeAvailablePayoutRub(userId);
 
   const gross = completed.reduce((acc, o) => acc + Number(o.amountTotal ?? 0), 0);
 

@@ -149,7 +149,7 @@ export async function PATCH(req: Request, ctx: Ctx) {
       );
     }
     try {
-      const checkoutUrl = await createEventCheckoutUrl(id);
+      const checkoutUrl = await createEventCheckoutUrl(id, resolved.session.user.email);
       return NextResponse.json({ checkoutUrl });
     } catch (e) {
       const message = e instanceof Error ? e.message : "Не удалось создать оплату";

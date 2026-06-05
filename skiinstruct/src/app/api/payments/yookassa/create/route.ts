@@ -4,8 +4,9 @@ import { z } from "zod";
 import { isApiErrorResponse, requireClientSession } from "@/lib/api-session";
 import { isMockCheckoutEnabled } from "@/lib/checkout-config";
 import { prisma } from "@/lib/prisma";
+import { isEmailVerificationRequired } from "@/lib/services/email-verification";
 import { completeOrderPrepayment } from "@/lib/services/order-prepayment";
-import { createYooKassaPayment, isYooKassaConfigured } from "@/lib/yookassa";
+import { createYooKassaLessonPayment, isYooKassaConfigured } from "@/lib/yookassa";
 
 const bodySchema = z.object({
   orderId: z.string().cuid(),
@@ -15,6 +16,22 @@ export async function POST(req: Request) {
   try {
     const resolved = await requireClientSession();
     if (isApiErrorResponse(resolved)) return resolved;
+
+    if (isEmailVerificationRequired()) {
+      const user = await prisma.user.findUnique({
+        where: { id: resolved.userId },
+        select: { emailVerified: true, email: true },
+      });
+      if (!user?.emailVerified) {
+        return NextResponse.json(
+          {
+            error: "Подтвердите email перед оплатой. Проверьте почту или запросите письмо повторно.",
+            code: "EMAIL_NOT_VERIFIED",
+          },
+          { status: 403 },
+        );
+      }
+    }
 
     let json: unknown;
     try {
@@ -72,7 +89,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Укажите email в профиле для чека" }, { status: 400 });
     }
 
-    const pay = await createYooKassaPayment({
+    const pay = await createYooKassaLessonPayment({
       orderId: order.id,
       amountRub,
       description: `uTrainer — заказ ${order.id.slice(0, 8)}`,

@@ -61,7 +61,7 @@ export default NextAuth(authConfig).auth((req) => {
     return NextResponse.next();
   }
 
-  if (pathname.startsWith("/reset-password")) {
+  if (pathname.startsWith("/reset-password") || pathname.startsWith("/verify-email")) {
     return NextResponse.next();
   }
 

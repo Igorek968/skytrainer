@@ -6,12 +6,18 @@ import { z } from "zod";
 
 import { authConfig } from "@/auth.config";
 import { prisma } from "@/lib/prisma";
+import { consumePhoneOtpIfValid } from "@/lib/phone-otp";
 import { normalizeRussianPhone } from "@/lib/phone";
 
-const credentialsSchema = z.object({
-  email: z.string().min(1),
-  password: z.string().min(1),
-});
+const credentialsSchema = z
+  .object({
+    email: z.string().min(1),
+    password: z.string().optional(),
+    otp: z.string().optional(),
+  })
+  .refine((d) => Boolean(d.password?.length || d.otp?.trim().length), {
+    message: "password or otp required",
+  });
 
 async function findUserForCredentials(identifier: string) {
   const trimmed = identifier.trim();
@@ -29,18 +35,46 @@ async function findUserForCredentials(identifier: string) {
 const credentialsProvider = Credentials({
   name: "credentials",
   credentials: {
-    email: { label: "Email", type: "text" },
+    email: { label: "Email или телефон", type: "text" },
     password: { label: "Пароль", type: "password" },
+    otp: { label: "Код из SMS", type: "text" },
   },
   authorize: async (raw: Record<string, unknown> | undefined) => {
     const normalized = {
       email: typeof raw?.email === "string" ? raw.email.trim() : "",
       password: typeof raw?.password === "string" ? raw.password : "",
+      otp: typeof raw?.otp === "string" ? raw.otp.trim() : "",
     };
     const parsed = credentialsSchema.safeParse(normalized);
     if (!parsed.success) return null;
-    const { email: identifier, password } = parsed.data;
+    const { email: identifier, password, otp } = parsed.data;
 
+    const phoneNorm = normalizeRussianPhone(identifier);
+    if (phoneNorm && otp) {
+      const otpResult = await consumePhoneOtpIfValid(phoneNorm, otp);
+      if (!otpResult.ok) return null;
+
+      let user = await prisma.user.findUnique({ where: { phone: phoneNorm } });
+      if (!user) {
+        user = await prisma.user.create({
+          data: {
+            phone: phoneNorm,
+            email: `phone+${phoneNorm}@clients.utrainer.local`,
+            name: otpResult.pendingName,
+            role: "CLIENT",
+          },
+        });
+      }
+      return {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        image: user.image,
+        role: user.role,
+      };
+    }
+
+    if (!password) return null;
     const user = await findUserForCredentials(identifier);
     if (!user?.passwordHash) return null;
     const ok = await compare(password, user.passwordHash);
@@ -61,6 +95,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [credentialsProvider, ...authConfig.providers],
   callbacks: {
     ...authConfig.callbacks,
+    async signIn({ user, account }) {
+      if (account?.provider === "google" && user.email) {
+        const existing = await prisma.user.findFirst({
+          where: { email: { equals: user.email, mode: "insensitive" } },
+          select: { role: true },
+        });
+        if (existing && existing.role !== "CLIENT") {
+          return false;
+        }
+      }
+      return true;
+    },
     async jwt(ctx: Parameters<NonNullable<typeof authConfig.callbacks.jwt>>[0]) {
       const token = await authConfig.callbacks.jwt(ctx);
       const uid = token.sub ?? (ctx.user as { id?: string } | undefined)?.id;

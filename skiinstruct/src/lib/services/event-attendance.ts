@@ -94,6 +94,7 @@ export async function confirmEventAttendance(params: {
     where: { id: params.registrationId, clientId: params.clientId },
     include: {
       event: { select: { eventAt: true, priceRub: true, title: true } },
+      client: { select: { email: true } },
     },
   });
   if (!reg) throw new Error("NOT_FOUND");
@@ -126,7 +127,7 @@ export async function confirmEventAttendance(params: {
     return { checkoutUrl: null, message: "Спасибо! Участие подтверждено." };
   }
 
-  const checkoutUrl = await createEventCheckoutUrl(reg.id);
+  const checkoutUrl = await createEventCheckoutUrl(reg.id, reg.client.email);
   return {
     checkoutUrl,
     message: "Перейдите к оплате — после неё участие будет подтверждено, средства поступят инструктору.",
