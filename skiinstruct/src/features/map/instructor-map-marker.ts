@@ -1,5 +1,7 @@
 import L from "leaflet";
 
+import { publicUploadAbsoluteDisplaySrc } from "@/lib/public-uploads-display";
+
 export type InstructorMapPin = {
   id: string;
   name: string | null;
@@ -31,10 +33,9 @@ function instructorInitials(name: string | null): string {
 }
 
 export function resolveInstructorMarkerPhoto(pin: Pick<InstructorMapPin, "photoUrl" | "image">): string | null {
-  const photo = pin.photoUrl?.trim();
+  const photo = publicUploadAbsoluteDisplaySrc(pin.photoUrl);
   if (photo) return photo;
-  const image = pin.image?.trim();
-  return image || null;
+  return publicUploadAbsoluteDisplaySrc(pin.image);
 }
 
 function buildStarRatingLine(rating: number): string {

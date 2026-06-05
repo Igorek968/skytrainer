@@ -2,7 +2,7 @@
  * Общая логика отбора инструкторов под параметры заказа / поиска рядом.
  */
 
-import { publicUploadDisplaySrc } from "@/lib/public-uploads-display";
+import { publicUploadAbsoluteDisplaySrc } from "@/lib/public-uploads-display";
 
 export type AvailabilitySlot = { day: number; from: string; to: string; busy?: boolean };
 
@@ -244,9 +244,9 @@ export function specializationMatches(available: string[], requestedRaw: string)
   });
 }
 
-/** Публичный URL файла в /public или абсолютная ссылка (для клиентского UI — через /api/media). */
+/** Публичный URL файла (абсолютный /api/media — для карты и списков на prod). */
 export function normalizePublicAssetUrl(url: string | null | undefined): string | null {
-  return publicUploadDisplaySrc(url);
+  return publicUploadAbsoluteDisplaySrc(url);
 }
 
 function coerceStringArray(raw: unknown): string[] {

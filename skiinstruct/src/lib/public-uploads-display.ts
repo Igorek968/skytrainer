@@ -10,6 +10,29 @@ export function publicUploadDisplaySrc(url: string | null | undefined): string |
   return trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
 }
 
+function resolveAppOrigin(origin?: string): string {
+  const fromArg = origin?.trim().replace(/\/$/, "");
+  if (fromArg) return fromArg;
+  if (typeof window !== "undefined") return window.location.origin;
+  const fromEnv =
+    process.env.NEXT_PUBLIC_APP_URL?.trim().replace(/\/$/, "") ||
+    process.env.AUTH_URL?.trim().replace(/\/$/, "");
+  return fromEnv ?? "";
+}
+
+/** Абсолютный URL — для Яндекс.Карт и внешних виджетов (относительный /api/media ломается). */
+export function publicUploadAbsoluteDisplaySrc(
+  url: string | null | undefined,
+  origin?: string,
+): string | null {
+  const src = publicUploadDisplaySrc(url);
+  if (!src) return null;
+  if (/^https?:\/\//i.test(src)) return src;
+  const base = resolveAppOrigin(origin);
+  if (!base) return src;
+  return `${base}${src.startsWith("/") ? src : `/${src}`}`;
+}
+
 export function publicUploadDisplaySrcs(urls: string[] | null | undefined): string[] {
   if (!urls?.length) return [];
   return urls

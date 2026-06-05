@@ -2,7 +2,8 @@
 param(
   [string]$SshHost = "vps",
   [string]$RemoteDir = "/opt/skytrainer",
-  [string]$EnvFile = ".env.qa"
+  [string]$EnvFile = ".env.qa",
+  [switch]$SyncInstructors = $true
 )
 
 $ErrorActionPreference = "Stop"
@@ -46,5 +47,12 @@ if (-not $domain) {
   Write-Warning "APP_DOMAIN не найден в $EnvFile"
   $domain = "localhost"
 }
+if ($SyncInstructors) {
+  Write-Host ""
+  Write-Host "Sync instructor profiles and photos to VPS..."
+  & (Join-Path $PSScriptRoot "sync-instructors-to-vps.ps1") -SshHost $SshHost -RemoteDir $RemoteDir
+}
+
+Write-Host ""
 Write-Host "Готово. Откройте: https://$domain"
 Write-Host "После первой выдачи TLS: .\scripts\caddy-sync-certs.ps1 -Direction Pull"
