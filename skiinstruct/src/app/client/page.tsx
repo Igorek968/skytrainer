@@ -36,7 +36,9 @@ import {
 } from "@/lib/auto-instructor-offer";
 import type { SpecializationOffer } from "@/lib/instructor-specialization-offers";
 import { INSTRUCTOR_ACTIVITY_LABELS, isSyntheticInstructorBioLine } from "@/lib/services/instructor-match";
+import { cn } from "@/lib/utils";
 import type { LessonDuration } from "@prisma/client";
+import { URGENT_INSTRUCTOR_DEADLINE_MIN } from "@/shared/lib/order-flex";
 import {
   buildLessonBookingPreview,
   defaultLessonTimeWindow,
@@ -513,8 +515,10 @@ export default function ClientHomePage() {
   const [personalOpen, setPersonalOpen] = useState(false);
   const [scheduleConflictOpen, setScheduleConflictOpen] = useState(false);
   const [scheduleConflictMessage, setScheduleConflictMessage] = useState("");
-  /** Запись на дату: в списке — и офлайн; после оплаты у инструктора нет таймера 60 с. */
+  /** Запись на дату: в списке — и офлайн; после оплаты без дедлайна ответа. */
   const [flexibleOfflineBooking, setFlexibleOfflineBooking] = useState(false);
+  /** Срочный вызов: только онлайн, дедлайн на принятие после оплаты. */
+  const [urgentBooking, setUrgentBooking] = useState(false);
   const [instructorNameQuery, setInstructorNameQuery] = useState("");
 
   useEffect(() => {
@@ -541,11 +545,25 @@ export default function ClientHomePage() {
     const raw = Math.floor((end.getTime() - start.getTime()) / 86_400_000) + 1;
     return Math.min(30, Math.max(1, Number.isFinite(raw) ? raw : 1));
   }, [lessonDate, lessonEndDate]);
-  /** Не «день в день»: в поиске — и офлайн; заявка без таймера 60 с. */
+  /** Не «день в день»: в поиске — и офлайн; заявка без срочного дедлайна. */
   const isRelaxedLessonBooking = useMemo(
     () => flexibleOfflineBooking || lessonDate > todayIso || lessonDays > 1,
     [flexibleOfflineBooking, lessonDate, todayIso, lessonDays],
   );
+  const urgentBookingAvailable = useMemo(
+    () =>
+      !showAdvancedParams ||
+      (lessonDate === todayIso && lessonDays === 1 && !flexibleOfflineBooking),
+    [showAdvancedParams, lessonDate, todayIso, lessonDays, flexibleOfflineBooking],
+  );
+
+  useEffect(() => {
+    if (!urgentBookingAvailable && urgentBooking) setUrgentBooking(false);
+  }, [urgentBookingAvailable, urgentBooking]);
+
+  useEffect(() => {
+    if (flexibleOfflineBooking && urgentBooking) setUrgentBooking(false);
+  }, [flexibleOfflineBooking, urgentBooking]);
   // SSR/CSR must render identical initial clock values to avoid hydration mismatch.
   const [lessonStartTime, setLessonStartTime] = useState("10:00");
   const [lessonEndTime, setLessonEndTime] = useState("12:00");
@@ -602,9 +620,10 @@ export default function ClientHomePage() {
 
   const nearbyRelaxed = useMemo(
     () =>
+      !urgentBooking &&
       showAdvancedParams &&
       (flexibleOfflineBooking || lessonDate > todayIso || lessonDays > 1),
-    [showAdvancedParams, flexibleOfflineBooking, lessonDate, todayIso, lessonDays],
+    [showAdvancedParams, flexibleOfflineBooking, lessonDate, todayIso, lessonDays, urgentBooking],
   );
 
   const quickSearchPreview = useMemo(
@@ -646,6 +665,7 @@ export default function ClientHomePage() {
       nearbyLessonEndDate,
       nearbyLessonDays,
       nearbyRelaxed,
+      urgentBooking,
       nearbyLessonStartTime,
       nearbyLessonEndTime,
       nearbyTzOffset,
@@ -781,6 +801,7 @@ export default function ClientHomePage() {
       lessonTimeZoneOffsetMinutes: new Date().getTimezoneOffset(),
       instructorId,
       flexibleInstructorInvite: nearbyRelaxed,
+      urgentInvite: urgentBooking && urgentBookingAvailable,
     });
 
     const doPost = () =>
@@ -1064,6 +1085,40 @@ export default function ClientHomePage() {
                 <option value="FULL_DAY">Весь день</option>
               </select>
             </div>
+            {urgentBookingAvailable ? (
+              <div
+                className={cn(
+                  "rounded-lg border p-3 text-sm transition-colors",
+                  urgentBooking
+                    ? "border-amber-500/60 bg-amber-500/15 shadow-sm"
+                    : "border-border bg-muted/20",
+                )}
+              >
+                <label htmlFor="urgent-booking" className="flex cursor-pointer items-start gap-3">
+                  <input
+                    id="urgent-booking"
+                    type="checkbox"
+                    className="mt-1 h-4 w-4 shrink-0 rounded border-input accent-amber-600"
+                    checked={urgentBooking}
+                    onChange={(e) => {
+                      const on = e.target.checked;
+                      setUrgentBooking(on);
+                      if (on) {
+                        applyCurrentLessonStartTime();
+                      }
+                    }}
+                  />
+                  <span className="leading-snug">
+                    <span className="font-semibold text-foreground">⚡ Срочно — нужен инструктор сейчас</span>
+                    <span className="mt-1 block text-muted-foreground">
+                      Только инструкторы «на линии». После оплаты у выбранного{" "}
+                      <strong>{URGENT_INSTRUCTOR_DEADLINE_MIN} минут</strong> на принятие — иначе полный
+                      возврат.
+                    </span>
+                  </span>
+                </label>
+              </div>
+            ) : null}
             <div
               className="rounded-lg border border-primary/20 bg-primary/5 p-3 text-sm leading-relaxed"
               aria-live="polite"
@@ -1089,6 +1144,11 @@ export default function ClientHomePage() {
               {todayLeadLine ? (
                 <p className="mt-1 text-xs text-muted-foreground">{todayLeadLine}</p>
               ) : null}
+              {urgentBooking ? (
+                <p className="mt-2 text-xs font-medium text-amber-800 dark:text-amber-200">
+                  Режим «Срочно» активен — в списке ниже только инструкторы на линии.
+                </p>
+              ) : null}
             </div>
             <Button
               type="button"
@@ -1113,7 +1173,7 @@ export default function ClientHomePage() {
                 <span className="font-medium">Запись на дату (инструктор может быть офлайн)</span>
                 <span className="mt-1 block text-muted-foreground">
                   В списке появятся все подходящие инструкторы на выбранные даты; после оплаты выбранному
-                  придёт уведомление <strong>без ограничения по времени</strong> на ответ (не 60 секунд).
+                  придёт уведомление <strong>без ограничения по времени</strong> на ответ.
                 </span>
               </label>
             </div>
@@ -1136,7 +1196,7 @@ export default function ClientHomePage() {
               <p className="text-xs text-muted-foreground">
                 {isRelaxedLessonBooking
                   ? lessonDate > todayIso || lessonDays > 1
-                    ? "Урок не сегодня — в списке и офлайн-инструкторы; ответ на заявку без таймера 60 с."
+                    ? "Урок не сегодня — в списке и офлайн-инструкторы; ответ без срочного дедлайна."
                     : "Даты можно выбрать вперёд на два года; фильтр по слотам календаря инструктора отключён."
                   : "На сегодня в списке только инструкторы «на линии» с подходящими слотами."}
               </p>
@@ -1207,11 +1267,19 @@ export default function ClientHomePage() {
         <Card id={CLIENT_SECTION_IDS.nearbyInstructors} className="scroll-mt-24">
           <CardHeader className="flex flex-row items-start justify-between gap-3">
             <div>
-              <CardTitle>{nearbyRelaxed ? "Инструкторы" : "Инструкторы рядом"}</CardTitle>
+              <CardTitle>
+                {urgentBooking
+                  ? "⚡ Срочно — инструкторы на линии"
+                  : nearbyRelaxed
+                    ? "Инструкторы"
+                    : "Инструкторы рядом"}
+              </CardTitle>
               <CardDescription className="max-w-xl">
-                {nearbyRelaxed
-                  ? "Включая офлайн; на карте — только с координатами."
-                  : "Сегодня в списке только инструкторы «на линии»; данные обновляются каждые ~12 с."}
+                {urgentBooking
+                  ? `Только «на линии»; после оплаты — ${URGENT_INSTRUCTOR_DEADLINE_MIN} мин на принятие.`
+                  : nearbyRelaxed
+                    ? "Включая офлайн; на карте — только с координатами."
+                    : "Сегодня в списке только инструкторы «на линии»; данные обновляются каждые ~12 с."}
               </CardDescription>
               <Input
                 type="search"

@@ -294,6 +294,7 @@ export default function InstructorHomePage() {
           createdAt: string;
           pendingExpiresAt: string | null;
           flexibleInstructorInvite?: boolean;
+          urgentInvite?: boolean;
           amountTotal: string | number | null;
           meetLat: number;
           meetLng: number;

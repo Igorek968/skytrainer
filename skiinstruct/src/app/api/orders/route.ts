@@ -14,6 +14,7 @@ import { mergeMeetAddressToNotes } from "@/shared/lib/order-meet-address";
 import { inferLessonDurationFromBillableHours } from "@/shared/lib/order-duration";
 import { parseWallDateTime } from "@/shared/lib/lesson-wall-datetime";
 import { resolveBillableHours } from "@/shared/lib/order-billing-hours";
+import { orderIsTodayLessonDay } from "@/shared/lib/order-flex";
 
 /** Счёт календарных дней по YYYY-MM-DD в UTC полдень (без сдвига из‑за DST у полуночи). */
 function calendarSpanDaysInclusive(startIso: string, endIso: string): number {
@@ -113,6 +114,7 @@ export async function POST(req: Request) {
     resortId,
     instructorId,
     flexibleInstructorInvite,
+    urgentInvite,
     lessonStartTime: lessonStartTimeRaw,
     lessonEndTime: lessonEndTimeRaw,
     lessonTimeZoneOffsetMinutes,
@@ -185,8 +187,29 @@ export async function POST(req: Request) {
   if (flexibleInstructorInvite && !instructorId) {
     return NextResponse.json(
       { error: "Для записи на дату нужно выбрать инструктора." },
-      { status: 400 }
+      { status: 400 },
     );
+  }
+
+  if (urgentInvite) {
+    if (!instructorId) {
+      return NextResponse.json(
+        { error: "Для срочной заявки выберите инструктора из списка «на линии»." },
+        { status: 400 },
+      );
+    }
+    if (flexibleInstructorInvite) {
+      return NextResponse.json(
+        { error: "Режим «Срочно» несовместим с записью на дату." },
+        { status: 400 },
+      );
+    }
+    if (requestedStartDate && !orderIsTodayLessonDay({ requestedStartDate })) {
+      return NextResponse.json(
+        { error: "Срочная заявка доступна только на сегодня." },
+        { status: 400 },
+      );
+    }
   }
 
   const billableHours =
@@ -259,6 +282,7 @@ export async function POST(req: Request) {
     ...scheduleFields,
     resortId: resortId ?? undefined,
     flexibleInstructorInvite: Boolean(flexibleInstructorInvite && instructorId),
+    urgentInvite: Boolean(urgentInvite && instructorId),
   }) as Prisma.OrderUncheckedCreateInput;
 
   try {

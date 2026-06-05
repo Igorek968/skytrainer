@@ -1,9 +1,9 @@
-/** Секунды на принятие срочной заявки инструктором. */
-export const PENDING_INSTRUCTOR_DEADLINE_SEC = 60;
+/** Минут на принятие срочной заявки инструктором. */
+export const URGENT_INSTRUCTOR_DEADLINE_MIN = 15;
 
 /**
- * «Мягкий» ответ инструктора: без 60 с и без срочного ETA.
- * Единая логика для день-в-день, будущих дат и записи на дату.
+ * «Мягкий» ответ инструктора: без дедлайна и без срочного ETA.
+ * Запись на дату, будущие даты, несколько дней, урок сегодня (не срочно).
  */
 
 export function lessonCalendarYmd(date: Date | string | null | undefined): string | null {
@@ -39,11 +39,20 @@ export function orderSpansMultipleLessonDays(order: { requestedDays: number | nu
   return (order.requestedDays ?? 1) > 1;
 }
 
-export function orderRelaxedInstructorTiming(order: {
+export type OrderTimingInput = {
+  urgentInvite?: boolean;
   flexibleInstructorInvite: boolean;
   requestedDays: number | null;
   requestedStartDate?: Date | string | null;
-}): boolean {
+};
+
+/** Срочный вызов: инструктор на линии, ограниченное время на принятие. */
+export function orderIsUrgent(order: OrderTimingInput): boolean {
+  return order.urgentInvite === true;
+}
+
+export function orderRelaxedInstructorTiming(order: OrderTimingInput): boolean {
+  if (orderIsUrgent(order)) return false;
   return (
     order.flexibleInstructorInvite === true ||
     orderSpansMultipleLessonDays(order) ||
@@ -62,19 +71,18 @@ export function orderSkipsInstructorEta(order: {
 }
 
 /** Подпись для UI (модалка, карточка заказа). */
-export function orderRelaxedTimingHint(order: {
-  flexibleInstructorInvite: boolean;
-  requestedDays: number | null;
-  requestedStartDate?: Date | string | null;
-}): string {
+export function orderRelaxedTimingHint(order: OrderTimingInput): string {
+  if (orderIsUrgent(order)) {
+    return `Срочно — ${URGENT_INSTRUCTOR_DEADLINE_MIN} мин на принятие`;
+  }
   if (order.flexibleInstructorInvite) {
     return "Запись на дату — без таймера ответа";
   }
   if (orderSpansMultipleLessonDays(order)) {
-    return "Несколько дней — без таймера 60 с; время прибытия согласуйте в чате";
+    return "Несколько дней — время прибытия согласуйте в чате";
   }
   if (orderIsTodayLessonDay(order)) {
-    return "Урок сегодня — ответьте, когда будете готовы (без 60 с)";
+    return "Урок сегодня — ответьте, когда будете готовы";
   }
   if (orderIsFutureLessonDay(order)) {
     return "Урок не сегодня — запись подтверждается автоматически после оплаты";
@@ -82,14 +90,20 @@ export function orderRelaxedTimingHint(order: {
   return "";
 }
 
-/** Дедлайн принятия заявки: только для срочных заказов без relaxed timing. */
-export function computePendingExpiresAt(order: {
-  flexibleInstructorInvite: boolean;
-  requestedDays: number | null;
-  requestedStartDate?: Date | string | null;
-  now?: Date;
-}): Date | null {
-  if (orderRelaxedInstructorTiming(order)) return null;
+/** Дедлайн принятия — только для режима «Срочно». */
+export function computePendingExpiresAt(order: OrderTimingInput & { now?: Date }): Date | null {
+  if (!orderIsUrgent(order)) return null;
   const base = order.now ?? new Date();
-  return new Date(base.getTime() + PENDING_INSTRUCTOR_DEADLINE_SEC * 1000);
+  return new Date(base.getTime() + URGENT_INSTRUCTOR_DEADLINE_MIN * 60 * 1000);
+}
+
+export function formatUrgentCountdown(totalSeconds: number): string {
+  const safe = Math.max(0, totalSeconds);
+  const m = Math.floor(safe / 60);
+  const s = safe % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
+export function urgentDeadlineLabel(): string {
+  return `${URGENT_INSTRUCTOR_DEADLINE_MIN} мин`;
 }

@@ -4,12 +4,13 @@ import { useEffect, useRef } from "react";
 import { toast } from "sonner";
 
 import { playInstructorOrderBeep } from "@/features/instructor/instructor-order-beep";
-import { orderRelaxedInstructorTiming } from "@/shared/lib/order-flex";
+import { orderIsUrgent, orderRelaxedInstructorTiming, urgentDeadlineLabel } from "@/shared/lib/order-flex";
 
 export type PendingOrderAlertRow = {
   id: string;
   status: string;
   flexibleInstructorInvite?: boolean;
+  urgentInvite?: boolean;
   requestedDays?: number | null;
   requestedStartDate?: string | Date | null;
   pendingExpiresAt?: string | Date | null;
@@ -18,6 +19,7 @@ export type PendingOrderAlertRow = {
 
 function timingInput(o: PendingOrderAlertRow) {
   return {
+    urgentInvite: Boolean(o.urgentInvite),
     flexibleInstructorInvite: Boolean(o.flexibleInstructorInvite),
     requestedDays: o.requestedDays ?? null,
     requestedStartDate: o.requestedStartDate ?? null,
@@ -91,9 +93,8 @@ export function useInstructorPendingOrderAlerts(
 
     playInstructorOrderBeep();
 
-    const rowRelaxed = (o: PendingOrderAlertRow) => orderRelaxedInstructorTiming(timingInput(o));
-    const anyRelaxed = newlySeen.some((o) => rowRelaxed(o));
-    const anyTimed = newlySeen.some((o) => !rowRelaxed(o));
+    const anyUrgent = newlySeen.some((o) => orderIsUrgent(timingInput(o)));
+    const anyRelaxedOnly = newlySeen.some((o) => orderRelaxedInstructorTiming(timingInput(o)) && !orderIsUrgent(timingInput(o)));
     const first = newlySeen[0];
     const openFirstOrder = () => {
       if (typeof window === "undefined") return;
@@ -101,11 +102,11 @@ export function useInstructorPendingOrderAlerts(
     };
 
     const description =
-      anyRelaxed && anyTimed
-        ? "Есть срочные (60 с) и спокойные заявки (не сегодня, несколько дней или запись на дату)."
-        : anyRelaxed
-          ? "Без отсчёта 60 с — урок не сегодня, несколько дней или запись на дату."
-          : "На принятие — 60 секунд. Без ответа заявка закрывается.";
+      anyUrgent && anyRelaxedOnly
+        ? `Есть срочные (⚡ ${urgentDeadlineLabel()}) и обычные заявки.`
+        : anyUrgent
+          ? `Срочно — ${urgentDeadlineLabel()} на принятие.`
+          : "Обычная заявка — ответ без срочного дедлайна.";
 
     toast.success(`Новая заявка: ${newlySeen.length} шт.`, {
       description,
@@ -119,13 +120,16 @@ export function useInstructorPendingOrderAlerts(
     });
 
     if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
-      const firstRelaxed = rowRelaxed(first);
+      const firstUrgent = orderIsUrgent(timingInput(first));
+      const firstRelaxed = orderRelaxedInstructorTiming(timingInput(first)) && !firstUrgent;
       const etaHint =
-        !firstRelaxed && first.pendingExpiresAt
+        firstUrgent && first.pendingExpiresAt
           ? (() => {
               const ms = new Date(first.pendingExpiresAt).getTime() - Date.now();
               const leftSec = Math.max(0, Math.ceil(ms / 1000));
-              return `На решение: ~${leftSec} сек.`;
+              const m = Math.floor(leftSec / 60);
+              const s = leftSec % 60;
+              return `Срочно: ~${m}:${String(s).padStart(2, "0")}.`;
             })()
           : "";
       const n = new Notification("Заявка инструктору", {
@@ -134,9 +138,11 @@ export function useInstructorPendingOrderAlerts(
             ? "Есть новые заявки. Откройте раздел «Заказы»."
             : [
                 first.client?.name ? `Клиент: ${first.client.name}` : "Новый заказ",
-                firstRelaxed
-                  ? "Без таймера 60 с."
-                  : etaHint || "На принятие — 60 секунд.",
+                firstUrgent
+                  ? etaHint || `Срочно — ${urgentDeadlineLabel()}.`
+                  : firstRelaxed
+                    ? "Без срочного дедлайна."
+                    : "",
               ]
                 .filter(Boolean)
                 .join(" "),

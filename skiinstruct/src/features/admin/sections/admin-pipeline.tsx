@@ -12,7 +12,7 @@ export function AdminPipelineSection({ data }: { data: AdminOverview }) {
       </CardHeader>
       <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <div className="rounded-lg border border-border bg-muted/30 p-3">
-          <div className="text-xs font-medium text-muted-foreground">Онлайн-очередь (60 с)</div>
+          <div className="text-xs font-medium text-muted-foreground">Срочные заявки</div>
           <div className="text-2xl font-semibold">{data.pipeline.onlineQueuePending}</div>
           <p className="mt-1 text-[11px] text-muted-foreground">
             PENDING_INSTRUCTOR, таймер ответа, не «запись на дату».

@@ -57,12 +57,22 @@ export const createOrderSchema = z
       (v) => (v === null || v === undefined || v === "" ? undefined : v),
       z.string().cuid().optional(),
     ),
-    /** Запись на дату: показывать офлайн-инструкторов, без таймера ответа после оплаты. */
+    /** Запись на дату: показывать офлайн-инструкторов, без дедлайна ответа после оплаты. */
     flexibleInstructorInvite: z.preprocess((v) => {
       if (v === true || v === "true" || v === 1 || v === "1") return true;
       if (v === false || v === "false" || v === 0 || v === "0") return false;
       return v;
     }, z.boolean().optional().default(false)),
+    /** Срочный вызов: только онлайн-инструкторы, дедлайн на принятие после оплаты. */
+    urgentInvite: z.preprocess((v) => {
+      if (v === true || v === "true" || v === 1 || v === "1") return true;
+      if (v === false || v === "false" || v === 0 || v === "0") return false;
+      return v;
+    }, z.boolean().optional().default(false)),
+  })
+  .refine((d) => !(d.urgentInvite && d.flexibleInstructorInvite), {
+    message: "Режим «Срочно» несовместим с записью на дату",
+    path: ["urgentInvite"],
   })
   .refine(
     (d) => {

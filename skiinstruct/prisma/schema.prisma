@@ -332,10 +332,13 @@ model Order {
   instructorQueue    Json?
   instructorQueueIndex Int      @default(0)
 
-  /// Запись на дату: инструктор мог быть офлайн; без таймера 60 с, только уведомление.
+  /// Запись на дату: инструктор мог быть офлайн; без дедлайна ответа.
   flexibleInstructorInvite Boolean @default(false)
 
-  /// Instructor must accept within this window (UTC)
+  /// Срочный вызов: инструктор на линии, ограниченное время на принятие после оплаты.
+  urgentInvite Boolean @default(false)
+
+  /// Instructor must accept within this window (UTC), только для urgentInvite.
   pendingExpiresAt DateTime?
 
   acceptedAt      DateTime?

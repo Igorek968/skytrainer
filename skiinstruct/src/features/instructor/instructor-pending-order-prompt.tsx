@@ -15,7 +15,13 @@ import {
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
-import { orderRelaxedInstructorTiming, orderSkipsInstructorEta } from "@/shared/lib/order-flex";
+import {
+  orderRelaxedInstructorTiming,
+  orderIsUrgent,
+  orderSkipsInstructorEta,
+  formatUrgentCountdown,
+  urgentDeadlineLabel,
+} from "@/shared/lib/order-flex";
 import { isLongInstructorEtaMinutes, LONG_INSTRUCTOR_ETA_MINUTES } from "@/shared/lib/order-long-eta";
 import { OrderLessonTimeBlock } from "@/shared/ui/order-lesson-time-block";
 import { orderHasMeetAddress, resolveMeetAddress } from "@/shared/lib/order-meet-address";
@@ -27,6 +33,7 @@ type PendingOrderRow = {
   createdAt: string;
   pendingExpiresAt: string | null;
   flexibleInstructorInvite?: boolean;
+  urgentInvite?: boolean;
   amountTotal: string | number | null;
   meetLat: number;
   meetLng: number;
@@ -44,6 +51,7 @@ type PendingOrderRow = {
 function orderTimingInput(o: PendingOrderRow) {
   return {
     flexibleInstructorInvite: Boolean(o.flexibleInstructorInvite),
+    urgentInvite: Boolean(o.urgentInvite),
     requestedDays: o.requestedDays ?? null,
     requestedStartDate: o.requestedStartDate,
   };
@@ -129,7 +137,12 @@ export function InstructorPendingOrderPrompt() {
     const pending = orderAlerts.orders.filter((o) => {
       if (o.status !== "PENDING_INSTRUCTOR") return false;
       const relaxed = orderRelaxedInstructorTiming(orderTimingInput(o));
+      const urgent = orderIsUrgent(orderTimingInput(o));
       if (relaxed) return true;
+      if (urgent && o.pendingExpiresAt) {
+        const expMs = new Date(o.pendingExpiresAt).getTime();
+        return Number.isFinite(expMs) && expMs > Date.now();
+      }
       if (!o.pendingExpiresAt) return true;
       const expMs = new Date(o.pendingExpiresAt).getTime();
       return Number.isFinite(expMs) && expMs > Date.now();
@@ -164,6 +177,7 @@ export function InstructorPendingOrderPrompt() {
       (o) => o.id === pendingPromptOrderId && o.status === "PENDING_INSTRUCTOR",
     ) ?? null;
 
+  const isUrgent = activeOrder ? orderIsUrgent(orderTimingInput(activeOrder)) : false;
   const relaxedTiming = activeOrder
     ? orderRelaxedInstructorTiming(orderTimingInput(activeOrder))
     : false;
@@ -198,6 +212,10 @@ export function InstructorPendingOrderPrompt() {
       setPendingPromptSecondsLeft(null);
       return;
     }
+    if (!isUrgent) {
+      setPendingPromptSecondsLeft(null);
+      return;
+    }
     const expRaw = activeOrder.pendingExpiresAt;
     if (!expRaw) {
       setPendingPromptSecondsLeft(null);
@@ -214,7 +232,7 @@ export function InstructorPendingOrderPrompt() {
     tick();
     const id = window.setInterval(tick, 1000);
     return () => window.clearInterval(id);
-  }, [activeOrder, relaxedTiming, longEtaPending]);
+  }, [activeOrder, relaxedTiming, longEtaPending, isUrgent]);
 
   useEffect(() => {
     if (!activeOrder || relaxedTiming || !longEtaPending) {
@@ -282,7 +300,7 @@ export function InstructorPendingOrderPrompt() {
     >
       <div className="max-h-[min(92dvh,640px)] w-full max-w-xl overflow-y-auto rounded-lg border border-border bg-background p-4 shadow-xl">
         <h2 id="instructor-new-order-title" className="text-lg font-semibold">
-          Новая заявка от клиента
+          {isUrgent ? "⚡ Срочная заявка" : "Новая заявка от клиента"}
         </h2>
         <p className="mt-1 text-sm text-muted-foreground">
           Клиент: {activeOrder.client?.name || "Без имени"}
@@ -321,9 +339,9 @@ export function InstructorPendingOrderPrompt() {
               Прибытие более {LONG_INSTRUCTOR_ETA_MINUTES} мин — заявка не закроется автоматически, пока вы не
               отклоните её или клиент не отменит.
             </div>
-          ) : !relaxedTiming ? (
+          ) : isUrgent ? (
             <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-1 font-medium text-amber-800 dark:text-amber-200">
-              На ознакомление и решение: {pendingPromptSecondsLeft ?? 0} сек
+              Срочно — осталось {formatUrgentCountdown(pendingPromptSecondsLeft ?? 0)} из {urgentDeadlineLabel()}
             </div>
           ) : null}
           {activeOrder.requestedStartDate ? (

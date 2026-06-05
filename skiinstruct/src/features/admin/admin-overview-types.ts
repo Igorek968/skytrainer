@@ -20,6 +20,7 @@ export type AdminOrderOverviewRow = {
   createdAt: string;
   updatedAt: string;
   flexibleInstructorInvite: boolean;
+  urgentInvite?: boolean;
   pendingExpiresAt: string | null;
   amountTotal: number | null;
   paymentStatus: PaymentStatus;
@@ -126,10 +127,10 @@ export const adminMoney = (n: number) =>
 
 export function adminOrderFlowLabel(o: AdminOrderOverviewRow): string {
   if (o.status !== "PENDING_INSTRUCTOR") return "—";
+  if (o.urgentInvite) return "⚡ Срочно";
   if (o.flexibleInstructorInvite) return "Запись на дату";
-  if (!o.pendingExpiresAt) return "Без таймера 60 с";
-  if (o.pendingExpiresAt) return "Ожидание ответа (60 с)";
-  return "Ожидание инструктора";
+  if (!o.pendingExpiresAt) return "Без дедлайна";
+  return "Ожидание ответа";
 }
 
 export function adminActivityCategoryLabel(c: AdminActivityCategory): string {

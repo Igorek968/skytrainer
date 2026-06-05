@@ -70,8 +70,9 @@ export async function assignInstructorByQueue(orderId: string, reason: "initial"
     if (!order) return null;
 
     const flexibleInvite = order.flexibleInstructorInvite === true;
-    /** Клиент уже выбрал инструктора — не требуем isOnline при оплате (день в день и запись на дату). */
-    const requireOnline = !flexibleInvite && !order.instructorId;
+    const urgent = order.urgentInvite === true;
+    /** Срочно или клиент без выбранного инструктора — только онлайн. */
+    const requireOnline = urgent || (!flexibleInvite && !order.instructorId);
 
     const queue = Array.isArray(order.instructorQueue) ? (order.instructorQueue as string[]) : [];
     if (!queue.length) {
@@ -122,6 +123,7 @@ export async function assignInstructorByQueue(orderId: string, reason: "initial"
       order.instructorShareAmount != null;
 
     const timingInput = {
+      urgentInvite: Boolean(order.urgentInvite),
       flexibleInstructorInvite: Boolean(order.flexibleInstructorInvite),
       requestedDays: order.requestedDays,
       requestedStartDate: order.requestedStartDate,

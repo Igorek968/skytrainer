@@ -12,7 +12,13 @@ import { CancelOrderButton } from "@/features/orders/cancel-order-button";
 import { OrderEventsFeed } from "@/features/orders/order-events-feed";
 import { devPollInterval } from "@/lib/query-poll";
 import { NearbyMapLazy } from "@/features/map/map-loader";
-import { orderRelaxedInstructorTiming, orderSkipsInstructorEta } from "@/shared/lib/order-flex";
+import {
+  formatUrgentCountdown,
+  orderIsUrgent,
+  orderRelaxedInstructorTiming,
+  orderSkipsInstructorEta,
+  urgentDeadlineLabel,
+} from "@/shared/lib/order-flex";
 import { OrderLessonTimeBlock } from "@/shared/ui/order-lesson-time-block";
 import { orderHasMeetAddress, resolveMeetAddress } from "@/shared/lib/order-meet-address";
 import { lessonDurationLabelRu, resolveOrderDisplayDuration } from "@/shared/lib/order-duration";
@@ -51,11 +57,13 @@ function InstructorOrderDetailContent({
   const safeOrder = data.order;
   const safeStatus = safeOrder.status as OrderStatus;
   const timingInput = {
+    urgentInvite: Boolean(safeOrder.urgentInvite),
     flexibleInstructorInvite: Boolean(safeOrder.flexibleInstructorInvite),
     requestedDays: safeOrder.requestedDays,
     requestedStartDate: safeOrder.requestedStartDate,
   };
   const relaxedTiming = orderRelaxedInstructorTiming(timingInput);
+  const isUrgent = orderIsUrgent(timingInput);
   const skipsEta = orderSkipsInstructorEta(timingInput);
 
   const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
@@ -81,7 +89,7 @@ function InstructorOrderDetailContent({
   });
 
   useEffect(() => {
-    if (safeStatus !== "PENDING_INSTRUCTOR" || pendingExpiresMs == null) {
+    if (safeStatus !== "PENDING_INSTRUCTOR" || !isUrgent || pendingExpiresMs == null) {
       setSecondsLeft(null);
       return;
     }
@@ -92,7 +100,7 @@ function InstructorOrderDetailContent({
     tick();
     const timerId = window.setInterval(tick, 1000);
     return () => window.clearInterval(timerId);
-  }, [safeStatus, pendingExpiresMs]);
+  }, [safeStatus, pendingExpiresMs, isUrgent]);
 
   useEffect(() => {
     setEtaMinutes(extractEtaFromNotes(safeOrder.notes));
@@ -199,11 +207,11 @@ function InstructorOrderDetailContent({
           <div>Длительность занятия: {lessonDurationLabelRu(displayDuration)}</div>
           <div>Сумма: {safeOrder.amountTotal ? `${Number(safeOrder.amountTotal)} ₽` : "—"}</div>
           <OrderCancellationSide status={safeStatus} cancelledBy={safeOrder.cancelledBy} />
-          {safeStatus === "PENDING_INSTRUCTOR" && !relaxedTiming ? (
+          {safeStatus === "PENDING_INSTRUCTOR" && isUrgent ? (
             <div className="font-medium text-amber-600">
               {pendingExpiresMs == null
-                ? "Заявка ожидает вашего решения (без автоотмены по таймеру)."
-                : `На решение: ${secondsLeft ?? 0} сек`}
+                ? "Срочная заявка ожидает вашего решения."
+                : `Срочно — осталось ${formatUrgentCountdown(secondsLeft ?? 0)} из ${urgentDeadlineLabel()}`}
             </div>
           ) : null}
         </CardContent>
@@ -297,7 +305,7 @@ function InstructorOrderDetailContent({
                 )
               }
             >
-              {relaxedTiming ? "Принять" : "Принять (60 сек)"}
+              {isUrgent ? `Принять (срочно, ${urgentDeadlineLabel()})` : "Принять"}
             </Button>
             <Button
               type="button"

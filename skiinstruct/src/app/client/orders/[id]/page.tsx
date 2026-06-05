@@ -14,9 +14,12 @@ import { redirectToOrderCheckout } from "@/lib/payments/redirect-to-checkout";
 import { devPollInterval } from "@/lib/query-poll";
 import { NearbyMapLazy } from "@/features/map/map-loader";
 import {
+  formatUrgentCountdown,
   orderIsTodayLessonDay,
+  orderIsUrgent,
   orderRelaxedInstructorTiming,
   orderSpansMultipleLessonDays,
+  urgentDeadlineLabel,
 } from "@/shared/lib/order-flex";
 import { useCountdownToDeadline } from "@/shared/hooks/use-countdown-to-deadline";
 import {
@@ -147,7 +150,9 @@ function ClientOrderDetailContent({
   const [rating, setRating] = useState(5);
   const [review, setReview] = useState("");
   const pendingExpiresMs = parsePendingExpiresMs(o?.pendingExpiresAt);
-  const pendingCountdownEnabled = statusEarly === "PENDING_INSTRUCTOR" && pendingExpiresMs != null;
+  const isUrgentEarly = Boolean(o?.urgentInvite);
+  const pendingCountdownEnabled =
+    statusEarly === "PENDING_INSTRUCTOR" && isUrgentEarly && pendingExpiresMs != null;
   const secondsLeft = useCountdownToDeadline(pendingExpiresMs, pendingCountdownEnabled);
 
   const arrivalDeadlineMs = useMemo(
@@ -191,11 +196,13 @@ function ClientOrderDetailContent({
 
   const status = o.status as OrderStatus;
   const timingInput = {
+    urgentInvite: Boolean(o.urgentInvite),
     flexibleInstructorInvite: Boolean(o.flexibleInstructorInvite),
     requestedDays: o.requestedDays,
     requestedStartDate: o.requestedStartDate,
   };
   const relaxedTiming = orderRelaxedInstructorTiming(timingInput);
+  const isUrgent = orderIsUrgent(timingInput);
   const lessonToday = orderIsTodayLessonDay(timingInput);
   const multiDay = orderSpansMultipleLessonDays(timingInput);
   const discipline =
@@ -331,7 +338,9 @@ function ClientOrderDetailContent({
         <Card>
           <CardHeader>
             <CardTitle className="text-base">
-              {o.flexibleInstructorInvite
+              {o.urgentInvite
+                ? "⚡ Срочная заявка"
+                : o.flexibleInstructorInvite
                 ? "Запись на дату"
                 : lessonToday
                   ? "Заявка на сегодня"
@@ -363,17 +372,17 @@ function ClientOrderDetailContent({
                   времени.
                 </p>
               )
-            ) : (
+            ) : isUrgent ? (
               <p className="text-muted-foreground">
-                Заявка отправлена выбранному инструктору <strong>{o.instructor?.name ?? "—"}</strong>. У него{" "}
-                <strong>60 секунд</strong>, чтобы принять её. Если время истекает или он отклоняет заявку, заказ
-                закрывается; при оплате оформляется полный возврат — к другим инструкторам заявка не передаётся.
+                ⚡ Срочная заявка у инструктора <strong>{o.instructor?.name ?? "—"}</strong>. На принятие —{" "}
+                <strong>{urgentDeadlineLabel()}</strong>. Если время истекает или он отклоняет заявку, заказ
+                закрывается с полным возвратом.
               </p>
-            )}
-            {!relaxedTiming && pendingExpiresMs != null ? (
+            ) : null}
+            {isUrgent && pendingExpiresMs != null ? (
               <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 font-medium text-amber-800 dark:text-amber-200">
-                Ожидание ответа текущего инструктора:{" "}
-                <span className="font-mono tabular-nums">{formatCountdownHhMmSs(secondsLeft ?? 0)}</span>
+                Осталось:{" "}
+                <span className="font-mono tabular-nums">{formatUrgentCountdown(secondsLeft ?? 0)}</span>
               </div>
             ) : null}
             <div className="font-medium">
@@ -385,7 +394,9 @@ function ClientOrderDetailContent({
         <Card>
           <CardHeader>
             <CardTitle className="text-base">
-              {o.flexibleInstructorInvite
+              {o.urgentInvite
+                ? "⚡ Срочная заявка"
+                : o.flexibleInstructorInvite
                 ? "Ожидание ответа инструктора"
                 : lessonToday
                   ? "Ожидание ответа (урок сегодня)"
@@ -417,16 +428,16 @@ function ClientOrderDetailContent({
                   времени.
                 </p>
               )
-            ) : (
+            ) : isUrgent ? (
               <p className="text-muted-foreground">
-                Заявка только у инструктора <strong>{o.instructor?.name ?? "—"}</strong>. На ответ — до{" "}
-                <strong>60 секунд</strong>; иначе заказ закрывается с полным возвратом, другим не передаётся.
+                ⚡ Срочная заявка у инструктора <strong>{o.instructor?.name ?? "—"}</strong>. На ответ —{" "}
+                <strong>{urgentDeadlineLabel()}</strong>; иначе заказ закрывается с полным возвратом.
               </p>
-            )}
-            {!relaxedTiming && pendingExpiresMs != null ? (
+            ) : null}
+            {isUrgent && pendingExpiresMs != null ? (
               <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 font-medium text-amber-800 dark:text-amber-200">
                 Осталось:{" "}
-                <span className="font-mono tabular-nums">{formatCountdownHhMmSs(secondsLeft ?? 0)}</span>
+                <span className="font-mono tabular-nums">{formatUrgentCountdown(secondsLeft ?? 0)}</span>
               </div>
             ) : null}
           </CardContent>

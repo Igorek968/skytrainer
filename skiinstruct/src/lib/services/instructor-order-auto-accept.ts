@@ -6,10 +6,12 @@ import { orderIsFutureLessonDay, orderSpansMultipleLessonDays } from "@/shared/l
 
 /** Запись на дату / несколько дней / будущий урок — без ожидания ручного принятия. */
 export function orderAutoConfirmsAfterPayment(order: {
+  urgentInvite?: boolean;
   flexibleInstructorInvite: boolean;
   requestedDays: number | null;
   requestedStartDate?: Date | string | null;
 }): boolean {
+  if (order.urgentInvite) return false;
   if (order.flexibleInstructorInvite) return true;
   if (orderSpansMultipleLessonDays(order)) return true;
   if (orderIsFutureLessonDay(order)) return true;
