@@ -25,6 +25,9 @@ export const dynamic = "force-dynamic";
 
 const bodySchema = z.object({
   slotId: z.string().cuid().optional(),
+  acceptLegal: z.literal(true, {
+    errorMap: () => ({ message: "Необходимо согласие с офертой и политикой ПДн" }),
+  }),
 });
 
 export async function POST(req: Request, ctx: Ctx) {
@@ -34,13 +37,13 @@ export async function POST(req: Request, ctx: Ctx) {
   const { eventId } = await ctx.params;
 
   let slotId: string | undefined;
-  try {
-    const json = await req.json().catch(() => ({}));
-    const parsed = bodySchema.safeParse(json);
-    if (parsed.success) slotId = parsed.data.slotId;
-  } catch {
-    /* empty body ok for legacy */
+  const json = await req.json().catch(() => ({}));
+  const parsed = bodySchema.safeParse(json);
+  if (!parsed.success) {
+    const msg = parsed.error.issues[0]?.message ?? "Некорректный запрос";
+    return NextResponse.json({ error: msg }, { status: 400 });
   }
+  slotId = parsed.data.slotId;
 
   const event = await prisma.instructorEvent.findUnique({
     where: { id: eventId },

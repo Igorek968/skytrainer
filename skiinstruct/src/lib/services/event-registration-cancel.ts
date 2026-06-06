@@ -1,6 +1,8 @@
 import type { EventRegistration, InstructorEvent } from "@prisma/client";
 
 import { isInstructorEventCompleted } from "@/lib/instructor-events";
+import { EVENT_CANCEL_FULL_REFUND_HOURS } from "@/lib/legal-config";
+import { hoursUntilLesson } from "@/lib/lesson-schedule";
 import { prisma } from "@/lib/prisma";
 import { getStripe } from "@/lib/stripe";
 
@@ -53,11 +55,30 @@ export function computeEventRegistrationCancelQuote(
         reason: "Бесплатная запись будет отменена",
       };
     }
+
+    if (!reg.event.eventAt) {
+      return {
+        canCancel: true,
+        refundPercent: 100,
+        refundAmount: total,
+        reason: "Полный возврат при отмене до начала мероприятия",
+      };
+    }
+    const hours = hoursUntilLesson(reg.event.eventAt, new Date());
+    if (hours < EVENT_CANCEL_FULL_REFUND_HOURS) {
+      return {
+        canCancel: false,
+        refundPercent: 0,
+        refundAmount: 0,
+        reason: `Менее ${EVENT_CANCEL_FULL_REFUND_HOURS} ч до мероприятия — отмена без возврата`,
+      };
+    }
+
     return {
       canCancel: true,
       refundPercent: 100,
       refundAmount: total,
-      reason: "Полный возврат при отмене до начала мероприятия",
+      reason: `За ${EVENT_CANCEL_FULL_REFUND_HOURS} ч и более до начала — полный возврат`,
     };
   }
 

@@ -3,6 +3,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
+import { useState } from "react";
 import { toast } from "sonner";
 
 import type { ClientInstructorEventDTO } from "@/lib/instructor-events";
@@ -10,6 +11,7 @@ import { formatEventPriceRu } from "@/lib/instructor-events";
 import { EventSlotsPicker } from "@/features/orders/event-slots-picker";
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
+import { LegalConsentCheckbox } from "@/shared/legal/legal-consent-checkbox";
 
 type RegisterResponse = {
   error?: string;
@@ -36,12 +38,15 @@ export function EventRegistrationButton({
   const qc = useQueryClient();
   const router = useRouter();
   const isClient = session?.user?.role === "CLIENT";
+  const [acceptLegal, setAcceptLegal] = useState(false);
 
   const register = useMutation({
     mutationFn: async () => {
       const r = await fetch(`/api/client/events/${event.id}/register`, {
         method: "POST",
         credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ acceptLegal: true }),
       });
       const j = (await r.json().catch(() => ({}))) as RegisterResponse;
       if (!r.ok) {
@@ -174,19 +179,27 @@ export function EventRegistrationButton({
   const priceLabel = formatEventPriceRu(event.priceRub);
 
   return (
-    <div className="mt-2 flex flex-wrap items-center gap-2">
-      <span className="text-xs font-medium text-foreground">{priceLabel}</span>
-      {!event.isFree ? (
-        <span className="text-xs text-muted-foreground">Оплата после мероприятия</span>
-      ) : null}
-      {event.spotsLeft != null ? (
-        <span className="text-xs text-muted-foreground">Осталось мест: {event.spotsLeft}</span>
-      ) : null}
+    <div className="mt-2 space-y-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-xs font-medium text-foreground">{priceLabel}</span>
+        {!event.isFree ? (
+          <span className="text-xs text-muted-foreground">Оплата после мероприятия</span>
+        ) : null}
+        {event.spotsLeft != null ? (
+          <span className="text-xs text-muted-foreground">Осталось мест: {event.spotsLeft}</span>
+        ) : null}
+      </div>
+      <LegalConsentCheckbox
+        id={`event-legal-${event.id}`}
+        checked={acceptLegal}
+        onChange={setAcceptLegal}
+        className="text-xs"
+      />
       <Button
         type="button"
         size="sm"
         variant="accent"
-        disabled={register.isPending}
+        disabled={register.isPending || !acceptLegal}
         onClick={() => register.mutate()}
       >
         {register.isPending ? "Оформляем…" : "Записаться"}

@@ -350,7 +350,7 @@ model Order {
   /// Email/push о новой заявке PENDING_INSTRUCTOR (когда кабинет закрыт).
   instructorPendingNotifiedAt DateTime?
 
-  /// Web Push: напоминание «за ~1 мин до начала» (по requestedStartDate) уже отправлено.
+  /// Web Push: напоминание «за ~1 ч до начала» (по requestedStartDate) уже отправлено.
   lessonStartReminderSentAt DateTime?
   /// Web Push: напоминание завершить урок по плановому окончанию уже отправлено.
   lessonEndReminderSentAt DateTime?
@@ -438,6 +438,8 @@ model InstructorEvent {
   /// Обложка мероприятия для ленты клиентов.
   photoUrl String?
   eventAt DateTime?
+  /// Push инструктору за ~1 ч до начала (мероприятия без слотов).
+  startReminderSentAt DateTime?
 
   moderationStatus InstructorEventModerationStatus @default(DRAFT)
   rejectNote       String? @db.Text
@@ -467,6 +469,8 @@ model EventSlot {
   event   InstructorEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
 
   startsAt  DateTime
+  /// Push инструктору за ~1 ч до этого выхода.
+  startReminderSentAt DateTime?
   maxSeats  Int?
   priceRub  Int?
   sortOrder Int      @default(0)
@@ -507,6 +511,8 @@ model EventRegistration {
   /// Клиент подтвердил участие после окончания мероприятия.
   attendanceConfirmedAt   DateTime?
   attendanceReminderSentAt DateTime?
+  /// Push клиенту за ~1 ч до начала (слот или eventAt).
+  eventStartReminderSentAt DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { roskomnadzorRegistryNumber } from "@/lib/legal-config";
 import { LEGAL_AGENT, LEGAL_SITE_URL, legalRegisteredAddress } from "@/lib/legal-entity";
 import { LEGAL_ROUTES } from "@/lib/legal";
 import { LegalDocLayout } from "@/shared/layout/legal-doc-layout";
@@ -12,6 +13,7 @@ export const metadata: Metadata = {
 
 export default function PrivacyPolicyPage() {
   const address = legalRegisteredAddress();
+  const pdnRegistry = roskomnadzorRegistryNumber();
 
   return (
     <LegalDocLayout title="Политика обработки персональных данных">
@@ -32,6 +34,16 @@ export default function PrivacyPolicyPage() {
           1.2. Настоящая Политика действует в отношении всех персональных данных, которые Оператор может получить от
           посетителей Сайта, Клиентов, Инструкторов.
         </p>
+        {pdnRegistry ? (
+          <p className="text-muted-foreground">
+            1.3. Оператор уведомил Роскомнадзор об обработке персональных данных (рег. номер {pdnRegistry}).
+          </p>
+        ) : (
+          <p className="text-muted-foreground">
+            1.3. Оператор уведомил Роскомнадзор об обработке персональных данных (рег. номер будет указан после
+            получения уведомления).
+          </p>
+        )}
       </section>
 
       <section className="space-y-3">
@@ -41,10 +53,25 @@ export default function PrivacyPolicyPage() {
           <li>фамилию, имя, отчество;</li>
           <li>контактный телефон, адрес электронной почты;</li>
           <li>адрес проживания (для определения места проведения занятий);</li>
-          <li>историю заказов, комментарии.</li>
+          <li>
+            <strong>геолокацию</strong> (координаты с согласия браузера — для карты и подбора ближайших инструкторов);
+          </li>
+          <li>
+            <strong>идентификаторы устройств и сессий</strong> (cookies, user-agent, IP-адрес при обращении к Сайту);
+          </li>
+          <li>
+            <strong>push-токены</strong> (подписки Web Push для уведомлений о заказах и напоминаниях);
+          </li>
+          <li>историю заказов, комментарии, переписку с поддержкой.</li>
         </ul>
         <p className="text-muted-foreground">
-          2.2. Для Инструкторов дополнительно: ИНН, статус самозанятого/ИП, реквизиты для выплат.
+          2.2. Для Инструкторов дополнительно: ИНН, статус самозанятого/ИП, реквизиты для выплат, документы
+          (страхование, справки).
+        </p>
+        <p className="text-muted-foreground">
+          2.3. <strong>Геолокация</strong> запрашивается отдельно через стандартный диалог браузера. Отказ не блокирует
+          основной функционал (регистрация, заказы, оплата), но ограничивает работу карты: не отображаются ближайшие
+          инструкторы и точка «где я».
         </p>
       </section>
 
@@ -53,7 +80,15 @@ export default function PrivacyPolicyPage() {
         <ul className="list-inside list-disc space-y-1 text-muted-foreground">
           <li>заключение и исполнение договора-оферты (бронирование, оплата, возвраты);</li>
           <li>связь с Клиентом (подтверждение записи, уведомления об изменении статуса заказа);</li>
+          <li>
+            <strong>показ ближайших инструкторов на карте</strong> и расчёт расстояния до точки встречи;
+          </li>
+          <li>
+            <strong>отправка SMS</strong> (коды входа, сервисные уведомления) и <strong>push-уведомлений</strong> о
+            заявках, напоминаниях о занятиях;
+          </li>
           <li>выплата вознаграждения Инструкторам;</li>
+          <li>обработка обращений в службу поддержки;</li>
           <li>улучшение работы Сайта и аналитика.</li>
         </ul>
       </section>
@@ -61,8 +96,9 @@ export default function PrivacyPolicyPage() {
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">4. Правовые основания обработки</h2>
         <p className="text-muted-foreground">
-          4.1. Обработка осуществляется с согласия субъекта (путём проставления галочки при заказе, а также при
-          регистрации/заполнении анкеты инструктора).
+          4.1. Обработка осуществляется с согласия субъекта (путём проставления галочки при заказе, записи на
+          мероприятие, а также при регистрации/заполнении анкеты инструктора). Геолокация — отдельное согласие
+          браузера.
         </p>
         <p className="text-muted-foreground">
           4.2. Согласие считается данным на неопределённый срок, но может быть отозвано письменным уведомлением на email
@@ -89,14 +125,38 @@ export default function PrivacyPolicyPage() {
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">6. Передача персональных данных третьим лицам</h2>
         <p className="text-muted-foreground">
-          6.1. Оператор передаёт данные Инструктору (имя, телефон, адрес) для возможности проведения занятия.
+          6.1. Оператор передаёт данные <strong>Инструктору</strong> (имя, телефон, адрес/координаты встречи) для
+          проведения занятия или мероприятия.
         </p>
         <p className="text-muted-foreground">
-          6.2. Платёжные данные (номера карт) не обрабатываются Оператором, они передаются напрямую платёжной системе
-          ЮKassa.
+          6.2. <strong>ЮKassa</strong> (НКО «ЮМани») — приём оплаты и возвратов: сумма, идентификатор заказа; данные
+          банковской карты обрабатываются только на стороне ЮKassa.
         </p>
         <p className="text-muted-foreground">
-          6.3. По требованию уполномоченных органов данные могут быть переданы в соответствии с законодательством РФ.
+          6.3. <strong>Twilio</strong> или иной SMS-провайдер (по настройке) — номер телефона и текст сервисного
+          сообщения для кодов входа.
+        </p>
+        <p className="text-muted-foreground">
+          6.4. <strong>SMTP-хостинг</strong> (почтовый сервер оператора, например Beget) — адрес email, имя, текст
+          писем (сброс пароля, уведомления).
+        </p>
+        <p className="text-muted-foreground">
+          6.5. <strong>Telegram</strong> (Bot API) — текст обращений в поддержку, email/имя пользователя при создании
+          тикета.
+        </p>
+        <p className="text-muted-foreground">
+          6.6. <strong>Яндекс.Карты</strong> — координаты и адреса для отображения карты и геокодирования (при
+          использовании API карт).
+        </p>
+        <p className="text-muted-foreground">
+          6.7. <strong>Web Push</strong> (браузерные push-сервисы Google/Mozilla и др.) — push-токен подписки и текст
+          уведомления.
+        </p>
+        <p className="text-muted-foreground">
+          6.8. <strong>Google OAuth</strong> (при входе через Google) — email, имя, идентификатор аккаунта Google.
+        </p>
+        <p className="text-muted-foreground">
+          6.9. По требованию уполномоченных органов данные могут быть переданы в соответствии с законодательством РФ.
         </p>
       </section>
 
@@ -130,7 +190,7 @@ export default function PrivacyPolicyPage() {
       </section>
 
       <p className="text-xs text-muted-foreground">
-        Редакция от 04.06.2026. Оформление заказа при принятии{" "}
+        Редакция от 06.06.2026. Оформление заказа при принятии{" "}
         <Link href={LEGAL_ROUTES.oferta} className="underline">
           оферты
         </Link>{" "}

@@ -9,14 +9,31 @@ import {
   roleHomePath,
 } from "@/lib/role-route-access";
 import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 import type { UserRole } from "@prisma/client";
 
 /**
  * Проверка «вошёл / не вошёл» и разделение кабинетов по роли из JWT.
  * Роль в JWT обновляется из БД в callbacks.jwt (auth.ts) при каждом запросе.
  */
+function httpsRedirect(req: NextRequest): NextResponse | null {
+  if (process.env.NODE_ENV !== "production") return null;
+  const host = req.headers.get("x-forwarded-host") ?? req.headers.get("host");
+  if (!host || host.includes("localhost") || host.startsWith("127.0.0.1")) return null;
+  const proto = req.headers.get("x-forwarded-proto");
+  if (proto && proto !== "https") {
+    const url = req.nextUrl.clone();
+    url.protocol = "https:";
+    return NextResponse.redirect(url, 308);
+  }
+  return null;
+}
+
 export default NextAuth(authConfig).auth((req) => {
   const pathname = req.nextUrl.pathname.replace(/\/+$/, "") || "/";
+
+  const forceHttps = httpsRedirect(req);
+  if (forceHttps) return forceHttps;
 
   if (pathname.startsWith("/api")) {
     const apiBlock = guardApiRequest(req, req.auth);

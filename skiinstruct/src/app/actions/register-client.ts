@@ -21,6 +21,11 @@ export async function registerClientAction(
   const name = String(formData.get("name") ?? "");
   const rawRedirect = String(formData.get("redirectTo") ?? "");
   const redirectTo = resolvePostLoginRedirect("CLIENT", sanitizeRedirectPath(rawRedirect, "/client"), "/client");
+  const acceptLegal = formData.get("acceptLegal") === "on";
+
+  if (!acceptLegal) {
+    return { error: "Примите условия агентской оферты, политики обработки ПДн и правил возврата" };
+  }
 
   const created = await createClientUser({
     email,

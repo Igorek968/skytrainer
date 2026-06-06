@@ -1,5 +1,8 @@
 /** Версия агентской оферты для инструкторов (акцепт в БД). */
-export const AGENCY_OFFER_VERSION = "2026-05-13";
+export const AGENCY_OFFER_VERSION = "2026-06-06";
+
+/** Дата редакции клиентской оферты (футер, /oferta). */
+export const CLIENT_OFFER_VERSION = "2026-06-06";
 
 export const PLATFORM_FEE_PERCENT = 15;
 
@@ -22,6 +25,15 @@ export const NPD_RECEIPT_DEADLINE_HOURS = 24;
 
 /** Отмена инструктором: не позднее N ч до занятия без штрафа для клиента. */
 export const INSTRUCTOR_CANCEL_NOTICE_HOURS = 24;
+
+/** Отмена записи на мероприятие клиентом: полный возврат при отмене за N ч и более. */
+export const EVENT_CANCEL_FULL_REFUND_HOURS = 24;
+
+/** Рег. номер уведомления Роскомнадзора (NEXT_PUBLIC_PDN_REGISTRY_NUMBER). */
+export function roskomnadzorRegistryNumber(): string | null {
+  const n = process.env.NEXT_PUBLIC_PDN_REGISTRY_NUMBER?.trim();
+  return n || null;
+}
 
 export const LEGAL_PLATFORM_NAME =
   process.env.NEXT_PUBLIC_APP_NAME?.trim() || "Инструктор для тебя";

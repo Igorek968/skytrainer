@@ -94,6 +94,8 @@ services:
       # Доп. хосты для Server Actions (CSRF), через запятую: 192.168.1.10:3001,myhost.local:3001
       NEXT_SERVER_ACTIONS_ALLOWED_ORIGINS: ${SKIINSTRUCT_SERVER_ACTIONS_ALLOWED_ORIGINS:-}
       CRON_SECRET: ${SKIINSTRUCT_CRON_SECRET:-replace-with-long-random-secret}
+      # 1 — встроенный планировщик push-напоминаний (уроки + мероприятия), без внешнего cron
+      SKIINSTRUCT_INTERNAL_SCHEDULER: ${SKIINSTRUCT_INTERNAL_SCHEDULER:-1}
       AUTH_GOOGLE_ID: ${SKIINSTRUCT_AUTH_GOOGLE_ID:-}
       AUTH_GOOGLE_SECRET: ${SKIINSTRUCT_AUTH_GOOGLE_SECRET:-}
       SKIINSTRUCT_ADMIN_EMAIL: ${SKIINSTRUCT_ADMIN_EMAIL:-}

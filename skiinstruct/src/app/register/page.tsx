@@ -2,22 +2,22 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useEffect } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 
 import { registerClientAction, type RegisterClientState } from "@/app/actions/register-client";
-import { LEGAL_ROUTES } from "@/lib/legal";
 import { Button } from "@/shared/ui/button";
+import { LegalConsentCheckbox } from "@/shared/legal/legal-consent-checkbox";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
 
 const initialState: RegisterClientState = { error: null };
 
-function SubmitButton() {
+function SubmitButton({ acceptLegal }: { acceptLegal: boolean }) {
   const { pending } = useFormStatus();
   return (
-    <Button className="w-full" type="submit" disabled={pending} aria-busy={pending}>
+    <Button className="w-full" type="submit" disabled={pending || !acceptLegal} aria-busy={pending}>
       {pending ? "Регистрация…" : "Зарегистрироваться"}
     </Button>
   );
@@ -37,6 +37,7 @@ function RegisterForm() {
   }, [asInstructor, router]);
 
   const [state, formAction] = useFormState(registerClientAction, initialState);
+  const [acceptLegal, setAcceptLegal] = useState(false);
 
   if (asInstructor) {
     return (
@@ -119,19 +120,14 @@ function RegisterForm() {
 
             {state.error ? <p className="text-sm text-destructive">{state.error}</p> : null}
 
-            <p className="text-xs text-muted-foreground">
-              Регистрируясь, вы принимаете{" "}
-              <Link href={LEGAL_ROUTES.oferta} className="text-accent underline" target="_blank">
-                оферту
-              </Link>{" "}
-              и{" "}
-              <Link href={LEGAL_ROUTES.privacy} className="text-accent underline" target="_blank">
-                политику персональных данных
-              </Link>
-              .
-            </p>
+            <LegalConsentCheckbox
+              id="reg-accept-legal"
+              checked={acceptLegal}
+              onChange={setAcceptLegal}
+              includeReturns
+            />
 
-            <SubmitButton />
+            <SubmitButton acceptLegal={acceptLegal} />
           </form>
 
           <p className="text-center text-sm text-muted-foreground">

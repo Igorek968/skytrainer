@@ -43,6 +43,24 @@ function resolvedYandexMapsApiKeyForClient() {
   );
 }
 
+const isProd = process.env.NODE_ENV === "production";
+
+const cspDirectives = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://api-maps.yandex.ru https://yastatic.net",
+  "style-src 'self' 'unsafe-inline' https://yastatic.net",
+  isProd ? "img-src 'self' data: blob: https:" : "img-src 'self' data: blob: https: http:",
+  "font-src 'self' data: https://yastatic.net",
+  "connect-src 'self' https://api-maps.yandex.ru https://geocode-maps.yandex.ru https://*.yandex.ru wss:",
+  "frame-src 'self' https://yoomoney.ru https://*.yookassa.ru",
+  "frame-ancestors 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+];
+if (isProd) {
+  cspDirectives.push("upgrade-insecure-requests");
+}
+
 const securityHeaders = [
   { key: "X-Frame-Options", value: "DENY" },
   { key: "X-Content-Type-Options", value: "nosniff" },
@@ -50,22 +68,11 @@ const securityHeaders = [
   { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(self)" },
   {
     key: "Content-Security-Policy",
-    value: [
-      "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://api-maps.yandex.ru https://yastatic.net",
-      "style-src 'self' 'unsafe-inline' https://yastatic.net",
-      "img-src 'self' data: blob: https: http:",
-      "font-src 'self' data: https://yastatic.net",
-      "connect-src 'self' https://api-maps.yandex.ru https://geocode-maps.yandex.ru https://*.yandex.ru wss:",
-      "frame-src 'self' https://yoomoney.ru https://*.yookassa.ru",
-      "frame-ancestors 'none'",
-      "base-uri 'self'",
-      "form-action 'self'",
-    ].join("; "),
+    value: cspDirectives.join("; "),
   },
 ];
 
-if (process.env.NODE_ENV === "production") {
+if (isProd) {
   securityHeaders.push({
     key: "Strict-Transport-Security",
     value: "max-age=31536000; includeSubDomains",
@@ -85,6 +92,7 @@ const nextConfig = {
     ignoreDuringBuilds: true,
   },
   experimental: {
+    instrumentationHook: true,
     serverActions: {
       allowedOrigins: serverActionsAllowedOrigins(),
     },

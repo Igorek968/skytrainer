@@ -1,6 +1,15 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import {
+  CANCEL_CLIENT_FULL_REFUND_HOURS,
+  CANCEL_CLIENT_PARTIAL_PERCENT,
+  CANCEL_CLIENT_PARTIAL_REFUND_HOURS,
+  CLIENT_OFFER_VERSION,
+  EVENT_CANCEL_FULL_REFUND_HOURS,
+  INSTRUCTOR_CANCEL_NOTICE_HOURS,
+  INSTRUCTOR_LATE_GRACE_MINUTES,
+} from "@/lib/legal-config";
 import { LEGAL_AGENT, LEGAL_SITE_URL } from "@/lib/legal-entity";
 import { LegalRequisitesBlock } from "@/shared/legal/legal-requisites-block";
 import { LEGAL_ROUTES } from "@/lib/legal";
@@ -36,6 +45,9 @@ export default function PublicOfferPage() {
           <br />
           <strong>Клиент</strong> — дееспособное физическое лицо, желающее получить услуги Инструктора.
           <br />
+          <strong>Мероприятие</strong> — групповое или индивидуальное событие (мастер-класс, выезд, тренировка с
+          фиксированным временем), размещённое инструктором в разделе «Мероприятия» на Сайте.
+          <br />
           <strong>Услуги Агента</strong> — информационное сопровождение, бронирование, приём оплаты и урегулирование
           споров.
           <br />
@@ -62,10 +74,14 @@ export default function PublicOfferPage() {
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">3. Порядок заключения Оферты</h2>
         <p className="text-muted-foreground">
-          3.1. Настоящая Оферта считается акцептованной (принятой) Клиентом в момент нажатия кнопки «Оплатить» или
-          «Заказать» на странице оформления заказа и проставления отметки о согласии с условиями Оферты и{" "}
+          3.1. Настоящая Оферта считается акцептованной (принятой) Клиентом в момент нажатия кнопки «Оплатить»,
+          «Заказать» или «Записаться» и проставления отметки о согласии с условиями Оферты,{" "}
           <Link href={LEGAL_ROUTES.privacy} className="text-accent underline">
             Политикой обработки персональных данных
+          </Link>{" "}
+          и{" "}
+          <Link href={LEGAL_ROUTES.returns} className="text-accent underline">
+            Правилами возврата
           </Link>
           .
         </p>
@@ -84,8 +100,8 @@ export default function PublicOfferPage() {
           </li>
         </ul>
         <p className="text-muted-foreground">
-          4.2. Оплата производится Клиентом единовременно в российских рублях через сервис ЮKassa (платёжную систему) с
-          использованием банковской карты.
+          4.2. Оплата занятия с инструктором производится Клиентом единовременно в российских рублях через сервис
+          ЮKassa (платёжную систему) с использованием банковской карты.
         </p>
         <p className="text-muted-foreground">
           4.3. Оплата считается произведённой после поступления денежных средств на расчётный счёт Агента:{" "}
@@ -104,10 +120,9 @@ export default function PublicOfferPage() {
           <li>обеспечить функционирование Сайта, возможность бронирования и оплаты;</li>
           <li>передать заявку Инструктору и подтвердить Клиенту запись;</li>
           <li>
-            при отказе Клиента от занятия за <strong>менее чем 24 часа</strong> — вернуть деньги за вычетом фактически
-            понесённых расходов (штрафа Инструктора) согласно{" "}
+            организовать возврат в соответствии с{" "}
             <Link href={LEGAL_ROUTES.returns} className="text-accent underline">
-              Правилам возврата
+              Правилами возврата
             </Link>
             .
           </li>
@@ -115,6 +130,14 @@ export default function PublicOfferPage() {
         <p className="font-medium text-foreground">Инструктор обязуется:</p>
         <ul className="list-inside list-disc space-y-1 text-muted-foreground">
           <li>провести занятие в забронированное время;</li>
+          <li>
+            уведомить об отмене не позднее <strong>{INSTRUCTOR_CANCEL_NOTICE_HOURS} ч</strong> до начала занятия;
+            при нарушении срока — полный возврат клиенту и штраф согласно{" "}
+            <Link href={LEGAL_ROUTES.ofertaInstructor} className="text-accent underline">
+              агентскому договору
+            </Link>
+            ;
+          </li>
           <li>иметь статус самозанятого или ИП и предоставлять Клиенту чек по требованию.</li>
         </ul>
         <p className="font-medium text-foreground">Клиент обязуется:</p>
@@ -138,7 +161,7 @@ export default function PublicOfferPage() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold">7. Порядок возврата денежных средств</h2>
+        <h2 className="text-lg font-semibold">7. Порядок возврата денежных средств (занятия)</h2>
         <p className="text-muted-foreground">
           7.1. Возврат производится в соответствии с{" "}
           <Link href={LEGAL_ROUTES.returns} className="text-accent underline">
@@ -147,35 +170,71 @@ export default function PublicOfferPage() {
           , размещёнными на Сайте.
         </p>
         <p className="text-muted-foreground">
-          7.2. При отмене занятия Клиентом за <strong>24 часа и более</strong> до начала — возвращается 100% стоимости.
+          7.2. <strong>После принятия заявки инструктором</strong> заказ невозвратный при отмене по инициативе клиента.
         </p>
         <p className="text-muted-foreground">
-          7.3. При отмене менее чем за 24 часа — возвращается 50% стоимости (остальное удерживается Инструктором как
-          компенсация за резервирование времени).
+          7.3. До принятия инструктором (или в иных случаях по статусу заказа): более{" "}
+          <strong>{CANCEL_CLIENT_FULL_REFUND_HOURS} ч</strong> до начала — <strong>100%</strong>; от{" "}
+          <strong>{CANCEL_CLIENT_PARTIAL_REFUND_HOURS} ч</strong> до <strong>{CANCEL_CLIENT_FULL_REFUND_HOURS} ч</strong>{" "}
+          — <strong>{CANCEL_CLIENT_PARTIAL_PERCENT}%</strong>; менее <strong>{CANCEL_CLIENT_PARTIAL_REFUND_HOURS} ч</strong>{" "}
+          — без возврата.
         </p>
         <p className="text-muted-foreground">
-          7.4. В случае неоказания услуги по вине Инструктора — возвращается 100% стоимости.
+          7.4. Отмена по вине инструктора или платформы — <strong>100%</strong>. Опоздание инструктора более{" "}
+          <strong>{INSTRUCTOR_LATE_GRACE_MINUTES} мин</strong> от ETA — право клиента на полный возврат.
+        </p>
+        <p className="text-muted-foreground">
+          7.5. Отмена инструктором менее чем за <strong>{INSTRUCTOR_CANCEL_NOTICE_HOURS} ч</strong> — полный возврат
+          клиенту и ответственность инструктора по агентскому договору.
         </p>
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold">8. Прочие условия</h2>
+        <h2 className="text-lg font-semibold">8. Мероприятия</h2>
         <p className="text-muted-foreground">
-          8.1. Агент вправе в одностороннем порядке изменять условия Оферты с уведомлением на Сайте не менее чем за 3
+          8.1. <strong>Мероприятием</strong> считается событие, созданное инструктором в сервисе: с указанием даты,
+          времени, места (или зоны на карте), стоимости участия и лимита мест. Может включать несколько временных
+          слотов («выходов»).
+        </p>
+        <p className="text-muted-foreground">
+          8.2. <strong>Запись</strong> оформляется на Сайте с согласием с настоящей Офертой и Политикой ПДн. Для
+          платных мероприятий оплата производится <strong>после проведения мероприятия</strong>: клиент подтверждает
+          участие, после чего списание проходит через ЮKassa.
+        </p>
+        <p className="text-muted-foreground">
+          8.3. <strong>Отмена записи клиентом</strong>: за <strong>{EVENT_CANCEL_FULL_REFUND_HOURS} ч и более</strong>{" "}
+          до начала — полный возврат (если оплата уже проведена); менее чем за{" "}
+          <strong>{EVENT_CANCEL_FULL_REFUND_HOURS} ч</strong> — без возврата. Бесплатные записи отменяются без
+          финансовых последствий.
+        </p>
+        <p className="text-muted-foreground">
+          8.4. <strong>Отмена мероприятия инструктором</strong> — полный возврат всем оплатившим участникам. Подробности
+          — в{" "}
+          <Link href={LEGAL_ROUTES.returns} className="text-accent underline">
+            Правилах возврата
+          </Link>
+          .
+        </p>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold">9. Прочие условия</h2>
+        <p className="text-muted-foreground">
+          9.1. Агент вправе в одностороннем порядке изменять условия Оферты с уведомлением на Сайте не менее чем за 3
           дня до вступления изменений в силу.
         </p>
         <p className="text-muted-foreground">
-          8.2. Все споры подлежат рассмотрению по месту регистрации Агента (Республика Коми, г. Сыктывкар, если иное не
+          9.2. Все споры подлежат рассмотрению по месту регистрации Агента (Республика Коми, г. Сыктывкар, если иное не
           установлено законом).
         </p>
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold">9. Реквизиты и контакты Агента</h2>
+        <h2 className="text-lg font-semibold">10. Реквизиты и контакты Агента</h2>
         <LegalRequisitesBlock />
       </section>
 
-      <p className="text-xs text-muted-foreground">Редакция от 04.06.2026.</p>
+      <p className="text-xs text-muted-foreground">Редакция от {CLIENT_OFFER_VERSION.replace(/-/g, ".")}.</p>
     </LegalDocLayout>
   );
 }

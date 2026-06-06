@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
 
 import { authorizeCronRequest } from "@/lib/cron-auth";
-import { processLessonPushReminders } from "@/lib/services/lesson-push-reminders";
+import { processScheduledPushReminders } from "@/lib/services/scheduled-reminders";
 
-/** Рекомендуется вызывать каждую минуту (cron / Task Scheduler) с CRON_SECRET. */
+/** Резервный вызов извне (cron). В Docker по умолчанию работает встроенный планировщик. */
 export async function GET(req: Request) {
   if (!authorizeCronRequest(req)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  const r = await processLessonPushReminders();
+  const r = await processScheduledPushReminders();
   return NextResponse.json(r);
 }
 
@@ -16,6 +16,6 @@ export async function POST(req: Request) {
   if (!authorizeCronRequest(req)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  const r = await processLessonPushReminders();
+  const r = await processScheduledPushReminders();
   return NextResponse.json(r);
 }

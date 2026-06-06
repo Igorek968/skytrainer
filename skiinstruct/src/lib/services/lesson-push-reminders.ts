@@ -2,12 +2,10 @@ import type { LessonDuration } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 import { durationHours } from "@/lib/pricing";
+import { startReminderWindow } from "@/lib/reminder-timing";
 import { sendWebPushToUser } from "@/lib/push-web";
 
 const MS = 1_000;
-/** Окно «за час до начала»: старт через 55–61 мин от текущего момента (cron ~1 раз в минуту). */
-const START_REMINDER_MIN_MS = 55 * 60 * MS;
-const START_REMINDER_MAX_MS = 61 * 60 * MS;
 
 /** Напоминание о завершении: с планового конца урока до +20 мин, один раз. */
 const END_GRACE_AFTER_MS = 20 * 60 * MS;
@@ -27,8 +25,7 @@ export async function processLessonPushReminders(): Promise<{
   const now = Date.now();
   const nowDate = new Date(now);
 
-  const startMin = new Date(now + START_REMINDER_MIN_MS);
-  const startMax = new Date(now + START_REMINDER_MAX_MS);
+  const { min: startMin, max: startMax } = startReminderWindow(now);
 
   const forStart = await prisma.order.findMany({
     where: {

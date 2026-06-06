@@ -2,12 +2,14 @@
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { toast } from "sonner";
 
 import type { ClientInstructorEventDTO } from "@/lib/instructor-events";
 import { formatEventPriceRu, formatSlotTimeRu } from "@/lib/instructor-events";
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
+import { LegalConsentCheckbox } from "@/shared/legal/legal-consent-checkbox";
 import { cn } from "@/lib/utils";
 
 type RegisterResponse = {
@@ -33,6 +35,7 @@ export function EventSlotsPicker({
 }) {
   const qc = useQueryClient();
   const router = useRouter();
+  const [acceptLegal, setAcceptLegal] = useState(false);
 
   const register = useMutation({
     mutationFn: async (slotId: string) => {
@@ -40,7 +43,7 @@ export function EventSlotsPicker({
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ slotId }),
+        body: JSON.stringify({ slotId, acceptLegal: true }),
       });
       const j = (await r.json().catch(() => ({}))) as RegisterResponse;
       if (!r.ok) {
@@ -75,6 +78,12 @@ export function EventSlotsPicker({
   return (
     <div className="mt-3 space-y-2">
       <p className="text-xs font-medium text-foreground">Выберите время выхода</p>
+      <LegalConsentCheckbox
+        id={`event-slots-legal-${event.id}`}
+        checked={acceptLegal}
+        onChange={setAcceptLegal}
+        className="text-xs"
+      />
       <ul className="space-y-2">
         {openSlots.map((slot) => {
           const my = slot.myRegistration;
@@ -135,7 +144,7 @@ export function EventSlotsPicker({
                     type="button"
                     size="sm"
                     variant="accent"
-                    disabled={register.isPending}
+                    disabled={register.isPending || !acceptLegal}
                     onClick={() => register.mutate(slot.id)}
                   >
                     {register.isPending ? "…" : "Записаться"}

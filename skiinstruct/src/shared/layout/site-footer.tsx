@@ -1,8 +1,15 @@
 import Link from "next/link";
 
+import { CLIENT_OFFER_VERSION } from "@/lib/legal-config";
 import { LEGAL_AGENT } from "@/lib/legal-entity";
 import { LEGAL_ROUTES } from "@/lib/legal";
 import { SupportLauncher } from "@/features/support/support-launcher";
+
+function formatOfferVersionDate(iso: string): string {
+  const [y, m, d] = iso.split("-");
+  if (!y || !m || !d) return iso;
+  return `${d}.${m}.${y}`;
+}
 
 export function SiteFooter() {
   const telHref = `tel:${LEGAL_AGENT.phone.replace(/[^\d+]/g, "")}`;
@@ -28,6 +35,10 @@ export function SiteFooter() {
           <Link className="underline underline-offset-2 hover:text-foreground" href={LEGAL_ROUTES.returns}>
             Возврат
           </Link>{" "}
+          |{" "}
+          <Link className="underline underline-offset-2 hover:text-foreground" href={LEGAL_ROUTES.support}>
+            Поддержка
+          </Link>{" "}
           | Телефон:{" "}
           <a className="underline underline-offset-2 hover:text-foreground" href={telHref}>
             {LEGAL_AGENT.phone}
@@ -36,6 +47,9 @@ export function SiteFooter() {
           <a className="underline underline-offset-2 hover:text-foreground" href={`mailto:${LEGAL_AGENT.email}`}>
             {LEGAL_AGENT.email}
           </a>
+        </p>
+        <p className="text-[11px] text-muted-foreground/90">
+          Версия агентской оферты от {formatOfferVersionDate(CLIENT_OFFER_VERSION)}
         </p>
       </div>
     </footer>
