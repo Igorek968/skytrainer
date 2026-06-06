@@ -11,7 +11,7 @@ import { ChevronDown, Star, Award, ShieldCheck, CalendarDays, Languages } from "
 import { PersonalDataDialog } from "@/features/client/personal-data-dialog";
 import { ClientOrderCheckoutDialog } from "@/features/client/client-order-checkout-dialog";
 import { ClientEventsFeed } from "@/features/orders/client-events-feed";
-import { GeolocationMeetPrompt } from "@/features/map/geolocation-meet-prompt";
+import { GeolocationPermissionDialog } from "@/features/map/geolocation-permission-dialog";
 import { MeetAddressSearch } from "@/features/map/meet-address-search";
 import { BookingMapLazy } from "@/features/map/map-loader";
 import { consumeOpenPersonalDataFlag } from "@/lib/client-personal-data-storage";
@@ -893,6 +893,7 @@ export default function ClientHomePage() {
 
   return (
     <div className="space-y-6">
+      <GeolocationPermissionDialog />
       <Suspense fallback={null}>
         <ResumeCheckoutFromQuery
           data={data}
@@ -963,7 +964,6 @@ export default function ClientHomePage() {
       </div>
 
       <div className="space-y-3">
-        <GeolocationMeetPrompt />
         <MeetAddressSearch />
         <SectionErrorBoundary title="Карта временно недоступна">
           <BookingMapLazy

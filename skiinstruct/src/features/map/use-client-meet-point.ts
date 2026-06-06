@@ -24,24 +24,4 @@ export const useMeetPoint = create<State>((set) => ({
   setMeetAddress: (meetAddress) => set({ meetAddress }),
 }));
 
-/** Запросить GPS и обновить точку встречи (кнопка «Найти меня» на карте). */
-export function locateUserMeetPoint(): Promise<void> {
-  return new Promise((resolve, reject) => {
-    if (typeof navigator === "undefined" || !navigator.geolocation) {
-      reject(new Error("GEO_UNSUPPORTED"));
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(
-      (p) => {
-        useMeetPoint.getState().setMeet(p.coords.latitude, p.coords.longitude, "gps");
-        resolve();
-      },
-      (err) => {
-        if (err.code === err.PERMISSION_DENIED) reject(new Error("GEO_DENIED"));
-        else reject(new Error("GEO_FAIL"));
-      },
-      { enableHighAccuracy: true, timeout: 15_000, maximumAge: 60_000 },
-    );
-  });
-}
-
+export { locateUserMeetPoint } from "@/features/map/request-user-geolocation";

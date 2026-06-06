@@ -4,10 +4,13 @@ import { LocateFixed } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { useGeolocationDialog } from "@/features/map/geolocation-dialog-store";
+import { geolocationErrorCode } from "@/features/map/request-user-geolocation";
 import { Button } from "@/shared/ui/button";
 
 export function LocateMeControl({ onLocate }: { onLocate: () => Promise<void> }) {
   const [locating, setLocating] = useState(false);
+  const showBlocked = useGeolocationDialog((s) => s.showBlocked);
 
   return (
     <div className="pointer-events-none absolute right-3 top-3 z-[1000]">
@@ -22,15 +25,15 @@ export function LocateMeControl({ onLocate }: { onLocate: () => Promise<void> })
           void onLocate()
             .then(() => toast.success("Ваше местоположение на карте"))
             .catch((err: unknown) => {
-              const code = err instanceof Error ? err.message : "";
+              const code = geolocationErrorCode(err);
               if (code === "GEO_DENIED") {
-                toast.error(
-                  "Доступ к геолокации запрещён. В настройках браузера для этого сайта включите «Местоположение» и нажмите «Найти меня» снова.",
-                );
+                showBlocked();
               } else if (code === "GEO_UNSUPPORTED") {
                 toast.error("Геолокация не поддерживается этим браузером");
+              } else if (code === "GEO_INSECURE") {
+                toast.error("Геолокация доступна только по HTTPS");
               } else {
-                toast.error("Геолокация недоступна на этом устройстве");
+                toast.error("Геолокация недоступна. Проверьте GPS на телефоне.");
               }
             })
             .finally(() => setLocating(false));
