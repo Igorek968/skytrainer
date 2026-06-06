@@ -1,7 +1,6 @@
 "use client";
 
 import { create } from "zustand";
-import { useEffect } from "react";
 
 import { DEFAULT_SKI_RESORT_CENTER } from "@/lib/services/geo";
 
@@ -46,19 +45,3 @@ export function locateUserMeetPoint(): Promise<void> {
   });
 }
 
-/** Try GPS once for meeting point (client booking flow). */
-export function useGeolocationMeetInit() {
-  const setMeet = useMeetPoint((s) => s.setMeet);
-
-  useEffect(() => {
-    if (!navigator.geolocation) return;
-
-    navigator.geolocation.getCurrentPosition(
-      (p) => setMeet(p.coords.latitude, p.coords.longitude, "gps"),
-      () => {
-        /* keep defaults */
-      },
-      { enableHighAccuracy: true, timeout: 15_000 }
-    );
-  }, [setMeet]);
-}

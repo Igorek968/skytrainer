@@ -24,7 +24,9 @@ export function LocateMeControl({ onLocate }: { onLocate: () => Promise<void> })
             .catch((err: unknown) => {
               const code = err instanceof Error ? err.message : "";
               if (code === "GEO_DENIED") {
-                toast.error("Разрешите доступ к геолокации в браузере");
+                toast.error(
+                  "Доступ к геолокации запрещён. В настройках браузера для этого сайта включите «Местоположение» и нажмите «Найти меня» снова.",
+                );
               } else if (code === "GEO_UNSUPPORTED") {
                 toast.error("Геолокация не поддерживается этим браузером");
               } else {

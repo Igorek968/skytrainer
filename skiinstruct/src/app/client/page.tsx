@@ -11,14 +11,11 @@ import { ChevronDown, Star, Award, ShieldCheck, CalendarDays, Languages } from "
 import { PersonalDataDialog } from "@/features/client/personal-data-dialog";
 import { ClientOrderCheckoutDialog } from "@/features/client/client-order-checkout-dialog";
 import { ClientEventsFeed } from "@/features/orders/client-events-feed";
+import { GeolocationMeetPrompt } from "@/features/map/geolocation-meet-prompt";
 import { MeetAddressSearch } from "@/features/map/meet-address-search";
 import { BookingMapLazy } from "@/features/map/map-loader";
 import { consumeOpenPersonalDataFlag } from "@/lib/client-personal-data-storage";
-import {
-  locateUserMeetPoint,
-  useGeolocationMeetInit,
-  useMeetPoint,
-} from "@/features/map/use-client-meet-point";
+import { locateUserMeetPoint, useMeetPoint } from "@/features/map/use-client-meet-point";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Input } from "@/shared/ui/input";
@@ -472,7 +469,6 @@ function ResumeCheckoutFromQuery({
 export default function ClientHomePage() {
   const queryClient = useQueryClient();
   const { data: session } = useSession();
-  useGeolocationMeetInit();
   const meetLat = useMeetPoint((s) => s.meetLat);
   const meetLng = useMeetPoint((s) => s.meetLng);
   const meetAddress = useMeetPoint((s) => s.meetAddress);
@@ -967,6 +963,7 @@ export default function ClientHomePage() {
       </div>
 
       <div className="space-y-3">
+        <GeolocationMeetPrompt />
         <MeetAddressSearch />
         <SectionErrorBoundary title="Карта временно недоступна">
           <BookingMapLazy
