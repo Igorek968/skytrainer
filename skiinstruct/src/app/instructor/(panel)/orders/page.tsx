@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { enableInstructorOfflineAlerts } from "@/features/instructor/instructor-panel-shell";
 import { useInstructorPendingOrderAlerts } from "@/features/instructor/use-instructor-pending-order-alerts";
 import {
   instructorRegistrationStatusLabel,
@@ -99,7 +100,14 @@ export default function InstructorOrdersPage() {
     if (typeof window === "undefined" || !("Notification" in window)) return;
     const perm = await Notification.requestPermission();
     setNotificationPermission(perm);
-    if (perm === "granted") toast.success("Браузерные уведомления включены");
+    if (perm === "granted") {
+      const pushOk = await enableInstructorOfflineAlerts();
+      toast.success(
+        pushOk
+          ? "Уведомления включены — заявки придут push и на почту, даже если сайт закрыт"
+          : "Браузерные уведомления включены",
+      );
+    }
   };
 
   return (

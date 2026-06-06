@@ -14,6 +14,7 @@ import { devPollInterval } from "@/lib/query-poll";
 import { InstructorComplianceCard } from "@/features/instructor/instructor-compliance-card";
 import { InstructorPayoutPanel } from "@/features/instructor/instructor-payout-panel";
 import { InstructorEventsEditor } from "@/features/instructor/instructor-events-editor";
+import { enableInstructorOfflineAlerts } from "@/features/instructor/instructor-panel-shell";
 import { InstructorWeekScheduleCalendar } from "@/features/instructor/instructor-week-schedule-calendar";
 import {
   normalizeAvailabilitySlots,
@@ -455,7 +456,12 @@ export default function InstructorHomePage() {
     }
     if (Notification.permission === "granted") {
       setNotificationPermission("granted");
-      toast.success("Уведомления уже включены");
+      const pushOk = await enableInstructorOfflineAlerts();
+      toast.success(
+        pushOk
+          ? "Уведомления включены — заявки придут push и на почту, даже если сайт закрыт"
+          : "Браузерные уведомления уже включены",
+      );
       return;
     }
     if (Notification.permission === "denied") {
@@ -466,7 +472,12 @@ export default function InstructorHomePage() {
     const perm = await Notification.requestPermission();
     setNotificationPermission(perm);
     if (perm === "granted") {
-      toast.success("Браузерные уведомления включены");
+      const pushOk = await enableInstructorOfflineAlerts();
+      toast.success(
+        pushOk
+          ? "Уведомления включены — заявки придут push и на почту, даже если сайт закрыт"
+          : "Браузерные уведомления включены",
+      );
       new Notification("SkiInstruct", {
         body: "Тест: уведомления работают.",
       });

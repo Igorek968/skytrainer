@@ -3,6 +3,7 @@
 import { InstructorLessonSoonPrompt } from "@/features/instructor/instructor-lesson-soon-prompt";
 import { InstructorPendingOrderPrompt } from "@/features/instructor/instructor-pending-order-prompt";
 import { unlockInstructorOrderBeep } from "@/features/instructor/instructor-order-beep";
+import { isWebPushAvailable, subscribeWebPush, syncWebPushSubscription } from "@/features/push/web-push-client";
 import { useEffect } from "react";
 
 export function InstructorPanelShell({ children }: { children: React.ReactNode }) {
@@ -13,6 +14,10 @@ export function InstructorPanelShell({ children }: { children: React.ReactNode }
 
     if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "default") {
       void Notification.requestPermission().catch(() => {});
+    }
+
+    if (isWebPushAvailable() && Notification.permission === "granted") {
+      void syncWebPushSubscription();
     }
 
     return () => {
@@ -28,4 +33,10 @@ export function InstructorPanelShell({ children }: { children: React.ReactNode }
       <InstructorLessonSoonPrompt />
     </>
   );
+}
+
+/** После разрешения браузерных уведомлений — подписать инструктора на Web Push (заявки вне сайта). */
+export async function enableInstructorOfflineAlerts(): Promise<boolean> {
+  if (!isWebPushAvailable()) return false;
+  return subscribeWebPush();
 }

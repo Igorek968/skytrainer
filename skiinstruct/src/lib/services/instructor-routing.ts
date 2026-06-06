@@ -8,6 +8,7 @@ import {
 import { prisma } from "@/lib/prisma";
 import { computeTotals } from "@/lib/pricing";
 import { autoAcceptOrderIfScheduled } from "@/lib/services/instructor-order-auto-accept";
+import { notifyInstructorOfPendingOrder } from "@/lib/services/instructor-order-notify";
 import { applyRefundForExpiredOrder } from "@/lib/services/order-refund";
 import { resolveBillableHours } from "@/shared/lib/order-billing-hours";
 import { computePendingExpiresAt } from "@/shared/lib/order-flex";
@@ -159,6 +160,7 @@ export async function assignInstructorByQueue(orderId: string, reason: "initial"
   }
 
   if (result?.status === "PENDING_INSTRUCTOR") {
+    void notifyInstructorOfPendingOrder(orderId);
     await autoAcceptOrderIfScheduled(orderId);
     const accepted = await prisma.order.findUnique({ where: { id: orderId } });
     if (accepted?.status === "ACCEPTED") {

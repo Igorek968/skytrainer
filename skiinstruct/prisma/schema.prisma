@@ -347,6 +347,9 @@ model Order {
   lessonStartedAt DateTime?
   lessonEndedAt   DateTime?
 
+  /// Email/push о новой заявке PENDING_INSTRUCTOR (когда кабинет закрыт).
+  instructorPendingNotifiedAt DateTime?
+
   /// Web Push: напоминание «за ~1 мин до начала» (по requestedStartDate) уже отправлено.
   lessonStartReminderSentAt DateTime?
   /// Web Push: напоминание завершить урок по плановому окончанию уже отправлено.

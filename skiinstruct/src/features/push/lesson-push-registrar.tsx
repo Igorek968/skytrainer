@@ -3,37 +3,18 @@
 import { useSession } from "next-auth/react";
 import { useCallback, useEffect, useState } from "react";
 
+import {
+  isWebPushAvailable,
+  subscribeWebPush,
+  syncWebPushSubscription,
+} from "@/features/push/web-push-client";
 import { Button } from "@/shared/ui/button";
-
-function urlBase64ToUint8Array(base64String: string): Uint8Array {
-  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
-  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
-  const rawData = window.atob(base64);
-  const outputArray = new Uint8Array(rawData.length);
-  for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
-  return outputArray;
-}
-
-async function postSubscription(sub: PushSubscription): Promise<boolean> {
-  const j = sub.toJSON();
-  if (!j.endpoint || !j.keys?.p256dh || !j.keys?.auth) return false;
-  const res = await fetch("/api/me/push-subscription", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      endpoint: j.endpoint,
-      keys: { p256dh: j.keys.p256dh, auth: j.keys.auth },
-    }),
-  });
-  return res.ok;
-}
 
 /**
  * Регистрация Web Push (VAPID): напоминания за ~1 мин до урока и по окончании (см. cron lesson-reminders).
  */
 export function LessonPushRegistrar() {
   const { status, data: session } = useSession();
-  const vapid = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY?.trim();
   const [perm, setPerm] = useState<NotificationPermission | "unsupported">("unsupported");
   const [busy, setBusy] = useState(false);
   const [synced, setSynced] = useState(false);
@@ -52,53 +33,31 @@ export function LessonPushRegistrar() {
   }, []);
 
   const syncExisting = useCallback(async () => {
-    if (!vapid || status !== "authenticated" || typeof navigator === "undefined" || !("serviceWorker" in navigator))
-      return;
+    if (!isWebPushAvailable() || status !== "authenticated") return;
     if (Notification.permission !== "granted") return;
     if (synced) return;
-    try {
-      const reg = await navigator.serviceWorker.register("/sw.js", { scope: "/" });
-      await reg.update().catch(() => {});
-      const sub = await reg.pushManager.getSubscription();
-      if (sub) {
-        const ok = await postSubscription(sub);
-        if (ok) setSynced(true);
-      }
-    } catch {
-      /* ignore */
-    }
-  }, [status, vapid, synced]);
+    const ok = await syncWebPushSubscription();
+    if (ok) setSynced(true);
+  }, [status, synced]);
 
   useEffect(() => {
     void syncExisting();
   }, [syncExisting]);
 
-  if (!vapid || status !== "authenticated") return null;
-  if (typeof window === "undefined" || !("Notification" in window) || !("serviceWorker" in navigator)) return null;
+  if (!isWebPushAvailable() || status !== "authenticated") return null;
   if (perm === "unsupported" || perm === "denied") return null;
   if (synced) return null;
 
   const onEnable = async () => {
-    if (!vapid) return;
     setBusy(true);
     try {
-      const p = await Notification.requestPermission();
-      setPerm(p);
-      if (p !== "granted") return;
-      const reg = await navigator.serviceWorker.register("/sw.js", { scope: "/" });
-      await reg.update().catch(() => {});
-      await navigator.serviceWorker.ready;
-      let sub = await reg.pushManager.getSubscription();
-      if (!sub) {
-        sub = await reg.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(vapid) as BufferSource,
-        });
+      const ok = await subscribeWebPush();
+      if (ok) {
+        setPerm("granted");
+        setSynced(true);
+      } else if (typeof window !== "undefined" && "Notification" in window) {
+        setPerm(Notification.permission);
       }
-      const ok = await postSubscription(sub);
-      if (ok) setSynced(true);
-    } catch {
-      /* ignore */
     } finally {
       setBusy(false);
     }
