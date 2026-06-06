@@ -33,6 +33,11 @@ function isOriginExempt(pathname: string): boolean {
   return ORIGIN_EXEMPT_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }
 
+/** Кабинет инструктора: /api/instructor/… — не путать с публичным /api/instructors/…. */
+function isInstructorPrivateApiPath(pathname: string): boolean {
+  return pathname === "/api/instructor" || pathname.startsWith("/api/instructor/");
+}
+
 export function guardApiRequest(
   req: NextRequest,
   session: Session | null | undefined,
@@ -57,7 +62,7 @@ export function guardApiRequest(
     return null;
   }
 
-  if (pathname.startsWith("/api/instructor")) {
+  if (isInstructorPrivateApiPath(pathname)) {
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

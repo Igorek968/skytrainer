@@ -5,7 +5,7 @@
  * import: DATABASE_URL=... tsx scripts/sync-instructors.ts import instructors.json
  */
 import fs from "node:fs";
-import { PrismaClient } from "@prisma/client";
+import { Prisma, PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
@@ -116,10 +116,13 @@ function profilePayload(
   };
 }
 
-function profileCreateInput(row: ProfilePayload) {
+function profileCreateInput(row: ProfilePayload): Prisma.InstructorProfileUncheckedCreateWithoutUserInput {
   return {
     ...row,
     hourlyRate: row.hourlyRate,
+    profileDraft: row.profileDraft as Prisma.InputJsonValue,
+    specializationOffers: row.specializationOffers as Prisma.InputJsonValue,
+    availabilitySlots: row.availabilitySlots as Prisma.InputJsonValue,
     profileDraftSubmittedAt: row.profileDraftSubmittedAt
       ? new Date(row.profileDraftSubmittedAt)
       : null,
@@ -129,7 +132,7 @@ function profileCreateInput(row: ProfilePayload) {
     agencyOfferAcceptedAt: row.agencyOfferAcceptedAt
       ? new Date(row.agencyOfferAcceptedAt)
       : null,
-  } as const;
+  };
 }
 
 async function exportInstructors(): Promise<void> {

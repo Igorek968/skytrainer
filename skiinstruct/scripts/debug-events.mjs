@@ -17,6 +17,7 @@ for (const e of events) {
     eventAt: e.eventAt?.toISOString(),
     orderId: e.orderId?.slice(-8) ?? null,
     instructor: e.instructor.email,
+    photoUrl: e.photoUrl,
   });
 }
 

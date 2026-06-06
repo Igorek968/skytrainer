@@ -316,6 +316,10 @@ export function InstructorEventsEditor({
 
   const submitModeration = useMutation({
     mutationFn: async (id: string) => {
+      if (photoFile) {
+        const uploaded = await uploadPhotoForEvent(id, photoFile);
+        if (!uploaded) throw new Error("upload");
+      }
       const r = await instructorFetch(`/api/instructor/events/${id}/submit`, { method: "POST" });
       if (!r.ok) {
         const err = (await r.json().catch(() => ({}))) as { error?: string };
@@ -325,10 +329,18 @@ export function InstructorEventsEditor({
     },
     onSuccess: async (j) => {
       loadFormFromEvent(j.event);
+      setPhotoFile(null);
       toast.success(j.message ?? "Отправлено на модерацию");
       await qc.invalidateQueries({ queryKey: ["instructor-events"] });
     },
-    onError: (e: Error) => toast.error(e.message === "submit" ? "Не удалось отправить" : e.message),
+    onError: (e: Error) =>
+      toast.error(
+        e.message === "submit"
+          ? "Не удалось отправить"
+          : e.message === "upload"
+            ? "Не удалось загрузить фото перед отправкой"
+            : e.message,
+      ),
   });
 
   const restoreDraft = useMutation({
@@ -642,7 +654,7 @@ export function InstructorEventsEditor({
             ) : null}
             {photoEditable ? (
               <p className="text-xs text-muted-foreground">
-                JPG, PNG или WEBP до 5 MB. Фото сохраняется при «Сохранить черновик» или кнопкой «Загрузить фото».
+                JPG, PNG или WEBP до 5 MB. Фото сохраняется при «Сохранить черновик», «Загрузить фото» или «На модерацию».
               </p>
             ) : null}
           </div>
