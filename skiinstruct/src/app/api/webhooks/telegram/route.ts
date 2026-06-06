@@ -7,7 +7,11 @@ export const dynamic = "force-dynamic";
 /** Webhook Telegram Bot API — ответы оператора (reply) → веб-чат поддержки. */
 export async function POST(req: Request) {
   const expected = process.env.TELEGRAM_WEBHOOK_SECRET?.trim();
-  if (expected) {
+  if (!expected) {
+    if (process.env.NODE_ENV === "production") {
+      return NextResponse.json({ error: "Webhook not configured" }, { status: 503 });
+    }
+  } else {
     const header = req.headers.get("x-telegram-bot-api-secret-token");
     if (header !== expected) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });

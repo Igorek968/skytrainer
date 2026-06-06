@@ -191,7 +191,10 @@ export function eventRegistrationIdFromYooMetadata(meta?: YooKassaPaymentMetadat
 
 /** Проверка IP webhook (опционально, YOOKASSA_WEBHOOK_VERIFY_IP=1). */
 export function isYooKassaWebhookIpAllowed(req: Request): boolean {
-  if (process.env.YOOKASSA_WEBHOOK_VERIFY_IP !== "1") return true;
+  const verify =
+    process.env.YOOKASSA_WEBHOOK_VERIFY_IP === "1" ||
+    (process.env.YOOKASSA_WEBHOOK_VERIFY_IP !== "0" && process.env.NODE_ENV === "production");
+  if (!verify) return true;
   const forwarded = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
   const realIp = req.headers.get("x-real-ip")?.trim();
   const ip = forwarded || realIp;

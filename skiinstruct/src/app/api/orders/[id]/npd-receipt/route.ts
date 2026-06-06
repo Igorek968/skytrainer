@@ -1,12 +1,12 @@
 import { randomUUID } from "crypto";
-import { mkdir, writeFile } from "fs/promises";
-import path from "path";
 
 import { NextResponse } from "next/server";
 
 import { isApiErrorResponse, requireInstructorSession } from "@/lib/api-session";
 import { NPD_RECEIPT_DEADLINE_HOURS } from "@/lib/legal-config";
+import { writePrivateUpload } from "@/lib/private-uploads";
 import { prisma } from "@/lib/prisma";
+import { validateUploadedBytes } from "@/lib/upload-validation";
 
 const MAX_SIZE_BYTES = 5 * 1024 * 1024;
 const ALLOWED = new Set(["image/jpeg", "image/png", "image/webp", "application/pdf"]);
@@ -48,6 +48,11 @@ export async function POST(req: Request, ctx: Ctx) {
     return NextResponse.json({ error: "Максимум 5 MB" }, { status: 400 });
   }
 
+  const buffer = Buffer.from(await file.arrayBuffer());
+  if (!validateUploadedBytes(file.type, buffer)) {
+    return NextResponse.json({ error: "Содержимое файла не соответствует формату" }, { status: 400 });
+  }
+
   const ext =
     file.type === "application/pdf"
       ? "pdf"
@@ -56,15 +61,13 @@ export async function POST(req: Request, ctx: Ctx) {
         : file.type === "image/webp"
           ? "webp"
           : "jpg";
-  const filename = `${id}-${randomUUID()}.${ext}`;
-  const dir = path.join(process.cwd(), "public", "uploads", "npd-receipts");
-  await mkdir(dir, { recursive: true });
-  await writeFile(path.join(dir, filename), Buffer.from(await file.arrayBuffer()));
+  const filename = `${id}_${randomUUID()}.${ext}`;
+  const npdReceiptUrl = await writePrivateUpload("npd-receipts", filename, buffer);
 
   const updated = await prisma.order.update({
     where: { id },
     data: {
-      npdReceiptUrl: `/uploads/npd-receipts/${filename}`,
+      npdReceiptUrl,
       npdReceiptUploadedAt: new Date(),
     },
   });

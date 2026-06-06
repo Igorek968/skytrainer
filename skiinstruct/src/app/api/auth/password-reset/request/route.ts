@@ -71,8 +71,9 @@ export async function POST(req: Request) {
     );
   }
   const allowDebugLink =
-    process.env.SKIINSTRUCT_PASSWORD_RESET_DEBUG === "1" ||
-    (!isPasswordResetEmailConfigured() && !sent);
+    process.env.NODE_ENV !== "production" &&
+    (process.env.SKIINSTRUCT_PASSWORD_RESET_DEBUG === "1" ||
+      (!isPasswordResetEmailConfigured() && !sent));
   const debugToken = !sent && allowDebugLink ? token : undefined;
 
   return NextResponse.json({ ok: true, sent, debugToken, resetLink: debugToken ? resetLink : undefined });

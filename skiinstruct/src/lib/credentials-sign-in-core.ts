@@ -1,6 +1,8 @@
+import { headers } from "next/headers";
 import { AuthError } from "next-auth";
 
 import { signIn } from "@/auth";
+import { clientIp, rateLimit } from "@/lib/rate-limit";
 
 export function isNextRedirect(error: unknown): boolean {
   return (
@@ -69,6 +71,13 @@ export async function credentialsSignInNoRedirect(
   password: string,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   try {
+    const h = await headers();
+    const ip = clientIp(h);
+    const idKey = email.trim().toLowerCase();
+    if (!rateLimit(`login-ip:${ip}`, 30, 900_000) || !rateLimit(`login:${idKey}`, 12, 900_000)) {
+      return { ok: false, error: "Слишком много попыток входа. Подождите 15 минут." };
+    }
+
     const result = await signIn("credentials", {
       email,
       password,

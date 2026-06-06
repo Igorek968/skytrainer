@@ -1,6 +1,7 @@
 import NextAuth from "next-auth";
 
 import { authConfig } from "@/auth.config";
+import { guardApiRequest } from "@/lib/api-middleware-guard";
 import {
   isAdminPanelPath,
   isClientAuthRequiredPath,
@@ -18,6 +19,8 @@ export default NextAuth(authConfig).auth((req) => {
   const pathname = req.nextUrl.pathname.replace(/\/+$/, "") || "/";
 
   if (pathname.startsWith("/api")) {
+    const apiBlock = guardApiRequest(req, req.auth);
+    if (apiBlock) return apiBlock;
     return NextResponse.next();
   }
 

@@ -8,6 +8,7 @@ import { authConfig } from "@/auth.config";
 import { prisma } from "@/lib/prisma";
 import { consumePhoneOtpIfValid } from "@/lib/phone-otp";
 import { normalizeRussianPhone } from "@/lib/phone";
+import { rateLimit } from "@/lib/rate-limit";
 
 const credentialsSchema = z
   .object({
@@ -51,6 +52,9 @@ const credentialsProvider = Credentials({
 
     const phoneNorm = normalizeRussianPhone(identifier);
     if (phoneNorm && otp) {
+      if (!rateLimit(`phone-otp-verify:${phoneNorm}`, 12, 3_600_000)) {
+        return null;
+      }
       const otpResult = await consumePhoneOtpIfValid(phoneNorm, otp);
       if (!otpResult.ok) return null;
 
@@ -75,6 +79,14 @@ const credentialsProvider = Credentials({
     }
 
     if (!password) return null;
+
+    const loginKey = identifier.includes("@")
+      ? identifier.trim().toLowerCase()
+      : normalizeRussianPhone(identifier) ?? identifier.trim();
+    if (!rateLimit(`login:${loginKey}`, 12, 900_000)) {
+      return null;
+    }
+
     const user = await findUserForCredentials(identifier);
     if (!user?.passwordHash) return null;
     const ok = await compare(password, user.passwordHash);

@@ -27,20 +27,44 @@ function inferLocalSiteFromEnv(): boolean {
   }
 }
 
+const PLACEHOLDER_SECRETS = new Set([
+  "replace-with-long-random-secret",
+  "skiinstruct-local-dev-auth-secret-not-for-production",
+]);
+
 function resolveAuthSecret(): string | undefined {
   const fromEnv = process.env.AUTH_SECRET?.trim() || process.env.NEXTAUTH_SECRET?.trim();
-  if (fromEnv) return fromEnv;
+  if (fromEnv) {
+    if (process.env.NODE_ENV === "production" && PLACEHOLDER_SECRETS.has(fromEnv)) {
+      return undefined;
+    }
+    return fromEnv;
+  }
 
-  const allowInsecure =
-    process.env.NODE_ENV !== "production" ||
-    inferLocalSiteFromEnv() ||
+  if (process.env.NODE_ENV === "production") {
+    return undefined;
+  }
+
+  if (
     process.env.SKIINSTRUCT_AUTH_DEV_FALLBACK === "1" ||
-    process.env.SKIINSTRUCT_AUTH_DEV_FALLBACK === "true";
-
-  if (allowInsecure) {
+    process.env.SKIINSTRUCT_AUTH_DEV_FALLBACK === "true" ||
+    inferLocalSiteFromEnv()
+  ) {
     return "skiinstruct-local-dev-auth-secret-not-for-production";
   }
-  return undefined;
+
+  return "skiinstruct-local-dev-auth-secret-not-for-production";
+}
+
+function useSecureSessionCookies(): boolean {
+  if (process.env.NODE_ENV !== "production") return false;
+  const url = process.env.AUTH_URL ?? process.env.NEXTAUTH_URL ?? process.env.NEXT_PUBLIC_APP_URL;
+  if (!url) return true;
+  try {
+    return new URL(url).protocol === "https:";
+  } catch {
+    return true;
+  }
 }
 
 /**
@@ -55,7 +79,7 @@ const googleProviders = googleConfigured
       Google({
         clientId: process.env.AUTH_GOOGLE_ID!,
         clientSecret: process.env.AUTH_GOOGLE_SECRET!,
-        allowDangerousEmailAccountLinking: true,
+        allowDangerousEmailAccountLinking: false,
       }),
     ]
   : [];
@@ -63,7 +87,18 @@ const googleProviders = googleConfigured
 export const authConfig = {
   secret: resolveAuthSecret(),
   trustHost: true,
+  useSecureCookies: useSecureSessionCookies(),
   session: { strategy: "jwt", maxAge: 30 * 24 * 60 * 60 },
+  cookies: {
+    sessionToken: {
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: useSecureSessionCookies(),
+      },
+    },
+  },
   pages: {
     signIn: "/login",
     error: "/login",

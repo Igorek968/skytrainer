@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { auth } from "@/auth";
+import { resolveUserRole } from "@/lib/api-session";
 import { prisma } from "@/lib/prisma";
 import { messageSchema } from "@/lib/validations/order";
 
@@ -23,7 +24,8 @@ export async function GET(_req: Request, ctx: Ctx) {
   }
 
   const { id } = await ctx.params;
-  const order = await assertOrderAccess(id, session.user.id, session.user.role);
+  const role = (await resolveUserRole(session.user.id, session.user.role)) ?? session.user.role;
+  const order = await assertOrderAccess(id, session.user.id, role);
   if (!order) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
@@ -45,7 +47,8 @@ export async function POST(req: Request, ctx: Ctx) {
   }
 
   const { id } = await ctx.params;
-  const order = await assertOrderAccess(id, session.user.id, session.user.role);
+  const role = (await resolveUserRole(session.user.id, session.user.role)) ?? session.user.role;
+  const order = await assertOrderAccess(id, session.user.id, role);
   if (!order) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }

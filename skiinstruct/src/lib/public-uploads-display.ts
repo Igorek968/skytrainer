@@ -1,9 +1,13 @@
-/** URL для <img src> — через API, чтобы файлы отдавались и в Docker/prod. */
+import { resolveSensitiveUploadDisplaySrc } from "@/lib/sensitive-upload-urls";
+
+/** URL для <img src> / ссылки — публичные через /api/media, чувствительные через /api/private-media. */
 export function publicUploadDisplaySrc(url: string | null | undefined): string | null {
   if (!url?.trim()) return null;
   const trimmed = url.trim();
-  if (trimmed.startsWith("/api/media/")) return trimmed;
+  if (trimmed.startsWith("/api/private-media/") || trimmed.startsWith("/api/media/")) return trimmed;
   if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  const sensitive = resolveSensitiveUploadDisplaySrc(trimmed);
+  if (sensitive) return sensitive;
   if (trimmed.startsWith("/uploads/")) {
     return `/api/media/${trimmed.slice("/uploads/".length)}`;
   }

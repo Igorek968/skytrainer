@@ -12,6 +12,7 @@ import {
 import { prisma } from "@/lib/prisma";
 import { publicUploadDisplaySrc, publicUploadDisplaySrcs } from "@/lib/public-uploads-display";
 import { writePublicUpload } from "@/lib/public-uploads";
+import { validateUploadedBytes } from "@/lib/upload-validation";
 
 function formatPhotoApiResponse(result: {
   photoUrl: string | null;
@@ -56,6 +57,9 @@ export async function POST(req: Request) {
   const filename = `${userId}-${randomUUID()}.${ext}`;
 
   const buffer = Buffer.from(await file.arrayBuffer());
+  if (!validateUploadedBytes(file.type, buffer)) {
+    return NextResponse.json({ error: "Содержимое файла не соответствует формату" }, { status: 400 });
+  }
   const photoUrl = await writePublicUpload("instructors", filename, buffer);
   await ensureInstructorProfile(userId);
   const [profile, user] = await Promise.all([

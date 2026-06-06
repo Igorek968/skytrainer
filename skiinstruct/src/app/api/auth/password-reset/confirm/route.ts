@@ -8,7 +8,7 @@ import { sha256Hex } from "@/lib/services/password-reset";
 
 const requestSchema = z.object({
   token: z.string().min(20),
-  newPassword: z.string().min(8),
+  newPassword: z.string().min(8).max(128),
 });
 
 export async function POST(req: Request) {

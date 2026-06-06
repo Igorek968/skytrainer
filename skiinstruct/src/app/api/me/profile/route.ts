@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { auth } from "@/auth";
+import { clientSafeErrorMessage, isPrismaSchemaMismatch, prismaSchemaMismatchMessage } from "@/lib/api-error";
 import { prisma } from "@/lib/prisma";
 
 /** Частичное обновление: пустой `name` в теле не передавайте — иначе не трогаем поле в БД. */
@@ -46,15 +47,13 @@ export async function GET() {
       birthDate: user.birthDate ? user.birthDate.toISOString().slice(0, 10) : null,
     });
   } catch (e) {
-    const raw = e instanceof Error ? e.message : String(e);
-    const needsMigration = /birthDate|Unknown argument|column|does not exist|P2022/i.test(raw);
     return NextResponse.json(
       {
-        error: needsMigration
-          ? "База не синхронизирована со схемой. В каталоге skiinstruct: npm run db:push"
-          : raw,
+        error: isPrismaSchemaMismatch(e)
+          ? prismaSchemaMismatchMessage()
+          : clientSafeErrorMessage(e, "Не удалось загрузить профиль"),
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -113,15 +112,13 @@ export async function PATCH(req: Request) {
       birthDate: user.birthDate ? user.birthDate.toISOString().slice(0, 10) : null,
     });
   } catch (e) {
-    const raw = e instanceof Error ? e.message : String(e);
-    const needsMigration = /birthDate|Unknown argument|column|does not exist|P2022/i.test(raw);
     return NextResponse.json(
       {
-        error: needsMigration
-          ? "База данных не обновлена: нет поля даты рождения. В каталоге skiinstruct выполните: npm run db:push"
-          : `Не удалось сохранить: ${raw}`,
+        error: isPrismaSchemaMismatch(e)
+          ? prismaSchemaMismatchMessage()
+          : clientSafeErrorMessage(e, "Не удалось сохранить профиль"),
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

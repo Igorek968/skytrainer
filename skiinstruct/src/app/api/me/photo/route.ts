@@ -6,6 +6,7 @@ import { NextResponse } from "next/server";
 
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { validateUploadedBytes } from "@/lib/upload-validation";
 
 const MAX_SIZE_BYTES = 5 * 1024 * 1024;
 const ALLOWED = new Set(["image/jpeg", "image/png", "image/webp"]);
@@ -38,6 +39,9 @@ export async function POST(req: Request) {
   const filepath = path.join(dir, filename);
 
   const buffer = Buffer.from(await file.arrayBuffer());
+  if (!validateUploadedBytes(file.type, buffer)) {
+    return NextResponse.json({ error: "Содержимое файла не соответствует формату" }, { status: 400 });
+  }
   await writeFile(filepath, buffer);
 
   const imageUrl = `/uploads/users/${filename}`;

@@ -1,14 +1,11 @@
 import { access, mkdir, readFile, stat, unlink, writeFile } from "fs/promises";
 import path from "path";
 
-/** Подкаталоги в public/uploads, которые можно читать/писать через API. */
-export const PUBLIC_UPLOAD_SUBDIRS = new Set([
-  "events",
-  "instructors",
-  "users",
-  "compliance",
-  "npd-receipts",
-]);
+/** Публичные подкаталоги (без персональных документов — те в private/uploads). */
+export const PUBLIC_UPLOAD_SUBDIRS = new Set(["events", "instructors", "users"]);
+
+/** Устаревшие пути — только чтение для миграции; новые загрузки в private/. */
+export const LEGACY_SENSITIVE_PUBLIC_SUBDIRS = new Set(["compliance", "npd-receipts"]);
 
 export function getPublicUploadsRoot(): string {
   return path.join(process.cwd(), "public", "uploads");
@@ -63,8 +60,35 @@ export async function removePublicUploadByUrl(url: string | null | undefined): P
   }
 }
 
+/** Только чтение старых файлов в public/uploads/compliance|npd-receipts. */
+export function resolveLegacyPublicUploadPath(segments: string[]): string | null {
+  if (!segments.length) return null;
+  if (segments.some((s) => !s || s === "." || s === ".." || s.includes("\\") || s.includes("/"))) {
+    return null;
+  }
+  if (!LEGACY_SENSITIVE_PUBLIC_SUBDIRS.has(segments[0])) return null;
+
+  const root = path.resolve(getPublicUploadsRoot());
+  const resolved = path.resolve(root, ...segments);
+  if (resolved !== root && !resolved.startsWith(`${root}${path.sep}`)) {
+    return null;
+  }
+  return resolved;
+}
+
 export async function readPublicUpload(segments: string[]): Promise<Buffer | null> {
   const filepath = resolvePublicUploadPath(segments);
+  if (!filepath) return null;
+  try {
+    await access(filepath);
+    return readFile(filepath);
+  } catch {
+    return null;
+  }
+}
+
+export async function readLegacyPublicUpload(segments: string[]): Promise<Buffer | null> {
+  const filepath = resolveLegacyPublicUploadPath(segments);
   if (!filepath) return null;
   try {
     await access(filepath);

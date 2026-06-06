@@ -43,10 +43,42 @@ function resolvedYandexMapsApiKeyForClient() {
   );
 }
 
+const securityHeaders = [
+  { key: "X-Frame-Options", value: "DENY" },
+  { key: "X-Content-Type-Options", value: "nosniff" },
+  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+  { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(self)" },
+  {
+    key: "Content-Security-Policy",
+    value: [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://api-maps.yandex.ru https://yastatic.net",
+      "style-src 'self' 'unsafe-inline' https://yastatic.net",
+      "img-src 'self' data: blob: https: http:",
+      "font-src 'self' data: https://yastatic.net",
+      "connect-src 'self' https://api-maps.yandex.ru https://geocode-maps.yandex.ru https://*.yandex.ru wss:",
+      "frame-src 'self' https://yoomoney.ru https://*.yookassa.ru",
+      "frame-ancestors 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
+    ].join("; "),
+  },
+];
+
+if (process.env.NODE_ENV === "production") {
+  securityHeaders.push({
+    key: "Strict-Transport-Security",
+    value: "max-age=31536000; includeSubDomains",
+  });
+}
+
 const nextConfig = {
   env: {
     NEXTAUTH_URL: resolvedNextAuthUrlForClient(),
     NEXT_PUBLIC_YANDEX_MAPS_API_KEY: resolvedYandexMapsApiKeyForClient(),
+  },
+  async headers() {
+    return [{ source: "/(.*)", headers: securityHeaders }];
   },
   reactStrictMode: true,
   eslint: {

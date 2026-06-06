@@ -1,13 +1,13 @@
 import { randomUUID } from "crypto";
-import { mkdir, writeFile } from "fs/promises";
-import path from "path";
 
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { isApiErrorResponse, requireInstructorSession } from "@/lib/api-session";
 import { getInstructorComplianceStatus } from "@/lib/instructor-compliance";
+import { writePrivateUpload } from "@/lib/private-uploads";
 import { prisma } from "@/lib/prisma";
+import { validateUploadedBytes } from "@/lib/upload-validation";
 
 const MAX_SIZE_BYTES = 8 * 1024 * 1024;
 const ALLOWED = new Set(["image/jpeg", "image/png", "image/webp", "application/pdf"]);
@@ -70,6 +70,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Максимум 8 MB" }, { status: 400 });
   }
 
+  const buffer = Buffer.from(await file.arrayBuffer());
+  if (!validateUploadedBytes(file.type, buffer)) {
+    return NextResponse.json({ error: "Содержимое файла не соответствует формату" }, { status: 400 });
+  }
+
   const ext =
     file.type === "application/pdf"
       ? "pdf"
@@ -79,11 +84,8 @@ export async function POST(req: Request) {
           ? "webp"
           : "jpg";
   const filename = `${auth.userId}-${type}-${randomUUID()}.${ext}`;
-  const dir = path.join(process.cwd(), "public", "uploads", "compliance");
-  await mkdir(dir, { recursive: true });
-  await writeFile(path.join(dir, filename), Buffer.from(await file.arrayBuffer()));
+  const fileUrl = await writePrivateUpload("compliance", filename, buffer);
 
-  const fileUrl = `/uploads/compliance/${filename}`;
   const doc = await prisma.instructorComplianceDocument.create({
     data: {
       userId: auth.userId,

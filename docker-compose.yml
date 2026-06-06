@@ -83,8 +83,8 @@ services:
       NEXT_PUBLIC_DISABLE_DEV_POLL: "1"
       # 0 — очередь в /admin/moderation; 1 — сразу «Опубликовано» без админки
       SKIINSTRUCT_AUTO_APPROVE_EVENTS: ${SKIINSTRUCT_AUTO_APPROVE_EVENTS:-0}
-      # Локально: показать ссылку сброса пароля на странице (письмо не отправляется без webhook)
-      SKIINSTRUCT_PASSWORD_RESET_DEBUG: ${SKIINSTRUCT_PASSWORD_RESET_DEBUG:-1}
+      # Локальная отладка сброса пароля: 1 в .env без SMTP; на VPS — 0
+      SKIINSTRUCT_PASSWORD_RESET_DEBUG: ${SKIINSTRUCT_PASSWORD_RESET_DEBUG:-0}
       DATABASE_URL: ${SKIINSTRUCT_DATABASE_URL:-postgres://sky:sky@postgres:5432/skytrainer_new?schema=skiinstruct}
       AUTH_SECRET: ${SKIINSTRUCT_AUTH_SECRET:-replace-with-long-random-secret}
       AUTH_URL: ${SKIINSTRUCT_AUTH_URL:-http://localhost:3001}
@@ -103,7 +103,12 @@ services:
       STRIPE_WEBHOOK_SECRET: ${SKIINSTRUCT_STRIPE_WEBHOOK_SECRET:-}
       YOOKASSA_SHOP_ID: ${YOOKASSA_SHOP_ID:-}
       YOOKASSA_SECRET_KEY: ${YOOKASSA_SECRET_KEY:-}
-      ALLOW_MOCK_CHECKOUT: ${ALLOW_MOCK_CHECKOUT:-1}
+      # 0 — реальная ЮKassa; 1 — mock без ключей (только локальная отладка, задайте в .env)
+      ALLOW_MOCK_CHECKOUT: ${ALLOW_MOCK_CHECKOUT:-0}
+      REQUIRE_EMAIL_VERIFICATION: ${REQUIRE_EMAIL_VERIFICATION:-0}
+      YOOKASSA_WEBHOOK_VERIFY_IP: ${YOOKASSA_WEBHOOK_VERIFY_IP:-0}
+      # За reverse proxy на VPS: TRUSTED_PROXY_COUNT=1
+      TRUSTED_PROXY_COUNT: ${TRUSTED_PROXY_COUNT:-}
       NEXT_PUBLIC_VAPID_PUBLIC_KEY: ${SKIINSTRUCT_VAPID_PUBLIC_KEY:-}
       VAPID_PRIVATE_KEY: ${SKIINSTRUCT_VAPID_PRIVATE_KEY:-}
       VAPID_SUBJECT: ${SKIINSTRUCT_VAPID_SUBJECT:-mailto:you@example.com}
@@ -119,8 +124,8 @@ services:
       TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
       TWILIO_FROM_NUMBER: ${TWILIO_FROM_NUMBER:-}
       SMS_WEBHOOK_URL: ${SMS_WEBHOOK_URL:-}
-      # Отладка без SMS: код в JSON / toast. По умолчанию 1 в compose; реальная SMS: SMS_OTP_DEBUG=0 + TWILIO_* или SMS_WEBHOOK_URL
-      SMS_OTP_DEBUG: ${SMS_OTP_DEBUG:-1}
+      # Локально без Twilio: SMS_OTP_DEBUG=1 в .env; на VPS — 0 + TWILIO_* или SMS_WEBHOOK_URL
+      SMS_OTP_DEBUG: ${SMS_OTP_DEBUG:-0}
       SMS_OTP_MOCK: ${SMS_OTP_MOCK:-}
       # Секреты только в корневом .env (не в этом файле!). CHAT_ID — число, не @username бота
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
@@ -134,6 +139,7 @@ services:
       # Локальные правки в коде сразу видны в контейнере (без полной пересборки образа).
       - ./skiinstruct/src:/app/src
       - ./skiinstruct/public:/app/public
+      - ./skiinstruct/private:/app/private
       - ./skiinstruct/next.config.mjs:/app/next.config.mjs:ro
       # Иначе в контейнере остаётся старый schema.prisma из образа — db:push не добавит новые поля (birthDate и т.д.).
       - ./skiinstruct/prisma:/app/prisma

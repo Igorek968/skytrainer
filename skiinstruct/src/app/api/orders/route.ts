@@ -346,16 +346,11 @@ export async function POST(req: Request) {
       }
     }
     if (e instanceof Error && e.name === "PrismaClientValidationError") {
-      // Не обрезать только начало: Prisma сначала выводит весь `data`, а суть («Unknown argument», «Invalid value») — в конце.
-      const oneLine = e.message.replace(/\s+/g, " ").trim();
-      const body =
-        oneLine.length > 900 ? `…${oneLine.slice(-850)}` : oneLine;
-      return NextResponse.json(
-        {
-          error: `Ошибка данных заказа (Prisma): ${body}`,
-        },
-        { status: 400 },
-      );
+      const detail =
+        process.env.NODE_ENV === "production"
+          ? "Некорректные данные заказа."
+          : e.message.replace(/\s+/g, " ").trim().slice(-400);
+      return NextResponse.json({ error: detail }, { status: 400 });
     }
     return NextResponse.json(
       { error: "Ошибка при сохранении заказа. Попробуйте ещё раз или напишите в поддержку." },

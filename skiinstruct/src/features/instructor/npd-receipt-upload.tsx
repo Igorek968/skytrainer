@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { NPD_RECEIPT_DEADLINE_HOURS } from "@/lib/legal-config";
+import { publicUploadDisplaySrc } from "@/lib/public-uploads-display";
 import { Button } from "@/shared/ui/button";
 
 export function NpdReceiptUpload({
@@ -19,10 +20,11 @@ export function NpdReceiptUpload({
   const [loading, setLoading] = useState(false);
 
   if (existingUrl) {
+    const href = publicUploadDisplaySrc(existingUrl) ?? existingUrl;
     return (
       <p className="text-sm text-muted-foreground">
         Чек загружен:{" "}
-        <a className="text-accent underline" href={existingUrl} target="_blank" rel="noreferrer">
+        <a className="text-accent underline" href={href} target="_blank" rel="noreferrer">
           открыть
         </a>
       </p>

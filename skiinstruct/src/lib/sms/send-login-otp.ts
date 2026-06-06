@@ -80,12 +80,13 @@ export function hasSmsProviderConfigured(): boolean {
  * Не вызывать SMS-шлюз; код вернуть в ответе send-code (отладка / локальный запуск без Twilio).
  */
 export function shouldReturnDevOtpInApi(): boolean {
+  if (process.env.NODE_ENV === "production") return false;
   if (process.env.SMS_OTP_REQUIRE_REAL === "1") return false;
   if (envTruthy(process.env.SMS_OTP_MOCK)) return true;
   if (envTruthy(process.env.SMS_OTP_DEBUG)) return true;
   if (process.env.NODE_ENV === "development") return true;
   if (envFalsy(process.env.SMS_OTP_DEBUG)) return false;
-  if (process.env.NODE_ENV !== "production" && !hasSmsProviderConfigured()) return true;
+  if (!hasSmsProviderConfigured()) return true;
   return false;
 }
 
