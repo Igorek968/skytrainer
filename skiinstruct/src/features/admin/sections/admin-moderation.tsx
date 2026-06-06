@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 
+import { AdminDeleteUserButton } from "@/features/admin/admin-delete-user-button";
 import type { AdminOverview } from "@/features/admin/admin-overview-types";
 import {
   useAdminProfileReviewMutation,
@@ -228,6 +229,13 @@ export function AdminModerationSection({ data }: { data: AdminOverview }) {
                     ) : null}
                   </div>
                   <div className="flex shrink-0 flex-wrap gap-2">
+                    <AdminDeleteUserButton
+                      userId={p.userId}
+                      email={p.email}
+                      name={p.name}
+                      role="INSTRUCTOR"
+                      disabled={verify.isPending || profileReview.isPending || Boolean(rejectTarget)}
+                    />
                     {p.moderationKind === "NEW_ACCOUNT" ? (
                       <>
                         <Button

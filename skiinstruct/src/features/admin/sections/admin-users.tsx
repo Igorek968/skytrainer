@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 
+import { AdminDeleteUserButton } from "@/features/admin/admin-delete-user-button";
 import { adminOverviewHref } from "@/features/admin/admin-search-params";
 import { useAdminUsersList } from "@/features/admin/use-admin-users-list";
 import {
@@ -141,7 +142,7 @@ export function AdminUsersSection() {
                   <th className="py-2 pr-3 font-medium">Email</th>
                   <th className="py-2 pr-3 font-medium">Роль</th>
                   <th className="py-2 pr-3 font-medium">Статус</th>
-                  <th className="py-2 font-medium">Действие</th>
+                  <th className="py-2 font-medium">Действия</th>
                 </tr>
               </thead>
               <tbody>
@@ -173,17 +174,25 @@ export function AdminUsersSection() {
                       )}
                     </td>
                     <td className="py-2">
-                      <Button variant="outline" size="sm" className="h-7 text-xs" asChild>
-                        <Link
-                          href={adminOverviewHref("/admin/activity", {
-                            user: u.email,
-                            activity: focusActivity,
-                            participant: u.id,
-                          })}
-                        >
-                          Открыть в ленте
-                        </Link>
-                      </Button>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Button variant="outline" size="sm" className="h-7 text-xs" asChild>
+                          <Link
+                            href={adminOverviewHref("/admin/activity", {
+                              user: u.email,
+                              activity: focusActivity,
+                              participant: u.id,
+                            })}
+                          >
+                            Открыть в ленте
+                          </Link>
+                        </Button>
+                        <AdminDeleteUserButton
+                          userId={u.id}
+                          email={u.email}
+                          name={u.name}
+                          role={u.role}
+                        />
+                      </div>
                     </td>
                   </tr>
                 ))}
