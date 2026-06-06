@@ -3,7 +3,10 @@ import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 
 import { isApiErrorResponse, requireInstructorSession } from "@/lib/api-session";
-import { canEditInstructorEvent, serializeInstructorEvent } from "@/lib/instructor-events";
+import {
+  canEditInstructorEventPhoto,
+  serializeInstructorEvent,
+} from "@/lib/instructor-events";
 import { prisma } from "@/lib/prisma";
 import { removePublicUploadByUrl, writePublicUpload } from "@/lib/public-uploads";
 
@@ -25,9 +28,9 @@ export async function POST(req: Request, ctx: Ctx) {
   if (!existing) {
     return NextResponse.json({ error: "Мероприятие не найдено" }, { status: 404 });
   }
-  if (!canEditInstructorEvent(existing)) {
+  if (!canEditInstructorEventPhoto(existing)) {
     return NextResponse.json(
-      { error: "Фото можно изменить только в черновике или после отклонения модерации" },
+      { error: "Фото можно изменить только в черновике, после отклонения или у опубликованного мероприятия до даты проведения" },
       { status: 400 },
     );
   }
@@ -73,9 +76,9 @@ export async function DELETE(_req: Request, ctx: Ctx) {
   if (!existing) {
     return NextResponse.json({ error: "Мероприятие не найдено" }, { status: 404 });
   }
-  if (!canEditInstructorEvent(existing)) {
+  if (!canEditInstructorEventPhoto(existing)) {
     return NextResponse.json(
-      { error: "Фото можно удалить только в черновике или после отклонения модерации" },
+      { error: "Фото можно удалить только пока мероприятие не завершено" },
       { status: 400 },
     );
   }

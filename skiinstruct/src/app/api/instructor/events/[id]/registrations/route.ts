@@ -11,6 +11,7 @@ import {
   cancelEventRegistrationByInstructor,
 } from "@/lib/services/event-registration-cancel";
 import { attendanceStatusLabel } from "@/lib/services/event-attendance-shared";
+import { formatSlotTimeRu } from "@/lib/instructor-events";
 import { serializeEventRegistration } from "@/lib/services/event-registration";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -37,6 +38,7 @@ export async function GET(_req: Request, ctx: Ctx) {
     orderBy: [{ status: "asc" }, { createdAt: "desc" }],
     include: {
       client: { select: { id: true, name: true, email: true, image: true } },
+      slot: { select: { id: true, startsAt: true, maxSeats: true } },
     },
   });
 
@@ -53,13 +55,16 @@ export async function GET(_req: Request, ctx: Ctx) {
     cancelReason: string | null;
     attendanceLabel: string;
     attendanceConfirmedAt: string | null;
+    slotId: string | null;
+    slotTime: string | null;
   })[] = rows.map((r) => {
     const rating = ratings.get(r.clientId);
+    const effectiveAt = r.slot?.startsAt ?? event.eventAt;
     const quote = computeEventRegistrationCancelQuote({
       status: r.status,
       amountRub: r.amountRub,
       paidAt: r.paidAt,
-      event: { eventAt: event.eventAt },
+      event: { eventAt: effectiveAt },
     });
     return {
       ...serializeEventRegistration({
@@ -68,12 +73,14 @@ export async function GET(_req: Request, ctx: Ctx) {
         amountRub: r.amountRub,
         paidAt: r.paidAt,
         attendanceConfirmedAt: r.attendanceConfirmedAt,
-        eventAt: event.eventAt,
+        eventAt: effectiveAt,
       }),
       paidAt: r.paidAt?.toISOString() ?? null,
       createdAt: r.createdAt.toISOString(),
       attendanceConfirmedAt: r.attendanceConfirmedAt?.toISOString() ?? null,
-      attendanceLabel: attendanceStatusLabel(r, event.eventAt),
+      attendanceLabel: attendanceStatusLabel(r, effectiveAt),
+      slotId: r.slotId,
+      slotTime: r.slot?.startsAt ? formatSlotTimeRu(r.slot.startsAt) : null,
       client: {
         id: r.client.id,
         name: r.client.name,

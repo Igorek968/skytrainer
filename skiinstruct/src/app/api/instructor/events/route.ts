@@ -9,6 +9,8 @@ import {
   upsertInstructorEventTitle,
 } from "@/lib/services/instructor-event-titles";
 import { archivePastPublishedInstructorEvents } from "@/lib/services/instructor-event-expiry";
+import { formatSlotTimeRu } from "@/lib/instructor-events";
+import { syncEventSlots, type EventSlotInput } from "@/lib/services/event-slots";
 import { createInstructorEventSchema } from "@/lib/validations/instructor-event";
 
 export const dynamic = "force-dynamic";
@@ -18,6 +20,48 @@ function parseEventAt(raw: string | null | undefined) {
   const d = new Date(raw);
   if (!Number.isFinite(d.getTime())) return null;
   return d;
+}
+
+function parseEventDay(raw: string | null | undefined): Date | null {
+  if (!raw) return null;
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(raw.trim());
+  if (!m) return null;
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 12, 0, 0, 0);
+  return Number.isFinite(d.getTime()) ? d : null;
+}
+
+async function serializeEventWithSlots(
+  row: Awaited<ReturnType<typeof prisma.instructorEvent.findMany>>[number] & {
+    slots?: { id: string; startsAt: Date; maxSeats: number | null; priceRub: number | null; sortOrder: number }[];
+  },
+  extra?: Parameters<typeof serializeInstructorEvent>[1],
+) {
+  const slots = row.slots ?? [];
+  const base = serializeInstructorEvent(row, { ...extra, slots });
+  if (!slots.length) return { ...base, slots: [] as { id: string; time: string; maxSeats: number | null; priceRub: number | null; paidCount: number; startsAt: string }[] };
+
+  const counts = await prisma.eventRegistration.groupBy({
+    by: ["slotId"],
+    where: {
+      slotId: { in: slots.map((s) => s.id) },
+      status: { in: ["PAID", "PENDING_PAYMENT"] },
+    },
+    _count: { _all: true },
+  });
+  const countBySlot = new Map(counts.map((c) => [c.slotId!, c._count._all]));
+
+  return {
+    ...base,
+    hasSlots: true,
+    slots: slots.map((s) => ({
+      id: s.id,
+      time: formatSlotTimeRu(s.startsAt),
+      maxSeats: s.maxSeats,
+      priceRub: s.priceRub,
+      startsAt: s.startsAt.toISOString(),
+      paidCount: countBySlot.get(s.id) ?? 0,
+    })),
+  };
 }
 
 export async function GET() {
@@ -32,6 +76,9 @@ export async function GET() {
       where: { instructorId: userId },
       orderBy: [{ eventAt: "desc" }, { createdAt: "desc" }],
       take: 80,
+      include: {
+        slots: { orderBy: [{ sortOrder: "asc" }, { startsAt: "asc" }] },
+      },
     }),
     listInstructorEventTitles(userId),
     prisma.eventRegistration.groupBy({
@@ -76,14 +123,16 @@ export async function GET() {
   const unconfirmedByEvent = new Map(unconfirmedGroups.map((g) => [g.eventId, g._count._all]));
 
   return NextResponse.json({
-    events: rows.map((row) => {
-      const settled = settledByEvent.get(row.id);
-      return serializeInstructorEvent(row, {
-        paidRegistrationCount: activeByEvent.get(row.id) ?? 0,
-        registrationRevenueRub: settled?.registrationRevenueRub ?? 0,
-        unconfirmedAttendanceCount: unconfirmedByEvent.get(row.id) ?? 0,
-      });
-    }),
+    events: await Promise.all(
+      rows.map(async (row) => {
+        const settled = settledByEvent.get(row.id);
+        return serializeEventWithSlots(row, {
+          paidRegistrationCount: activeByEvent.get(row.id) ?? 0,
+          registrationRevenueRub: settled?.registrationRevenueRub ?? 0,
+          unconfirmedAttendanceCount: unconfirmedByEvent.get(row.id) ?? 0,
+        });
+      }),
+    ),
     titles,
   });
 }
@@ -119,17 +168,33 @@ export async function POST(req: Request) {
     }
   }
 
-  const eventAt = parseEventAt(parsed.data.eventAt ?? null);
-  if (parsed.data.eventAt && !eventAt) {
+  const hasSlots = Array.isArray(parsed.data.slots) && parsed.data.slots.length > 0;
+
+  let eventAt = parseEventAt(parsed.data.eventAt ?? null);
+  const eventDay = parseEventDay(parsed.data.eventDay ?? null);
+
+  if (hasSlots) {
+    if (!eventDay) {
+      return NextResponse.json({ error: "Укажите день мероприятия для расписания выходов" }, { status: 400 });
+    }
+    eventAt = null;
+  } else if (parsed.data.eventAt && !eventAt) {
     return NextResponse.json({ error: "Некорректная дата мероприятия" }, { status: 400 });
   }
 
   const titleRow = await upsertInstructorEventTitle(userId, parsed.data.title);
+  const slotInputs = (parsed.data.slots ?? []) as EventSlotInput[];
+
+  const saveSlotsForEvent = async (eventId: string) => {
+    if (!hasSlots || !eventDay) return;
+    await syncEventSlots(eventId, eventDay, slotInputs);
+  };
 
   const existingId = parsed.data.eventId?.trim();
   if (existingId) {
     const existing = await prisma.instructorEvent.findFirst({
       where: { id: existingId, instructorId: userId },
+      include: { slots: true },
     });
     if (!existing) {
       return NextResponse.json({ error: "Мероприятие не найдено" }, { status: 404 });
@@ -152,15 +217,25 @@ export async function POST(req: Request) {
         titleId: titleRow.id,
         title: titleRow.title,
         body: parsed.data.body,
-        eventAt,
+        eventAt: hasSlots ? existing.eventAt : eventAt,
         orderId,
-        priceRub: parsed.data.priceRub ?? null,
-        maxRegistrations: parsed.data.maxRegistrations ?? null,
+        priceRub: hasSlots ? null : (parsed.data.priceRub ?? null),
+        maxRegistrations: hasSlots ? null : (parsed.data.maxRegistrations ?? null),
         moderationStatus: "DRAFT",
         rejectNote: null,
       },
+      include: { slots: { orderBy: [{ sortOrder: "asc" }, { startsAt: "asc" }] } },
     });
-    return NextResponse.json({ event: serializeInstructorEvent(row) });
+    if (hasSlots && eventDay) {
+      await saveSlotsForEvent(existingId);
+    }
+    const refreshed = await prisma.instructorEvent.findUnique({
+      where: { id: existingId },
+      include: { slots: { orderBy: [{ sortOrder: "asc" }, { startsAt: "asc" }] } },
+    });
+    return NextResponse.json({
+      event: await serializeEventWithSlots(refreshed ?? row),
+    });
   }
 
   const row = await prisma.instructorEvent.create({
@@ -169,13 +244,25 @@ export async function POST(req: Request) {
       titleId: titleRow.id,
       title: titleRow.title,
       body: parsed.data.body,
-      eventAt,
+      eventAt: hasSlots ? null : eventAt,
       orderId,
-      priceRub: parsed.data.priceRub ?? null,
-      maxRegistrations: parsed.data.maxRegistrations ?? null,
+      priceRub: hasSlots ? null : (parsed.data.priceRub ?? null),
+      maxRegistrations: hasSlots ? null : (parsed.data.maxRegistrations ?? null),
       moderationStatus: "DRAFT",
     },
+    include: { slots: true },
   });
 
-  return NextResponse.json({ event: serializeInstructorEvent(row) });
+  if (hasSlots && eventDay) {
+    await saveSlotsForEvent(row.id);
+  }
+
+  const refreshed = await prisma.instructorEvent.findUnique({
+    where: { id: row.id },
+    include: { slots: { orderBy: [{ sortOrder: "asc" }, { startsAt: "asc" }] } },
+  });
+
+  return NextResponse.json({
+    event: await serializeEventWithSlots(refreshed ?? row),
+  });
 }

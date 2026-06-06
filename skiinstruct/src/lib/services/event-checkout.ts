@@ -21,11 +21,13 @@ export async function markEventRegistrationPaid(params: {
       status: true,
       attendanceConfirmedAt: true,
       event: { select: { eventAt: true } },
+      slot: { select: { startsAt: true } },
     },
   });
   if (!reg || reg.status === "PAID") return reg;
 
-  const eventCompleted = isInstructorEventCompleted(reg.event.eventAt);
+  const effectiveAt = reg.slot?.startsAt ?? reg.event.eventAt;
+  const eventCompleted = isInstructorEventCompleted(effectiveAt);
 
   return prisma.eventRegistration.update({
     where: { id: params.registrationId },
@@ -51,6 +53,7 @@ export async function createEventCheckoutUrl(
     where: { id: registrationId },
     include: {
       event: { select: { id: true, title: true, eventAt: true } },
+      slot: { select: { startsAt: true } },
       client: { select: { id: true, email: true } },
     },
   });
@@ -65,7 +68,8 @@ export async function createEventCheckoutUrl(
     return `${origin}/client/registrations/${registrationId}?paid=1`;
   }
 
-  if (!isInstructorEventCompleted(reg.event.eventAt)) {
+  const effectiveAt = reg.slot?.startsAt ?? reg.event.eventAt;
+  if (!isInstructorEventCompleted(effectiveAt)) {
     throw new Error("Оплата будет доступна после окончания мероприятия");
   }
 

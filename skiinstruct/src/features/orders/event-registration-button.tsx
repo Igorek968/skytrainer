@@ -7,6 +7,7 @@ import { toast } from "sonner";
 
 import type { ClientInstructorEventDTO } from "@/lib/instructor-events";
 import { formatEventPriceRu } from "@/lib/instructor-events";
+import { EventSlotsPicker } from "@/features/orders/event-slots-picker";
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
 
@@ -99,6 +100,10 @@ export function EventRegistrationButton({
   });
 
   if (!isClient) return null;
+
+  if (event.hasSlots && event.slots.length > 0) {
+    return <EventSlotsPicker event={event} queryKey={queryKey} />;
+  }
 
   const my = event.myRegistration;
 

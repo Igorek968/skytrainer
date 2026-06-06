@@ -443,9 +443,10 @@ model InstructorEvent {
 
   /// Стоимость участия в рублях; null или 0 — бесплатная запись.
   priceRub Int?
-  /// Лимит оплаченных мест; null — без лимита.
+  /// Лимит оплаченных мест; null — без лимита (legacy, если нет слотов).
   maxRegistrations Int?
 
+  slots         EventSlot[]
   registrations EventRegistration[]
 
   createdAt DateTime @default(now())
@@ -456,6 +457,25 @@ model InstructorEvent {
   @@index([orderId])
 }
 
+/// Выход мероприятия (время, цена, лимит мест).
+model EventSlot {
+  id      String          @id @default(cuid())
+  eventId String
+  event   InstructorEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  startsAt  DateTime
+  maxSeats  Int?
+  priceRub  Int?
+  sortOrder Int      @default(0)
+
+  registrations EventRegistration[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([eventId, startsAt])
+}
+
 /// Запись клиента на мероприятие инструктора.
 model EventRegistration {
   id       String @id @default(cuid())
@@ -463,6 +483,12 @@ model EventRegistration {
   event    InstructorEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
   clientId String
   client   User   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  slotId String?
+  slot   EventSlot? @relation(fields: [slotId], references: [id], onDelete: Cascade)
+
+  /// slotId или `${eventId}:${clientId}` для записей без слота
+  registrationKey String? @unique
 
   status EventRegistrationStatus @default(PENDING_PAYMENT)
 
@@ -482,8 +508,8 @@ model EventRegistration {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([eventId, clientId])
   @@index([eventId, status])
+  @@index([slotId, status])
   @@index([clientId])
 }
 

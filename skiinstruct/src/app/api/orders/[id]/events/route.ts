@@ -67,9 +67,10 @@ export async function GET(_req: Request, ctx: Ctx) {
     orderBy: [{ eventAt: "desc" }, { createdAt: "desc" }],
     take: 30,
     include: {
+      slots: { orderBy: [{ sortOrder: "asc" }, { startsAt: "asc" }] },
       registrations: {
         where: { clientId: order.clientId },
-        take: 1,
+        take: 10,
       },
     },
   });
@@ -79,7 +80,9 @@ export async function GET(_req: Request, ctx: Ctx) {
       rows.map((row) =>
         enrichClientEvent(
           row,
-          order.clientId === uid ? (row.registrations[0] ?? null) : null,
+          row.registrations[0] ?? null,
+          undefined,
+          order.clientId === uid ? order.clientId : null,
         ),
       ),
     )

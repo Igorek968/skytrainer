@@ -54,8 +54,9 @@ export async function GET(req: Request) {
           instructorProfile: { select: { lat: true, lng: true } },
         },
       },
+      slots: { orderBy: [{ sortOrder: "asc" }, { startsAt: "asc" }] },
       registrations: clientId
-        ? { where: { clientId }, take: 1 }
+        ? { where: { clientId }, take: 10 }
         : { take: 0 },
     },
   });
@@ -73,6 +74,7 @@ export async function GET(req: Request) {
         row,
         row.registrations[0] ?? null,
         row.instructor.name,
+        clientId,
       );
       return { ...event, distanceKm };
     }),

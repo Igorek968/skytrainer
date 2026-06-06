@@ -1,5 +1,6 @@
 import type {
   EventRegistrationStatus,
+  EventSlot,
   InstructorEvent,
   InstructorEventModerationStatus,
 } from "@prisma/client";
@@ -11,8 +12,13 @@ import {
   serializeEventRegistration,
   type EventRegistrationSummary,
 } from "@/lib/services/event-registration";
-import { publicUploadDisplaySrc } from "@/lib/public-uploads-display";
-
+import {
+  eventUsesSlots,
+  eventDayFromIso,
+  loadEventSlotsForClient,
+  type EventSlotDTO,
+} from "@/lib/services/event-slots";
+import { prisma } from "@/lib/prisma";
 export type InstructorEventDTO = {
   id: string;
   title: string;
@@ -36,6 +42,16 @@ export type InstructorEventDTO = {
   paidRegistrationCount?: number;
   registrationRevenueRub?: number;
   unconfirmedAttendanceCount?: number;
+  slots?: EventSlotDTO[];
+  hasSlots?: boolean;
+  eventDay?: string | null;
+};
+
+export type InstructorEventSlotForm = {
+  id?: string;
+  time: string;
+  maxSeats: number | null;
+  priceRub: number | null;
 };
 
 export type ClientInstructorEventDTO = InstructorEventDTO & {
@@ -47,6 +63,8 @@ export type ClientInstructorEventDTO = InstructorEventDTO & {
   registrationOpen: boolean;
   isFree: boolean;
   myRegistration: EventRegistrationSummary | null;
+  slots: EventSlotDTO[];
+  hasSlots: boolean;
 };
 
 export function isInstructorEventCompleted(
@@ -71,6 +89,20 @@ export function canEditInstructorEvent(row: {
   return row.moderationStatus === "DRAFT" || row.moderationStatus === "REJECTED";
 }
 
+/** Обложку можно менять и у опубликованного (пока дата не прошла). */
+export function canEditInstructorEventPhoto(row: {
+  eventAt: Date | null;
+  moderationStatus: InstructorEventModerationStatus;
+}): boolean {
+  if (row.moderationStatus === "ARCHIVED") return false;
+  if (isInstructorEventCompleted(row.eventAt)) return false;
+  return (
+    row.moderationStatus === "DRAFT" ||
+    row.moderationStatus === "REJECTED" ||
+    row.moderationStatus === "PUBLISHED"
+  );
+}
+
 /** Скрытое мероприятие можно вернуть в черновик (редактировать / отправить на модерацию). */
 export function canRestoreArchivedEvent(
   row: Pick<InstructorEventDTO, "moderationStatus" | "isCompleted" | "paidRegistrationCount">,
@@ -86,7 +118,7 @@ export function showEventCardEdit(ev: InstructorEventDTO): boolean {
 }
 
 export function showEventCardModeration(ev: InstructorEventDTO): boolean {
-  return (ev.canEdit || canRestoreArchivedEvent(ev)) && Boolean(ev.eventAt);
+  return (ev.canEdit || canRestoreArchivedEvent(ev)) && Boolean(ev.eventAt || ev.hasSlots);
 }
 
 export function showEventCardDelete(ev: InstructorEventDTO): boolean {
@@ -145,16 +177,19 @@ export function serializeInstructorEvent(
     paidRegistrationCount?: number;
     registrationRevenueRub?: number;
     unconfirmedAttendanceCount?: number;
+    slots?: Pick<EventSlot, "id">[];
   },
 ): InstructorEventDTO {
   const isCompleted = isInstructorEventCompleted(row.eventAt);
+  const slots = extra?.slots;
   return {
     id: row.id,
     title: row.title,
     titleId: row.titleId,
     body: row.body,
-    photoUrl: publicUploadDisplaySrc(row.photoUrl),
+    photoUrl: row.photoUrl,
     eventAt: row.eventAt?.toISOString() ?? null,
+    eventDay: row.eventAt ? eventDayFromIso(row.eventAt.toISOString()) : null,
     moderationStatus: row.moderationStatus,
     rejectNote: row.rejectNote,
     orderId: row.orderId,
@@ -169,24 +204,60 @@ export function serializeInstructorEvent(
     paidRegistrationCount: extra?.paidRegistrationCount,
     registrationRevenueRub: extra?.registrationRevenueRub,
     unconfirmedAttendanceCount: extra?.unconfirmedAttendanceCount,
+    hasSlots: slots ? eventUsesSlots(slots) : undefined,
   };
 }
 
 export async function enrichClientEvent(
-  row: InstructorEvent,
+  row: InstructorEvent & { slots?: EventSlot[] },
   myRegistration: {
     id: string;
     status: EventRegistrationStatus;
     amountRub: import("@prisma/client").Prisma.Decimal | number;
     paidAt: Date | null;
+    slotId?: string | null;
   } | null,
   instructorName?: string | null,
+  clientId?: string | null,
 ): Promise<ClientInstructorEventDTO> {
+  const slotRows =
+    row.slots ??
+    (await prisma.eventSlot.findMany({
+      where: { eventId: row.id },
+      orderBy: [{ sortOrder: "asc" }, { startsAt: "asc" }],
+    }));
+
+  const hasSlots = eventUsesSlots(slotRows);
+  const slots = await loadEventSlotsForClient({ ...row, slots: slotRows }, clientId ?? null);
+
+  if (hasSlots) {
+    const openSlots = slots.filter((s) => s.registrationOpen);
+    const base = serializeInstructorEvent(row, {
+      paidRegistrationCount: slots.reduce((n, s) => n + s.paidCount, 0),
+      slots: slotRows,
+    });
+    const mySlotReg = slots.find((s) => s.myRegistration)?.myRegistration ?? null;
+    return {
+      ...base,
+      instructorName: instructorName ?? null,
+      slots,
+      hasSlots: true,
+      paidRegistrationCount: slots.reduce((n, s) => n + s.paidCount, 0),
+      spotsLeft: openSlots.reduce((n, s) => n + (s.spotsLeft ?? 0), 0) || null,
+      registrationOpen: openSlots.length > 0,
+      isFree: slots.every((s) => s.isFree),
+      myRegistration: mySlotReg,
+      priceRub: slots[0]?.priceRub ?? row.priceRub,
+    };
+  }
+
   const { paidCount, spotsLeft, isFull } = await getEventCapacityState(row);
   const base = serializeInstructorEvent(row, { paidRegistrationCount: paidCount });
   return {
     ...base,
     instructorName: instructorName ?? null,
+    slots: [],
+    hasSlots: false,
     paidRegistrationCount: paidCount,
     spotsLeft,
     registrationOpen: registrationOpenForEvent(row, isFull),
@@ -216,6 +287,12 @@ export function formatEventDateRu(iso: string | null | undefined): string | null
 export function formatEventPriceRu(priceRub: number | null | undefined): string {
   if (priceRub == null || priceRub <= 0) return "Бесплатно";
   return `${priceRub.toLocaleString("ru-RU")} ₽`;
+}
+
+export function formatSlotTimeRu(iso: string | Date): string {
+  const d = iso instanceof Date ? iso : new Date(iso);
+  if (!Number.isFinite(d.getTime())) return "—";
+  return d.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
 }
 
 export function toDatetimeLocalValue(iso: string | null | undefined): string {

@@ -7,11 +7,13 @@ import { toast } from "sonner";
 import type { InstructorEventDTO } from "@/lib/instructor-events";
 import { publicUploadDisplaySrc } from "@/lib/public-uploads-display";
 import {
+  canEditInstructorEventPhoto,
   canRestoreArchivedEvent,
   eventCardDeleteLabel,
   isCompletedEventPermanentDelete,
   formatEventDateRu,
   formatEventPriceRu,
+  formatSlotTimeRu,
   moderationStatusLabel,
   showEventCardDelete,
   showEventCardEdit,
@@ -28,6 +30,44 @@ import { cn } from "@/lib/utils";
 
 type ActiveOrderOption = { id: string; label: string };
 type TitleOption = { id: string; title: string };
+
+type SlotFormRow = {
+  id?: string;
+  time: string;
+  maxSeats: string;
+  priceRub: string;
+};
+
+type InstructorEventApi = Omit<InstructorEventDTO, "slots" | "hasSlots"> & {
+  hasSlots?: boolean;
+  eventDay?: string | null;
+  slots?: {
+    id?: string;
+    time: string;
+    maxSeats: number | null;
+    priceRub: number | null;
+    paidCount?: number;
+    startsAt?: string;
+  }[];
+};
+
+const DEFAULT_SLOTS: SlotFormRow[] = [
+  { time: "10:00", maxSeats: "4", priceRub: "5000" },
+  { time: "14:00", maxSeats: "4", priceRub: "5000" },
+  { time: "18:00", maxSeats: "6", priceRub: "6000" },
+];
+
+function eventDayFromEventAt(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (!Number.isFinite(d.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+function asEventCard(ev: InstructorEventApi): InstructorEventDTO {
+  return ev as unknown as InstructorEventDTO;
+}
 
 async function instructorFetch(input: RequestInfo, init?: RequestInit) {
   return fetch(input, { ...init, credentials: "include" });
@@ -66,6 +106,9 @@ export function InstructorEventsEditor({
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [eventAt, setEventAt] = useState("");
+  const [eventDay, setEventDay] = useState("");
+  const [useSlots, setUseSlots] = useState(true);
+  const [slotRows, setSlotRows] = useState<SlotFormRow[]>(DEFAULT_SLOTS);
   const [orderId, setOrderId] = useState("");
   const [priceRub, setPriceRub] = useState("");
   const [maxRegistrations, setMaxRegistrations] = useState("");
@@ -74,13 +117,36 @@ export function InstructorEventsEditor({
   const [canEdit, setCanEdit] = useState(true);
   const [loadedStatus, setLoadedStatus] = useState<InstructorEventDTO["moderationStatus"] | null>(null);
   const titleLoadTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!photoFile) {
+      setPhotoPreview(null);
+      return;
+    }
+    const url = URL.createObjectURL(photoFile);
+    setPhotoPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [photoFile]);
+
+  const uploadPhotoForEvent = useCallback(async (eventId: string, file: File) => {
+    const fd = new FormData();
+    fd.set("file", file);
+    const r = await instructorFetch(`/api/instructor/events/${eventId}/photo`, {
+      method: "POST",
+      body: fd,
+    });
+    const j = (await r.json().catch(() => ({}))) as { error?: string; event?: InstructorEventApi };
+    if (!r.ok) throw new Error(typeof j.error === "string" ? j.error : "upload");
+    return j.event ?? null;
+  }, []);
 
   const { data, isLoading } = useQuery({
     queryKey: ["instructor-events"],
     queryFn: async () => {
       const r = await instructorFetch("/api/instructor/events");
       if (!r.ok) throw new Error("events");
-      return r.json() as Promise<{ events: InstructorEventDTO[]; titles: TitleOption[] }>;
+      return r.json() as Promise<{ events: InstructorEventApi[]; titles: TitleOption[] }>;
     },
     refetchInterval: (query) => {
       const list = query.state.data?.events ?? [];
@@ -88,11 +154,28 @@ export function InstructorEventsEditor({
     },
   });
 
-  const loadFormFromEvent = useCallback((ev: InstructorEventDTO) => {
+  const loadFormFromEvent = useCallback((ev: InstructorEventApi | InstructorEventDTO) => {
+    const api = ev as InstructorEventApi;
     setEditingId(ev.id);
     setTitle(ev.title);
     setBody(ev.body);
     setEventAt(toDatetimeLocalValue(ev.eventAt));
+    setEventDay(api.eventDay ?? eventDayFromEventAt(ev.eventAt));
+    const slotList = api.slots ?? [];
+    const hasSlotRows = Boolean(api.hasSlots && slotList.length > 0);
+    setUseSlots(hasSlotRows || !ev.eventAt);
+    if (hasSlotRows && slotList.length) {
+      setSlotRows(
+        slotList.map((s) => ({
+          id: s.id,
+          time: s.time ?? (s.startsAt ? formatSlotTimeRu(s.startsAt) : "10:00"),
+          maxSeats: s.maxSeats != null ? String(s.maxSeats) : "",
+          priceRub: s.priceRub != null && s.priceRub > 0 ? String(s.priceRub) : "",
+        })),
+      );
+    } else if (!ev.eventAt) {
+      setSlotRows(DEFAULT_SLOTS);
+    }
     setOrderId(ev.orderId ?? "");
     setPriceRub(ev.priceRub != null && ev.priceRub > 0 ? String(ev.priceRub) : "");
     setMaxRegistrations(
@@ -109,6 +192,9 @@ export function InstructorEventsEditor({
     setTitle("");
     setBody("");
     setEventAt("");
+    setEventDay("");
+    setUseSlots(true);
+    setSlotRows(DEFAULT_SLOTS);
     setOrderId("");
     setPriceRub("");
     setMaxRegistrations("");
@@ -124,7 +210,7 @@ export function InstructorEventsEditor({
       if (!t) return;
       const r = await instructorFetch(`/api/instructor/events/by-title?title=${encodeURIComponent(t)}`);
       if (!r.ok) return;
-      const j = (await r.json()) as { event: InstructorEventDTO | null };
+      const j = (await r.json()) as { event: InstructorEventApi | null };
       if (j.event) {
         loadFormFromEvent(j.event);
         toast.message("Подгружено мероприятие с этим названием");
@@ -132,6 +218,8 @@ export function InstructorEventsEditor({
         setEditingId(null);
         setBody("");
         setEventAt("");
+        setEventDay("");
+        setSlotRows(DEFAULT_SLOTS);
         setOrderId("");
         setPriceRub("");
         setMaxRegistrations("");
@@ -170,15 +258,37 @@ export function InstructorEventsEditor({
         orderId: orderId.trim() || null,
         eventId: editingId,
       };
-      if (eventAt.trim()) payload.eventAt = new Date(eventAt).toISOString();
-      const priceParsed = priceRub.trim() ? Number.parseInt(priceRub.trim(), 10) : NaN;
-      payload.priceRub =
-        Number.isFinite(priceParsed) && priceParsed >= 0 ? priceParsed : null;
-      const maxParsed = maxRegistrations.trim()
-        ? Number.parseInt(maxRegistrations.trim(), 10)
-        : NaN;
-      payload.maxRegistrations =
-        Number.isFinite(maxParsed) && maxParsed >= 1 ? maxParsed : null;
+
+      if (useSlots) {
+        if (!eventDay.trim()) throw new Error("Укажите день мероприятия");
+        payload.eventDay = eventDay.trim();
+        payload.slots = slotRows
+          .filter((s) => s.time.trim())
+          .map((s) => {
+            const maxParsed = s.maxSeats.trim() ? Number.parseInt(s.maxSeats.trim(), 10) : NaN;
+            const priceParsed = s.priceRub.trim() ? Number.parseInt(s.priceRub.trim(), 10) : NaN;
+            return {
+              id: s.id,
+              time: s.time.trim(),
+              maxSeats: Number.isFinite(maxParsed) && maxParsed >= 1 ? maxParsed : null,
+              priceRub: Number.isFinite(priceParsed) && priceParsed >= 0 ? priceParsed : null,
+            };
+          });
+        if (!(payload.slots as unknown[]).length) {
+          throw new Error("Добавьте хотя бы один выход");
+        }
+      } else {
+        if (eventAt.trim()) payload.eventAt = new Date(eventAt).toISOString();
+        const priceParsed = priceRub.trim() ? Number.parseInt(priceRub.trim(), 10) : NaN;
+        payload.priceRub =
+          Number.isFinite(priceParsed) && priceParsed >= 0 ? priceParsed : null;
+        const maxParsed = maxRegistrations.trim()
+          ? Number.parseInt(maxRegistrations.trim(), 10)
+          : NaN;
+        payload.maxRegistrations =
+          Number.isFinite(maxParsed) && maxParsed >= 1 ? maxParsed : null;
+      }
+
       const r = await instructorFetch("/api/instructor/events", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -188,11 +298,17 @@ export function InstructorEventsEditor({
         const err = (await r.json().catch(() => ({}))) as { error?: string };
         throw new Error(typeof err.error === "string" ? err.error : "save");
       }
-      return r.json() as Promise<{ event: InstructorEventDTO }>;
+      let result = (await r.json()) as { event: InstructorEventApi };
+      if (photoFile && result.event.id) {
+        const withPhoto = await uploadPhotoForEvent(result.event.id, photoFile);
+        if (withPhoto) result = { event: withPhoto };
+      }
+      return result;
     },
     onSuccess: async (j) => {
       loadFormFromEvent(j.event);
-      toast.success("Черновик сохранён");
+      setPhotoFile(null);
+      toast.success(j.event.photoUrl ? "Черновик и фото сохранены" : "Черновик сохранён");
       await qc.invalidateQueries({ queryKey: ["instructor-events"] });
     },
     onError: (e: Error) => toast.error(e.message === "save" ? "Не удалось сохранить" : e.message),
@@ -205,7 +321,7 @@ export function InstructorEventsEditor({
         const err = (await r.json().catch(() => ({}))) as { error?: string };
         throw new Error(typeof err.error === "string" ? err.error : "submit");
       }
-      return r.json() as Promise<{ event: InstructorEventDTO; message?: string }>;
+      return r.json() as Promise<{ event: InstructorEventApi; message?: string }>;
     },
     onSuccess: async (j) => {
       loadFormFromEvent(j.event);
@@ -222,7 +338,7 @@ export function InstructorEventsEditor({
         const err = (await r.json().catch(() => ({}))) as { error?: string };
         throw new Error(typeof err.error === "string" ? err.error : "restore");
       }
-      return r.json() as Promise<{ event: InstructorEventDTO; message?: string }>;
+      return r.json() as Promise<{ event: InstructorEventApi; message?: string }>;
     },
     onSuccess: async (j) => {
       loadFormFromEvent(j.event);
@@ -254,21 +370,12 @@ export function InstructorEventsEditor({
   const uploadPhoto = useMutation({
     mutationFn: async () => {
       if (!editingId || !photoFile) throw new Error("no-file");
-      const fd = new FormData();
-      fd.set("file", photoFile);
-      const r = await instructorFetch(`/api/instructor/events/${editingId}/photo`, {
-        method: "POST",
-        body: fd,
-      });
-      const j = (await r.json().catch(() => ({}))) as { error?: string; event?: InstructorEventDTO };
-      if (!r.ok) throw new Error(typeof j.error === "string" ? j.error : "upload");
-      return j;
+      const event = await uploadPhotoForEvent(editingId, photoFile);
+      if (!event) throw new Error("upload");
+      return { event };
     },
     onSuccess: async (j) => {
       if (j.event) loadFormFromEvent(j.event);
-      else if (j.event === undefined && "photoUrl" in j) {
-        setPhotoUrl((j as { photoUrl?: string }).photoUrl ?? "");
-      }
       setPhotoFile(null);
       toast.success("Фото загружено");
       await qc.invalidateQueries({ queryKey: ["instructor-events"] });
@@ -283,7 +390,7 @@ export function InstructorEventsEditor({
       const r = await instructorFetch(`/api/instructor/events/${editingId}/photo`, {
         method: "DELETE",
       });
-      const j = (await r.json().catch(() => ({}))) as { error?: string; event?: InstructorEventDTO };
+      const j = (await r.json().catch(() => ({}))) as { error?: string; event?: InstructorEventApi };
       if (!r.ok) throw new Error(typeof j.error === "string" ? j.error : "remove-photo");
       return j;
     },
@@ -323,8 +430,8 @@ export function InstructorEventsEditor({
   });
 
   const handleCardEdit = useCallback(
-    (ev: InstructorEventDTO) => {
-      if (canRestoreArchivedEvent(ev)) {
+    (ev: InstructorEventApi) => {
+      if (canRestoreArchivedEvent(asEventCard(ev))) {
         restoreDraft.mutate(ev.id);
         return;
       }
@@ -334,8 +441,8 @@ export function InstructorEventsEditor({
   );
 
   const handleCardDelete = useCallback(
-    (ev: InstructorEventDTO) => {
-      if (isCompletedEventPermanentDelete(ev)) {
+    (ev: InstructorEventApi) => {
+      if (isCompletedEventPermanentDelete(asEventCard(ev))) {
         const hasRegs = (ev.paidRegistrationCount ?? 0) > 0;
         const unconfirmed = ev.unconfirmedAttendanceCount ?? 0;
         const msg = hasRegs
@@ -360,7 +467,7 @@ export function InstructorEventsEditor({
   );
 
   const handleCancelEvent = useCallback(
-    (ev: InstructorEventDTO) => {
+    (ev: InstructorEventApi) => {
       const hasRegs = (ev.paidRegistrationCount ?? 0) > 0;
       const msg = hasRegs
         ? "Отменить мероприятие? Все записи участников будут отменены (с возвратом при оплате), мероприятие скроется из ленты."
@@ -373,8 +480,22 @@ export function InstructorEventsEditor({
   const events = data?.events ?? [];
   const titles = data?.titles ?? [];
   const formLocked = !canEdit;
+  const effectiveEventAt =
+    eventDay.trim() !== ""
+      ? new Date(`${eventDay.trim()}T23:59:59`)
+      : eventAt.trim()
+        ? new Date(eventAt)
+        : null;
+  const photoEditable =
+    Boolean(editingId && loadedStatus) &&
+    canEditInstructorEventPhoto({
+      eventAt: effectiveEventAt,
+      moderationStatus: loadedStatus!,
+    });
+  const displayPhotoSrc =
+    photoPreview ?? (photoUrl ? (publicUploadDisplaySrc(photoUrl) ?? photoUrl) : null);
   const formIsCompleted =
-    Boolean(eventAt) && new Date(eventAt).getTime() <= Date.now();
+    Boolean(effectiveEventAt) && effectiveEventAt!.getTime() <= Date.now();
 
   const groups = {
     draft: events.filter((e) => e.moderationStatus === "DRAFT"),
@@ -390,11 +511,9 @@ export function InstructorEventsEditor({
       <CardHeader>
         <CardTitle>Мероприятия</CardTitle>
         <CardDescription>
-          Укажите цену участия и лимит мест — клиенты записываются без предоплаты; после мероприятия подтверждают
-          участие, и только тогда списывается оплата (комиссия 15%). В ленте клиентов видны только актуальные
-          «Опубликованные» (после модерации). После даты и времени мероприятие автоматически переносится в
-          «Завершённые» и исчезает из ленты.
-          Скрытые вручную — в отдельном блоке. Черновики — «На модерацию», затем одобрение в админке.
+          Создайте мероприятие с несколькими выходами в день (например, катание на яхте в 10:00, 14:00 и 18:00).
+          Для каждого выхода — своё время, цена и лимит мест. Клиент записывается на конкретное время; вы
+          получаете email о каждой новой записи. Оплата после мероприятия (комиссия 15%).
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -408,6 +527,14 @@ export function InstructorEventsEditor({
             }
             if (!title.trim() || !body.trim()) {
               toast.error("Заполните заголовок и текст");
+              return;
+            }
+            if (useSlots && !eventDay.trim()) {
+              toast.error("Укажите день мероприятия");
+              return;
+            }
+            if (!useSlots && !eventAt.trim()) {
+              toast.error("Укажите дату и время");
               return;
             }
             saveDraft.mutate();
@@ -462,20 +589,25 @@ export function InstructorEventsEditor({
 
           <div className="space-y-2">
             <Label htmlFor="event-photo">Фото мероприятия</Label>
-            {photoUrl ? (
+            {displayPhotoSrc ? (
               <div className="max-w-sm space-y-2">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={publicUploadDisplaySrc(photoUrl) ?? photoUrl}
+                  src={displayPhotoSrc}
                   alt="Фото мероприятия"
                   className="aspect-[16/9] w-full rounded-md border border-border object-cover"
                 />
-                {!formLocked ? (
+                {photoPreview ? (
+                  <p className="text-xs text-amber-700 dark:text-amber-400">
+                    Предпросмотр — нажмите «Сохранить черновик» или «Загрузить фото»
+                  </p>
+                ) : null}
+                {photoEditable ? (
                   <Button
                     type="button"
                     size="sm"
                     variant="outline"
-                    disabled={removePhoto.isPending || uploadPhoto.isPending}
+                    disabled={removePhoto.isPending || uploadPhoto.isPending || Boolean(photoPreview)}
                     onClick={() => removePhoto.mutate()}
                   >
                     Удалить фото
@@ -483,95 +615,239 @@ export function InstructorEventsEditor({
                 ) : null}
               </div>
             ) : null}
-            {!formLocked ? (
+            {photoEditable ? (
               <div className="flex flex-wrap items-end gap-2">
                 <Input
                   id="event-photo"
                   type="file"
                   accept="image/jpeg,image/png,image/webp"
                   className="max-w-xs"
-                  disabled={uploadPhoto.isPending}
+                  disabled={uploadPhoto.isPending || saveDraft.isPending}
                   onChange={(e) => setPhotoFile(e.target.files?.[0] ?? null)}
                 />
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
-                  disabled={!editingId || !photoFile || uploadPhoto.isPending}
+                  disabled={!editingId || !photoFile || uploadPhoto.isPending || saveDraft.isPending}
                   onClick={() => uploadPhoto.mutate()}
                 >
-                  {uploadPhoto.isPending
-                    ? "Загрузка…"
-                    : editingId
-                      ? "Загрузить фото"
-                      : "Сохраните черновик"}
+                  {uploadPhoto.isPending ? "Загрузка…" : "Загрузить фото"}
                 </Button>
               </div>
-            ) : null}
-            {!formLocked ? (
+            ) : formLocked && loadedStatus === "PUBLISHED" && !photoUrl ? (
               <p className="text-xs text-muted-foreground">
-                JPG, PNG или WEBP до 5 MB. Фото показывается клиентам в ленте мероприятий.
+                Фото не загружено. Откройте мероприятие из списка «Опубликованные» → «Добавить фото».
+              </p>
+            ) : null}
+            {photoEditable ? (
+              <p className="text-xs text-muted-foreground">
+                JPG, PNG или WEBP до 5 MB. Фото сохраняется при «Сохранить черновик» или кнопкой «Загрузить фото».
               </p>
             ) : null}
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="event-at">Дата и время</Label>
-              <Input
-                id="event-at"
-                type="datetime-local"
-                value={eventAt}
-                onChange={(e) => setEventAt(e.target.value)}
-                disabled={formLocked}
-                required
-              />
+          <div className="space-y-3 rounded-md border border-border/80 bg-background p-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <Label className="text-sm font-medium">Формат</Label>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="radio"
+                  name="event-format"
+                  checked={useSlots}
+                  disabled={formLocked}
+                  onChange={() => setUseSlots(true)}
+                />
+                Несколько выходов в день
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="radio"
+                  name="event-format"
+                  checked={!useSlots}
+                  disabled={formLocked}
+                  onChange={() => setUseSlots(false)}
+                />
+                Одно время (классика)
+              </label>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="event-order">Только для заказа</Label>
-              <select
-                id="event-order"
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm disabled:opacity-60"
-                value={orderId}
-                onChange={(e) => setOrderId(e.target.value)}
-                disabled={formLocked}
-              >
-                <option value="">Все мои заказы</option>
-                {activeOrders.map((o) => (
-                  <option key={o.id} value={o.id}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              {useSlots ? (
+                <div className="space-y-2 sm:col-span-2">
+                  <Label htmlFor="event-day">День мероприятия</Label>
+                  <Input
+                    id="event-day"
+                    type="date"
+                    value={eventDay}
+                    onChange={(e) => setEventDay(e.target.value)}
+                    disabled={formLocked}
+                    required={useSlots}
+                  />
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <Label htmlFor="event-at">Дата и время</Label>
+                  <Input
+                    id="event-at"
+                    type="datetime-local"
+                    value={eventAt}
+                    onChange={(e) => setEventAt(e.target.value)}
+                    disabled={formLocked}
+                    required={!useSlots}
+                  />
+                </div>
+              )}
+              <div className="space-y-2">
+                <Label htmlFor="event-order">Только для заказа</Label>
+                <select
+                  id="event-order"
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm disabled:opacity-60"
+                  value={orderId}
+                  onChange={(e) => setOrderId(e.target.value)}
+                  disabled={formLocked}
+                >
+                  <option value="">Все мои заказы</option>
+                  {activeOrders.map((o) => (
+                    <option key={o.id} value={o.id}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="event-price">Цена участия, ₽</Label>
-              <Input
-                id="event-price"
-                type="number"
-                min={0}
-                max={500000}
-                step={1}
-                placeholder="0 — бесплатно"
-                value={priceRub}
-                onChange={(e) => setPriceRub(e.target.value)}
-                disabled={formLocked}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="event-max">Лимит мест</Label>
-              <Input
-                id="event-max"
-                type="number"
-                min={1}
-                max={10000}
-                step={1}
-                placeholder="Без лимита"
-                value={maxRegistrations}
-                onChange={(e) => setMaxRegistrations(e.target.value)}
-                disabled={formLocked}
-              />
-            </div>
+
+            {useSlots ? (
+              <div className="space-y-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <Label>Выходы в этот день</Label>
+                  {!formLocked ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() =>
+                        setSlotRows((rows) => [...rows, { time: "12:00", maxSeats: "4", priceRub: "" }])
+                      }
+                    >
+                      + Добавить выход
+                    </Button>
+                  ) : null}
+                </div>
+                <div className="overflow-x-auto rounded-md border border-border">
+                  <table className="w-full min-w-[480px] text-sm">
+                    <thead>
+                      <tr className="border-b border-border bg-muted/40 text-left text-xs text-muted-foreground">
+                        <th className="px-2 py-2 font-medium">Время</th>
+                        <th className="px-2 py-2 font-medium">Мест</th>
+                        <th className="px-2 py-2 font-medium">Цена, ₽</th>
+                        {!formLocked ? <th className="px-2 py-2 w-10" /> : null}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {slotRows.map((row, idx) => (
+                        <tr key={row.id ?? `new-${idx}`} className="border-b border-border/60 last:border-0">
+                          <td className="px-2 py-1.5">
+                            <Input
+                              type="time"
+                              value={row.time}
+                              disabled={formLocked}
+                              onChange={(e) =>
+                                setSlotRows((rows) =>
+                                  rows.map((r, i) => (i === idx ? { ...r, time: e.target.value } : r)),
+                                )
+                              }
+                              className="h-9"
+                            />
+                          </td>
+                          <td className="px-2 py-1.5">
+                            <Input
+                              type="number"
+                              min={1}
+                              max={10000}
+                              placeholder="∞"
+                              value={row.maxSeats}
+                              disabled={formLocked}
+                              onChange={(e) =>
+                                setSlotRows((rows) =>
+                                  rows.map((r, i) => (i === idx ? { ...r, maxSeats: e.target.value } : r)),
+                                )
+                              }
+                              className="h-9"
+                            />
+                          </td>
+                          <td className="px-2 py-1.5">
+                            <Input
+                              type="number"
+                              min={0}
+                              max={500000}
+                              placeholder="0"
+                              value={row.priceRub}
+                              disabled={formLocked}
+                              onChange={(e) =>
+                                setSlotRows((rows) =>
+                                  rows.map((r, i) => (i === idx ? { ...r, priceRub: e.target.value } : r)),
+                                )
+                              }
+                              className="h-9"
+                            />
+                          </td>
+                          {!formLocked ? (
+                            <td className="px-2 py-1.5">
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="ghost"
+                                className="h-9 w-9 p-0 text-muted-foreground"
+                                disabled={slotRows.length <= 1}
+                                onClick={() => setSlotRows((rows) => rows.filter((_, i) => i !== idx))}
+                              >
+                                ×
+                              </Button>
+                            </td>
+                          ) : null}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Пример: «Катаю на яхте» — три выхода с разным временем, лимитом и ценой. Клиент выбирает слот в
+                  ленте.
+                </p>
+              </div>
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="event-price">Цена участия, ₽</Label>
+                  <Input
+                    id="event-price"
+                    type="number"
+                    min={0}
+                    max={500000}
+                    step={1}
+                    placeholder="0 — бесплатно"
+                    value={priceRub}
+                    onChange={(e) => setPriceRub(e.target.value)}
+                    disabled={formLocked}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="event-max">Лимит мест</Label>
+                  <Input
+                    id="event-max"
+                    type="number"
+                    min={1}
+                    max={10000}
+                    step={1}
+                    placeholder="Без лимита"
+                    value={maxRegistrations}
+                    onChange={(e) => setMaxRegistrations(e.target.value)}
+                    disabled={formLocked}
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="flex flex-wrap gap-2">
@@ -726,14 +1002,14 @@ function EventList({
   actionsPending,
 }: {
   title: string;
-  events: InstructorEventDTO[];
+  events: InstructorEventApi[];
   isLoading?: boolean;
   hint?: string;
-  onEdit?: (ev: InstructorEventDTO) => void;
+  onEdit?: (ev: InstructorEventApi) => void;
   onSubmitModeration?: (id: string) => void;
   submitModerationPending?: boolean;
-  onDelete?: (ev: InstructorEventDTO) => void;
-  onCancelEvent?: (ev: InstructorEventDTO) => void;
+  onDelete?: (ev: InstructorEventApi) => void;
+  onCancelEvent?: (ev: InstructorEventApi) => void;
   actionsPending?: boolean;
 }) {
   if (isLoading) return null;
@@ -791,7 +1067,7 @@ function EventList({
               <EventRegistrantsPanel eventId={ev.id} />
             ) : null}
             <div className="mt-2 flex flex-wrap gap-2">
-              {onEdit && showEventCardEdit(ev) ? (
+              {onEdit && showEventCardEdit(asEventCard(ev)) ? (
                 <Button
                   type="button"
                   size="sm"
@@ -802,7 +1078,21 @@ function EventList({
                   Редактировать
                 </Button>
               ) : null}
-              {onSubmitModeration && showEventCardModeration(ev) ? (
+              {onEdit &&
+              ev.moderationStatus === "PUBLISHED" &&
+              !ev.photoUrl &&
+              !ev.isCompleted ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="accent"
+                  disabled={actionsPending}
+                  onClick={() => onEdit(ev)}
+                >
+                  Добавить фото
+                </Button>
+              ) : null}
+              {onSubmitModeration && showEventCardModeration(asEventCard(ev)) ? (
                 <Button
                   type="button"
                   size="sm"
@@ -813,7 +1103,7 @@ function EventList({
                   На модерацию
                 </Button>
               ) : null}
-              {onDelete && showEventCardDelete(ev) ? (
+              {onDelete && showEventCardDelete(asEventCard(ev)) ? (
                 <Button
                   type="button"
                   size="sm"
@@ -821,7 +1111,7 @@ function EventList({
                   disabled={actionsPending}
                   onClick={() => onDelete(ev)}
                 >
-                  {eventCardDeleteLabel(ev)}
+                  {eventCardDeleteLabel(asEventCard(ev))}
                 </Button>
               ) : null}
               {onCancelEvent &&

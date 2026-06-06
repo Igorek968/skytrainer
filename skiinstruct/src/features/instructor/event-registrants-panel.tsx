@@ -14,6 +14,8 @@ type RegRow = InstructorRegistrationParticipant & {
   cancelReason: string | null;
   attendanceLabel: string;
   attendanceConfirmedAt: string | null;
+  slotId: string | null;
+  slotTime: string | null;
 };
 
 async function instructorFetch(input: RequestInfo, init?: RequestInit) {
@@ -108,6 +110,21 @@ export function EventRegistrantsPanel({
   const rows = data?.registrations ?? [];
   const pendingConfirm = rows.filter((r) => !r.attendanceConfirmedAt && r.status !== "CANCELLED");
 
+  const slotGroups = rows.reduce(
+    (acc, reg) => {
+      const key = reg.slotTime ?? "Без слота";
+      if (!acc[key]) acc[key] = [];
+      acc[key].push(reg);
+      return acc;
+    },
+    {} as Record<string, RegRow[]>,
+  );
+  const groupKeys = Object.keys(slotGroups).sort((a, b) => {
+    if (a === "Без слота") return 1;
+    if (b === "Без слота") return -1;
+    return a.localeCompare(b, "ru");
+  });
+
   if (isLoading) {
     return <p className="mt-2 text-xs text-muted-foreground">Загрузка участников…</p>;
   }
@@ -134,57 +151,71 @@ export function EventRegistrantsPanel({
           </Button>
         ) : null}
       </div>
-      <ul className="space-y-2">
-        {rows.map((reg) => (
-          <li
-            key={reg.id}
-            className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-card p-2"
-          >
-            <ClientAvatar name={reg.client.name} image={reg.client.image} />
-            <div className="min-w-0 flex-1">
-              <div className="truncate text-sm font-medium">
-                {reg.client.name?.trim() || reg.client.email}
-              </div>
-              <RatingStars avg={reg.client.ratingAvg} count={reg.client.ratingCount} />
-              <div className="mt-0.5 flex flex-wrap items-center gap-1">
-                <Badge
-                  variant={reg.attendanceConfirmedAt ? "secondary" : "outline"}
-                  className="text-[10px] font-normal"
-                >
-                  {reg.attendanceLabel}
-                </Badge>
-                {reg.amountRub > 0 ? (
-                  <span className="text-[10px] text-muted-foreground">
-                    {reg.amountRub.toLocaleString("ru-RU")} ₽
-                  </span>
-                ) : (
-                  <span className="text-[10px] text-muted-foreground">Бесплатно</span>
-                )}
-              </div>
-            </div>
-            {!compact ? (
-              <div className="flex flex-wrap gap-1">
-                <Button type="button" size="sm" variant="outline" asChild>
-                  <Link href={`/instructor/registrations/${reg.id}`}>Заявка</Link>
-                </Button>
-                {reg.canCancel ? (
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="destructive"
-                    disabled={cancelReg.isPending}
-                    onClick={() => {
-                      if (!confirm("Отменить запись этого участника?")) return;
-                      cancelReg.mutate(reg.id);
-                    }}
-                  >
-                    Отменить
-                  </Button>
-                ) : reg.cancelReason ? (
-                  <span className="text-[10px] text-muted-foreground">{reg.cancelReason}</span>
-                ) : null}
-              </div>
+      <ul className="space-y-3">
+        {groupKeys.map((slotLabel) => (
+          <li key={slotLabel}>
+            {groupKeys.length > 1 || slotLabel !== "Без слота" ? (
+              <p className="mb-1.5 text-xs font-semibold text-foreground">
+                {slotLabel === "Без слота" ? slotLabel : `Выход ${slotLabel}`}
+                <span className="ml-1 font-normal text-muted-foreground">
+                  ({slotGroups[slotLabel]!.length})
+                </span>
+              </p>
             ) : null}
+            <ul className="space-y-2">
+              {slotGroups[slotLabel]!.map((reg) => (
+                <li
+                  key={reg.id}
+                  className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-card p-2"
+                >
+                  <ClientAvatar name={reg.client.name} image={reg.client.image} />
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-medium">
+                      {reg.client.name?.trim() || reg.client.email}
+                    </div>
+                    <RatingStars avg={reg.client.ratingAvg} count={reg.client.ratingCount} />
+                    <div className="mt-0.5 flex flex-wrap items-center gap-1">
+                      <Badge
+                        variant={reg.attendanceConfirmedAt ? "secondary" : "outline"}
+                        className="text-[10px] font-normal"
+                      >
+                        {reg.attendanceLabel}
+                      </Badge>
+                      {reg.amountRub > 0 ? (
+                        <span className="text-[10px] text-muted-foreground">
+                          {reg.amountRub.toLocaleString("ru-RU")} ₽
+                        </span>
+                      ) : (
+                        <span className="text-[10px] text-muted-foreground">Бесплатно</span>
+                      )}
+                    </div>
+                  </div>
+                  {!compact ? (
+                    <div className="flex flex-wrap gap-1">
+                      <Button type="button" size="sm" variant="outline" asChild>
+                        <Link href={`/instructor/registrations/${reg.id}`}>Заявка</Link>
+                      </Button>
+                      {reg.canCancel ? (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="destructive"
+                          disabled={cancelReg.isPending}
+                          onClick={() => {
+                            if (!confirm("Отменить запись этого участника?")) return;
+                            cancelReg.mutate(reg.id);
+                          }}
+                        >
+                          Отменить
+                        </Button>
+                      ) : reg.cancelReason ? (
+                        <span className="text-[10px] text-muted-foreground">{reg.cancelReason}</span>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
           </li>
         ))}
       </ul>

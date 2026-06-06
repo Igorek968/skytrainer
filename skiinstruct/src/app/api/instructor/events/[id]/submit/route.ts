@@ -22,6 +22,7 @@ export async function POST(_req: Request, ctx: Ctx) {
 
   const existing = await prisma.instructorEvent.findFirst({
     where: { id, instructorId: userId },
+    include: { slots: true },
   });
   if (!existing) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -54,9 +55,9 @@ export async function POST(_req: Request, ctx: Ctx) {
     );
   }
 
-  if (!existing.eventAt) {
+  if (!existing.eventAt && existing.slots.length === 0) {
     return NextResponse.json(
-      { error: "Укажите дату и время мероприятия перед отправкой на модерацию" },
+      { error: "Укажите день и выходы или дату мероприятия перед отправкой на модерацию" },
       { status: 400 },
     );
   }
