@@ -14,6 +14,28 @@ export function publicUploadDisplaySrc(url: string | null | undefined): string |
   return trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
 }
 
+/** Display URL или абсолютная ссылка → путь хранения `/uploads/...` (для API и БД). */
+export function publicUploadStorageUrl(url: string | null | undefined): string | null {
+  if (!url?.trim()) return null;
+  const trimmed = url.trim();
+  if (trimmed.startsWith("/uploads/")) return trimmed;
+  if (trimmed.startsWith("/api/media/")) {
+    return `/uploads/${trimmed.slice("/api/media/".length)}`;
+  }
+  if (/^https?:\/\//i.test(trimmed)) {
+    try {
+      const parsed = new URL(trimmed);
+      if (parsed.pathname.startsWith("/api/media/")) {
+        return `/uploads/${parsed.pathname.slice("/api/media/".length)}`;
+      }
+    } catch {
+      /* not a valid URL */
+    }
+    return trimmed;
+  }
+  return trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
+}
+
 function resolveAppOrigin(origin?: string): string {
   const fromArg = origin?.trim().replace(/\/$/, "");
   if (fromArg) return fromArg;

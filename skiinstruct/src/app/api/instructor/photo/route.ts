@@ -10,7 +10,7 @@ import {
   effectivePhotoGallery,
 } from "@/lib/instructor-profile-photo-draft";
 import { prisma } from "@/lib/prisma";
-import { publicUploadDisplaySrc, publicUploadDisplaySrcs } from "@/lib/public-uploads-display";
+import { publicUploadDisplaySrc, publicUploadDisplaySrcs, publicUploadStorageUrl } from "@/lib/public-uploads-display";
 import { writePublicUpload } from "@/lib/public-uploads";
 import { validateUploadedBytes } from "@/lib/upload-validation";
 
@@ -126,7 +126,7 @@ export async function DELETE(req: Request) {
   const { userId } = authResult;
 
   const url = new URL(req.url);
-  const removeUrl = url.searchParams.get("photoUrl");
+  const removeUrl = publicUploadStorageUrl(url.searchParams.get("photoUrl"));
 
   await ensureInstructorProfile(userId);
   const [profile, user] = await Promise.all([
@@ -236,7 +236,8 @@ export async function PATCH(req: Request) {
     profile,
     user?.name ?? null,
   );
-  const nextGallery = parsed.data.photoGallery ?? current;
+  const nextGalleryRaw = parsed.data.photoGallery ?? current;
+  const nextGallery = nextGalleryRaw.map((p) => publicUploadStorageUrl(p) ?? p);
 
   // Ensure instructor can only reorder existing own photos.
   const sameSet =
@@ -247,7 +248,9 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: "Некорректный список фото" }, { status: 400 });
   }
 
-  let coverUrl = parsed.data.coverUrl ?? currentCover ?? null;
+  let coverUrl = parsed.data.coverUrl
+    ? (publicUploadStorageUrl(parsed.data.coverUrl) ?? parsed.data.coverUrl)
+    : (currentCover ?? null);
   if (coverUrl && !nextGallery.includes(coverUrl)) {
     coverUrl = nextGallery[0] ?? null;
   }

@@ -4,7 +4,11 @@ import { Prisma } from "@prisma/client";
 
 import { isApiErrorResponse, requireInstructorSession } from "@/lib/api-session";
 import { ensureInstructorProfile } from "@/lib/instructor-profile-defaults";
-import { publicUploadDisplaySrc, publicUploadDisplaySrcs } from "@/lib/public-uploads-display";
+import {
+  publicUploadDisplaySrc,
+  publicUploadDisplaySrcs,
+  publicUploadStorageUrl,
+} from "@/lib/public-uploads-display";
 import { prisma } from "@/lib/prisma";
 import {
   buildDraftPatchFromMePayload,
@@ -79,13 +83,21 @@ const updateSchema = z.object({
   legalInfo: z.string().max(2000).optional(),
   videoVisitUrl: z.union([z.string().url().max(1000), z.literal("")]).optional(),
   hourlyRate: z.number().min(500).max(100000).optional(),
-  photoUrl: z
-    .union([
-      z.string().url().max(1000),
-      z.string().regex(/^\/uploads\/.*/),
-      z.literal(""),
-    ])
-    .optional(),
+  photoUrl: z.preprocess(
+    (val) => {
+      if (typeof val !== "string") return val;
+      const trimmed = val.trim();
+      if (!trimmed) return "";
+      return publicUploadStorageUrl(trimmed) ?? trimmed;
+    },
+    z
+      .union([
+        z.string().url().max(1000),
+        z.string().regex(/^\/uploads\/.*/),
+        z.literal(""),
+      ])
+      .optional(),
+  ),
 });
 
 function formatMeProfileResponse(
