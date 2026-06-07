@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { OrderChat } from "@/features/chat/order-chat";
 import { CancelOrderButton, ClaimLateRefundButton } from "@/features/orders/cancel-order-button";
 import { LEGAL_ROUTES } from "@/lib/legal";
+import { clearFormDraft, readFormDraft, saveFormDraft } from "@/lib/form-draft-storage";
 import { INSTRUCTOR_LATE_GRACE_MINUTES } from "@/lib/legal-config";
 import { redirectToOrderCheckout } from "@/lib/payments/redirect-to-checkout";
 import { devPollInterval } from "@/lib/query-poll";
@@ -141,9 +142,21 @@ function ClientOrderDetailContent({
   mutations: DetailMutations;
 }) {
   const { patch, removeFromHistory, payOrder } = mutations;
-  const [acceptLegal, setAcceptLegal] = useState(false);
+  const orderPayDraftKey = `skiinstruct_form_draft:order_pay:${id}`;
+  const [acceptLegal, setAcceptLegal] = useState(
+    () => readFormDraft<{ acceptLegal: boolean }>(orderPayDraftKey)?.acceptLegal ?? false,
+  );
   const [useReferralBalance, setUseReferralBalance] = useState(false);
   const queryClient = useQueryClient();
+
+  useEffect(() => {
+    saveFormDraft(orderPayDraftKey, { acceptLegal });
+  }, [acceptLegal, orderPayDraftKey]);
+
+  useEffect(() => {
+    if (payOrder.isSuccess) clearFormDraft(orderPayDraftKey);
+  }, [payOrder.isSuccess, orderPayDraftKey]);
+
   const o = data.order;
   const routingQueue = data.routingQueue;
   const statusEarly = o?.status as OrderStatus | undefined;
@@ -550,11 +563,11 @@ function ClientOrderDetailContent({
                   />
                   <span>
                     Я принимаю условия{" "}
-                    <Link className="text-accent underline" href={LEGAL_ROUTES.oferta} target="_blank">
+                    <Link className="text-accent underline" href={LEGAL_ROUTES.oferta}>
                       Договора-оферты
                     </Link>{" "}
                     и даю согласие на обработку{" "}
-                    <Link className="text-accent underline" href={LEGAL_ROUTES.privacy} target="_blank">
+                    <Link className="text-accent underline" href={LEGAL_ROUTES.privacy}>
                       персональных данных
                     </Link>
                     .

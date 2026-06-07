@@ -35,18 +35,18 @@ export function LegalConsentCheckbox({
       />
       <span>
         Я принимаю условия{" "}
-        <Link className="text-accent underline" href={LEGAL_ROUTES.oferta} target="_blank">
+        <Link className="text-accent underline" href={LEGAL_ROUTES.oferta}>
           агентской оферты
         </Link>
         ,{" "}
-        <Link className="text-accent underline" href={LEGAL_ROUTES.privacy} target="_blank">
+        <Link className="text-accent underline" href={LEGAL_ROUTES.privacy}>
           политики обработки ПДн
         </Link>
         {includeReturns ? (
           <>
             {" "}
             и{" "}
-            <Link className="text-accent underline" href={LEGAL_ROUTES.returns} target="_blank">
+            <Link className="text-accent underline" href={LEGAL_ROUTES.returns}>
               правил возврата
             </Link>
           </>

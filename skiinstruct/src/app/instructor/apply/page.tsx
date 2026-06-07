@@ -4,14 +4,46 @@ import Link from "next/link";
 import { useFormState, useFormStatus } from "react-dom";
 
 import { instructorApplyAction, type InstructorApplyState } from "@/app/actions/instructor-apply";
+import { FORM_DRAFT_KEYS } from "@/lib/form-draft-storage";
 import { LEGAL_ROUTES } from "@/lib/legal";
 import { INSTRUCTOR_ACTIVITY_LABELS } from "@/lib/services/instructor-match";
+import { useFormDraft } from "@/shared/hooks/use-form-draft";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
 
 const initialState: InstructorApplyState = { error: null, success: false };
+
+type InstructorApplyDraft = {
+  name: string;
+  email: string;
+  password: string;
+  passwordConfirm: string;
+  primarySpecialization: string;
+  hourlyRate: string;
+  bio: string;
+  taxStatus: string;
+  inn: string;
+  achievements: string;
+  acceptAgencyOffer: boolean;
+  acceptPrivacy: boolean;
+};
+
+const defaultDraft: InstructorApplyDraft = {
+  name: "",
+  email: "",
+  password: "",
+  passwordConfirm: "",
+  primarySpecialization: "",
+  hourlyRate: "3000",
+  bio: "",
+  taxStatus: "SELF_EMPLOYED",
+  inn: "",
+  achievements: "",
+  acceptAgencyOffer: false,
+  acceptPrivacy: false,
+};
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -24,6 +56,10 @@ function SubmitButton() {
 
 export default function InstructorApplyPage() {
   const [state, formAction] = useFormState(instructorApplyAction, initialState);
+  const { values, setField } = useFormDraft<InstructorApplyDraft>(
+    FORM_DRAFT_KEYS.instructorApply,
+    defaultDraft,
+  );
 
   return (
     <div className="mx-auto max-w-lg space-y-6 py-4">
@@ -36,14 +72,35 @@ export default function InstructorApplyPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form className="space-y-4" action={formAction} noValidate>
+          <form
+            className="space-y-4"
+            action={formAction}
+            noValidate
+          >
             <div className="space-y-2">
               <Label htmlFor="name">Имя / как к вам обращаться</Label>
-              <Input id="name" name="name" required maxLength={120} aria-invalid={Boolean(state.error)} />
+              <Input
+                id="name"
+                name="name"
+                required
+                maxLength={120}
+                aria-invalid={Boolean(state.error)}
+                value={values.name}
+                onChange={(e) => setField("name", e.target.value)}
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="email">Email для входа</Label>
-              <Input id="email" name="email" type="email" autoComplete="email" required aria-invalid={Boolean(state.error)} />
+              <Input
+                id="email"
+                name="email"
+                type="email"
+                autoComplete="email"
+                required
+                aria-invalid={Boolean(state.error)}
+                value={values.email}
+                onChange={(e) => setField("email", e.target.value)}
+              />
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
@@ -55,6 +112,8 @@ export default function InstructorApplyPage() {
                   autoComplete="new-password"
                   required
                   minLength={8}
+                  value={values.password}
+                  onChange={(e) => setField("password", e.target.value)}
                 />
               </div>
               <div className="space-y-2">
@@ -66,6 +125,8 @@ export default function InstructorApplyPage() {
                   autoComplete="new-password"
                   required
                   minLength={8}
+                  value={values.passwordConfirm}
+                  onChange={(e) => setField("passwordConfirm", e.target.value)}
                 />
               </div>
             </div>
@@ -76,7 +137,8 @@ export default function InstructorApplyPage() {
                 name="primarySpecialization"
                 required
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                defaultValue=""
+                value={values.primarySpecialization}
+                onChange={(e) => setField("primarySpecialization", e.target.value)}
               >
                 <option value="" disabled>
                   Выберите…
@@ -90,7 +152,16 @@ export default function InstructorApplyPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="hourlyRate">Ставка, ₽/час</Label>
-              <Input id="hourlyRate" name="hourlyRate" type="number" min={500} step={100} required defaultValue={3000} />
+              <Input
+                id="hourlyRate"
+                name="hourlyRate"
+                type="number"
+                min={500}
+                step={100}
+                required
+                value={values.hourlyRate}
+                onChange={(e) => setField("hourlyRate", e.target.value)}
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="bio">О себе и опыте</Label>
@@ -102,6 +173,8 @@ export default function InstructorApplyPage() {
                 rows={4}
                 className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 placeholder="Сертификаты, стаж, с кем работаете (дети, взрослые)…"
+                value={values.bio}
+                onChange={(e) => setField("bio", e.target.value)}
               />
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
@@ -112,7 +185,8 @@ export default function InstructorApplyPage() {
                   name="taxStatus"
                   required
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  defaultValue="SELF_EMPLOYED"
+                  value={values.taxStatus}
+                  onChange={(e) => setField("taxStatus", e.target.value)}
                 >
                   <option value="SELF_EMPLOYED">Самозанятый (НПД)</option>
                   <option value="IP">Индивидуальный предприниматель</option>
@@ -120,7 +194,15 @@ export default function InstructorApplyPage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="inn">ИНН</Label>
-                <Input id="inn" name="inn" required pattern="\d{10,12}" placeholder="10 или 12 цифр" />
+                <Input
+                  id="inn"
+                  name="inn"
+                  required
+                  pattern="\d{10,12}"
+                  placeholder="10 или 12 цифр"
+                  value={values.inn}
+                  onChange={(e) => setField("inn", e.target.value)}
+                />
               </div>
             </div>
             <div className="space-y-2">
@@ -131,25 +213,41 @@ export default function InstructorApplyPage() {
                 rows={3}
                 className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 placeholder="Победы, звания, курсы…"
+                value={values.achievements}
+                onChange={(e) => setField("achievements", e.target.value)}
               />
             </div>
 
             <div className="space-y-2 rounded-md border border-border p-3 text-sm">
               <label className="flex gap-2">
-                <input name="acceptAgencyOffer" type="checkbox" required className="mt-1" />
+                <input
+                  name="acceptAgencyOffer"
+                  type="checkbox"
+                  required
+                  className="mt-1"
+                  checked={values.acceptAgencyOffer}
+                  onChange={(e) => setField("acceptAgencyOffer", e.target.checked)}
+                />
                 <span>
                   Принимаю{" "}
-                  <Link className="text-accent underline" href={LEGAL_ROUTES.ofertaInstructor} target="_blank">
+                  <Link className="text-accent underline" href={LEGAL_ROUTES.ofertaInstructor}>
                     агентский договор (оферту)
                   </Link>{" "}
                   и подтверждаю статус самозанятого/ИП
                 </span>
               </label>
               <label className="flex gap-2">
-                <input name="acceptPrivacy" type="checkbox" required className="mt-1" />
+                <input
+                  name="acceptPrivacy"
+                  type="checkbox"
+                  required
+                  className="mt-1"
+                  checked={values.acceptPrivacy}
+                  onChange={(e) => setField("acceptPrivacy", e.target.checked)}
+                />
                 <span>
                   Согласен с{" "}
-                  <Link className="text-accent underline" href={LEGAL_ROUTES.privacy} target="_blank">
+                  <Link className="text-accent underline" href={LEGAL_ROUTES.privacy}>
                     политикой обработки персональных данных
                   </Link>
                 </span>

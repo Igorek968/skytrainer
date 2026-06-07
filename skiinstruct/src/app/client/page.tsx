@@ -27,6 +27,7 @@ import {
   readPendingCheckout,
   savePendingCheckout,
 } from "@/lib/client-pending-checkout";
+import { readClientCheckoutDraft } from "@/lib/client-checkout-draft";
 import { syncYooCardBinding } from "@/lib/payments/redirect-to-checkout";
 import {
   formatDrivingSchoolDetailsSummary,
@@ -474,6 +475,36 @@ function ResumeCheckoutFromQuery({
   return null;
 }
 
+/** После «Назад» с юридической страницы — снова открыть оформление с черновиком. */
+function ResumeCheckoutFromDraft({
+  setSelectedId,
+  setCheckoutInstructor,
+  setCheckoutOpen,
+}: {
+  setSelectedId: Dispatch<SetStateAction<string | null>>;
+  setCheckoutInstructor: Dispatch<
+    SetStateAction<{ id: string; name: string | null; hourlyRate: number } | null>
+  >;
+  setCheckoutOpen: Dispatch<SetStateAction<boolean>>;
+}) {
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    if (searchParams.get("checkout") === "1") return;
+    const draft = readClientCheckoutDraft();
+    if (!draft) return;
+    setSelectedId(draft.instructorId);
+    setCheckoutInstructor({
+      id: draft.instructorId,
+      name: draft.instructorName,
+      hourlyRate: draft.hourlyRate,
+    });
+    setCheckoutOpen(true);
+  }, [searchParams, setSelectedId, setCheckoutInstructor, setCheckoutOpen]);
+
+  return null;
+}
+
 export default function ClientHomePage() {
   const queryClient = useQueryClient();
   const { data: session } = useSession();
@@ -905,6 +936,11 @@ export default function ClientHomePage() {
       <Suspense fallback={null}>
         <ResumeCheckoutFromQuery
           data={data}
+          setSelectedId={setSelectedId}
+          setCheckoutInstructor={setCheckoutInstructor}
+          setCheckoutOpen={setCheckoutOpen}
+        />
+        <ResumeCheckoutFromDraft
           setSelectedId={setSelectedId}
           setCheckoutInstructor={setCheckoutInstructor}
           setCheckoutOpen={setCheckoutOpen}

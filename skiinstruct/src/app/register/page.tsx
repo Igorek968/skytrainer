@@ -2,17 +2,35 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 
 import { registerClientAction, type RegisterClientState } from "@/app/actions/register-client";
+import { FORM_DRAFT_KEYS } from "@/lib/form-draft-storage";
 import { Button } from "@/shared/ui/button";
 import { LegalConsentCheckbox } from "@/shared/legal/legal-consent-checkbox";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
+import { useFormDraft } from "@/shared/hooks/use-form-draft";
 
 const initialState: RegisterClientState = { error: null };
+
+type RegisterDraft = {
+  name: string;
+  email: string;
+  password: string;
+  passwordConfirm: string;
+  acceptLegal: boolean;
+};
+
+const defaultDraft: RegisterDraft = {
+  name: "",
+  email: "",
+  password: "",
+  passwordConfirm: "",
+  acceptLegal: false,
+};
 
 function SubmitButton({ acceptLegal }: { acceptLegal: boolean }) {
   const { pending } = useFormStatus();
@@ -38,7 +56,10 @@ function RegisterForm() {
   }, [asInstructor, router]);
 
   const [state, formAction] = useFormState(registerClientAction, initialState);
-  const [acceptLegal, setAcceptLegal] = useState(false);
+  const { values, setField } = useFormDraft<RegisterDraft>(
+    FORM_DRAFT_KEYS.clientRegister,
+    defaultDraft,
+  );
 
   if (asInstructor) {
     return (
@@ -81,7 +102,15 @@ function RegisterForm() {
 
             <div className="space-y-2">
               <Label htmlFor="reg-name">Имя (необязательно)</Label>
-              <Input id="reg-name" name="name" type="text" autoComplete="name" maxLength={120} />
+              <Input
+                id="reg-name"
+                name="name"
+                type="text"
+                autoComplete="name"
+                maxLength={120}
+                value={values.name}
+                onChange={(e) => setField("name", e.target.value)}
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="reg-email">Email</Label>
@@ -92,6 +121,8 @@ function RegisterForm() {
                 autoComplete="email"
                 required
                 aria-invalid={Boolean(state.error)}
+                value={values.email}
+                onChange={(e) => setField("email", e.target.value)}
               />
             </div>
             <div className="space-y-2">
@@ -104,6 +135,8 @@ function RegisterForm() {
                 required
                 minLength={8}
                 aria-invalid={Boolean(state.error)}
+                value={values.password}
+                onChange={(e) => setField("password", e.target.value)}
               />
               <p className="text-xs text-muted-foreground">Не меньше 8 символов.</p>
             </div>
@@ -117,6 +150,8 @@ function RegisterForm() {
                 required
                 minLength={8}
                 aria-invalid={Boolean(state.error)}
+                value={values.passwordConfirm}
+                onChange={(e) => setField("passwordConfirm", e.target.value)}
               />
             </div>
 
@@ -124,12 +159,12 @@ function RegisterForm() {
 
             <LegalConsentCheckbox
               id="reg-accept-legal"
-              checked={acceptLegal}
-              onChange={setAcceptLegal}
+              checked={values.acceptLegal}
+              onChange={(checked) => setField("acceptLegal", checked)}
               includeReturns
             />
 
-            <SubmitButton acceptLegal={acceptLegal} />
+            <SubmitButton acceptLegal={values.acceptLegal} />
           </form>
 
           <p className="text-center text-sm text-muted-foreground">

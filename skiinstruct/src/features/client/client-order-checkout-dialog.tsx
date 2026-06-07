@@ -3,11 +3,16 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { getSession, signOut, useSession } from "next-auth/react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { signInClientSessionAction } from "@/app/actions/client-order-sign-in";
+import {
+  clearClientCheckoutDraft,
+  readClientCheckoutDraft,
+  saveClientCheckoutDraft,
+} from "@/lib/client-checkout-draft";
 import { CLIENT_BOOKING_RETURN_PATH } from "@/lib/client-pending-checkout";
 import { LEGAL_ROUTES } from "@/lib/legal";
 import { Button } from "@/shared/ui/button";
@@ -40,6 +45,7 @@ export function ClientOrderCheckoutDialog({ open, onOpenChange, instructor, onCr
   const [password, setPassword] = useState("");
   const [passwordConfirm, setPasswordConfirm] = useState("");
   const [name, setName] = useState("");
+  const wasOpenRef = useRef(false);
 
   const sessionRole = session?.user?.role;
   const loggedIn = sessionStatus === "authenticated" && Boolean(session?.user);
@@ -58,18 +64,54 @@ export function ClientOrderCheckoutDialog({ open, onOpenChange, instructor, onCr
   const hasCard = Boolean(cardQuery.data?.hasCard);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || !instructor) {
+      wasOpenRef.current = false;
+      return;
+    }
+    const justOpened = !wasOpenRef.current;
+    wasOpenRef.current = true;
+    if (!justOpened || sessionStatus === "loading") return;
+
+    const draft = readClientCheckoutDraft();
+    if (draft?.instructorId === instructor.id) {
+      setAcceptLegal(draft.acceptLegal);
+      setAuthMode(draft.authMode);
+      setEmail(draft.email);
+      setPassword(draft.password);
+      setPasswordConfirm(draft.passwordConfirm);
+      setName(draft.name);
+      if (loggedInWrongRole) setStep("wrongRole");
+      else if (loggedInAsClient) setStep(draft.step === "account" ? "pay" : draft.step);
+      else setStep(draft.step === "pay" ? "account" : draft.step);
+      return;
+    }
+
     setAcceptLegal(false);
     setEmail("");
     setPassword("");
     setPasswordConfirm("");
     setName("");
     setAuthMode("register");
-    if (sessionStatus === "loading") return;
     if (loggedInWrongRole) setStep("wrongRole");
     else if (loggedInAsClient) setStep("pay");
     else setStep("account");
-  }, [open, sessionStatus, loggedInAsClient, loggedInWrongRole]);
+  }, [open, instructor, sessionStatus, loggedInAsClient, loggedInWrongRole]);
+
+  useEffect(() => {
+    if (!open || !instructor || step === "busy") return;
+    saveClientCheckoutDraft({
+      instructorId: instructor.id,
+      instructorName: instructor.name,
+      hourlyRate: instructor.hourlyRate,
+      step: step === "wrongRole" ? "wrongRole" : step === "pay" ? "pay" : "account",
+      authMode,
+      email,
+      password,
+      passwordConfirm,
+      name,
+      acceptLegal,
+    });
+  }, [open, instructor, step, authMode, email, password, passwordConfirm, name, acceptLegal]);
 
   const estimatedTotal = useMemo(() => {
     if (!instructor?.hourlyRate) return null;
@@ -77,6 +119,7 @@ export function ClientOrderCheckoutDialog({ open, onOpenChange, instructor, onCr
   }, [instructor?.hourlyRate]);
 
   function closeAll() {
+    clearClientCheckoutDraft();
     onOpenChange(false);
   }
 
@@ -141,6 +184,7 @@ export function ClientOrderCheckoutDialog({ open, onOpenChange, instructor, onCr
         setStep("pay");
         return;
       }
+      clearClientCheckoutDraft();
       closeAll();
       router.push(`/client/orders/${orderId}?pay=1`);
     } catch (e) {
@@ -194,7 +238,10 @@ export function ClientOrderCheckoutDialog({ open, onOpenChange, instructor, onCr
               <Link
                 className="text-accent underline"
                 href={`/login?callbackUrl=${encodeURIComponent(CLIENT_BOOKING_RETURN_PATH)}`}
-                onClick={() => onOpenChange(false)}
+                onClick={() => {
+                  clearClientCheckoutDraft();
+                  onOpenChange(false);
+                }}
               >
                 войти на отдельной странице
               </Link>
@@ -316,11 +363,11 @@ export function ClientOrderCheckoutDialog({ open, onOpenChange, instructor, onCr
               />
               <span>
                 Я принимаю условия{" "}
-                <Link className="text-accent underline" href={LEGAL_ROUTES.oferta} target="_blank">
+                <Link className="text-accent underline" href={LEGAL_ROUTES.oferta}>
                   Договора-оферты
                 </Link>{" "}
                 и даю согласие на обработку{" "}
-                <Link className="text-accent underline" href={LEGAL_ROUTES.privacy} target="_blank">
+                <Link className="text-accent underline" href={LEGAL_ROUTES.privacy}>
                   персональных данных
                 </Link>
                 .
