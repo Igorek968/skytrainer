@@ -4,8 +4,8 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { rateLimit, clientIp } from "@/lib/rate-limit";
 import {
+  buildPasswordResetEnterLink,
   generatePasswordResetToken,
-  getPasswordResetBaseUrl,
   sha256Hex,
   isPasswordResetEmailConfigured,
   trySendPasswordResetEmail,
@@ -61,8 +61,7 @@ export async function POST(req: Request) {
     });
   });
 
-  const baseUrl = getPasswordResetBaseUrl();
-  const resetLink = `${baseUrl}/reset-password?token=${encodeURIComponent(token)}`;
+  const resetLink = buildPasswordResetEnterLink(token);
 
   const sent = await trySendPasswordResetEmail({ to: email, resetLink });
   if (!sent && process.env.NODE_ENV === "production") {

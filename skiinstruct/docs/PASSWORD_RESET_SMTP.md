@@ -16,7 +16,7 @@ SKIINSTRUCT_SMTP_USER=noreply@utrainer.ru
 SKIINSTRUCT_SMTP_PASSWORD=пароль_ящика_из_beget
 
 SKIINSTRUCT_PASSWORD_RESET_EMAIL_FROM="uTrainer <noreply@utrainer.ru>"
-SKIINSTRUCT_PASSWORD_RESET_EMAIL_SUBJECT="uTrainer: восстановление пароля"
+SKIINSTRUCT_PASSWORD_RESET_EMAIL_SUBJECT="восстановление пароля на UTrainer"
 ```
 
 После правок: `docker compose restart skiinstruct` (или `refresh-skiinstruct-3001.ps1` локально).

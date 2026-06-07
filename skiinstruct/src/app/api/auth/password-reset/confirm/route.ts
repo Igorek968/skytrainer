@@ -38,7 +38,7 @@ export async function POST(req: Request) {
 
   const record = await prisma.passwordResetToken.findUnique({
     where: { tokenHash },
-    include: { user: { select: { id: true } } },
+    include: { user: { select: { id: true, role: true } } },
   });
 
   if (!record?.user?.id) {
@@ -68,6 +68,6 @@ export async function POST(req: Request) {
     });
   });
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, role: record.user.role });
 }
 

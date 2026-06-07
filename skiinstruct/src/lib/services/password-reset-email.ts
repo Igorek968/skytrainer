@@ -33,7 +33,7 @@ export function buildPasswordResetEmailContent(resetLink: string): { text: strin
 }
 
 export function passwordResetEmailDefaults(): { from: string; subject: string } {
-  const appName = process.env.NEXT_PUBLIC_APP_NAME?.trim() || "uTrainer";
+  const appName = process.env.NEXT_PUBLIC_APP_NAME?.trim() || "UTrainer";
   return {
     from:
       process.env.PASSWORD_RESET_EMAIL_FROM?.trim() ||
@@ -41,7 +41,7 @@ export function passwordResetEmailDefaults(): { from: string; subject: string } 
       `${appName} <noreply@localhost>`,
     subject:
       process.env.PASSWORD_RESET_EMAIL_SUBJECT?.trim() ||
-      `${appName}: восстановление пароля`,
+      "восстановление пароля на UTrainer",
   };
 }
 
@@ -114,8 +114,11 @@ export async function sendPasswordResetEmailViaSmtp(payload: PasswordResetEmailP
         from: payload.from,
         to: payload.to,
         subject: payload.subject,
-        text: payload.text,
-        html: payload.html,
+        text: { content: payload.text, charset: "utf-8" },
+        html: { content: payload.html, charset: "utf-8" },
+        headers: {
+          "Content-Type": 'text/html; charset="UTF-8"',
+        },
       });
       return true;
     } catch (e) {

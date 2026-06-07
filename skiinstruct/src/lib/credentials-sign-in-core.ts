@@ -65,6 +65,33 @@ function signInResultFromAuthResponse(result: unknown): { ok: true } | { ok: fal
   return { ok: true };
 }
 
+/** Вход по ссылке восстановления пароля (без смены пароля). */
+export async function passwordResetTokenSignInNoRedirect(
+  resetToken: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    const h = await headers();
+    const ip = clientIp(h);
+    if (!rateLimit(`password-reset:enter:${ip}`, 12, 900_000)) {
+      return { ok: false, error: "Слишком много попыток. Подождите 15 минут." };
+    }
+
+    const result = await signIn("credentials", {
+      resetToken,
+      redirect: false,
+    });
+    return signInResultFromAuthResponse(result);
+  } catch (error) {
+    if (isNextRedirect(error)) {
+      return { ok: true };
+    }
+    if (isCredentialsLikeFailure(error)) {
+      return { ok: false, error: "Ссылка недействительна или устарела." };
+    }
+    throw error;
+  }
+}
+
 /** Устанавливает cookie сессии без редиректа Auth.js (надёжно из Server Actions). */
 export async function credentialsSignInNoRedirect(
   email: string,

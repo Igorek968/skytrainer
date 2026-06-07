@@ -9,16 +9,18 @@ import { prisma } from "@/lib/prisma";
 import { consumePhoneOtpIfValid } from "@/lib/phone-otp";
 import { normalizeRussianPhone } from "@/lib/phone";
 import { rateLimit } from "@/lib/rate-limit";
+import { validatePasswordResetToken } from "@/lib/services/password-reset";
 import { bindReferralFromCookie, ensureUserReferralCode } from "@/lib/services/referral";
 
 const credentialsSchema = z
   .object({
-    email: z.string().min(1),
+    email: z.string().optional(),
     password: z.string().optional(),
     otp: z.string().optional(),
+    resetToken: z.string().optional(),
   })
-  .refine((d) => Boolean(d.password?.length || d.otp?.trim().length), {
-    message: "password or otp required",
+  .refine((d) => Boolean(d.resetToken?.trim().length || d.password?.length || d.otp?.trim().length), {
+    message: "password, otp or resetToken required",
   });
 
 async function findUserForCredentials(identifier: string) {
@@ -40,16 +42,36 @@ const credentialsProvider = Credentials({
     email: { label: "Email или телефон", type: "text" },
     password: { label: "Пароль", type: "password" },
     otp: { label: "Код из SMS", type: "text" },
+    resetToken: { label: "Токен сброса пароля", type: "text" },
   },
   authorize: async (raw: Record<string, unknown> | undefined) => {
+    const resetToken = typeof raw?.resetToken === "string" ? raw.resetToken.trim() : "";
+    if (resetToken) {
+      if (!rateLimit(`password-reset:signin:${resetToken.slice(0, 16)}`, 8, 900_000)) {
+        return null;
+      }
+      const reset = await validatePasswordResetToken(resetToken);
+      if (!reset.ok) return null;
+      const user = reset.user;
+      return {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        image: user.image,
+        role: user.role,
+      };
+    }
+
     const normalized = {
       email: typeof raw?.email === "string" ? raw.email.trim() : "",
       password: typeof raw?.password === "string" ? raw.password : "",
       otp: typeof raw?.otp === "string" ? raw.otp.trim() : "",
+      resetToken: "",
     };
     const parsed = credentialsSchema.safeParse(normalized);
     if (!parsed.success) return null;
     const { email: identifier, password, otp } = parsed.data;
+    if (!identifier) return null;
 
     const phoneNorm = normalizeRussianPhone(identifier);
     if (phoneNorm && otp) {

@@ -2,23 +2,46 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Suspense, useState, type FormEvent } from "react";
+import { useSession } from "next-auth/react";
+import { Suspense, useEffect, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
+import { cabinetPathForRole } from "@/lib/auth-routes";
+import type { UserRole } from "@prisma/client";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
 
+function homeForRole(role: UserRole | undefined): string {
+  return cabinetPathForRole(role) ?? "/login";
+}
+
 function ResetPasswordForm() {
   const search = useSearchParams();
+  const { data: session } = useSession();
   const token = search.get("token");
+  const signedIn = search.get("signedIn") === "1";
+  const linkError = search.get("error");
+  const cabinetHref = homeForRole(session?.user?.role);
 
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [debugToken, setDebugToken] = useState<string | null>(null);
 
   const [newPassword, setNewPassword] = useState("");
+
+  useEffect(() => {
+    if (!token || signedIn) return;
+    const enterUrl = `/api/auth/password-reset/enter?token=${encodeURIComponent(token)}&next=reset`;
+    window.location.replace(enterUrl);
+  }, [token, signedIn]);
+
+  useEffect(() => {
+    if (linkError === "invalid") {
+      toast.error("Ссылка недействительна или устарела.");
+    }
+  }, [linkError]);
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -70,19 +93,25 @@ function ResetPasswordForm() {
         body: JSON.stringify({ token, newPassword }),
       });
 
-      const data = (await r.json().catch(() => ({}))) as { error?: unknown };
+      const data = (await r.json().catch(() => ({}))) as { error?: unknown; role?: UserRole };
       if (!r.ok) {
         toast.error(typeof data.error === "string" ? data.error : "Ошибка подтверждения");
         return;
       }
-      toast.success("Пароль успешно обновлён. Можно входить.");
-      window.location.href = "/instructor/login";
+      toast.success("Пароль успешно обновлён.");
+      window.location.href = homeForRole(data.role);
     } catch {
       toast.error("Ошибка сети");
     } finally {
       setLoading(false);
     }
   };
+
+  if (token && !signedIn) {
+    return (
+      <div className="mx-auto max-w-md p-6 text-sm text-muted-foreground">Вход по ссылке…</div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-md space-y-6">
@@ -97,7 +126,11 @@ function ResetPasswordForm() {
           {token ? (
             <>
               <CardTitle>Установка нового пароля</CardTitle>
-              <CardDescription>Введите новый пароль для аккаунта.</CardDescription>
+              <CardDescription>
+                {signedIn
+                  ? "Вы вошли по ссылке из письма. Можно задать новый пароль или перейти в кабинет."
+                  : "Введите новый пароль для аккаунта."}
+              </CardDescription>
             </>
           ) : (
             <>
@@ -128,6 +161,12 @@ function ResetPasswordForm() {
               <Button className="w-full" type="submit" disabled={loading}>
                 {loading ? "Сохранение..." : "Сохранить пароль"}
               </Button>
+
+              {signedIn ? (
+                <Button className="w-full" variant="outline" type="button" asChild>
+                  <Link href={cabinetHref}>Перейти в кабинет без смены пароля</Link>
+                </Button>
+              ) : null}
             </form>
           ) : (
             <>
@@ -156,12 +195,14 @@ function ResetPasswordForm() {
                 <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-100">
                   <p className="font-medium">Локальный стенд: письмо не уходит</p>
                   <p className="mt-1 text-xs opacity-90">
-                    Нажмите кнопку ниже, чтобы задать новый пароль (ссылка действует 1 час).
+                    Нажмите кнопку ниже — откроется кабинет (ссылка действует 1 час).
                   </p>
                   <Button className="mt-3 w-full" variant="accent" asChild>
-                    <Link href={`/reset-password?token=${encodeURIComponent(debugToken)}`}>
-                      Установить новый пароль
-                    </Link>
+                    <a
+                      href={`/api/auth/password-reset/enter?token=${encodeURIComponent(debugToken)}`}
+                    >
+                      Войти по ссылке
+                    </a>
                   </Button>
                 </div>
               ) : null}
