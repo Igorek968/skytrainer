@@ -110,16 +110,14 @@ export async function sendPasswordResetEmailViaSmtp(payload: PasswordResetEmailP
         requireTLS: cfg.requireTLS,
         auth: { user: cfg.user, pass: cfg.pass },
       });
-      await transport.sendMail({
+      const info = await transport.sendMail({
         from: payload.from,
         to: payload.to,
         subject: payload.subject,
-        text: { content: payload.text, charset: "utf-8" },
-        html: { content: payload.html, charset: "utf-8" },
-        headers: {
-          "Content-Type": 'text/html; charset="UTF-8"',
-        },
+        text: payload.text,
+        html: payload.html,
       });
+      console.info(`[password-reset] SMTP sent to ${payload.to}: ${info.messageId ?? "ok"}`);
       return true;
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);

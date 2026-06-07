@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 
+import { absoluteAppUrl } from "@/lib/app-origin";
 import { cabinetPathForRole } from "@/lib/auth-routes";
 import { passwordResetTokenSignInNoRedirect } from "@/lib/credentials-sign-in-core";
 import { validatePasswordResetToken } from "@/lib/services/password-reset";
 
 function invalidLinkRedirect(req: Request): NextResponse {
-  const url = new URL("/reset-password", req.url);
+  const url = absoluteAppUrl("/reset-password", req);
   url.searchParams.set("error", "invalid");
   return NextResponse.redirect(url);
 }
@@ -23,12 +24,12 @@ export async function GET(req: Request) {
 
   const next = url.searchParams.get("next")?.trim();
   if (next === "reset") {
-    const resetUrl = new URL("/reset-password", req.url);
+    const resetUrl = absoluteAppUrl("/reset-password", req);
     resetUrl.searchParams.set("token", token);
     resetUrl.searchParams.set("signedIn", "1");
     return NextResponse.redirect(resetUrl);
   }
 
   const home = cabinetPathForRole(validation.user.role) ?? "/login";
-  return NextResponse.redirect(new URL(home, req.url));
+  return NextResponse.redirect(absoluteAppUrl(home, req));
 }

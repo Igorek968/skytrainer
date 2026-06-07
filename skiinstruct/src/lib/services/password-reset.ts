@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import type { UserRole } from "@prisma/client";
 
+import { configuredAppOrigin } from "@/lib/app-origin";
 import { prisma } from "@/lib/prisma";
 import {
   buildPasswordResetEmailContent,
@@ -28,12 +29,7 @@ export function generatePasswordResetToken(): string {
 }
 
 export function getPasswordResetBaseUrl(): string {
-  return (
-    process.env.NEXT_PUBLIC_APP_URL ??
-    process.env.NEXTAUTH_URL ??
-    process.env.AUTH_URL ??
-    "http://localhost:3000"
-  );
+  return configuredAppOrigin() || "http://localhost:3000";
 }
 
 export function buildPasswordResetEnterLink(rawToken: string): string {
