@@ -5,14 +5,16 @@ import {
   computeAvailablePayoutRub,
   createInstructorPayoutRequest,
 } from "@/lib/services/payout-request";
+import { getInstructorPenaltyBalanceRub } from "@/lib/services/instructor-penalty";
 import { prisma } from "@/lib/prisma";
 
 export async function GET() {
   const auth = await requireInstructorSession();
   if (isApiErrorResponse(auth)) return auth;
 
-  const [availableRub, requests] = await Promise.all([
+  const [availableRub, penaltyBalanceRub, requests] = await Promise.all([
     computeAvailablePayoutRub(auth.userId),
+    getInstructorPenaltyBalanceRub(auth.userId),
     prisma.instructorPayoutRequest.findMany({
       where: { instructorId: auth.userId },
       orderBy: { createdAt: "desc" },
@@ -30,6 +32,7 @@ export async function GET() {
 
   return NextResponse.json({
     availableRub,
+    platformPenaltyBalanceRub: penaltyBalanceRub,
     requests: requests.map((r) => ({
       ...r,
       amountRub: Number(r.amountRub),

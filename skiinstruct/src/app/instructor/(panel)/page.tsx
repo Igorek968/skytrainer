@@ -13,6 +13,7 @@ import { useThrottledInstructorLocation } from "@/features/geolocation/use-throt
 import { devPollInterval } from "@/lib/query-poll";
 import { InstructorComplianceCard } from "@/features/instructor/instructor-compliance-card";
 import { InstructorPayoutPanel } from "@/features/instructor/instructor-payout-panel";
+import { ReferralProgramPanel } from "@/features/referral/referral-program-panel";
 import { InstructorEventsEditor } from "@/features/instructor/instructor-events-editor";
 import { enableInstructorOfflineAlerts } from "@/features/instructor/instructor-panel-shell";
 import { InstructorWeekScheduleCalendar } from "@/features/instructor/instructor-week-schedule-calendar";
@@ -33,6 +34,7 @@ import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
 import { cn } from "@/lib/utils";
 import { INSTRUCTOR_ACTIVITY_LABELS } from "@/lib/services/instructor-match";
+import { INSTRUCTOR_NO_SHOW_PENALTY_PERCENT } from "@/lib/legal-config";
 
 const instructorFetch = (input: RequestInfo | URL, init?: RequestInit) =>
   fetch(input, { ...init, credentials: "include" });
@@ -89,6 +91,7 @@ const INSTRUCTOR_PANEL_SECTIONS = [
   { id: "profile", label: "Профиль инструктора" },
   { id: "events", label: "Мероприятия" },
   { id: "compliance", label: "Соответствие и выплаты" },
+  { id: "referral", label: "Рефералы" },
   { id: "finance", label: "Финансы" },
   { id: "reviews", label: "Отзывы о клиентах" },
 ] as const;
@@ -275,6 +278,7 @@ export default function InstructorHomePage() {
         instructorShareTotal: number;
         grossTotal: number;
         availableForPayout?: number;
+        platformPenaltyBalanceRub?: number;
         pendingPayout?: number;
         canWithdraw?: boolean;
         payoutMinRub?: number;
@@ -1228,6 +1232,18 @@ export default function InstructorHomePage() {
         <InstructorComplianceCard />
       </div>
 
+      <Card id="referral" className="scroll-mt-24">
+        <CardHeader>
+          <CardTitle>Реферальная программа</CardTitle>
+          <CardDescription>
+            250 ₽ за каждый из первых 4 завершённых оплаченных заказов приглашённого клиента.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ReferralProgramPanel />
+        </CardContent>
+      </Card>
+
       <Card id="finance" className="scroll-mt-24">
         <CardHeader>
           <CardTitle>Финансы (выплаченные заказы)</CardTitle>
@@ -1240,6 +1256,12 @@ export default function InstructorHomePage() {
             Доступно к выплате:{" "}
             {stats ? `${stats.availableForPayout?.toFixed(0) ?? "…"} ₽` : "…"}
           </div>
+          {stats && (stats.platformPenaltyBalanceRub ?? 0) > 0 ? (
+            <div className="text-destructive">
+              Штрафы к удержанию: {stats.platformPenaltyBalanceRub!.toFixed(0)} ₽ (
+              {INSTRUCTOR_NO_SHOW_PENALTY_PERCENT}% при неявке)
+            </div>
+          ) : null}
           <div className="text-muted-foreground">
             В ожидании срока:{" "}
             {stats ? `${stats.pendingPayout?.toFixed(0) ?? "…"} ₽` : "…"}

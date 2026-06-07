@@ -27,11 +27,14 @@ export async function registerClientAction(
     return { error: "Примите условия агентской оферты, политики обработки ПДн и правил возврата" };
   }
 
+  const referralCode = String(formData.get("referralCode") ?? "").trim() || undefined;
+
   const created = await createClientUser({
     email,
     password,
     passwordConfirm,
     name: name.trim() || undefined,
+    referralCode,
   });
   if (!created.ok) {
     return { error: created.error };

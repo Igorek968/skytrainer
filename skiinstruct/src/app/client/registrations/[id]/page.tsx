@@ -62,6 +62,27 @@ export default function ClientRegistrationDetailPage() {
         return;
       }
       toast.success(j.message ?? "Участие подтверждено");
+      await qc.invalidateQueries({ queryKey: ["client-registrations"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const claimNoShowRefund = useMutation({
+    mutationFn: async () => {
+      const r = await fetch(`/api/client/registrations/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ action: "claim_instructor_no_show_refund" }),
+      });
+      const j = (await r.json()) as { error?: string; reason?: string };
+      if (!r.ok) throw new Error(typeof j.error === "string" ? j.error : "Не удалось оформить возврат");
+      return j;
+    },
+    onSuccess: async (j) => {
+      toast.success(j.reason ?? "Возврат оформлен");
+      await qc.invalidateQueries({ queryKey: ["client-registrations"] });
+      await refetch();
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -162,6 +183,16 @@ export default function ClientRegistrationDetailPage() {
                     : reg.amountRub > 0 && !reg.paidAt
                       ? "Подтвердить участие и оплатить"
                       : "Подтвердить участие"}
+                </Button>
+              ) : null}
+              {reg.instructorNoShowRefundEligible ? (
+                <Button
+                  type="button"
+                  variant="destructive"
+                  disabled={claimNoShowRefund.isPending}
+                  onClick={() => claimNoShowRefund.mutate()}
+                >
+                  {claimNoShowRefund.isPending ? "…" : "Инструктор не пришёл — полный возврат"}
                 </Button>
               ) : null}
               {reg.canCancel ? (

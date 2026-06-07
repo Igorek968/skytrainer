@@ -8,6 +8,7 @@ import {
   EVENT_CANCEL_FULL_REFUND_HOURS,
   INSTRUCTOR_CANCEL_NOTICE_HOURS,
   INSTRUCTOR_LATE_GRACE_MINUTES,
+  INSTRUCTOR_NO_SHOW_PENALTY_PERCENT,
   PLATFORM_FEE_PERCENT,
 } from "@/lib/legal-config";
 import { LEGAL_AGENT, LEGAL_SITE_URL } from "@/lib/legal-entity";
@@ -92,8 +93,9 @@ export default function ReturnsPolicyPage() {
           </li>
           <li>
             если инструктор отменил занятие менее чем за <strong>{INSTRUCTOR_CANCEL_NOTICE_HOURS} ч</strong> до начала
-            или не явился — клиенту также возвращается <strong>100%</strong>, а с инструктора взыскивается штраф
-            согласно{" "}
+            или не явился — клиенту также возвращается <strong>100%</strong>, а с инструктора удерживается штраф{" "}
+            <strong>{INSTRUCTOR_NO_SHOW_PENALTY_PERCENT}%</strong> от суммы заявки в пользу платформы (из будущих
+            выплат), согласно{" "}
             <Link href={LEGAL_ROUTES.ofertaInstructor} className="text-accent underline">
               агентскому договору для инструктора
             </Link>
@@ -134,6 +136,11 @@ export default function ReturnsPolicyPage() {
         <p className="text-muted-foreground">
           3.3. Отмена мероприятия инструктором — полный возврат всем оплатившим участникам.
         </p>
+        <p className="text-muted-foreground">
+          3.4. Неявка инструктора на мероприятие или отмена менее чем за{" "}
+          <strong>{INSTRUCTOR_CANCEL_NOTICE_HOURS} ч</strong> — полный возврат клиенту; с инструктора удерживается штраф{" "}
+          <strong>{INSTRUCTOR_NO_SHOW_PENALTY_PERCENT}%</strong> от суммы записи в пользу платформы (из будущих выплат).
+        </p>
       </section>
 
       <section className="space-y-3">
@@ -158,8 +165,9 @@ export default function ReturnsPolicyPage() {
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">5. Особенности возврата при агентской схеме</h2>
         <p className="text-muted-foreground">
-          5.1. Агент возвращает Клиенту деньги из собственных средств, а затем взыскивает соответствующую часть с
-          Инструктора (по отдельному соглашению).
+          5.1. Агент возвращает Клиенту деньги из собственных средств, а затем удерживает с Инструктора штраф{" "}
+          <strong>{INSTRUCTOR_NO_SHOW_PENALTY_PERCENT}%</strong> от суммы заявки при неявке или поздней отмене (из
+          будущих выплат).
         </p>
         <p className="text-muted-foreground">
           5.2. Комиссия агента в размере {PLATFORM_FEE_PERCENT}% возврату не подлежит, если отмена произошла менее чем

@@ -9,6 +9,7 @@ import {
   EVENT_CANCEL_FULL_REFUND_HOURS,
   INSTRUCTOR_CANCEL_NOTICE_HOURS,
   INSTRUCTOR_LATE_GRACE_MINUTES,
+  INSTRUCTOR_NO_SHOW_PENALTY_PERCENT,
 } from "@/lib/legal-config";
 import { LEGAL_AGENT, LEGAL_SITE_URL } from "@/lib/legal-entity";
 import { LegalRequisitesBlock } from "@/shared/legal/legal-requisites-block";
@@ -132,7 +133,8 @@ export default function PublicOfferPage() {
           <li>провести занятие в забронированное время;</li>
           <li>
             уведомить об отмене не позднее <strong>{INSTRUCTOR_CANCEL_NOTICE_HOURS} ч</strong> до начала занятия;
-            при нарушении срока — полный возврат клиенту и штраф согласно{" "}
+            при нарушении срока — полный возврат клиенту и штраф{" "}
+            <strong>{INSTRUCTOR_NO_SHOW_PENALTY_PERCENT}%</strong> от суммы заявки согласно{" "}
             <Link href={LEGAL_ROUTES.ofertaInstructor} className="text-accent underline">
               агентскому договору
             </Link>
@@ -184,8 +186,9 @@ export default function PublicOfferPage() {
           <strong>{INSTRUCTOR_LATE_GRACE_MINUTES} мин</strong> от ETA — право клиента на полный возврат.
         </p>
         <p className="text-muted-foreground">
-          7.5. Отмена инструктором менее чем за <strong>{INSTRUCTOR_CANCEL_NOTICE_HOURS} ч</strong> — полный возврат
-          клиенту и ответственность инструктора по агентскому договору.
+          7.5. Отмена инструктором менее чем за <strong>{INSTRUCTOR_CANCEL_NOTICE_HOURS} ч</strong> или неявка на
+          занятие — полный возврат клиенту и штраф <strong>{INSTRUCTOR_NO_SHOW_PENALTY_PERCENT}%</strong> от суммы
+          заявки (удерживается платформой из выплат инструктору).
         </p>
       </section>
 
@@ -214,6 +217,11 @@ export default function PublicOfferPage() {
             Правилах возврата
           </Link>
           .
+        </p>
+        <p className="text-muted-foreground">
+          8.5. <strong>Неявка инструктора на мероприятие</strong> — клиент вправе запросить полный возврат после
+          наступления времени начала; с инструктора удерживается штраф{" "}
+          <strong>{INSTRUCTOR_NO_SHOW_PENALTY_PERCENT}%</strong> от суммы записи в пользу платформы.
         </p>
       </section>
 

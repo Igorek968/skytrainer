@@ -15,6 +15,7 @@ import type { OrderCancelledBy } from "@prisma/client";
 import { cancelOrderWithRefund, claimInstructorLateRefund } from "@/lib/services/order-refund";
 import { canClaimInstructorLateRefund, computeCancelRefundQuote } from "@/lib/refund-policy";
 import { transitionOrderStatus } from "@/lib/services/order-service";
+import { maybeAwardReferralReward } from "@/lib/services/referral";
 import { orderActionSchema } from "@/lib/validations/order";
 import {
   extractInstructorEtaMinutes,
@@ -447,6 +448,7 @@ export async function PATCH(req: Request, ctx: Ctx) {
           paymentStatus: "PAID",
         },
       });
+      await maybeAwardReferralReward(id);
       return NextResponse.json({ order: updated });
     }
   } catch (e) {

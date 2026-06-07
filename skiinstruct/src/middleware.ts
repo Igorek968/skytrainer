@@ -8,6 +8,7 @@ import {
   isInstructorPanelPath,
   roleHomePath,
 } from "@/lib/role-route-access";
+import { attachReferralCookie } from "@/lib/referral-cookie";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import type { UserRole } from "@prisma/client";
@@ -29,20 +30,24 @@ function httpsRedirect(req: NextRequest): NextResponse | null {
   return null;
 }
 
+function withRefCookie(req: NextRequest, res: NextResponse): NextResponse {
+  return attachReferralCookie(req, res);
+}
+
 export default NextAuth(authConfig).auth((req) => {
   const pathname = req.nextUrl.pathname.replace(/\/+$/, "") || "/";
 
   const forceHttps = httpsRedirect(req);
-  if (forceHttps) return forceHttps;
+  if (forceHttps) return withRefCookie(req, forceHttps);
 
   if (pathname.startsWith("/api")) {
     const apiBlock = guardApiRequest(req, req.auth);
-    if (apiBlock) return apiBlock;
-    return NextResponse.next();
+    if (apiBlock) return withRefCookie(req, apiBlock);
+    return withRefCookie(req, NextResponse.next());
   }
 
   if (pathname === "/instructor/login" || pathname === "/admin/login") {
-    return NextResponse.next();
+    return withRefCookie(req, NextResponse.next());
   }
 
   /** Анкета только со страницы входа («Стать инструктором»); прямой заход с шапки — на login. */
@@ -51,7 +56,7 @@ export default NextAuth(authConfig).auth((req) => {
       req.nextUrl.searchParams.get("new") === "1" ||
       req.nextUrl.searchParams.get("register") === "1";
     if (!allowApply) {
-      return NextResponse.redirect(new URL("/instructor/login", req.nextUrl.origin));
+      return withRefCookie(req, NextResponse.redirect(new URL("/instructor/login", req.nextUrl.origin)));
     }
   }
 
@@ -78,11 +83,11 @@ export default NextAuth(authConfig).auth((req) => {
     isPublicInstructorReviewsBrowse ||
     isPublicLegal
   ) {
-    return NextResponse.next();
+    return withRefCookie(req, NextResponse.next());
   }
 
   if (pathname.startsWith("/reset-password") || pathname.startsWith("/verify-email")) {
-    return NextResponse.next();
+    return withRefCookie(req, NextResponse.next());
   }
 
   if (!req.auth) {
@@ -94,23 +99,23 @@ export default NextAuth(authConfig).auth((req) => {
     const url = new URL(loginPath, req.nextUrl.origin);
     const returnPath = `${pathname}${req.nextUrl.search}`;
     url.searchParams.set("callbackUrl", returnPath);
-    return NextResponse.redirect(url);
+    return withRefCookie(req, NextResponse.redirect(url));
   }
 
   const role = req.auth.user?.role as UserRole | undefined;
   const roleHome = role ? roleHomePath(role) : "/login";
 
   if (isAdminPanelPath(pathname) && role !== "ADMIN") {
-    return NextResponse.redirect(new URL(roleHome, req.nextUrl.origin));
+    return withRefCookie(req, NextResponse.redirect(new URL(roleHome, req.nextUrl.origin)));
   }
   if (isInstructorPanelPath(pathname) && role !== "INSTRUCTOR") {
-    return NextResponse.redirect(new URL(roleHome, req.nextUrl.origin));
+    return withRefCookie(req, NextResponse.redirect(new URL(roleHome, req.nextUrl.origin)));
   }
   if (isClientAuthRequiredPath(pathname) && role !== "CLIENT") {
-    return NextResponse.redirect(new URL(roleHome, req.nextUrl.origin));
+    return withRefCookie(req, NextResponse.redirect(new URL(roleHome, req.nextUrl.origin)));
   }
 
-  return NextResponse.next();
+  return withRefCookie(req, NextResponse.next());
 });
 
 export const config = {

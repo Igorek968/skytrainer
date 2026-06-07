@@ -2,6 +2,8 @@ import type { PaymentMethod } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 import { assignInstructorByQueue } from "@/lib/services/instructor-routing";
+import { finalizeReferralCreditSpend } from "@/lib/services/referral-payout";
+import { maybeAwardReferralReward, orderAmountDueRub } from "@/lib/services/referral";
 
 export async function completeOrderPrepayment(params: {
   orderId: string;
@@ -17,6 +19,7 @@ export async function completeOrderPrepayment(params: {
       status: true,
       amountTotal: true,
       paymentStatus: true,
+      referralCreditAppliedRub: true,
     },
   });
 
@@ -38,7 +41,7 @@ export async function completeOrderPrepayment(params: {
   }
 
   const beforeStatus = order.status;
-  const amount = params.paymentRecordAmount ?? Number(order.amountTotal ?? 0);
+  const amount = params.paymentRecordAmount ?? orderAmountDueRub(order);
 
   await prisma.order.update({
     where: { id: order.id },
@@ -90,6 +93,16 @@ export async function completeOrderPrepayment(params: {
         },
       });
     }
+  }
+
+  await finalizeReferralCreditSpend(order.id);
+
+  const afterPay = await prisma.order.findUnique({
+    where: { id: order.id },
+    select: { status: true, paymentStatus: true },
+  });
+  if (afterPay?.status === "COMPLETED" && afterPay.paymentStatus === "PAID") {
+    await maybeAwardReferralReward(order.id);
   }
 
   return { routed };

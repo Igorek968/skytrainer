@@ -62,6 +62,16 @@ export function guardApiRequest(
     return null;
   }
 
+  if (pathname.startsWith("/api/referral")) {
+    if (!session?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    if (role !== "CLIENT" && role !== "INSTRUCTOR") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+    return null;
+  }
+
   if (isInstructorPrivateApiPath(pathname)) {
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

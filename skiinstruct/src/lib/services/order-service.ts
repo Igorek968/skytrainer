@@ -5,6 +5,7 @@ import {
   parseDisciplineFromOrderNotes,
 } from "@/lib/instructor-specialization-offers";
 import { computePayoutEligibleAt } from "@/lib/services/order-payout";
+import { maybeAwardReferralReward } from "@/lib/services/referral";
 import { prisma } from "@/lib/prisma";
 
 const VALID_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
@@ -90,6 +91,9 @@ export async function transitionOrderStatus(params: TransitionParams) {
         const discipline =
           updated.disciplineLabel ?? parseDisciplineFromOrderNotes(updated.notes);
         await incrementOfferLessonsOnOrderComplete(updated.instructorId, discipline);
+      }
+      if (updated.paymentStatus === "PAID") {
+        await maybeAwardReferralReward(updated.id);
       }
     }
 

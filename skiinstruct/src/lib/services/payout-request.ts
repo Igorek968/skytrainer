@@ -3,6 +3,10 @@ import type { PayoutRequestStatus } from "@prisma/client";
 import { PAYOUT_MIN_WITHDRAWAL_RUB } from "@/lib/legal-config";
 import { prisma } from "@/lib/prisma";
 import { canRequestWithdrawal } from "@/lib/services/order-payout";
+import {
+  getInstructorPenaltyBalanceRub,
+  netPayoutAfterPenalties,
+} from "@/lib/services/instructor-penalty";
 
 export async function getEligiblePayoutOrders(instructorId: string) {
   const now = new Date();
@@ -24,8 +28,12 @@ export async function getEligiblePayoutOrders(instructorId: string) {
 }
 
 export async function computeAvailablePayoutRub(instructorId: string): Promise<number> {
-  const orders = await getEligiblePayoutOrders(instructorId);
-  return orders.reduce((sum, o) => sum + Number(o.instructorShareAmount ?? 0), 0);
+  const [orders, penaltyBalanceRub] = await Promise.all([
+    getEligiblePayoutOrders(instructorId),
+    getInstructorPenaltyBalanceRub(instructorId),
+  ]);
+  const grossRub = orders.reduce((sum, o) => sum + Number(o.instructorShareAmount ?? 0), 0);
+  return netPayoutAfterPenalties(grossRub, penaltyBalanceRub).netRub;
 }
 
 export async function createInstructorPayoutRequest(instructorId: string) {
@@ -39,7 +47,7 @@ export async function createInstructorPayoutRequest(instructorId: string) {
 
   const profile = await prisma.instructorProfile.findUnique({
     where: { userId: instructorId },
-    select: { payoutAccountHint: true, verificationStatus: true },
+    select: { payoutAccountHint: true, verificationStatus: true, platformPenaltyBalanceRub: true },
   });
   if (!profile || profile.verificationStatus !== "APPROVED") {
     throw new Error("Профиль инструктора не одобрен");
@@ -49,8 +57,16 @@ export async function createInstructorPayoutRequest(instructorId: string) {
   }
 
   const orders = await getEligiblePayoutOrders(instructorId);
-  const amountRub = orders.reduce((sum, o) => sum + Number(o.instructorShareAmount ?? 0), 0);
-  if (!canRequestWithdrawal(amountRub)) {
+  const grossRub = orders.reduce((sum, o) => sum + Number(o.instructorShareAmount ?? 0), 0);
+  const penaltyBalanceRub = Number(profile.platformPenaltyBalanceRub ?? 0);
+  const { netRub, penaltyDeductedRub } = netPayoutAfterPenalties(grossRub, penaltyBalanceRub);
+
+  if (!canRequestWithdrawal(netRub)) {
+    if (grossRub > 0 && penaltyBalanceRub >= grossRub) {
+      throw new Error(
+        `Недостаточно средств к выплате после удержания штрафов (${penaltyBalanceRub.toFixed(0)} ₽)`,
+      );
+    }
     throw new Error(`Минимальная сумма к выводу — ${PAYOUT_MIN_WITHDRAWAL_RUB} ₽`);
   }
 
@@ -58,7 +74,8 @@ export async function createInstructorPayoutRequest(instructorId: string) {
     const request = await tx.instructorPayoutRequest.create({
       data: {
         instructorId,
-        amountRub: amountRub.toFixed(2),
+        amountRub: netRub.toFixed(2),
+        penaltyDeductedRub: penaltyDeductedRub.toFixed(2),
         status: "PENDING",
       },
     });
@@ -66,6 +83,16 @@ export async function createInstructorPayoutRequest(instructorId: string) {
       where: { id: { in: orders.map((o) => o.id) } },
       data: { payoutRequestId: request.id },
     });
+
+    if (penaltyDeductedRub > 0) {
+      await tx.instructorProfile.update({
+        where: { userId: instructorId },
+        data: {
+          platformPenaltyBalanceRub: { decrement: penaltyDeductedRub },
+        },
+      });
+    }
+
     return request;
   });
 }
@@ -100,6 +127,13 @@ export async function updatePayoutRequestStatus(params: {
     }
 
     if (params.status === "REJECTED") {
+      const penaltyDeductedRub = Number(request.penaltyDeductedRub ?? 0);
+      if (penaltyDeductedRub > 0) {
+        await tx.instructorProfile.update({
+          where: { userId: request.instructorId },
+          data: { platformPenaltyBalanceRub: { increment: penaltyDeductedRub } },
+        });
+      }
       await tx.order.updateMany({
         where: { payoutRequestId: params.requestId },
         data: { payoutRequestId: null },

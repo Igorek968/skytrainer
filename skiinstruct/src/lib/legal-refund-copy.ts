@@ -5,6 +5,7 @@ import {
   EVENT_CANCEL_FULL_REFUND_HOURS,
   INSTRUCTOR_CANCEL_NOTICE_HOURS,
   INSTRUCTOR_LATE_GRACE_MINUTES,
+  INSTRUCTOR_NO_SHOW_PENALTY_PERCENT,
 } from "@/lib/legal-config";
 
 /** Краткое описание порогов отмены клиентом (синхронизировано с refund-policy.ts). */
@@ -25,4 +26,9 @@ export function instructorLateRefundSummary(): string {
 /** Отмена мероприятия клиентом. */
 export function eventCancelRefundSummary(): string {
   return `за ${EVENT_CANCEL_FULL_REFUND_HOURS} ч и более до начала — 100%; позже — без возврата`;
+}
+
+/** Штраф инструктору при неявке или поздней отмене. */
+export function instructorNoShowPenaltySummary(): string {
+  return `${INSTRUCTOR_NO_SHOW_PENALTY_PERCENT}% от суммы заявки удерживается платформой из будущих выплат инструктору`;
 }

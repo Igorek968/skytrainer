@@ -70,6 +70,10 @@ function navForRole(role: UserRole): AppNavLinks {
 
     dashboardLabel: "Кабинет клиента",
 
+    profileHref: "/client/referral",
+
+    profileLabel: "Рефералы",
+
     ordersHref: "/client/orders",
 
     ordersLabel: "Мои заказы",

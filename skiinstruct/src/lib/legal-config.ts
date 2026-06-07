@@ -20,11 +20,20 @@ export const PAYOUT_DELAY_BUSINESS_DAYS_MIN = 3;
 export const PAYOUT_DELAY_BUSINESS_DAYS_MAX = 10;
 export const PAYOUT_MIN_WITHDRAWAL_RUB = 500;
 
+/** Реферальная программа: 250 ₽ за каждый из первых 4 завершённых оплаченных заказов приглашённого клиента. */
+export const REFERRAL_REWARD_RUB = 250;
+export const REFERRAL_MAX_ORDERS_PER_CLIENT = 4;
+export const REFERRAL_COOKIE_NAME = "utr_ref";
+export const REFERRAL_COOKIE_MAX_AGE_DAYS = 30;
+
 /** Чек НПД: срок загрузки после занятия (ч). */
 export const NPD_RECEIPT_DEADLINE_HOURS = 24;
 
 /** Отмена инструктором: не позднее N ч до занятия без штрафа для клиента. */
 export const INSTRUCTOR_CANCEL_NOTICE_HOURS = 24;
+
+/** Неявка / поздняя отмена инструктором: штраф в пользу платформы (% от суммы заявки). */
+export const INSTRUCTOR_NO_SHOW_PENALTY_PERCENT = 30;
 
 /** Отмена записи на мероприятие клиентом: полный возврат при отмене за N ч и более. */
 export const EVENT_CANCEL_FULL_REFUND_HOURS = 24;

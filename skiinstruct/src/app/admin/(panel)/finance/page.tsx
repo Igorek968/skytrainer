@@ -3,6 +3,7 @@
 import { AdminWorkspace } from "@/features/admin/admin-workspace";
 import { AdminFinanceSection } from "@/features/admin/sections/admin-finance";
 import { AdminPayoutRequestsSection } from "@/features/admin/sections/admin-payout-requests";
+import { AdminReferralPayoutRequestsSection } from "@/features/admin/sections/admin-referral-payout-requests";
 
 export default function AdminFinancePage() {
   return (
@@ -14,6 +15,7 @@ export default function AdminFinancePage() {
         <div className="space-y-6">
           <AdminFinanceSection data={data} />
           <AdminPayoutRequestsSection />
+          <AdminReferralPayoutRequestsSection />
         </div>
       )}
     </AdminWorkspace>

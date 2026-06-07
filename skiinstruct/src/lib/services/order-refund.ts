@@ -6,6 +6,11 @@ import { getStripe } from "@/lib/stripe";
 import { createYooKassaRefund, isYooKassaConfigured } from "@/lib/yookassa";
 import { transitionOrderStatus } from "@/lib/services/order-service";
 import { computeCancelRefundQuote } from "@/lib/refund-policy";
+import {
+  applyInstructorLessonPenalty,
+  shouldChargeInstructorLessonPenalty,
+} from "@/lib/services/instructor-penalty";
+import { INSTRUCTOR_NO_SHOW_PENALTY_PERCENT } from "@/lib/legal-config";
 
 export type CancelOrderResult = {
   order: Order;
@@ -65,6 +70,23 @@ export async function cancelOrderWithRefund(params: {
     extra,
   });
 
+  if (
+    order.instructorId &&
+    order.paymentStatus === "PAID" &&
+    totalRub > 0 &&
+    shouldChargeInstructorLessonPenalty({
+      cancelledBy: params.cancelledBy,
+      order,
+    })
+  ) {
+    await applyInstructorLessonPenalty({
+      instructorId: order.instructorId,
+      orderId: order.id,
+      baseAmountRub: totalRub,
+      reason: `Поздняя отмена занятия инструктором — штраф ${INSTRUCTOR_NO_SHOW_PENALTY_PERCENT}%`,
+    });
+  }
+
   return {
     order: updated,
     refundPercent: quote.percent,
@@ -106,6 +128,15 @@ export async function claimInstructorLateRefund(params: {
       pendingExpiresAt: null,
     },
   });
+
+  if (order.instructorId && totalRub > 0) {
+    await applyInstructorLessonPenalty({
+      instructorId: order.instructorId,
+      orderId: order.id,
+      baseAmountRub: totalRub,
+      reason: `Неявка или опоздание инструктора — штраф ${INSTRUCTOR_NO_SHOW_PENALTY_PERCENT}%`,
+    });
+  }
 
   return { order: updated, refundPercent: 100, refundAmount };
 }

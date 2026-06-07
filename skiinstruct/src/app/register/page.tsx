@@ -27,6 +27,7 @@ function RegisterForm() {
   const router = useRouter();
   const params = useSearchParams();
   const callbackUrl = params.get("callbackUrl")?.trim() || "/client";
+  const referralCode = params.get("ref")?.trim() || undefined;
   const asInstructor =
     params.get("as") === "instructor" || params.get("role") === "instructor";
 
@@ -76,6 +77,7 @@ function RegisterForm() {
         <CardContent className="space-y-4">
           <form className="space-y-4" action={formAction} noValidate>
             <input type="hidden" name="redirectTo" value={callbackUrl} />
+            {referralCode ? <input type="hidden" name="referralCode" value={referralCode} /> : null}
 
             <div className="space-y-2">
               <Label htmlFor="reg-name">Имя (необязательно)</Label>

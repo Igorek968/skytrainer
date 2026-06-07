@@ -155,8 +155,22 @@ model User {
   eventRegistrations    EventRegistration[]
   payoutRequests        InstructorPayoutRequest[]
 
+  /// Персональный код для реферальной ссылки (?ref=CODE).
+  referralCode       String?  @unique
+  referredById       String?
+  referredBy         User?    @relation("UserReferrals", fields: [referredById], references: [id], onDelete: SetNull)
+  referrals          User[]   @relation("UserReferrals")
+  referralBalanceRub Decimal  @default(0) @db.Decimal(10, 2)
+  /// Реквизиты для вывода реферального баланса (клиенты); у инструкторов — из InstructorProfile.
+  payoutAccountHint  String?
+
+  referralRewardsAsReferrer ReferralReward[]        @relation("ReferrerUser")
+  referralPayoutRequests  ReferralPayoutRequest[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([referredById])
 }
 
 model Account {
@@ -293,6 +307,11 @@ model InstructorProfile {
   ratingAvg   Float @default(0)
   reviewCount Int   @default(0)
 
+  /// Накопленный штраф (неявка / поздняя отмена), удерживается из выплат.
+  platformPenaltyBalanceRub Decimal @default(0) @db.Decimal(10, 2)
+
+  penalties InstructorPlatformPenalty[]
+
   resortId String?
   resort   Resort? @relation(fields: [resortId], references: [id])
 
@@ -371,6 +390,10 @@ model Order {
   refundNote      String? @db.Text
   lateRefundClaimedAt DateTime?
 
+  /// Штраф за неявку / позднюю отмену (% от amountTotal), удерживается платформой.
+  instructorPenaltyAmount Decimal? @db.Decimal(10, 2)
+  instructorPenaltyAppliedAt DateTime?
+
   npdReceiptUrl         String?
   npdReceiptUploadedAt  DateTime?
 
@@ -390,13 +413,19 @@ model Order {
 
   /// Total charged to client (platform + instructor share)
   amountTotal Decimal? @db.Decimal(10, 2)
+  /// Списание реферального баланса клиента при оплате этого заказа.
+  referralCreditAppliedRub Decimal? @db.Decimal(10, 2)
+  referralCreditSpent       Boolean  @default(false)
 
   platformFeePercent    Int      @default(15)
   instructorShareAmount Decimal? @db.Decimal(10, 2)
 
+  referralRewards ReferralReward[]
+
   messages Message[]
   payments Payment[]
   events   InstructorEvent[]
+  penalties InstructorPlatformPenalty[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -514,6 +543,13 @@ model EventRegistration {
   /// Push клиенту за ~1 ч до начала (слот или eventAt).
   eventStartReminderSentAt DateTime?
 
+  /// Клиент запросил возврат из‑за неявки инструктора на мероприятие.
+  instructorNoShowRefundClaimedAt DateTime?
+  instructorPenaltyAmount Decimal? @db.Decimal(10, 2)
+  instructorPenaltyAppliedAt DateTime?
+
+  penalties InstructorPlatformPenalty[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -544,11 +580,14 @@ model InstructorPayoutRequest {
   instructor   User   @relation(fields: [instructorId], references: [id], onDelete: Cascade)
 
   amountRub   Decimal @db.Decimal(10, 2)
+  /// Сумма штрафов, удержанная из этой выплаты.
+  penaltyDeductedRub Decimal @default(0) @db.Decimal(10, 2)
   status      PayoutRequestStatus @default(PENDING)
   adminNote   String? @db.Text
   processedAt DateTime?
 
   orders Order[]
+  penaltySettlements InstructorPlatformPenalty[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -568,6 +607,34 @@ model Payment {
   status                PaymentStatus
 
   createdAt DateTime @default(now())
+}
+
+/// Штраф инструктора в пользу платформы (неявка / поздняя отмена).
+model InstructorPlatformPenalty {
+  id           String @id @default(cuid())
+  instructorId String
+  instructor   InstructorProfile @relation(fields: [instructorId], references: [userId], onDelete: Cascade)
+
+  orderId String?
+  order   Order? @relation(fields: [orderId], references: [id], onDelete: SetNull)
+
+  eventRegistrationId String?
+  eventRegistration   EventRegistration? @relation(fields: [eventRegistrationId], references: [id], onDelete: SetNull)
+
+  baseAmountRub Decimal @db.Decimal(10, 2)
+  penaltyPercent Int
+  amountRub     Decimal @db.Decimal(10, 2)
+  reason        String  @db.Text
+
+  payoutRequestId String?
+  payoutRequest   InstructorPayoutRequest? @relation(fields: [payoutRequestId], references: [id], onDelete: SetNull)
+  settledAt       DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([instructorId, settledAt])
+  @@index([orderId])
+  @@index([eventRegistrationId])
 }
 
 /// Документы инструктора: НПД/ИП, страхование (модерация админом).
@@ -631,6 +698,44 @@ model SupportMessage {
 
   @@index([ticketId, createdAt])
   @@index([telegramMessageId])
+}
+
+/// Начисление рефереру за завершённый оплаченный заказ приглашённого клиента.
+model ReferralReward {
+  id String @id @default(cuid())
+
+  referrerId String
+  referrer   User @relation("ReferrerUser", fields: [referrerId], references: [id], onDelete: Cascade)
+
+  referredClientId String
+  orderId          String @unique
+  order            Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  amountRub   Decimal @db.Decimal(10, 2)
+  /// Порядковый номер заказа приглашённого клиента (1–4).
+  orderIndex  Int
+
+  createdAt DateTime @default(now())
+
+  @@index([referrerId])
+  @@index([referredClientId])
+}
+
+/// Заявка на вывод реферального баланса (инструктор или клиент).
+model ReferralPayoutRequest {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  amountRub   Decimal @db.Decimal(10, 2)
+  status      PayoutRequestStatus @default(PENDING)
+  adminNote   String? @db.Text
+  processedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, status])
 }
 
 model PushSubscription {

@@ -29,6 +29,7 @@ export type ClientRegistrationDetail = ClientRegistrationListItem & {
   };
   canCancel: boolean;
   cancelReason: string | null;
+  instructorNoShowRefundEligible?: boolean;
 };
 
 export function clientRegistrationStatusLabel(status: EventRegistrationStatus): string {

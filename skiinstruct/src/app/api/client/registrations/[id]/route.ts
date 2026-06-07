@@ -9,7 +9,10 @@ import {
 } from "@/lib/services/event-attendance";
 import {
   cancelEventRegistration,
+  canClaimEventInstructorNoShowRefund,
+  claimEventInstructorNoShowRefund,
   computeEventRegistrationCancelQuote,
+  getEventRegistrationStartAt,
 } from "@/lib/services/event-registration-cancel";
 import { createEventCheckoutUrl } from "@/lib/services/event-checkout";
 import { isInstructorEventCompleted } from "@/lib/instructor-events";
@@ -20,7 +23,7 @@ type Ctx = { params: Promise<{ id: string }> };
 export const dynamic = "force-dynamic";
 
 const actionSchema = z.object({
-  action: z.enum(["preview_cancel", "cancel", "pay", "confirm_attendance"]),
+  action: z.enum(["preview_cancel", "cancel", "pay", "confirm_attendance", "claim_instructor_no_show_refund"]),
 });
 
 function buildRegistrationDetail(
@@ -31,12 +34,30 @@ function buildRegistrationDetail(
     status: row.status,
     amountRub: row.amountRub,
     paidAt: row.paidAt,
+    instructorNoShowRefundClaimedAt: row.instructorNoShowRefundClaimedAt,
     event: { eventAt: row.event.eventAt },
+    slot: row.slot ? { startsAt: row.slot.startsAt } : null,
   });
-  const eventCompleted = isInstructorEventCompleted(row.event.eventAt);
+  const eventCompleted = isInstructorEventCompleted(
+    getEventRegistrationStartAt({
+      event: { eventAt: row.event.eventAt },
+      slot: row.slot ? { startsAt: row.slot.startsAt } : null,
+    }),
+  );
+  const instructorNoShowRefundEligible = canClaimEventInstructorNoShowRefund({
+    status: row.status,
+    amountRub: row.amountRub,
+    paidAt: row.paidAt,
+    instructorNoShowRefundClaimedAt: row.instructorNoShowRefundClaimedAt,
+    event: { eventAt: row.event.eventAt },
+    slot: row.slot ? { startsAt: row.slot.startsAt } : null,
+  });
   const needsAttendanceConfirmation = registrationNeedsAttendanceConfirmation(
     row,
-    row.event.eventAt,
+    getEventRegistrationStartAt({
+      event: { eventAt: row.event.eventAt },
+      slot: row.slot ? { startsAt: row.slot.startsAt } : null,
+    }),
   );
 
   return {
@@ -61,6 +82,7 @@ function buildRegistrationDetail(
     },
     canCancel: quote.canCancel,
     cancelReason: quote.canCancel ? null : quote.reason,
+    instructorNoShowRefundEligible,
   };
 }
 
@@ -68,6 +90,7 @@ async function loadRegistration(id: string, clientId: string) {
   return prisma.eventRegistration.findFirst({
     where: { id, clientId },
     include: {
+      slot: { select: { startsAt: true } },
       event: {
         select: {
           id: true,
@@ -157,11 +180,36 @@ export async function PATCH(req: Request, ctx: Ctx) {
     }
   }
 
+  if (parsed.data.action === "claim_instructor_no_show_refund") {
+    try {
+      const result = await claimEventInstructorNoShowRefund({
+        registrationId: id,
+        clientId: resolved.userId,
+      });
+      const updated = await loadRegistration(id, resolved.userId);
+      return NextResponse.json({
+        ok: true,
+        refundPercent: result.refundPercent,
+        refundAmount: result.refundAmount,
+        reason: result.reason,
+        registration: updated ? buildRegistrationDetail(updated) : null,
+      });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Не удалось оформить возврат";
+      if (msg === "NOT_FOUND") {
+        return NextResponse.json({ error: "Not found" }, { status: 404 });
+      }
+      return NextResponse.json({ error: msg }, { status: 400 });
+    }
+  }
+
   const quote = computeEventRegistrationCancelQuote({
     status: row.status,
     amountRub: row.amountRub,
     paidAt: row.paidAt,
+    instructorNoShowRefundClaimedAt: row.instructorNoShowRefundClaimedAt,
     event: { eventAt: row.event.eventAt },
+    slot: row.slot ? { startsAt: row.slot.startsAt } : null,
   });
 
   if (parsed.data.action === "preview_cancel") {

@@ -5,6 +5,7 @@ import { isApiErrorResponse, requireClientSession } from "@/lib/api-session";
 import { prisma } from "@/lib/prisma";
 import { completeOrderPrepayment } from "@/lib/services/order-prepayment";
 import { isMockCheckoutEnabled } from "@/lib/checkout-config";
+import { orderAmountDueRub } from "@/lib/services/referral";
 import { isYooKassaConfigured } from "@/lib/yookassa";
 import { getStripe } from "@/lib/stripe";
 import { findStripeCustomerByEmail } from "@/lib/stripe-customer";
@@ -47,8 +48,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Оплата недоступна для этого заказа" }, { status: 400 });
     }
 
-    const origin = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3001";
-
     if (isYooKassaConfigured()) {
       return NextResponse.json(
         { error: "Используйте ЮKassa", code: "USE_YOOKASSA" },
@@ -56,15 +55,27 @@ export async function POST(req: Request) {
       );
     }
 
+    const origin = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3001";
+    const amountDue = orderAmountDueRub(order);
+
     if (isMockCheckoutEnabled()) {
       const mockIntentId = `mock_pi_${order.id.slice(0, 12)}_${Date.now()}`;
       await completeOrderPrepayment({
         orderId: order.id,
         paymentMethod: "CARD",
         stripePaymentIntentId: mockIntentId,
-        paymentRecordAmount: Number(order.amountTotal ?? 0),
+        paymentRecordAmount: amountDue,
       });
       return NextResponse.json({ url: `${origin}/client/orders/${order.id}?paid=1&mock=1` });
+    }
+
+    if (amountDue <= 0) {
+      await completeOrderPrepayment({
+        orderId: order.id,
+        paymentMethod: "CARD",
+        paymentRecordAmount: 0,
+      });
+      return NextResponse.json({ url: `${origin}/client/orders/${order.id}?paid=1&balance=1` });
     }
 
     const stripe = getStripe();
@@ -79,7 +90,7 @@ export async function POST(req: Request) {
           quantity: 1,
           price_data: {
             currency: "rub",
-            unit_amount: Math.round(Number(order.amountTotal) * 100),
+            unit_amount: Math.round(amountDue * 100),
             product_data: {
               name: `SkiInstruct — заказ ${order.id.slice(0, 8)}`,
             },

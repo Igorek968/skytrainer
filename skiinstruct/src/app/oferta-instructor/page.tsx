@@ -5,6 +5,7 @@ import {
   AGENCY_OFFER_VERSION,
   INSTRUCTOR_CANCEL_NOTICE_HOURS,
   INSTRUCTOR_LATE_GRACE_MINUTES,
+  INSTRUCTOR_NO_SHOW_PENALTY_PERCENT,
   NPD_RECEIPT_DEADLINE_HOURS,
   PAYOUT_MIN_WITHDRAWAL_RUB,
   PLATFORM_FEE_PERCENT,
@@ -94,8 +95,10 @@ export default function InstructorAgencyOfferPage() {
             возврат Клиенту без штрафа для Инструктора.
           </li>
           <li>
-            Отмена менее чем за <strong>{INSTRUCTOR_CANCEL_NOTICE_HOURS} ч</strong> до занятия или неявка — полный
-            возврат Клиенту за счёт Агента с последующим взысканием с Инструктора (штраф / удержание из выплат).
+            Отмена менее чем за <strong>{INSTRUCTOR_CANCEL_NOTICE_HOURS} ч</strong> до занятия или неявка на занятие /
+            мероприятие — полный возврат Клиенту за счёт Агента и штраф{" "}
+            <strong>{INSTRUCTOR_NO_SHOW_PENALTY_PERCENT}%</strong> от суммы заявки в пользу платформы (удерживается из
+            будущих выплат Инструктору).
           </li>
           <li>
             Опоздание более <strong>{INSTRUCTOR_LATE_GRACE_MINUTES} мин</strong> от ETA — Клиент вправе запросить полный

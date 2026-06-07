@@ -142,6 +142,7 @@ function ClientOrderDetailContent({
 }) {
   const { patch, removeFromHistory, payOrder } = mutations;
   const [acceptLegal, setAcceptLegal] = useState(false);
+  const [useReferralBalance, setUseReferralBalance] = useState(false);
   const queryClient = useQueryClient();
   const o = data.order;
   const routingQueue = data.routingQueue;
@@ -221,6 +222,38 @@ function ClientOrderDetailContent({
   });
   const instructorEtaMinutes = extractInstructorEtaMinutes(o.notes);
   const meetPlace = resolveMeetAddress(o);
+
+  const { data: referralMe } = useQuery({
+    queryKey: ["referral-me"],
+    queryFn: async () => {
+      const r = await fetch("/api/referral/me", { credentials: "include" });
+      if (!r.ok) return null;
+      return r.json() as Promise<{ balanceRub: number }>;
+    },
+    enabled: statusEarly === "AWAITING_PAYMENT",
+  });
+
+  const referralCreditApplied = Number(o.referralCreditAppliedRub ?? 0);
+  const orderTotal = Number(o.amountTotal ?? 0);
+  const amountDue = Math.max(0, orderTotal - referralCreditApplied);
+
+  const applyReferralCredit = useMutation({
+    mutationFn: async (useCredit: boolean) => {
+      const r = await fetch(`/api/orders/${id}/referral-credit`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ useCredit }),
+      });
+      const j = (await r.json()) as { error?: string };
+      if (!r.ok) throw new Error(j.error ?? "Не удалось применить баланс");
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["order", id] });
+      await queryClient.invalidateQueries({ queryKey: ["referral-me"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
   const lateRefundEligible =
     o.paymentStatus === "PAID" &&
@@ -458,6 +491,34 @@ function ClientOrderDetailContent({
             </p>
             {o.paymentStatus === "PENDING" && o.amountTotal ? (
               <div className="space-y-3">
+                {(referralMe?.balanceRub ?? 0) > 0 ? (
+                  <label className="flex cursor-pointer gap-2">
+                    <input
+                      type="checkbox"
+                      className="mt-1"
+                      checked={useReferralBalance || referralCreditApplied > 0}
+                      disabled={applyReferralCredit.isPending}
+                      onChange={(e) => {
+                        const next = e.target.checked;
+                        setUseReferralBalance(next);
+                        applyReferralCredit.mutate(next);
+                      }}
+                    />
+                    <span>
+                      Списать реферальный баланс (
+                      {(referralMe?.balanceRub ?? 0).toFixed(0)} ₽ доступно
+                      {referralCreditApplied > 0 ? `, −${referralCreditApplied.toFixed(0)} ₽` : ""})
+                    </span>
+                  </label>
+                ) : null}
+                <p className="font-medium text-foreground">
+                  К оплате: {amountDue.toFixed(0)} ₽
+                  {referralCreditApplied > 0 ? (
+                    <span className="ml-2 text-xs font-normal text-muted-foreground">
+                      (из {orderTotal.toFixed(0)} ₽)
+                    </span>
+                  ) : null}
+                </p>
                 <label className="flex cursor-pointer gap-2">
                   <input
                     type="checkbox"

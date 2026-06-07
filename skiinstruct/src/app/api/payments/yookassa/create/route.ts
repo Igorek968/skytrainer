@@ -6,6 +6,7 @@ import { isMockCheckoutEnabled } from "@/lib/checkout-config";
 import { prisma } from "@/lib/prisma";
 import { isEmailVerificationRequired } from "@/lib/services/email-verification";
 import { completeOrderPrepayment } from "@/lib/services/order-prepayment";
+import { orderAmountDueRub } from "@/lib/services/referral";
 import { createYooKassaLessonPayment, isYooKassaConfigured } from "@/lib/yookassa";
 
 const bodySchema = z.object({
@@ -65,7 +66,16 @@ export async function POST(req: Request) {
 
     const origin = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3001";
     const returnUrl = `${origin}/client/orders/${order.id}?paid=1`;
-    const amountRub = Number(order.amountTotal);
+    const amountRub = orderAmountDueRub(order);
+
+    if (amountRub <= 0) {
+      await completeOrderPrepayment({
+        orderId: order.id,
+        paymentMethod: "CARD",
+        paymentRecordAmount: 0,
+      });
+      return NextResponse.json({ url: `${returnUrl}&balance=1` });
+    }
 
     if (!isYooKassaConfigured()) {
       if (isMockCheckoutEnabled()) {

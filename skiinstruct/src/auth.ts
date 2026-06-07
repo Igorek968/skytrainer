@@ -9,6 +9,7 @@ import { prisma } from "@/lib/prisma";
 import { consumePhoneOtpIfValid } from "@/lib/phone-otp";
 import { normalizeRussianPhone } from "@/lib/phone";
 import { rateLimit } from "@/lib/rate-limit";
+import { bindReferralFromCookie, ensureUserReferralCode } from "@/lib/services/referral";
 
 const credentialsSchema = z
   .object({
@@ -68,6 +69,8 @@ const credentialsProvider = Credentials({
             role: "CLIENT",
           },
         });
+        await bindReferralFromCookie(user.id);
+        void ensureUserReferralCode(user.id).catch(() => {});
       }
       return {
         id: user.id,
@@ -105,6 +108,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
   adapter: PrismaAdapter(prisma),
   providers: [credentialsProvider, ...authConfig.providers],
+  events: {
+    async createUser({ user }) {
+      if (!user.id) return;
+      await bindReferralFromCookie(user.id);
+      void ensureUserReferralCode(user.id).catch(() => {});
+    },
+  },
   callbacks: {
     ...authConfig.callbacks,
     async signIn({ user, account }) {

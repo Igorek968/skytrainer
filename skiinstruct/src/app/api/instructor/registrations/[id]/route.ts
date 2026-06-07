@@ -16,6 +16,7 @@ import { prisma } from "@/lib/prisma";
 import {
   cancelEventRegistrationByInstructor,
   computeEventRegistrationCancelQuote,
+  computeInstructorEventRegistrationCancelQuote,
 } from "@/lib/services/event-registration-cancel";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -38,6 +39,7 @@ export async function GET(_req: Request, ctx: Ctx) {
     include: {
       client: { select: { id: true, name: true, email: true, image: true } },
       event: true,
+      slot: { select: { startsAt: true } },
     },
   });
 
@@ -48,11 +50,13 @@ export async function GET(_req: Request, ctx: Ctx) {
   const ratings = await getClientRatingsByInstructor(userId, [row.clientId]);
   const rating = ratings.get(row.clientId);
 
-  const cancelQuote = computeEventRegistrationCancelQuote({
+  const cancelQuote = computeInstructorEventRegistrationCancelQuote({
     status: row.status,
     amountRub: row.amountRub,
     paidAt: row.paidAt,
+    instructorNoShowRefundClaimedAt: row.instructorNoShowRefundClaimedAt,
     event: { eventAt: row.event.eventAt },
+    slot: row.slot ? { startsAt: row.slot.startsAt } : null,
   });
 
   const eventDto = {
@@ -135,6 +139,7 @@ export async function PATCH(req: Request, ctx: Ctx) {
     where: { id, event: { instructorId: userId } },
     include: {
       event: true,
+      slot: { select: { startsAt: true } },
       client: { select: { name: true, email: true } },
     },
   });
@@ -181,11 +186,13 @@ export async function PATCH(req: Request, ctx: Ctx) {
     });
   }
 
-  const quote = computeEventRegistrationCancelQuote({
+  const quote = computeInstructorEventRegistrationCancelQuote({
     status: row.status,
     amountRub: row.amountRub,
     paidAt: row.paidAt,
+    instructorNoShowRefundClaimedAt: row.instructorNoShowRefundClaimedAt,
     event: { eventAt: row.event.eventAt },
+    slot: row.slot ? { startsAt: row.slot.startsAt } : null,
   });
 
   if (parsed.data.action === "preview_cancel") {

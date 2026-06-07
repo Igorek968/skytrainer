@@ -13,7 +13,7 @@ export function loginPathForRole(role: UserRole): string {
 }
 
 /** Разделы клиента только для роли CLIENT (заказы, записи на мероприятия). */
-export const CLIENT_AUTH_REQUIRED_PREFIXES = ["/client/orders", "/client/registrations"] as const;
+export const CLIENT_AUTH_REQUIRED_PREFIXES = ["/client/orders", "/client/registrations", "/client/referral"] as const;
 
 export function isClientAuthRequiredPath(pathname: string): boolean {
   return CLIENT_AUTH_REQUIRED_PREFIXES.some(

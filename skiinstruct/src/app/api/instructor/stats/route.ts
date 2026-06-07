@@ -7,6 +7,7 @@ import {
 } from "@/lib/legal-config";
 import { formatPayoutWindowHint, canRequestWithdrawal } from "@/lib/services/order-payout";
 import { computeAvailablePayoutRub } from "@/lib/services/payout-request";
+import { getInstructorPenaltyBalanceRub } from "@/lib/services/instructor-penalty";
 import { prisma } from "@/lib/prisma";
 
 export async function GET() {
@@ -52,6 +53,7 @@ export async function GET() {
   }
 
   const availableForPayout = await computeAvailablePayoutRub(userId);
+  const platformPenaltyBalanceRub = await getInstructorPenaltyBalanceRub(userId);
 
   const gross = completed.reduce((acc, o) => acc + Number(o.amountTotal ?? 0), 0);
 
@@ -61,6 +63,7 @@ export async function GET() {
     grossTotal: gross,
     platformFeePercent: PLATFORM_FEE_PERCENT,
     availableForPayout,
+    platformPenaltyBalanceRub,
     pendingPayout,
     canWithdraw: canRequestWithdrawal(availableForPayout),
     payoutMinRub: PAYOUT_MIN_WITHDRAWAL_RUB,
