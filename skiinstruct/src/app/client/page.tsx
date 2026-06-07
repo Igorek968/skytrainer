@@ -27,6 +27,7 @@ import {
   readPendingCheckout,
   savePendingCheckout,
 } from "@/lib/client-pending-checkout";
+import { syncYooCardBinding } from "@/lib/payments/redirect-to-checkout";
 import {
   formatDrivingSchoolDetailsSummary,
   isAutoInstructorLabel,
@@ -431,8 +432,15 @@ function ResumeCheckoutFromQuery({
   useEffect(() => {
     const cardState = searchParams.get("card");
     if (cardState === "updated") {
-      toast.success("Карта успешно привязана");
-      router.replace("/client", { scroll: false });
+      void (async () => {
+        try {
+          await syncYooCardBinding();
+          toast.success("Карта успешно привязана");
+        } catch {
+          toast.message("Вернитесь в личные данные, если карта не отображается");
+        }
+        router.replace("/client", { scroll: false });
+      })();
       return;
     }
     if (cardState === "cancelled") {

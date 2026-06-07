@@ -2,8 +2,8 @@
 
 import { type UseMutationResult, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { OrderChat } from "@/features/chat/order-chat";
@@ -90,7 +90,7 @@ type OrderPayload = { order: OrderDTO; routingQueue?: RoutingMember[] };
 type DetailMutations = {
   patch: UseMutationResult<unknown, Error, Record<string, unknown>>;
   removeFromHistory: UseMutationResult<void, Error, void>;
-  payOrder: UseMutationResult<void, Error, void>;
+  payOrder: UseMutationResult<void, Error, { bindAndPay?: boolean } | undefined>;
 };
 
 /** Контент с хуками, зависящими от загруженного заказа — монтируется только когда `data` есть. */
@@ -232,6 +232,17 @@ function ClientOrderDetailContent({
     },
     enabled: statusEarly === "AWAITING_PAYMENT",
   });
+
+  const { data: cardStatus } = useQuery({
+    queryKey: ["me-card-status"],
+    queryFn: async () => {
+      const r = await fetch("/api/me/payment-method", { cache: "no-store" });
+      if (!r.ok) throw new Error("card");
+      return r.json() as Promise<{ hasCard: boolean; brand: string | null; last4: string | null }>;
+    },
+    enabled: statusEarly === "AWAITING_PAYMENT",
+  });
+  const hasBoundCard = Boolean(cardStatus?.hasCard);
 
   const referralCreditApplied = Number(o.referralCreditAppliedRub ?? 0);
   const orderTotal = Number(o.amountTotal ?? 0);
@@ -489,6 +500,16 @@ function ClientOrderDetailContent({
               Комиссия сервиса уже учтена в сумме (15% от ставки за занятие); после того как инструктор отметит
               урок выполненным, доля инструктора считается переданной за вычетом этой комиссии.
             </p>
+            {!hasBoundCard ? (
+              <p className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-amber-900 dark:text-amber-100">
+                Банковская карта не привязана. Нажмите «Привязать карту и оплатить» — откроется форма ЮKassa. Без
+                карты заказ инструктору не отправится.
+              </p>
+            ) : (
+              <p className="text-foreground">
+                Карта: {cardStatus?.brand?.toUpperCase() ?? "CARD"} •••• {cardStatus?.last4 ?? "****"}
+              </p>
+            )}
             {o.paymentStatus === "PENDING" && o.amountTotal ? (
               <div className="space-y-3">
                 {(referralMe?.balanceRub ?? 0) > 0 ? (
@@ -548,10 +569,10 @@ function ClientOrderDetailContent({
                       toast.error("Подтвердите согласие с офертой и обработкой персональных данных");
                       return;
                     }
-                    payOrder.mutate();
+                    payOrder.mutate({ bindAndPay: !hasBoundCard });
                   }}
                 >
-                  Оплатить и отправить заявку
+                  {hasBoundCard ? "Оплатить и отправить заявку" : "Привязать карту и оплатить"}
                 </Button>
               </div>
             ) : null}
@@ -702,7 +723,7 @@ function ClientOrderDetailContent({
 
         {status === "COMPLETED" && o.paymentStatus === "PENDING" ? (
           <>
-            <Button type="button" variant="accent" onClick={() => payOrder.mutate()}>
+            <Button type="button" variant="accent" onClick={() => payOrder.mutate(undefined)}>
               Оплатить картой
             </Button>
             <Button
@@ -723,7 +744,7 @@ function ClientOrderDetailContent({
 
         {status === "COMPLETED" && o.paymentStatus === "FAILED" ? (
           <>
-            <Button type="button" variant="accent" onClick={() => payOrder.mutate()}>
+            <Button type="button" variant="accent" onClick={() => payOrder.mutate(undefined)}>
               Оплатить картой
             </Button>
             <Button
@@ -794,7 +815,10 @@ export default function ClientOrderPage() {
   const params = useParams<{ id: string }>();
   const id = params.id;
   const router = useRouter();
+  const searchParams = useSearchParams();
   const qc = useQueryClient();
+  const autoPayStarted = useRef(false);
+  const paidToastShown = useRef(false);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["order", id],
@@ -804,6 +828,16 @@ export default function ClientOrderPage() {
       return r.json() as Promise<OrderPayload>;
     },
     refetchInterval: devPollInterval(5000),
+  });
+
+  const { data: cardStatus } = useQuery({
+    queryKey: ["me-card-status", id],
+    queryFn: async () => {
+      const r = await fetch("/api/me/payment-method", { cache: "no-store" });
+      if (!r.ok) throw new Error("card");
+      return r.json() as Promise<{ hasCard: boolean }>;
+    },
+    enabled: Boolean(data?.order && data.order.status === "AWAITING_PAYMENT"),
   });
 
   const removeFromHistory = useMutation({
@@ -842,11 +876,39 @@ export default function ClientOrderPage() {
   });
 
   const payOrder = useMutation({
-    mutationFn: async () => {
-      await redirectToOrderCheckout(id);
+    mutationFn: async (opts?: { bindAndPay?: boolean }) => {
+      await redirectToOrderCheckout(id, { bindAndPay: opts?.bindAndPay });
     },
     onError: (e: Error) => toast.error(e.message || "Ошибка оплаты"),
   });
+
+  useEffect(() => {
+    if (paidToastShown.current) return;
+    const paid = searchParams.get("paid");
+    if (paid === "1") {
+      paidToastShown.current = true;
+      toast.success(
+        searchParams.get("mock")
+          ? "Тестовая оплата прошла — заявка отправлена инструктору"
+          : "Оплата прошла — заявка отправлена инструктору",
+      );
+      router.replace(`/client/orders/${id}`, { scroll: false });
+    } else if (paid === "0") {
+      paidToastShown.current = true;
+      toast.message("Оплата не завершена");
+      router.replace(`/client/orders/${id}`, { scroll: false });
+    }
+  }, [searchParams, id, router]);
+
+  useEffect(() => {
+    if (autoPayStarted.current) return;
+    if (searchParams.get("pay") !== "1") return;
+    if (!data?.order || data.order.status !== "AWAITING_PAYMENT") return;
+    if (cardStatus == null) return;
+    autoPayStarted.current = true;
+    router.replace(`/client/orders/${id}`, { scroll: false });
+    payOrder.mutate({ bindAndPay: !cardStatus.hasCard });
+  }, [searchParams, data, cardStatus, id, router, payOrder]);
 
   if (isLoading) {
     return (

@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
+import { redirectToYooCardBinding } from "@/lib/payments/redirect-to-checkout";
 import { formatRussianPhoneDisplay } from "@/lib/phone";
 
 type MeProfile = {
@@ -132,15 +133,8 @@ export function PersonalDataDialog({
 
   const setupCard = useMutation({
     mutationFn: async () => {
-      const r = await fetch("/api/stripe/setup", { method: "POST" });
-      const j = (await r.json().catch(() => ({}))) as { url?: string; error?: unknown };
-      if (!r.ok || !j.url) {
-        throw new Error(typeof j.error === "string" ? j.error : "Не удалось открыть привязку карты");
-      }
-      return j.url;
-    },
-    onSuccess: (url) => {
-      window.location.href = url;
+      const origin = typeof window !== "undefined" ? window.location.origin : "";
+      await redirectToYooCardBinding(`${origin}/client?card=updated`);
     },
     onError: (e: Error) => toast.error(e.message || "Не удалось открыть привязку карты"),
   });
@@ -251,7 +245,8 @@ export function PersonalDataDialog({
                 </p>
               ) : (
                 <p className="mt-1 text-muted-foreground">
-                  Карта пока не привязана. Добавьте ее здесь, чтобы при заказе не проходить этот шаг заново.
+                  Карта не привязана. Без карты заказ инструктору не отправится — привяжите её здесь или при первом
+                  заказе (ЮKassa).
                 </p>
               )}
               <div className="mt-2">

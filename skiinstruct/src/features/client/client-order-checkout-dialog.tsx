@@ -4,12 +4,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { getSession, signOut, useSession } from "next-auth/react";
 import { useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { signInClientSessionAction } from "@/app/actions/client-order-sign-in";
 import { CLIENT_BOOKING_RETURN_PATH } from "@/lib/client-pending-checkout";
 import { LEGAL_ROUTES } from "@/lib/legal";
-import { redirectToOrderCheckout } from "@/lib/payments/redirect-to-checkout";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
@@ -45,6 +45,17 @@ export function ClientOrderCheckoutDialog({ open, onOpenChange, instructor, onCr
   const loggedIn = sessionStatus === "authenticated" && Boolean(session?.user);
   const loggedInAsClient = loggedIn && sessionRole === "CLIENT";
   const loggedInWrongRole = loggedIn && sessionRole !== "CLIENT";
+
+  const cardQuery = useQuery({
+    queryKey: ["me-card-status", session?.user?.id],
+    queryFn: async () => {
+      const r = await fetch("/api/me/payment-method", { cache: "no-store" });
+      if (!r.ok) throw new Error("card");
+      return r.json() as Promise<{ hasCard: boolean; brand: string | null; last4: string | null }>;
+    },
+    enabled: open && loggedInAsClient,
+  });
+  const hasCard = Boolean(cardQuery.data?.hasCard);
 
   useEffect(() => {
     if (!open) return;
@@ -130,7 +141,8 @@ export function ClientOrderCheckoutDialog({ open, onOpenChange, instructor, onCr
         setStep("pay");
         return;
       }
-      await redirectToOrderCheckout(orderId);
+      closeAll();
+      router.push(`/client/orders/${orderId}?pay=1`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Сеть недоступна");
       setStep("pay");
@@ -278,10 +290,20 @@ export function ClientOrderCheckoutDialog({ open, onOpenChange, instructor, onCr
               </p>
             ) : null}
             <div className="rounded-md border border-border bg-muted/30 p-3 text-sm">
-              <p className="font-medium">Оплата картой</p>
-              <p className="mt-1 text-muted-foreground">
-                Оплата через ЮKassa (банковская карта). После успешной оплаты заявка автоматически уйдёт инструктору.
-              </p>
+              <p className="font-medium">Оплата картой (ЮKassa)</p>
+              {cardQuery.isLoading ? (
+                <p className="mt-1 text-muted-foreground">Проверяем привязку карты…</p>
+              ) : hasCard ? (
+                <p className="mt-1 text-muted-foreground">
+                  Карта привязана ({cardQuery.data?.brand?.toUpperCase() ?? "CARD"} ••••{" "}
+                  {cardQuery.data?.last4 ?? "****"}). После оплаты заявка уйдёт инструктору.
+                </p>
+              ) : (
+                <p className="mt-1 text-muted-foreground">
+                  Карта не привязана. На следующем шаге откроется форма ЮKassa: привязка карты и оплата заказа. Без
+                  карты заказ инструктору не отправится.
+                </p>
+              )}
               {estimatedTotal ? <p className="mt-2 text-xs">{estimatedTotal}</p> : null}
             </div>
             <label className="flex cursor-pointer gap-2 text-sm">
@@ -309,14 +331,14 @@ export function ClientOrderCheckoutDialog({ open, onOpenChange, instructor, onCr
                 {loggedInAsClient ? "Отмена" : "Назад"}
               </Button>
               <Button type="button" variant="accent" disabled={!acceptLegal} onClick={() => void payAndSend()}>
-                Оплатить
+                {hasCard ? "Оформить заказ" : "Оформить заказ и привязать карту"}
               </Button>
             </div>
           </div>
         ) : null}
 
         {step === "busy" ? (
-          <p className="mt-6 text-center text-sm text-muted-foreground">Подождите, идёт оформление и переход к оплате…</p>
+          <p className="mt-6 text-center text-sm text-muted-foreground">Подождите, создаём заказ…</p>
         ) : null}
       </div>
     </div>

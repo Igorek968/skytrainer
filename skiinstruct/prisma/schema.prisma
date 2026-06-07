@@ -167,6 +167,15 @@ model User {
   referralRewardsAsReferrer ReferralReward[]        @relation("ReferrerUser")
   referralPayoutRequests  ReferralPayoutRequest[]
 
+  /// Сохранённый способ оплаты ЮKassa (автоплатежи / привязка карты).
+  yookassaPaymentMethodId String?   @unique
+  yookassaCardLast4       String?
+  yookassaCardBrand       String?
+  /// Ожидает подтверждения привязки (payment_methods.id).
+  yookassaPendingBindId   String?
+  /// Локальный mock: карта «привязана» без ЮKassa.
+  mockCardBoundAt         DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

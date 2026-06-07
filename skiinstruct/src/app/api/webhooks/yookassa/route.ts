@@ -2,10 +2,16 @@ import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
 import { markEventRegistrationPaid } from "@/lib/services/event-checkout";
+import {
+  saveClientYooPaymentMethod,
+  saveCardFromPaymentMethodPayload,
+} from "@/lib/services/client-yookassa-card";
 import { completeOrderPrepayment } from "@/lib/services/order-prepayment";
 import {
   eventRegistrationIdFromYooMetadata,
+  extractYooCardLabel,
   fetchYooKassaPayment,
+  fetchYooKassaPaymentMethod,
   isYooKassaConfigured,
   isYooKassaWebhookIpAllowed,
   orderIdFromYooMetadata,
@@ -20,6 +26,8 @@ type YooWebhookBody = {
     id?: string;
     status?: string;
     metadata?: YooKassaPaymentMetadata;
+    saved?: boolean;
+    card?: { last4?: string; card_type?: string; brand?: string };
   };
 };
 
@@ -46,6 +54,23 @@ async function resolveEventRegistrationId(
   return byPayment?.id ?? null;
 }
 
+async function handlePaymentMethodActive(paymentMethodId: string): Promise<void> {
+  const users = await prisma.user.findMany({
+    where: { yookassaPendingBindId: paymentMethodId },
+    select: { id: true },
+    take: 5,
+  });
+  if (!users.length) return;
+
+  const method = await fetchYooKassaPaymentMethod(paymentMethodId);
+  if (!method || method.status !== "active" || !method.saved) return;
+
+  const { last4, brand } = extractYooCardLabel(method);
+  for (const user of users) {
+    await saveClientYooPaymentMethod(user.id, method.id, { last4, brand });
+  }
+}
+
 export async function POST(req: Request) {
   if (!isYooKassaWebhookIpAllowed(req)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -60,6 +85,16 @@ export async function POST(req: Request) {
 
   const event = body.event;
   const obj = body.object;
+
+  if (event === "payment_method.active" && obj?.id) {
+    try {
+      await handlePaymentMethodActive(obj.id);
+    } catch (e) {
+      console.error("[yookassa webhook payment_method]", e);
+    }
+    return NextResponse.json({ received: true });
+  }
+
   const paymentId = obj?.id;
 
   if (event !== "payment.succeeded" || !paymentId) {
@@ -68,6 +103,7 @@ export async function POST(req: Request) {
 
   let metadata = obj?.metadata;
   let status = obj?.status;
+  let paymentMethod = obj as YooWebhookBody["object"];
 
   if (isYooKassaConfigured()) {
     const verified = await fetchYooKassaPayment(paymentId);
@@ -76,6 +112,7 @@ export async function POST(req: Request) {
     }
     metadata = verified.metadata;
     status = verified.status;
+    paymentMethod = verified.payment_method;
   } else if (status !== "succeeded") {
     return NextResponse.json({ received: true });
   }
@@ -116,12 +153,14 @@ export async function POST(req: Request) {
   try {
     const order = await prisma.order.findUnique({
       where: { id: orderId },
-      select: { id: true, paymentStatus: true, amountTotal: true },
+      select: { id: true, clientId: true, paymentStatus: true, amountTotal: true },
     });
 
     if (!order) {
       return NextResponse.json({ received: true });
     }
+
+    await saveCardFromPaymentMethodPayload(order.clientId, paymentMethod ?? undefined);
 
     if (order.paymentStatus === "PAID") {
       await prisma.order.update({
