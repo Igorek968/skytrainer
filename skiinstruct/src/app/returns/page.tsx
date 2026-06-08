@@ -2,9 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import {
-  CANCEL_CLIENT_FULL_REFUND_HOURS,
-  CANCEL_CLIENT_PARTIAL_PERCENT,
-  CANCEL_CLIENT_PARTIAL_REFUND_HOURS,
+  CLIENT_OFFER_VERSION,
   EVENT_CANCEL_FULL_REFUND_HOURS,
   INSTRUCTOR_CANCEL_NOTICE_HOURS,
   INSTRUCTOR_LATE_GRACE_MINUTES,
@@ -68,25 +66,7 @@ export default function ReturnsPolicyPage() {
             момента подтверждения инструктором.
           </li>
         </ul>
-        <p className="font-medium text-foreground">
-          2.3. Отмена клиентом до принятия инструктором (если применимо по статусу заказа):
-        </p>
-        <ul className="list-inside list-disc space-y-1 text-muted-foreground">
-          <li>
-            более <strong>{CANCEL_CLIENT_FULL_REFUND_HOURS} ч</strong> до начала занятия — возвращается{" "}
-            <strong>100%</strong> оплаченной суммы;
-          </li>
-          <li>
-            от <strong>{CANCEL_CLIENT_PARTIAL_REFUND_HOURS} ч</strong> до{" "}
-            <strong>{CANCEL_CLIENT_FULL_REFUND_HOURS} ч</strong> — возвращается{" "}
-            <strong>{CANCEL_CLIENT_PARTIAL_PERCENT}%</strong> (остальное удерживается инструктором как компенсация за
-            резервирование времени);
-          </li>
-          <li>
-            менее <strong>{CANCEL_CLIENT_PARTIAL_REFUND_HOURS} ч</strong> до начала — <strong>без возврата</strong>.
-          </li>
-        </ul>
-        <p className="font-medium text-foreground">2.4. Отмена занятия инструктором или платформой:</p>
+        <p className="font-medium text-foreground">2.3. Отмена занятия инструктором или платформой:</p>
         <ul className="list-inside list-disc space-y-1 text-muted-foreground">
           <li>
             клиенту возвращается <strong>100%</strong> оплаченной суммы;
@@ -102,14 +82,14 @@ export default function ReturnsPolicyPage() {
             ; платформа предлагает альтернативного инструктора или перенос без доплаты.
           </li>
         </ul>
-        <p className="font-medium text-foreground">2.5. Опоздание инструктора:</p>
+        <p className="font-medium text-foreground">2.4. Опоздание инструктора:</p>
         <ul className="list-inside list-disc space-y-1 text-muted-foreground">
           <li>
             если инструктор не прибыл в течение <strong>{INSTRUCTOR_LATE_GRACE_MINUTES} мин</strong> после заявленного
             ETA и занятие не начато — клиент вправе запросить <strong>полный возврат</strong> в интерфейсе заказа.
           </li>
         </ul>
-        <p className="font-medium text-foreground">2.6. Некачественно оказанная услуга:</p>
+        <p className="font-medium text-foreground">2.5. Некачественно оказанная услуга:</p>
         <ul className="list-inside list-disc space-y-1 text-muted-foreground">
           <li>
             при доказанных нарушениях (небезопасно, инструктор некомпетентен) агент организует частичный или полный
@@ -170,9 +150,14 @@ export default function ReturnsPolicyPage() {
           будущих выплат).
         </p>
         <p className="text-muted-foreground">
-          5.2. Комиссия агента в размере {PLATFORM_FEE_PERCENT}% возврату не подлежит, если отмена произошла менее чем
-          за {CANCEL_CLIENT_FULL_REFUND_HOURS} ч (поскольку работа по бронированию уже выполнена). При отмене за{" "}
-          {CANCEL_CLIENT_FULL_REFUND_HOURS} ч и более комиссия возвращается полностью.
+          5.2. При полном возврате до принятия заявки инструктором Клиенту возвращается вся уплаченная сумма, включая
+          комиссию агента ({PLATFORM_FEE_PERCENT}%). После принятия инструктором возврат по инициативе клиента не
+          производится (п. 2.2).
+        </p>
+        <p className="text-muted-foreground">
+          5.3. По мероприятиям комиссия агента ({PLATFORM_FEE_PERCENT}% от стоимости участия каждого клиента)
+          удерживается при расчётах после проведения мероприятия; при полном возврате участнику возвращается уплаченная
+          им сумма целиком.
         </p>
       </section>
 
@@ -205,7 +190,7 @@ export default function ReturnsPolicyPage() {
         </p>
         <p className="text-muted-foreground">
           8.2. Актуальная версия Правил всегда доступна на этой странице. Датой последнего обновления является{" "}
-          06.06.2026.
+          {CLIENT_OFFER_VERSION.replace(/-/g, ".")}.
         </p>
       </section>
     </LegalDocLayout>

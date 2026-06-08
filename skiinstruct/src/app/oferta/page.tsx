@@ -2,14 +2,16 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import {
-  CANCEL_CLIENT_FULL_REFUND_HOURS,
-  CANCEL_CLIENT_PARTIAL_PERCENT,
-  CANCEL_CLIENT_PARTIAL_REFUND_HOURS,
   CLIENT_OFFER_VERSION,
   EVENT_CANCEL_FULL_REFUND_HOURS,
   INSTRUCTOR_CANCEL_NOTICE_HOURS,
   INSTRUCTOR_LATE_GRACE_MINUTES,
   INSTRUCTOR_NO_SHOW_PENALTY_PERCENT,
+  PAYOUT_MIN_WITHDRAWAL_RUB,
+  PLATFORM_FEE_PERCENT,
+  REFERRAL_COOKIE_MAX_AGE_DAYS,
+  REFERRAL_MAX_ORDERS_PER_CLIENT,
+  REFERRAL_REWARD_RUB,
 } from "@/lib/legal-config";
 import { LEGAL_AGENT, LEGAL_SITE_URL } from "@/lib/legal-entity";
 import { LegalRequisitesBlock } from "@/shared/legal/legal-requisites-block";
@@ -92,25 +94,39 @@ export default function PublicOfferPage() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold">4. Стоимость и порядок оплаты</h2>
-        <p className="text-muted-foreground">4.1. Общая стоимость заказа складывается из:</p>
+        <h2 className="text-lg font-semibold">4. Стоимость, комиссия и порядок оплаты</h2>
+        <p className="text-muted-foreground">
+          4.1. <strong>Занятия с инструктором.</strong> Итоговая стоимость заказа, отображаемая Клиенту при оплате,
+          включает:
+        </p>
         <ul className="list-inside list-disc space-y-1 text-muted-foreground">
-          <li>вознаграждения Инструктору (указано в карточке занятия);</li>
+          <li>вознаграждение Инструктору (указано в карточке занятия);</li>
           <li>
-            вознаграждения Агента в размере {LEGAL_AGENT.agentFeePercent}% от цены занятия (включено в итоговую сумму).
+            вознаграждение Агента (комиссию платформы) в размере <strong>{PLATFORM_FEE_PERCENT}%</strong> от стоимости
+            занятия — удерживается Агентом и включена в итоговую сумму к оплате.
           </li>
         </ul>
         <p className="text-muted-foreground">
-          4.2. Оплата занятия с инструктором производится Клиентом единовременно в российских рублях через сервис
+          4.2. <strong>Мероприятия.</strong> Стоимость участия, указанная при записи, также включает комиссию Агента в
+          размере <strong>{PLATFORM_FEE_PERCENT}%</strong> от цены участия для каждого участника. Комиссия удерживается
+          Агентом после проведения мероприятия и подтверждения участия; Инструктору перечисляется сумма за вычетом
+          комиссии с каждого оплатившего участника (подробнее — в разделе 8).
+        </p>
+        <p className="text-muted-foreground">
+          4.3. Оплата занятия с инструктором производится Клиентом единовременно в российских рублях через сервис
           ЮKassa (платёжную систему) с использованием банковской карты.
         </p>
         <p className="text-muted-foreground">
-          4.3. Оплата считается произведённой после поступления денежных средств на расчётный счёт Агента:{" "}
+          4.4. Оплата считается произведённой после поступления денежных средств на расчётный счёт Агента:{" "}
           <strong>{LEGAL_AGENT.bankAccount}</strong> в {LEGAL_AGENT.bankName}, БИК {LEGAL_AGENT.bik}.
         </p>
         <p className="text-muted-foreground">
-          4.4. После успешной оплаты Агент направляет Клиенту электронный чек (через ЮKassa) и подтверждает
+          4.5. После успешной оплаты Агент направляет Клиенту электронный чек (через ЮKassa) и подтверждает
           бронирование времени у Инструктора.
+        </p>
+        <p className="text-muted-foreground">
+          4.6. Клиент вправе использовать накопленный реферальный баланс для частичной или полной оплаты заказа в
+          пределах доступной суммы (раздел 9).
         </p>
       </section>
 
@@ -175,11 +191,9 @@ export default function PublicOfferPage() {
           7.2. <strong>После принятия заявки инструктором</strong> заказ невозвратный при отмене по инициативе клиента.
         </p>
         <p className="text-muted-foreground">
-          7.3. До принятия инструктором (или в иных случаях по статусу заказа): более{" "}
-          <strong>{CANCEL_CLIENT_FULL_REFUND_HOURS} ч</strong> до начала — <strong>100%</strong>; от{" "}
-          <strong>{CANCEL_CLIENT_PARTIAL_REFUND_HOURS} ч</strong> до <strong>{CANCEL_CLIENT_FULL_REFUND_HOURS} ч</strong>{" "}
-          — <strong>{CANCEL_CLIENT_PARTIAL_PERCENT}%</strong>; менее <strong>{CANCEL_CLIENT_PARTIAL_REFUND_HOURS} ч</strong>{" "}
-          — без возврата.
+          7.3. До принятия заявки инструктором, при истечении срока ожидания ответа инструктора, при технической отмене
+          платформой или если оплата не была произведена — <strong>100%</strong> уплаченной суммы (полный возврат или
+          отмена без списания). Расчёт выполняется автоматически в сервисе.
         </p>
         <p className="text-muted-foreground">
           7.4. Отмена по вине инструктора или платформы — <strong>100%</strong>. Опоздание инструктора более{" "}
@@ -223,22 +237,70 @@ export default function PublicOfferPage() {
           наступления времени начала; с инструктора удерживается штраф{" "}
           <strong>{INSTRUCTOR_NO_SHOW_PENALTY_PERCENT}%</strong> от суммы записи в пользу платформы.
         </p>
+        <p className="text-muted-foreground">
+          8.6. <strong>Комиссия Агента по мероприятиям</strong> — <strong>{PLATFORM_FEE_PERCENT}%</strong> от стоимости
+          участия каждого клиента, оплатившего запись после проведения мероприятия. Комиссия удерживается Агентом при
+          расчётах с Инструктором; доля Инструктора составляет оставшиеся <strong>{100 - PLATFORM_FEE_PERCENT}%</strong>{" "}
+          от суммы, уплаченной соответствующим участником. На бесплатные записи комиссия не начисляется.
+        </p>
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold">9. Прочие условия</h2>
+        <h2 className="text-lg font-semibold">9. Реферальная программа</h2>
         <p className="text-muted-foreground">
-          9.1. Агент вправе в одностороннем порядке изменять условия Оферты с уведомлением на Сайте не менее чем за 3
+          9.1. Зарегистрированные пользователи (Клиенты и Инструкторы) могут участвовать в реферальной программе
+          платформы, делясь персональной ссылкой с параметром <code className="text-foreground">?ref=</code> и кодом
+          приглашения.
+        </p>
+        <p className="text-muted-foreground">
+          9.2. При переходе по реферальной ссылке сведения о коде приглашения сохраняются в cookie браузера в течение{" "}
+          <strong>{REFERRAL_COOKIE_MAX_AGE_DAYS} календарных дней</strong> с первого перехода. Если новый Клиент
+          регистрируется в этот период, он связывается с пригласившим пользователем.
+        </p>
+        <p className="text-muted-foreground">
+          9.3. Пригласившему пользователю (рефереру) начисляется вознаграждение{" "}
+          <strong>{REFERRAL_REWARD_RUB} ₽</strong> за каждый из первых{" "}
+          <strong>{REFERRAL_MAX_ORDERS_PER_CLIENT}</strong> завершённых и оплаченных заказов приглашённого Клиента,
+          оформленных через платформу. Начисление производится автоматически после завершения заказа; вознаграждение не
+          начисляется за заказы, по которым произведён полный возврат.
+        </p>
+        <p className="text-muted-foreground">
+          9.4. Накопленный реферальный баланс отображается в личном кабинете. Его можно использовать для оплаты занятий
+          на Сайте (списание при оформлении заказа) либо запросить вывод на банковские реквизиты, указанные в личном
+          кабинете, при достижении минимальной суммы <strong>{PAYOUT_MIN_WITHDRAWAL_RUB} ₽</strong>. Вывод
+          осуществляется вручную Агентом в разумный срок после проверки заявки.
+        </p>
+        <p className="text-muted-foreground">
+          9.5. Агент вправе изменять условия реферальной программы, приостанавливать или прекращать её действие с
+          публикацией актуальных условий на Сайте. Начисления по заказам, оформленным до изменения условий, производятся
+          по правилам, действовавшим на момент оформления соответствующего заказа, если иное прямо не указано в
+          уведомлении об изменении.
+        </p>
+        <p className="text-muted-foreground">
+          9.6. Участие в программе не освобождает стороны от соблюдения законодательства РФ, в том числе налогового;
+          пользователь самостоятельно исполняет налоговые обязательства в отношении полученных выплат, если они
+          подлежат декларированию.
+        </p>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold">10. Прочие условия</h2>
+        <p className="text-muted-foreground">
+          10.1. Настоящая Оферта регулируется законодательством Российской Федерации (в том числе ст. 437, 438 ГК РФ,
+          Закон РФ «О защите прав потребителей» в части, применимой к договору возмездного оказания услуг).
+        </p>
+        <p className="text-muted-foreground">
+          10.2. Агент вправе в одностороннем порядке изменять условия Оферты с уведомлением на Сайте не менее чем за 3
           дня до вступления изменений в силу.
         </p>
         <p className="text-muted-foreground">
-          9.2. Все споры подлежат рассмотрению по месту регистрации Агента (Республика Коми, г. Сыктывкар, если иное не
+          10.3. Все споры подлежат рассмотрению по месту регистрации Агента (Республика Коми, г. Сыктывкар, если иное не
           установлено законом).
         </p>
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold">10. Реквизиты и контакты Агента</h2>
+        <h2 className="text-lg font-semibold">11. Реквизиты и контакты Агента</h2>
         <LegalRequisitesBlock />
       </section>
 

@@ -1,12 +1,12 @@
 /** Версия агентской оферты для инструкторов (акцепт в БД). */
-export const AGENCY_OFFER_VERSION = "2026-06-06";
+export const AGENCY_OFFER_VERSION = "2026-06-08";
 
 /** Дата редакции клиентской оферты (футер, /oferta). */
-export const CLIENT_OFFER_VERSION = "2026-06-06";
+export const CLIENT_OFFER_VERSION = "2026-06-08";
 
 export const PLATFORM_FEE_PERCENT = 15;
 
-/** Отмена клиентом: >24 ч — 100%, 2–24 ч — 50%, <2 ч — 0%. */
+/** До принятия инструктором — полный возврат; после принятия — невозвратно (refund-policy.ts). */
 export const CANCEL_CLIENT_FULL_REFUND_HOURS = 24;
 export const CANCEL_CLIENT_PARTIAL_REFUND_HOURS = 2;
 export const CANCEL_CLIENT_PARTIAL_PERCENT = 50;

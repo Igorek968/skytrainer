@@ -9,6 +9,8 @@ import {
   NPD_RECEIPT_DEADLINE_HOURS,
   PAYOUT_MIN_WITHDRAWAL_RUB,
   PLATFORM_FEE_PERCENT,
+  REFERRAL_MAX_ORDERS_PER_CLIENT,
+  REFERRAL_REWARD_RUB,
 } from "@/lib/legal-config";
 import { LEGAL_ROUTES } from "@/lib/legal";
 import { LEGAL_AGENT } from "@/lib/legal-entity";
@@ -77,7 +79,15 @@ export default function InstructorAgencyOfferPage() {
         <h2 className="text-lg font-semibold">4. Расчёты и выплаты</h2>
         <ul className="list-inside list-disc space-y-1 text-muted-foreground">
           <li>Оплата Клиентом — только через платформу.</li>
-          <li>Комиссия Агента: {PLATFORM_FEE_PERCENT}%.</li>
+          <li>
+            Комиссия Агента по занятиям: {PLATFORM_FEE_PERCENT}% от стоимости заказа (удерживается из суммы, оплаченной
+            Клиентом).
+          </li>
+          <li>
+            Комиссия Агента по мероприятиям: {PLATFORM_FEE_PERCENT}% от стоимости участия каждого клиента, оплатившего
+            запись после проведения мероприятия; Инструктору перечисляется {100 - PLATFORM_FEE_PERCENT}% от суммы
+            каждого такого участника.
+          </li>
           <li>Выплата Инструктору: {payoutHint}.</li>
           <li>Минимальная сумма к выводу: {PAYOUT_MIN_WITHDRAWAL_RUB} ₽ (на реквизиты в личном кабинете).</li>
           <li>
@@ -108,7 +118,19 @@ export default function InstructorAgencyOfferPage() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold">6. Персональные данные</h2>
+        <h2 className="text-lg font-semibold">6. Реферальная программа</h2>
+        <p className="text-muted-foreground">
+          Инструктор вправе участвовать в реферальной программе на условиях{" "}
+          <Link href={LEGAL_ROUTES.oferta} className="text-accent underline">
+            клиентской оферты
+          </Link>{" "}
+          (раздел 9): {REFERRAL_REWARD_RUB} ₽ за каждый из первых {REFERRAL_MAX_ORDERS_PER_CLIENT} завершённых
+          оплаченных заказов приглашённого клиента, вывод реферального баланса от {PAYOUT_MIN_WITHDRAWAL_RUB} ₽.
+        </p>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold">7. Персональные данные</h2>
         <p className="text-muted-foreground">
           Обработка данных Инструктора — в соответствии с{" "}
           <Link href={LEGAL_ROUTES.privacy} className="text-accent underline">
@@ -119,7 +141,7 @@ export default function InstructorAgencyOfferPage() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold">7. Реквизиты Агента</h2>
+        <h2 className="text-lg font-semibold">8. Реквизиты Агента</h2>
         <LegalRequisitesBlock />
       </section>
 
