@@ -1,7 +1,7 @@
 export const SUPPORT_TICKET_COOKIE = "skiinstruct_support_token";
 
-export function supportTelegramUrl(): string | null {
-  const u = process.env.NEXT_PUBLIC_SUPPORT_TELEGRAM_URL?.trim();
+export function supportMaxUrl(): string | null {
+  const u = process.env.NEXT_PUBLIC_SUPPORT_MAX_URL?.trim();
   return u || null;
 }
 
@@ -10,6 +10,9 @@ export function supportEmail(): string | null {
   return e || null;
 }
 
-export function isTelegramSupportConfigured(): boolean {
-  return Boolean(process.env.TELEGRAM_BOT_TOKEN?.trim() && process.env.TELEGRAM_SUPPORT_CHAT_ID?.trim());
+export function isMaxSupportConfigured(): boolean {
+  const token = process.env.MAX_BOT_TOKEN?.trim();
+  const dest =
+    process.env.MAX_SUPPORT_USER_ID?.trim() || process.env.MAX_SUPPORT_CHAT_ID?.trim();
+  return Boolean(token && dest);
 }

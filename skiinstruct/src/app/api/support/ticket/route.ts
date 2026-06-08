@@ -6,12 +6,8 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { appendUserSupportMessage } from "@/lib/support-service";
 import { ticketShortId } from "@/lib/support-ticket-access";
-import { isTelegramBridgeEnabled } from "@/lib/telegram-support";
-import {
-  SUPPORT_TICKET_COOKIE,
-  supportEmail,
-  supportTelegramUrl,
-} from "@/lib/support-config";
+import { isMaxBridgeEnabled } from "@/lib/max-support";
+import { SUPPORT_TICKET_COOKIE, supportEmail, supportMaxUrl } from "@/lib/support-config";
 
 export const dynamic = "force-dynamic";
 
@@ -59,8 +55,8 @@ function serializeTicket(
 
 function supportMetaResponse() {
   return {
-    telegramConfigured: isTelegramBridgeEnabled(),
-    telegramUrl: supportTelegramUrl(),
+    maxConfigured: isMaxBridgeEnabled(),
+    maxUrl: supportMaxUrl(),
     supportEmail: supportEmail(),
   };
 }

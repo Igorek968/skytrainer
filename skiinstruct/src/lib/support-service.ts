@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { sendSupportMessageToTelegram } from "@/lib/telegram-support";
+import { sendSupportMessageToMax } from "@/lib/max-support";
 import { ticketShortId } from "@/lib/support-ticket-access";
 
 export async function appendUserSupportMessage(
@@ -28,7 +28,7 @@ export async function appendUserSupportMessage(
   const email = ctx.guestEmail ?? "—";
   const label = ctx.userName || ctx.guestName || (ctx.userId ? "Пользователь" : "Гость");
 
-  const tg = await sendSupportMessageToTelegram({
+  const max = await sendSupportMessageToMax({
     ticketId,
     ticketShort: ticketShortId(ticketId),
     userLabel: label,
@@ -36,10 +36,10 @@ export async function appendUserSupportMessage(
     body,
   });
 
-  if (tg.ok) {
+  if (max.ok) {
     await prisma.supportMessage.update({
       where: { id: msg.id },
-      data: { telegramMessageId: tg.messageId },
+      data: { messengerMessageId: max.messageId },
     });
   }
 

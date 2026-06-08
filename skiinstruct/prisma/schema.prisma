@@ -700,13 +700,13 @@ model SupportMessage {
   authorRole SupportAuthorRole
   body       String          @db.Text
 
-  /// ID сообщения в Telegram (для ответа reply_to).
-  telegramMessageId BigInt?
+  /// ID сообщения в MAX (mid) для привязки ответа оператора (Reply).
+  messengerMessageId String?
 
   createdAt DateTime @default(now())
 
   @@index([ticketId, createdAt])
-  @@index([telegramMessageId])
+  @@index([messengerMessageId])
 }
 
 /// Начисление рефереру за завершённый оплаченный заказ приглашённого клиента.

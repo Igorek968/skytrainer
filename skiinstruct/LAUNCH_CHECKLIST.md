@@ -6,7 +6,7 @@
 
 - [ ] **ЮKassa** — см. `PAYMENTS_YOOKASSA.md` (shopId, ключ, webhook, return URL)
 - [ ] Отключить mock-оплату на проде: `ALLOW_MOCK_CHECKOUT=0`, реальные ключи
-- [ ] **Telegram поддержка** — `TELEGRAM_SUPPORT_CHAT_ID` = **ваш** numeric id (не id бота из токена), `docker compose up -d --force-recreate skiinstruct`
+- [ ] **MAX поддержка** — `MAX_BOT_TOKEN` + `MAX_SUPPORT_USER_ID` (или `MAX_SUPPORT_CHAT_ID`), `docker compose up -d --force-recreate skiinstruct`
 - [ ] **HTTPS** + `SKIINSTRUCT_AUTH_URL` / `SKIINSTRUCT_PUBLIC_APP_URL` = боевой домен
 - [ ] **Cron**: `GET /api/cron/expire-orders`, `lesson-reminders` с `SKIINSTRUCT_CRON_SECRET`
 
@@ -28,8 +28,8 @@
 
 ## Поддержка
 
-- [ ] `SUPPORT_SETUP.md` — Telegram webhook на HTTPS (ответы оператора Reply → веб-чат)
-- [ ] `NEXT_PUBLIC_SUPPORT_EMAIL`, `NEXT_PUBLIC_SUPPORT_TELEGRAM_URL`
+- [ ] `SUPPORT_SETUP.md` — MAX webhook на HTTPS (ответы оператора Reply → веб-чат)
+- [ ] `NEXT_PUBLIC_SUPPORT_EMAIL`, `NEXT_PUBLIC_SUPPORT_MAX_URL`
 
 ## Инфраструктура
 

@@ -141,7 +141,7 @@ export default function PrivacyPolicyPage() {
           писем (сброс пароля, уведомления).
         </p>
         <p className="text-muted-foreground">
-          6.5. <strong>Telegram</strong> (Bot API) — текст обращений в поддержку, email/имя пользователя при создании
+          6.5. <strong>MAX</strong> (Bot API) — текст обращений в поддержку, email/имя пользователя при создании
           тикета.
         </p>
         <p className="text-muted-foreground">
