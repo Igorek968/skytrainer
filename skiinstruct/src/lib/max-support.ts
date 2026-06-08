@@ -72,6 +72,7 @@ export async function sendSupportMessageToMax(input: {
     const mid = data.message?.body?.mid;
     if (!res.ok || !mid) {
       const err = data.message_text ?? data.code ?? `HTTP ${res.status}`;
+      console.error("[max support] send failed:", err, { dest, status: res.status });
       return { ok: false, error: err };
     }
     return { ok: true, messageId: mid };

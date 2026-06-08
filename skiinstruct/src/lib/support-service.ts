@@ -41,6 +41,8 @@ export async function appendUserSupportMessage(
       where: { id: msg.id },
       data: { messengerMessageId: max.messageId },
     });
+  } else {
+    console.error("[support] MAX bridge:", max.error);
   }
 
   return msg;
