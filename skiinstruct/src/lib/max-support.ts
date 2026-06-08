@@ -90,12 +90,24 @@ function replyAnchorMid(update: unknown): string | null {
   const text = msg?.body?.text?.trim();
   if (!text || !msg?.link) return null;
 
+  // MAX LinkedMessage: { type: "reply", message: { mid, text, seq } } — см. max-bot-api-client-ts
   const linked = msg.link;
-  return linked.message?.body?.mid ?? linked.body?.mid ?? linked.mid ?? null;
+  if (linked.type && linked.type !== "reply") return null;
+
+  return (
+    linked.message?.mid ??
+    linked.message?.body?.mid ??
+    linked.body?.mid ??
+    linked.mid ??
+    null
+  );
 }
 
 /** Обработка входящего update от MAX Bot API (webhook). */
 export async function handleMaxSupportUpdate(update: unknown): Promise<void> {
+  const u = update as MaxWebhookUpdate;
+  if (u.message?.sender?.is_bot) return;
+
   const repliedMid = replyAnchorMid(update);
   if (!repliedMid) return;
 
@@ -106,7 +118,10 @@ export async function handleMaxSupportUpdate(update: unknown): Promise<void> {
     where: { messengerMessageId: repliedMid },
     select: { ticketId: true },
   });
-  if (!anchor) return;
+  if (!anchor) {
+    console.warn("[max support] reply anchor not found for mid:", repliedMid);
+    return;
+  }
 
   await prisma.supportMessage.create({
     data: {
@@ -125,11 +140,13 @@ export async function handleMaxSupportUpdate(update: unknown): Promise<void> {
 type MaxWebhookUpdate = {
   update_type?: string;
   message?: {
+    sender?: { is_bot?: boolean };
     body?: { mid?: string; text?: string };
     link?: {
+      type?: string;
       mid?: string;
       body?: { mid?: string };
-      message?: { body?: { mid?: string } };
+      message?: { mid?: string; body?: { mid?: string } };
     };
   };
 };

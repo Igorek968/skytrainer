@@ -26,6 +26,10 @@ export async function POST(req: Request) {
   }
 
   try {
+    const u = update as { update_type?: string };
+    if (u.update_type === "message_created") {
+      console.info("[max webhook] message_created");
+    }
     await handleMaxSupportUpdate(update);
   } catch (e) {
     console.error("[max webhook]", e);
