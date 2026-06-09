@@ -22,6 +22,7 @@ import {
   instructorEtaDeadlineFromMinutes,
 } from "@/shared/lib/order-instructor-eta";
 import { clientCanRemoveOrderFromHistory } from "@/shared/lib/order-status";
+import { isMockCheckoutEnabled } from "@/lib/checkout-config";
 import { assertInstructorCanAcceptPaidOrders } from "@/lib/instructor-compliance";
 import { orderHasMeetAddress } from "@/shared/lib/order-meet-address";
 
@@ -292,7 +293,10 @@ export async function PATCH(req: Request, ctx: Ctx) {
     }
 
     if (action.action === "accept") {
-      if (order.paymentStatus === "PAID" || order.status === "PENDING_INSTRUCTOR") {
+      if (
+        !isMockCheckoutEnabled() &&
+        (order.paymentStatus === "PAID" || order.status === "PENDING_INSTRUCTOR")
+      ) {
         const complianceBlock = await assertInstructorCanAcceptPaidOrders(actor);
         if (complianceBlock) {
           return NextResponse.json({ error: complianceBlock }, { status: 403 });

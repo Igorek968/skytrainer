@@ -57,11 +57,17 @@ export function ClientOrderCheckoutDialog({ open, onOpenChange, instructor, onCr
     queryFn: async () => {
       const r = await fetch("/api/me/payment-method", { cache: "no-store" });
       if (!r.ok) throw new Error("card");
-      return r.json() as Promise<{ hasCard: boolean; brand: string | null; last4: string | null }>;
+      return r.json() as Promise<{
+        hasCard: boolean;
+        brand: string | null;
+        last4: string | null;
+        testCheckout?: boolean;
+      }>;
     },
     enabled: open && loggedInAsClient,
   });
   const hasCard = Boolean(cardQuery.data?.hasCard);
+  const testCheckout = Boolean(cardQuery.data?.testCheckout);
 
   useEffect(() => {
     if (!open || !instructor) {
@@ -337,7 +343,15 @@ export function ClientOrderCheckoutDialog({ open, onOpenChange, instructor, onCr
               </p>
             ) : null}
             <div className="rounded-md border border-border bg-muted/30 p-3 text-sm">
-              <p className="font-medium">Оплата картой (ЮKassa)</p>
+              <p className="font-medium">
+                {testCheckout ? "Тестовая оплата (без ЮKassa)" : "Оплата картой (ЮKassa)"}
+              </p>
+              {testCheckout ? (
+                <p className="mt-1 text-amber-900 dark:text-amber-100">
+                  Режим прогона: карта 4242 привязывается автоматически, оплата проходит без банка. Заявка сразу уйдёт
+                  инструктору с уведомлениями.
+                </p>
+              ) : null}
               {cardQuery.isLoading ? (
                 <p className="mt-1 text-muted-foreground">Проверяем привязку карты…</p>
               ) : hasCard ? (
@@ -347,8 +361,9 @@ export function ClientOrderCheckoutDialog({ open, onOpenChange, instructor, onCr
                 </p>
               ) : (
                 <p className="mt-1 text-muted-foreground">
-                  Карта не привязана. На следующем шаге откроется форма ЮKassa: привязка карты и оплата заказа. Без
-                  карты заказ инструктору не отправится.
+                  {testCheckout
+                    ? "Карта ещё не привязана — на следующем шаге подставится тестовая карта и оплата пройдёт сразу."
+                    : "Карта не привязана. На следующем шаге откроется форма ЮKassa: привязка карты и оплата заказа. Без карты заказ инструктору не отправится."}
                 </p>
               )}
               {estimatedTotal ? <p className="mt-2 text-xs">{estimatedTotal}</p> : null}

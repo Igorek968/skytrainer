@@ -251,11 +251,17 @@ function ClientOrderDetailContent({
     queryFn: async () => {
       const r = await fetch("/api/me/payment-method", { cache: "no-store" });
       if (!r.ok) throw new Error("card");
-      return r.json() as Promise<{ hasCard: boolean; brand: string | null; last4: string | null }>;
+      return r.json() as Promise<{
+        hasCard: boolean;
+        brand: string | null;
+        last4: string | null;
+        testCheckout?: boolean;
+      }>;
     },
     enabled: statusEarly === "AWAITING_PAYMENT",
   });
   const hasBoundCard = Boolean(cardStatus?.hasCard);
+  const testCheckout = Boolean(cardStatus?.testCheckout);
 
   const referralCreditApplied = Number(o.referralCreditAppliedRub ?? 0);
   const orderTotal = Number(o.amountTotal ?? 0);
@@ -507,16 +513,23 @@ function ClientOrderDetailContent({
             <CardTitle className="text-base">Оплата перед отправкой инструктору</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm text-muted-foreground">
-            <p>
-              Средства резервируются на стороне платформы. После успешной оплаты заявка уходит только выбранному
-              инструктору.
-              Комиссия сервиса уже учтена в сумме (15% от ставки за занятие); после того как инструктор отметит
-              урок выполненным, доля инструктора считается переданной за вычетом этой комиссии.
-            </p>
+            {testCheckout ? (
+              <p className="rounded-md border border-sky-500/40 bg-sky-500/10 px-3 py-2 text-sky-950 dark:text-sky-100">
+                Тестовый режим: оплата без ЮKassa, карта 4242 подставляется автоматически. После нажатия кнопки заявка
+                сразу уйдёт инструктору (всплывающее окно, push, email).
+              </p>
+            ) : (
+              <p>
+                Средства резервируются на стороне платформы. После успешной оплаты заявка уходит только выбранному
+                инструктору. Комиссия сервиса уже учтена в сумме (15% от ставки за занятие); после того как инструктор
+                отметит урок выполненным, доля инструктора считается переданной за вычетом этой комиссии.
+              </p>
+            )}
             {!hasBoundCard ? (
               <p className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-amber-900 dark:text-amber-100">
-                Банковская карта не привязана. Нажмите «Привязать карту и оплатить» — откроется форма ЮKassa. Без
-                карты заказ инструктору не отправится.
+                {testCheckout
+                  ? "Карта ещё не привязана — при оплате подставится тестовая карта автоматически."
+                  : "Банковская карта не привязана. Нажмите «Привязать карту и оплатить» — откроется форма ЮKassa. Без карты заказ инструктору не отправится."}
               </p>
             ) : (
               <p className="text-foreground">
@@ -585,7 +598,11 @@ function ClientOrderDetailContent({
                     payOrder.mutate({ bindAndPay: !hasBoundCard });
                   }}
                 >
-                  {hasBoundCard ? "Оплатить и отправить заявку" : "Привязать карту и оплатить"}
+                  {testCheckout
+                    ? "Тестовая оплата и отправка заявки"
+                    : hasBoundCard
+                      ? "Оплатить и отправить заявку"
+                      : "Привязать карту и оплатить"}
                 </Button>
               </div>
             ) : null}

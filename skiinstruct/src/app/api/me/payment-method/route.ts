@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { isApiErrorResponse, requireClientSession } from "@/lib/api-session";
+import { isMockCheckoutEnabled } from "@/lib/checkout-config";
 import { getClientCardStatus } from "@/lib/services/client-yookassa-card";
 
 export async function GET() {
@@ -11,5 +12,5 @@ export async function GET() {
   }
 
   const card = await getClientCardStatus(resolved.userId);
-  return NextResponse.json(card);
+  return NextResponse.json({ ...card, testCheckout: isMockCheckoutEnabled() });
 }
