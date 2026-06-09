@@ -390,7 +390,7 @@ export default function InstructorHomePage() {
   useEffect(() => {
     if (searchParams.get("applied") === "1") {
       toast.success(
-        "Заявка принята. Анкета на модерации — после одобрения администратором включите «онлайн» и принимайте заказы.",
+        "Заявка принята. Анкета на модерации — в поиске появитесь после одобрения. «Онлайн» можно включить уже сейчас.",
         { duration: 12_000 },
       );
       router.replace("/instructor", { scroll: false });

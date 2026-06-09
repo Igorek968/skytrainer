@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { isApiErrorResponse, requireInstructorSession } from "@/lib/api-session";
-import { assertInstructorCanAcceptPaidOrders } from "@/lib/instructor-compliance";
+import { ensureInstructorProfile } from "@/lib/instructor-profile-defaults";
 import { prisma } from "@/lib/prisma";
 
 const bodySchema = z.object({
@@ -26,22 +26,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
-  if (parsed.data.isOnline) {
-    const profile = await prisma.instructorProfile.findUnique({
-      where: { userId },
-      select: { verificationStatus: true },
-    });
-    if (!profile || profile.verificationStatus !== "APPROVED") {
-      return NextResponse.json(
-        { error: "Статус «онлайн» доступен после одобрения анкеты администратором" },
-        { status: 403 },
-      );
-    }
-    const complianceBlock = await assertInstructorCanAcceptPaidOrders(userId);
-    if (complianceBlock) {
-      return NextResponse.json({ error: complianceBlock }, { status: 403 });
-    }
-  }
+  await ensureInstructorProfile(userId);
 
   await prisma.instructorProfile.updateMany({
     where: { userId },

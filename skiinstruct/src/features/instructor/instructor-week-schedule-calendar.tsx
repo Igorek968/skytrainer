@@ -296,18 +296,22 @@ export function InstructorWeekScheduleCalendar({
                   type="button"
                   variant={effectiveOnline ? "default" : "outline"}
                   onClick={onToggleOnline}
-                  disabled={toggleOnlinePending || (!effectiveOnline && verificationStatus !== "APPROVED")}
+                  disabled={toggleOnlinePending}
                   aria-pressed={effectiveOnline}
                 >
                   {effectiveOnline ? "Онлайн" : "Офлайн"}
                 </Button>
                 {verificationStatus === "PENDING" ? (
                   <p className="text-sm text-amber-800 dark:text-amber-200">
-                    Анкета на проверке — «Онлайн» станет доступен после одобрения администратором.
+                    {effectiveOnline
+                      ? "Вы на линии. В поиске у клиентов появитесь после одобрения анкеты администратором."
+                      : "Включите «Онлайн» в любой момент. В поиске у клиентов — после одобрения анкеты."}
                   </p>
                 ) : verificationStatus === "REJECTED" ? (
                   <p className="text-sm text-destructive">
-                    Анкета отклонена — исправьте профиль и дождитесь повторного одобрения.
+                    {effectiveOnline
+                      ? "Вы на линии, но анкета отклонена — в поиске не показываетесь, пока админ не одобрит исправления."
+                      : "Анкета отклонена — исправьте профиль. «Онлайн» можно включить, в поиске появитесь после повторного одобрения."}
                   </p>
                 ) : (
                   <p className="text-sm text-muted-foreground">

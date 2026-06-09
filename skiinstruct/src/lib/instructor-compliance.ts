@@ -58,7 +58,7 @@ export async function getInstructorComplianceStatus(userId: string) {
 }
 
 export const COMPLIANCE_BLOCK_MESSAGE =
-  "Для приёма оплаченных заявок и статуса «онлайн» нужны: акцепт агентского договора, одобренные документы НПД/ИП и страхование. Загрузите их в разделе «Соответствие и выплаты».";
+  "Для приёма оплаченных заявок нужны: акцепт агентского договора, одобренные документы НПД/ИП и страхование. Загрузите их в разделе «Соответствие и выплаты».";
 
 export async function assertInstructorCanAcceptPaidOrders(userId: string): Promise<string | null> {
   const status = await getInstructorComplianceStatus(userId);
