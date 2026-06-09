@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { effectivePhotoGallery } from "@/lib/instructor-profile-photo-draft";
-import { computeComplianceFlags } from "@/lib/instructor-compliance";
 import { prisma } from "@/lib/prisma";
 import {
   parseSpecializationOffers,
@@ -131,32 +130,7 @@ export async function GET(req: Request) {
     },
   });
 
-  const instructorIds = instructors.map((u) => u.id);
-  const approvedComplianceDocs =
-    instructorIds.length > 0
-      ? await prisma.instructorComplianceDocument.findMany({
-          where: { userId: { in: instructorIds }, status: "APPROVED" },
-          select: { userId: true, type: true },
-        })
-      : [];
-  const complianceDocsByUser = new Map<string, Set<string>>();
-  for (const doc of approvedComplianceDocs) {
-    const set = complianceDocsByUser.get(doc.userId) ?? new Set<string>();
-    set.add(doc.type);
-    complianceDocsByUser.set(doc.userId, set);
-  }
-
-  const eligibleInstructors = instructors.filter((u) => {
-    const p = u.instructorProfile;
-    if (!p) return false;
-    return computeComplianceFlags({
-      agencyOfferAcceptedAt: p.agencyOfferAcceptedAt,
-      taxStatus: p.taxStatus,
-      approvedDocTypes: complianceDocsByUser.get(u.id) ?? new Set(),
-    }).canAcceptPaidOrders;
-  });
-
-  const withDistance = eligibleInstructors
+  const withDistance = instructors
     .map((u) => {
       const p = u.instructorProfile;
       if (!p) return null;
