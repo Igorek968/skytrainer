@@ -130,8 +130,10 @@ export async function startYooCardBinding(userId: string, returnUrl: string): Pr
   try {
     bind = await createYooKassaCardBinding(returnUrl);
   } catch (e) {
-    if (process.env.NODE_ENV === "production") throw e;
-    console.warn("[yookassa/bind] API error, dev mock fallback:", e);
+    if (process.env.NODE_ENV === "production" && process.env.ALLOW_MOCK_CHECKOUT !== "1") {
+      throw e;
+    }
+    console.warn("[yookassa/bind] API error, mock fallback:", e);
     await markMockCardBound(userId);
     const origin = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3001";
     return { url: `${origin}/client?card=mock` };

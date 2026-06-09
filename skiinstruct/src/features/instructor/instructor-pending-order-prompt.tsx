@@ -27,10 +27,13 @@ import { OrderLessonTimeBlock } from "@/shared/ui/order-lesson-time-block";
 import { orderHasMeetAddress, resolveMeetAddress } from "@/shared/lib/order-meet-address";
 import { orderStatusLabel } from "@/shared/lib/order-status";
 
+const RECENT_AUTO_ACCEPT_MS = 5 * 60 * 1000;
+
 type PendingOrderRow = {
   id: string;
   status: string;
   createdAt: string;
+  acceptedAt?: string | null;
   pendingExpiresAt: string | null;
   flexibleInstructorInvite?: boolean;
   urgentInvite?: boolean;
@@ -76,6 +79,26 @@ function notifyInstructorNewOrder(order: PendingOrderRow) {
   } catch {
     /* ignore */
   }
+}
+
+function orderNeedsInstructorAlert(o: PendingOrderRow): boolean {
+  if (o.status === "PENDING_INSTRUCTOR") {
+    const relaxed = orderRelaxedInstructorTiming(orderTimingInput(o));
+    const urgent = orderIsUrgent(orderTimingInput(o));
+    if (relaxed) return true;
+    if (urgent && o.pendingExpiresAt) {
+      const expMs = new Date(o.pendingExpiresAt).getTime();
+      return Number.isFinite(expMs) && expMs > Date.now();
+    }
+    if (!o.pendingExpiresAt) return true;
+    const expMs = new Date(o.pendingExpiresAt).getTime();
+    return Number.isFinite(expMs) && expMs > Date.now();
+  }
+  if (o.status === "ACCEPTED" && o.acceptedAt) {
+    const acceptedMs = new Date(o.acceptedAt).getTime();
+    return Number.isFinite(acceptedMs) && Date.now() - acceptedMs <= RECENT_AUTO_ACCEPT_MS;
+  }
+  return false;
 }
 
 function pickNewPendingOrder(
@@ -134,19 +157,7 @@ export function InstructorPendingOrderPrompt() {
     }
     const dismissed = dismissedRef.current;
 
-    const pending = orderAlerts.orders.filter((o) => {
-      if (o.status !== "PENDING_INSTRUCTOR") return false;
-      const relaxed = orderRelaxedInstructorTiming(orderTimingInput(o));
-      const urgent = orderIsUrgent(orderTimingInput(o));
-      if (relaxed) return true;
-      if (urgent && o.pendingExpiresAt) {
-        const expMs = new Date(o.pendingExpiresAt).getTime();
-        return Number.isFinite(expMs) && expMs > Date.now();
-      }
-      if (!o.pendingExpiresAt) return true;
-      const expMs = new Date(o.pendingExpiresAt).getTime();
-      return Number.isFinite(expMs) && expMs > Date.now();
-    });
+    const pending = orderAlerts.orders.filter(orderNeedsInstructorAlert);
 
     if (!initializedRef.current) {
       initializedRef.current = true;
@@ -174,8 +185,10 @@ export function InstructorPendingOrderPrompt() {
 
   const activeOrder =
     orderAlerts?.orders.find(
-      (o) => o.id === pendingPromptOrderId && o.status === "PENDING_INSTRUCTOR",
+      (o) => o.id === pendingPromptOrderId && orderNeedsInstructorAlert(o),
     ) ?? null;
+
+  const isAutoAccepted = activeOrder?.status === "ACCEPTED";
 
   const isUrgent = activeOrder ? orderIsUrgent(orderTimingInput(activeOrder)) : false;
   const relaxedTiming = activeOrder
@@ -300,8 +313,17 @@ export function InstructorPendingOrderPrompt() {
     >
       <div className="max-h-[min(92dvh,640px)] w-full max-w-xl overflow-y-auto rounded-lg border border-border bg-background p-4 shadow-xl">
         <h2 id="instructor-new-order-title" className="text-lg font-semibold">
-          {isUrgent ? "⚡ Срочная заявка" : "Новая заявка от клиента"}
+          {isAutoAccepted
+            ? "Новая заявка (запись на дату)"
+            : isUrgent
+              ? "⚡ Срочная заявка"
+              : "Новая заявка от клиента"}
         </h2>
+        {isAutoAccepted ? (
+          <p className="mt-1 text-sm text-muted-foreground">
+            Заявка принята автоматически — откройте заказ и уточните детали с клиентом.
+          </p>
+        ) : null}
         <p className="mt-1 text-sm text-muted-foreground">
           Клиент: {activeOrder.client?.name || "Без имени"}
         </p>
@@ -356,7 +378,7 @@ export function InstructorPendingOrderPrompt() {
           <OrderLessonTimeBlock order={activeOrder} timeClassName="font-medium" />
         </div>
 
-        {!skipsEta ? (
+        {!isAutoAccepted && !skipsEta ? (
           <div className="mt-4 space-y-2">
             <Label htmlFor="instructor-eta-minutes">Через сколько минут будете на месте встречи</Label>
             <Input
@@ -380,41 +402,59 @@ export function InstructorPendingOrderPrompt() {
               dismissedRef.current = readDismissedPendingPromptIds();
               setPendingPromptOrderId(null);
             }}
-            disabled={respond.isPending}
+            disabled={!isAutoAccepted && respond.isPending}
           >
             Позже
           </Button>
-          <Button
-            type="button"
-            variant="outline"
-            className="w-full sm:w-auto"
-            onClick={() => respond.mutate({ orderId: activeOrder.id, action: "reject" })}
-            disabled={respond.isPending}
-          >
-            Отклонить
-          </Button>
-          <Button
-            type="button"
-            variant="accent"
-            className="w-full sm:w-auto"
-            onClick={() =>
-              respond.mutate({
-                orderId: activeOrder.id,
-                action: "accept",
-                ...(skipsEta ? {} : { etaMinutes }),
-              })
-            }
-            disabled={
-              respond.isPending ||
-              !hasMeetPlace ||
-              (!relaxedTiming &&
-                !longEtaPending &&
-                pendingPromptSecondsLeft !== null &&
-                pendingPromptSecondsLeft <= 0)
-            }
-          >
-            Подтвердить и открыть заказ
-          </Button>
+          {isAutoAccepted ? (
+            <Button
+              type="button"
+              variant="accent"
+              className="w-full sm:w-auto"
+              onClick={() => {
+                dismissPendingPrompt(activeOrder.id);
+                dismissedRef.current = readDismissedPendingPromptIds();
+                setPendingPromptOrderId(null);
+                router.push(`/instructor/orders/${activeOrder.id}`);
+              }}
+            >
+              Открыть заказ
+            </Button>
+          ) : (
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full sm:w-auto"
+                onClick={() => respond.mutate({ orderId: activeOrder.id, action: "reject" })}
+                disabled={respond.isPending}
+              >
+                Отклонить
+              </Button>
+              <Button
+                type="button"
+                variant="accent"
+                className="w-full sm:w-auto"
+                onClick={() =>
+                  respond.mutate({
+                    orderId: activeOrder.id,
+                    action: "accept",
+                    ...(skipsEta ? {} : { etaMinutes }),
+                  })
+                }
+                disabled={
+                  respond.isPending ||
+                  !hasMeetPlace ||
+                  (!relaxedTiming &&
+                    !longEtaPending &&
+                    pendingPromptSecondsLeft !== null &&
+                    pendingPromptSecondsLeft <= 0)
+                }
+              >
+                Подтвердить и открыть заказ
+              </Button>
+            </>
+          )}
         </div>
       </div>
     </div>

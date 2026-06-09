@@ -346,7 +346,8 @@ function InstructorOrderDetailContent({
           </Button>
         ) : null}
 
-        {(safeStatus === "ACCEPTED" ||
+        {(safeStatus === "AWAITING_PAYMENT" ||
+          safeStatus === "ACCEPTED" ||
           safeStatus === "INSTRUCTOR_EN_ROUTE" ||
           safeStatus === "LESSON_STARTED") && (
           <CancelOrderButton orderId={id} disabled={patch.isPending} onCancelled={onRefresh} />

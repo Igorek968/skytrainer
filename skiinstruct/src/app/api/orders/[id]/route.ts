@@ -22,6 +22,7 @@ import {
   instructorEtaDeadlineFromMinutes,
 } from "@/shared/lib/order-instructor-eta";
 import { clientCanRemoveOrderFromHistory } from "@/shared/lib/order-status";
+import { assertInstructorCanAcceptPaidOrders } from "@/lib/instructor-compliance";
 import { orderHasMeetAddress } from "@/shared/lib/order-meet-address";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -64,9 +65,7 @@ export async function GET(_req: Request, ctx: Ctx) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
   const allowed =
-    order.clientId === uid ||
-    (order.instructorId === uid && order.status !== "AWAITING_PAYMENT") ||
-    role === "ADMIN";
+    order.clientId === uid || order.instructorId === uid || role === "ADMIN";
   if (!allowed) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
@@ -293,6 +292,12 @@ export async function PATCH(req: Request, ctx: Ctx) {
     }
 
     if (action.action === "accept") {
+      if (order.paymentStatus === "PAID" || order.status === "PENDING_INSTRUCTOR") {
+        const complianceBlock = await assertInstructorCanAcceptPaidOrders(actor);
+        if (complianceBlock) {
+          return NextResponse.json({ error: complianceBlock }, { status: 403 });
+        }
+      }
       if (!orderHasMeetAddress(order)) {
         return NextResponse.json(
           { error: "Нельзя принять заявку: клиент не указал место встречи." },

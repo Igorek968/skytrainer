@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { isApiErrorResponse, requireInstructorSession } from "@/lib/api-session";
+import { assertInstructorCanAcceptPaidOrders } from "@/lib/instructor-compliance";
 import { prisma } from "@/lib/prisma";
 
 const bodySchema = z.object({
@@ -35,6 +36,10 @@ export async function POST(req: Request) {
         { error: "Статус «онлайн» доступен после одобрения анкеты администратором" },
         { status: 403 },
       );
+    }
+    const complianceBlock = await assertInstructorCanAcceptPaidOrders(userId);
+    if (complianceBlock) {
+      return NextResponse.json({ error: complianceBlock }, { status: 403 });
     }
   }
 

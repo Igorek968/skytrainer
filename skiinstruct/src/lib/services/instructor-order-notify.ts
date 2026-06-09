@@ -226,6 +226,7 @@ export async function notifyInstructorOfPendingOrder(orderId: string): Promise<b
 
   const from =
     process.env.SMTP_FROM?.trim() ||
+    process.env.SKIINSTRUCT_SMTP_FROM?.trim() ||
     process.env.PASSWORD_RESET_EMAIL_FROM?.trim() ||
     `${appName} <noreply@localhost>`;
 

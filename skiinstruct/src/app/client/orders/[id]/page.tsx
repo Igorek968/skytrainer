@@ -11,7 +11,7 @@ import { CancelOrderButton, ClaimLateRefundButton } from "@/features/orders/canc
 import { LEGAL_ROUTES } from "@/lib/legal";
 import { clearFormDraft, readFormDraft, saveFormDraft } from "@/lib/form-draft-storage";
 import { INSTRUCTOR_LATE_GRACE_MINUTES } from "@/lib/legal-config";
-import { redirectToOrderCheckout } from "@/lib/payments/redirect-to-checkout";
+import { redirectToOrderCheckout, syncYooOrderPayment } from "@/lib/payments/redirect-to-checkout";
 import { devPollInterval } from "@/lib/query-poll";
 import { NearbyMapLazy } from "@/features/map/map-loader";
 import {
@@ -900,18 +900,39 @@ export default function ClientOrderPage() {
     const paid = searchParams.get("paid");
     if (paid === "1") {
       paidToastShown.current = true;
-      toast.success(
-        searchParams.get("mock")
-          ? "Тестовая оплата прошла — заявка отправлена инструктору"
-          : "Оплата прошла — заявка отправлена инструктору",
-      );
-      router.replace(`/client/orders/${id}`, { scroll: false });
+      const isMock = Boolean(searchParams.get("mock"));
+      const isBalance = Boolean(searchParams.get("balance"));
+      const isAutopay = Boolean(searchParams.get("autopay"));
+      void (async () => {
+        if (!isMock && !isBalance && !isAutopay) {
+          try {
+            const synced = await syncYooOrderPayment(id);
+            await qc.invalidateQueries({ queryKey: ["order", id] });
+            await qc.invalidateQueries({ queryKey: ["orders"] });
+            if (!synced.paid) {
+              toast.message("Оплата ещё обрабатывается. Обновите страницу через минуту.");
+              router.replace(`/client/orders/${id}`, { scroll: false });
+              return;
+            }
+          } catch {
+            toast.message("Не удалось подтвердить оплату. Обновите страницу через минуту.");
+            router.replace(`/client/orders/${id}`, { scroll: false });
+            return;
+          }
+        }
+        toast.success(
+          isMock
+            ? "Тестовая оплата прошла — заявка отправлена инструктору"
+            : "Оплата прошла — заявка отправлена инструктору",
+        );
+        router.replace(`/client/orders/${id}`, { scroll: false });
+      })();
     } else if (paid === "0") {
       paidToastShown.current = true;
       toast.message("Оплата не завершена");
       router.replace(`/client/orders/${id}`, { scroll: false });
     }
-  }, [searchParams, id, router]);
+  }, [searchParams, id, router, qc]);
 
   useEffect(() => {
     if (autoPayStarted.current) return;

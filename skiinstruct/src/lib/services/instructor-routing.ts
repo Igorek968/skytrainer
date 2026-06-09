@@ -160,7 +160,7 @@ export async function assignInstructorByQueue(orderId: string, reason: "initial"
   }
 
   if (result?.status === "PENDING_INSTRUCTOR") {
-    void notifyInstructorOfPendingOrder(orderId);
+    await notifyInstructorOfPendingOrder(orderId);
     await autoAcceptOrderIfScheduled(orderId);
     const accepted = await prisma.order.findUnique({ where: { id: orderId } });
     if (accepted?.status === "ACCEPTED") {

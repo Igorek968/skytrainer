@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
+  FileText,
   Home,
   LayoutDashboard,
   LineChart,
@@ -35,6 +36,7 @@ const nav = [
   { href: "/admin/orders", label: "Заказы", icon: ListOrdered },
   { href: "/admin/users", label: "Пользователи", icon: Users },
   { href: "/admin/moderation", label: "Модерация", icon: ShieldCheck },
+  { href: "/admin/compliance", label: "Агентский договор", icon: FileText },
 ] as const;
 
 function SidebarSkeleton() {

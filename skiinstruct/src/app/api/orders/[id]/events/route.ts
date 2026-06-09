@@ -41,9 +41,7 @@ export async function GET(_req: Request, ctx: Ctx) {
   }
 
   const allowed =
-    order.clientId === uid ||
-    (order.instructorId === uid && order.status !== "AWAITING_PAYMENT") ||
-    role === "ADMIN";
+    order.clientId === uid || order.instructorId === uid || role === "ADMIN";
   if (!allowed) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }

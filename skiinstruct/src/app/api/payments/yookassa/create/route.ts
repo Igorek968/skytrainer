@@ -87,26 +87,27 @@ export async function POST(req: Request) {
       return NextResponse.json({ url: `${returnUrl}&balance=1` });
     }
 
-    if (!isYooKassaConfigured()) {
-      if (isMockCheckoutEnabled()) {
-        if (!hasCard && bindAndPay) {
-          await markMockCardBound(resolved.userId);
-        }
-        if (!(await clientHasBoundCard(resolved.userId))) {
-          return NextResponse.json(
-            { error: "Сначала привяжите карту", code: "CARD_NOT_BOUND" },
-            { status: 403 },
-          );
-        }
-        const mockPaymentId = `mock_yoo_${order.id.slice(0, 12)}_${Date.now()}`;
-        await completeOrderPrepayment({
-          orderId: order.id,
-          paymentMethod: "CARD",
-          yookassaPaymentId: mockPaymentId,
-          paymentRecordAmount: amountRub,
-        });
-        return NextResponse.json({ url: `${returnUrl}&mock=1` });
+    if (isMockCheckoutEnabled()) {
+      if (!hasCard && bindAndPay) {
+        await markMockCardBound(resolved.userId);
       }
+      if (!(await clientHasBoundCard(resolved.userId))) {
+        return NextResponse.json(
+          { error: "Сначала привяжите карту", code: "CARD_NOT_BOUND" },
+          { status: 403 },
+        );
+      }
+      const mockPaymentId = `mock_yoo_${order.id.slice(0, 12)}_${Date.now()}`;
+      await completeOrderPrepayment({
+        orderId: order.id,
+        paymentMethod: "CARD",
+        yookassaPaymentId: mockPaymentId,
+        paymentRecordAmount: amountRub,
+      });
+      return NextResponse.json({ url: `${returnUrl}&mock=1` });
+    }
+
+    if (!isYooKassaConfigured()) {
       return NextResponse.json(
         { error: "ЮKassa не настроена", code: "NOT_CONFIGURED" },
         { status: 503 },
@@ -145,8 +146,10 @@ export async function POST(req: Request) {
         });
       }
     } catch (yooErr) {
-      if (process.env.NODE_ENV === "production") throw yooErr;
-      console.warn("[yookassa/create] API error, dev mock fallback:", yooErr);
+      if (process.env.NODE_ENV === "production" && process.env.ALLOW_MOCK_CHECKOUT !== "1") {
+        throw yooErr;
+      }
+      console.warn("[yookassa/create] API error, mock fallback:", yooErr);
       if (!hasCard && bindAndPay) {
         await markMockCardBound(resolved.userId);
       }

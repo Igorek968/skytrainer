@@ -11,9 +11,7 @@ async function assertOrderAccess(orderId: string, userId: string, role: string) 
   const order = await prisma.order.findUnique({ where: { id: orderId } });
   if (!order) return null;
   const ok =
-    order.clientId === userId ||
-    (order.instructorId === userId && order.status !== "AWAITING_PAYMENT") ||
-    role === "ADMIN";
+    order.clientId === userId || order.instructorId === userId || role === "ADMIN";
   return ok ? order : null;
 }
 

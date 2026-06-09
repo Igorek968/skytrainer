@@ -61,6 +61,34 @@ export async function redirectToYooCardBinding(returnUrl?: string): Promise<void
   window.location.href = j.url;
 }
 
+/** После return_url от ЮKassa — подтянуть статус оплаты заказа (если webhook не дошёл). */
+export async function syncYooOrderPayment(orderId: string): Promise<{
+  paid: boolean;
+  routed: boolean;
+  status: string | null;
+}> {
+  const r = await fetch("/api/payments/yookassa/sync-order", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ orderId }),
+  });
+  const j = (await r.json().catch(() => ({}))) as {
+    paid?: boolean;
+    routed?: boolean;
+    status?: string | null;
+    error?: string;
+  };
+  if (!r.ok) {
+    throw new Error(typeof j.error === "string" ? j.error : "Не удалось проверить оплату");
+  }
+  return {
+    paid: Boolean(j.paid),
+    routed: Boolean(j.routed),
+    status: j.status ?? null,
+  };
+}
+
 /** После return_url от ЮKassa — подтянуть статус привязки (если webhook не дошёл). */
 export async function syncYooCardBinding(): Promise<{ hasCard: boolean }> {
   const r = await fetch("/api/payments/yookassa/sync-card", {
