@@ -21,6 +21,7 @@
     "db:bootstrap-admin": "tsx prisma/bootstrap-admin.ts",
     "db:backfill-instructor-profiles": "tsx scripts/backfill-instructor-profiles.ts",
     "export:agency-registry": "tsx scripts/export-agency-registry.ts",
+    "export:yookassa-package": "tsx scripts/export-yookassa-package.ts",
     "db:studio": "prisma studio",
     "postinstall": "prisma generate"
   },

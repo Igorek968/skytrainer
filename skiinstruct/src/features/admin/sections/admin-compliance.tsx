@@ -8,6 +8,7 @@ import {
   useAdminComplianceReviewMutation,
   useAdminPendingCompliance,
 } from "@/features/admin/use-admin-compliance";
+import { AdminYookassaExportCard } from "@/features/admin/admin-yookassa-export-card";
 import { complianceDocTypeLabel } from "@/lib/instructor-agency-registry";
 import { LEGAL_ROUTES } from "@/lib/legal";
 import { publicUploadDisplaySrc } from "@/lib/public-uploads-display";
@@ -36,6 +37,8 @@ export function AdminComplianceSection() {
 
   return (
     <div className="space-y-6">
+      <AdminYookassaExportCard />
+
       <Card>
         <CardHeader>
           <CardTitle>Документы для проверяющих</CardTitle>

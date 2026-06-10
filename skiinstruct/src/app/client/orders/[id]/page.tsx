@@ -9,6 +9,8 @@ import { toast } from "sonner";
 import { OrderChat } from "@/features/chat/order-chat";
 import { CancelOrderButton, ClaimLateRefundButton } from "@/features/orders/cancel-order-button";
 import { LEGAL_ROUTES } from "@/lib/legal";
+import { InstructorServiceExecutorNotice } from "@/shared/legal/instructor-service-executor-notice";
+import type { InstructorTaxStatus } from "@prisma/client";
 import { clearFormDraft, readFormDraft, saveFormDraft } from "@/lib/form-draft-storage";
 import { INSTRUCTOR_LATE_GRACE_MINUTES } from "@/lib/legal-config";
 import { redirectToOrderCheckout, syncYooOrderPayment } from "@/lib/payments/redirect-to-checkout";
@@ -80,6 +82,7 @@ type OrderDTO = Order & {
       lat: number | null;
       lng: number | null;
       hourlyRate: unknown;
+      taxStatus?: InstructorTaxStatus | null;
       specializations?: string[];
     } | null;
   } | null;
@@ -512,7 +515,11 @@ function ClientOrderDetailContent({
           <CardHeader>
             <CardTitle className="text-base">Оплата перед отправкой инструктору</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2 text-sm text-muted-foreground">
+          <CardContent className="space-y-3 text-sm text-muted-foreground">
+            <InstructorServiceExecutorNotice
+              instructorName={o.instructor?.name ?? null}
+              taxStatus={o.instructor?.instructorProfile?.taxStatus}
+            />
             {testCheckout ? (
               <p className="rounded-md border border-sky-500/40 bg-sky-500/10 px-3 py-2 text-sky-950 dark:text-sky-100">
                 Тестовый режим: оплата без ЮKassa, карта 4242 подставляется автоматически. После нажатия кнопки заявка

@@ -185,6 +185,7 @@ export async function GET(req: Request) {
       return {
         id: u.id,
         name: u.name,
+        taxStatus: p.taxStatus,
         image: u.image,
         photoUrl: listPhotoUrl,
         age: p.age,

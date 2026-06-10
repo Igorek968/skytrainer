@@ -132,6 +132,7 @@ export async function GET(req: Request, ctx: Ctx) {
         legalInfo: instructor.instructorProfile.legalInfo,
         videoVisitUrl: instructor.instructorProfile.videoVisitUrl,
         hourlyRate,
+        taxStatus: instructor.instructorProfile.taxStatus,
         ratingAvg: instructor.instructorProfile.ratingAvg,
         reviewCount: instructor.instructorProfile.reviewCount,
       },

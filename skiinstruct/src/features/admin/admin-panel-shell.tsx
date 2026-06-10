@@ -36,7 +36,7 @@ const nav = [
   { href: "/admin/orders", label: "Заказы", icon: ListOrdered },
   { href: "/admin/users", label: "Пользователи", icon: Users },
   { href: "/admin/moderation", label: "Модерация", icon: ShieldCheck },
-  { href: "/admin/compliance", label: "Агентский договор", icon: FileText },
+  { href: "/admin/compliance", label: "ЮKassa / договор", icon: FileText },
 ] as const;
 
 function SidebarSkeleton() {

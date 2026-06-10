@@ -10,6 +10,8 @@ import { ChevronDown, Star, Award, ShieldCheck, CalendarDays, Languages } from "
 
 import { PersonalDataDialog } from "@/features/client/personal-data-dialog";
 import { ClientOrderCheckoutDialog } from "@/features/client/client-order-checkout-dialog";
+import type { ClientCheckoutInstructorSummary } from "@/lib/client-checkout-instructor";
+import type { InstructorTaxStatus } from "@prisma/client";
 import { ClientEventsFeed } from "@/features/orders/client-events-feed";
 import { GeolocationPermissionDialog } from "@/features/map/geolocation-permission-dialog";
 import { MeetAddressSearch } from "@/features/map/meet-address-search";
@@ -66,6 +68,7 @@ type NearbyResponse = {
   instructors: {
     id: string;
     name: string | null;
+    taxStatus?: InstructorTaxStatus | null;
     image: string | null;
     photoUrl?: string | null;
     age?: number | null;
@@ -105,6 +108,7 @@ type InstructorProfileResponse = {
       sportsExperienceYears: number | null;
       totalLessons: number | null;
       hourlyRate: number;
+      taxStatus?: InstructorTaxStatus | null;
       ratingAvg: number;
       reviewCount: number;
     };
@@ -422,9 +426,7 @@ function ResumeCheckoutFromQuery({
 }: {
   data: NearbyResponse | undefined;
   setSelectedId: Dispatch<SetStateAction<string | null>>;
-  setCheckoutInstructor: Dispatch<
-    SetStateAction<{ id: string; name: string | null; hourlyRate: number } | null>
-  >;
+  setCheckoutInstructor: Dispatch<SetStateAction<ClientCheckoutInstructorSummary | null>>;
   setCheckoutOpen: Dispatch<SetStateAction<boolean>>;
 }) {
   const searchParams = useSearchParams();
@@ -466,6 +468,7 @@ function ResumeCheckoutFromQuery({
       id: pending.instructorId,
       name: row?.name ?? pending.instructorName,
       hourlyRate: row?.hourlyRate ?? pending.hourlyRate,
+      taxStatus: row?.taxStatus ?? pending.taxStatus ?? null,
     });
     setCheckoutOpen(true);
     clearPendingCheckout();
@@ -482,9 +485,7 @@ function ResumeCheckoutFromDraft({
   setCheckoutOpen,
 }: {
   setSelectedId: Dispatch<SetStateAction<string | null>>;
-  setCheckoutInstructor: Dispatch<
-    SetStateAction<{ id: string; name: string | null; hourlyRate: number } | null>
-  >;
+  setCheckoutInstructor: Dispatch<SetStateAction<ClientCheckoutInstructorSummary | null>>;
   setCheckoutOpen: Dispatch<SetStateAction<boolean>>;
 }) {
   const searchParams = useSearchParams();
@@ -498,6 +499,7 @@ function ResumeCheckoutFromDraft({
       id: draft.instructorId,
       name: draft.instructorName,
       hourlyRate: draft.hourlyRate,
+      taxStatus: draft.taxStatus ?? null,
     });
     setCheckoutOpen(true);
   }, [searchParams, setSelectedId, setCheckoutInstructor, setCheckoutOpen]);
@@ -541,11 +543,7 @@ export default function ClientHomePage() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
-  const [checkoutInstructor, setCheckoutInstructor] = useState<{
-    id: string;
-    name: string | null;
-    hourlyRate: number;
-  } | null>(null);
+  const [checkoutInstructor, setCheckoutInstructor] = useState<ClientCheckoutInstructorSummary | null>(null);
   const [showAdvancedParams, setShowAdvancedParams] = useState(false);
   const [personalOpen, setPersonalOpen] = useState(false);
   const [scheduleConflictOpen, setScheduleConflictOpen] = useState(false);
@@ -916,15 +914,17 @@ export default function ClientHomePage() {
     const row = data?.instructors.find((i) => i.id === targetInstructorId);
     const rate = row?.hourlyRate ?? expandedProfile?.instructor.profile.hourlyRate;
     const rateNum = typeof rate === "number" ? rate : Number(rate);
-    const summary = {
+    const summary: ClientCheckoutInstructorSummary = {
       id: targetInstructorId,
       name: row?.name ?? expandedProfile?.instructor.name ?? null,
       hourlyRate: Number.isFinite(rateNum) ? rateNum : 0,
+      taxStatus: row?.taxStatus ?? expandedProfile?.instructor.profile.taxStatus ?? null,
     };
     savePendingCheckout({
       instructorId: summary.id,
       instructorName: summary.name,
       hourlyRate: summary.hourlyRate,
+      taxStatus: summary.taxStatus,
     });
     setCheckoutInstructor(summary);
     setCheckoutOpen(true);

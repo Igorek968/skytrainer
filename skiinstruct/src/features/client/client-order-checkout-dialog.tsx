@@ -13,22 +13,18 @@ import {
   readClientCheckoutDraft,
   saveClientCheckoutDraft,
 } from "@/lib/client-checkout-draft";
+import type { ClientCheckoutInstructorSummary } from "@/lib/client-checkout-instructor";
 import { CLIENT_BOOKING_RETURN_PATH } from "@/lib/client-pending-checkout";
 import { LEGAL_ROUTES } from "@/lib/legal";
+import { InstructorServiceExecutorNotice } from "@/shared/legal/instructor-service-executor-notice";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
 
-type InstructorSummary = {
-  id: string;
-  name: string | null;
-  hourlyRate: number;
-};
-
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  instructor: InstructorSummary | null;
+  instructor: ClientCheckoutInstructorSummary | null;
   /** Создать заказ AWAITING_PAYMENT; вернуть id заказа */
   onCreateOrder: () => Promise<string | null>;
 };
@@ -109,6 +105,7 @@ export function ClientOrderCheckoutDialog({ open, onOpenChange, instructor, onCr
       instructorId: instructor.id,
       instructorName: instructor.name,
       hourlyRate: instructor.hourlyRate,
+      taxStatus: instructor.taxStatus ?? null,
       step: step === "wrongRole" ? "wrongRole" : step === "pay" ? "pay" : "account",
       authMode,
       email,
@@ -216,9 +213,11 @@ export function ClientOrderCheckoutDialog({ open, onOpenChange, instructor, onCr
         <h2 id="client-checkout-title" className="text-lg font-semibold tracking-tight">
           Оформление занятия
         </h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Инструктор: <span className="font-medium text-foreground">{instructor.name ?? "—"}</span>
-        </p>
+        <InstructorServiceExecutorNotice
+          className="mt-3"
+          instructorName={instructor.name}
+          taxStatus={instructor.taxStatus}
+        />
 
         {step === "account" ? (
           <form className="mt-4 space-y-3" onSubmit={(e) => void submitAccount(e)}>
@@ -337,6 +336,13 @@ export function ClientOrderCheckoutDialog({ open, onOpenChange, instructor, onCr
 
         {step === "pay" ? (
           <div className="mt-4 space-y-4">
+            <p className="text-xs text-muted-foreground">
+              Оплачивая заказ, вы заключаете договор с инструктором на занятие после его принятия заявки (п. 2.4–2.5{" "}
+              <Link className="text-accent underline" href={LEGAL_ROUTES.oferta}>
+                оферты
+              </Link>
+              ).
+            </p>
             {loggedInAsClient ? (
               <p className="text-sm text-muted-foreground">
                 Вы вошли как <span className="font-medium text-foreground">{session?.user?.email ?? "клиент"}</span>
