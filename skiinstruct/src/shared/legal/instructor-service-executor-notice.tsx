@@ -1,6 +1,6 @@
 import { instructorTaxStatusPublicLabel } from "@/lib/instructor-tax-status-label";
 import type { InstructorTaxStatus } from "@prisma/client";
-import { cn } from "@/shared/lib/utils";
+import { cn } from "@/lib/utils";
 
 type Props = {
   instructorName: string | null;
