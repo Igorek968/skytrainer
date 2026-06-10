@@ -3,7 +3,6 @@
 import { hasYandexMapsKey } from "@/features/map/yandex-maps-api";
 import { NearbyMap } from "@/features/map/nearby-map";
 import { YandexBookingMap, type BookingMapProps } from "@/features/map/yandex-booking-map";
-
 export type { BookingMapProps };
 
 /** Карта заказа: Яндекс.Карты при наличии ключа, иначе OpenStreetMap (Leaflet). */

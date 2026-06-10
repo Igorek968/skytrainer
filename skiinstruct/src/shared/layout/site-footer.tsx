@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { CLIENT_OFFER_VERSION } from "@/lib/legal-config";
+import { CLIENT_OFFER_VERSION, LEGAL_PLATFORM_NAME } from "@/lib/legal-config";
 import { LEGAL_AGENT } from "@/lib/legal-entity";
 import { LEGAL_ROUTES } from "@/lib/legal";
 import { SupportLauncher } from "@/features/support/support-launcher";
@@ -48,8 +48,12 @@ export function SiteFooter() {
             {LEGAL_AGENT.email}
           </a>
         </p>
+        <p className="text-[11px] leading-relaxed text-muted-foreground/90">
+          © 2026{new Date().getFullYear() > 2026 ? `–${new Date().getFullYear()}` : ""} {LEGAL_AGENT.shortName}.{" "}
+          {LEGAL_PLATFORM_NAME} — информационный сервис; услуги обучения оказывают инструкторы-партнёры (НПД/ИП).
+        </p>
         <p className="text-[11px] text-muted-foreground/90">
-          Версия агентской оферты от {formatOfferVersionDate(CLIENT_OFFER_VERSION)}
+          Версия оферты от {formatOfferVersionDate(CLIENT_OFFER_VERSION)}
         </p>
       </div>
     </footer>

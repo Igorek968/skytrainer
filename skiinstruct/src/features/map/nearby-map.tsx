@@ -7,6 +7,7 @@ import L from "leaflet";
 import { useEffect } from "react";
 
 import { LocateMeControl } from "@/features/map/locate-me-control";
+import { MapLegalStrip } from "@/shared/legal/map-legal-strip";
 import {
   buildInstructorBalloonHtml,
   createInstructorLeafletIcon,
@@ -107,7 +108,8 @@ export function NearbyMap({
   interactive: boolean;
 }) {
   return (
-    <div className={cn("relative z-0 h-[320px] w-full overflow-hidden rounded-lg md:h-[420px]", className)}>
+    <div className={cn("w-full overflow-hidden rounded-lg border border-border", className)}>
+      <div className="relative z-0 h-[320px] w-full md:h-[420px]">
       {interactive && onLocateMe ? <LocateMeControl onLocate={onLocateMe} /> : null}
       <MapContainer
         center={center}
@@ -170,6 +172,8 @@ export function NearbyMap({
           );
         })}
       </MapContainer>
+      </div>
+      <MapLegalStrip />
     </div>
   );
 }

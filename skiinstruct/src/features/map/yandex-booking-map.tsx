@@ -11,6 +11,7 @@ import {
   instructorYandexPlacemarkOptions,
   type InstructorMapPin,
 } from "@/features/map/instructor-map-marker";
+import { MapLegalStrip } from "@/shared/legal/map-legal-strip";
 import {
   loadYandexMaps,
   type YmapsCollection,
@@ -275,14 +276,17 @@ export function YandexBookingMap({
   }
 
   return (
-    <div className={cn("relative z-0 h-[320px] w-full overflow-hidden rounded-lg md:h-[420px]", className)}>
-      {!mapReady ? <Skeleton className="absolute inset-0 z-0 h-full w-full rounded-lg" /> : null}
-      {interactive && onLocateMe ? <LocateMeControl onLocate={onLocateMe} /> : null}
-      <div
-        ref={containerRef}
-        className="h-full w-full"
-        aria-label="Яндекс.Карта — место встречи и инструкторы"
-      />
+    <div className={cn("w-full overflow-hidden rounded-lg border border-border", className)}>
+      <div className="relative z-0 h-[320px] w-full md:h-[420px]">
+        {!mapReady ? <Skeleton className="absolute inset-0 z-0 h-full w-full" /> : null}
+        {interactive && onLocateMe ? <LocateMeControl onLocate={onLocateMe} /> : null}
+        <div
+          ref={containerRef}
+          className="h-full w-full"
+          aria-label="Яндекс.Карта — место встречи и инструкторы"
+        />
+      </div>
+      <MapLegalStrip />
     </div>
   );
 }
