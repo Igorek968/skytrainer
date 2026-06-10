@@ -1,8 +1,8 @@
 /** Версия агентской оферты для инструкторов (акцепт в БД). */
-export const AGENCY_OFFER_VERSION = "2026-06-08";
+export const AGENCY_OFFER_VERSION = "2026-06-11";
 
 /** Дата редакции клиентской оферты (футер, /oferta). */
-export const CLIENT_OFFER_VERSION = "2026-06-10";
+export const CLIENT_OFFER_VERSION = "2026-06-11";
 
 export const PLATFORM_FEE_PERCENT = 15;
 

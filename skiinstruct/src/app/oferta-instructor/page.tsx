@@ -118,7 +118,29 @@ export default function InstructorAgencyOfferPage() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold">6. Реферальная программа</h2>
+        <h2 className="text-lg font-semibold">6. Ответственность и риски</h2>
+        <ul className="list-inside list-disc space-y-1 text-muted-foreground">
+          <li>
+            Инструктор лично оказывает Услугу Клиенту и несёт ответственность за её качество, соблюдение техники
+            безопасности и законодательства.
+          </li>
+          <li>
+            Горные лыжи и сноуборд связаны с риском травм. Инструктор обязан предупреждать Клиента о рисках и обеспечивать
+            разумные меры безопасности в рамках занятия.
+          </li>
+          <li>
+            Агент не несёт ответственности за травмы, вред здоровью и иные последствия занятия; претензии по существу
+            услуги — к Инструктору. Агент содействует в коммуникации и расчётах в рамках Платформы.
+          </li>
+          <li>
+            Страхование ответственности (раздел 3) не освобождает Инструктора от обязанностей перед Клиентом и не
+            переводит ответственность на Агента.
+          </li>
+        </ul>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold">7. Реферальная программа</h2>
         <p className="text-muted-foreground">
           Инструктор вправе участвовать в реферальной программе на условиях{" "}
           <Link href={LEGAL_ROUTES.oferta} className="text-accent underline">
@@ -130,7 +152,7 @@ export default function InstructorAgencyOfferPage() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold">7. Персональные данные</h2>
+        <h2 className="text-lg font-semibold">8. Персональные данные</h2>
         <p className="text-muted-foreground">
           Обработка данных Инструктора — в соответствии с{" "}
           <Link href={LEGAL_ROUTES.privacy} className="text-accent underline">
@@ -141,7 +163,7 @@ export default function InstructorAgencyOfferPage() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold">8. Реквизиты Агента</h2>
+        <h2 className="text-lg font-semibold">9. Реквизиты Агента</h2>
         <LegalRequisitesBlock />
       </section>
 
