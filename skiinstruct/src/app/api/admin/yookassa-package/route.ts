@@ -41,7 +41,7 @@ export async function GET(req: Request) {
   if (format === "zip") {
     const pkg = await buildYookassaPackageFiles(options);
     const zip = buildZipStore(pkg.files.map((f) => ({ name: f.name, content: f.content })));
-    return new NextResponse(zip, {
+    return new NextResponse(new Uint8Array(zip), {
       headers: {
         "Content-Type": "application/zip",
         "Content-Disposition": `attachment; filename="yookassa-paket-${stamp}.zip"`,
