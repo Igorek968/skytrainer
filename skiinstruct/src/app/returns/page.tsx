@@ -2,13 +2,21 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import {
-  CLIENT_OFFER_VERSION,
   EVENT_CANCEL_FULL_REFUND_HOURS,
+  formatLegalEditionDate,
   INSTRUCTOR_CANCEL_NOTICE_HOURS,
   INSTRUCTOR_LATE_GRACE_MINUTES,
   INSTRUCTOR_NO_SHOW_PENALTY_PERCENT,
   PLATFORM_FEE_PERCENT,
+  QUALITY_CLAIM_MIN_DESCRIPTION_CHARS,
+  QUALITY_CLAIM_WINDOW_HOURS,
+  QUALITY_INCOMPETENCE_REFUND_PERCENT,
+  QUALITY_NO_LESSON_MAX_MINUTES,
+  QUALITY_SHORT_LESSON_REFUND_MAX_PERCENT,
+  QUALITY_SHORT_LESSON_REFUND_MIN_PERCENT,
+  QUALITY_SHORT_LESSON_THRESHOLD_PERCENT,
 } from "@/lib/legal-config";
+import { qualityClaimCategoryLabels } from "@/lib/refund-policy";
 import { LEGAL_AGENT, LEGAL_SITE_URL } from "@/lib/legal-entity";
 import { LEGAL_ROUTES } from "@/lib/legal";
 import { LegalDocLayout } from "@/shared/layout/legal-doc-layout";
@@ -89,13 +97,39 @@ export default function ReturnsPolicyPage() {
             ETA и занятие не начато — клиент вправе запросить <strong>полный возврат</strong> в интерфейсе заказа.
           </li>
         </ul>
-        <p className="font-medium text-foreground">2.5. Некачественно оказанная услуга:</p>
+        <p className="font-medium text-foreground">2.5. Некачественно оказанная услуга (алгоритм в сервисе):</p>
+        <p className="text-muted-foreground">
+          Претензию можно подать в заказе в течение <strong>{QUALITY_CLAIM_WINDOW_HOURS} ч</strong> после завершения
+          занятия, пока выплата инструктору не произведена. Расчёт выполняется автоматически по категории и данным заказа
+          (время начала/окончания, длительность, оценка).
+        </p>
         <ul className="list-inside list-disc space-y-1 text-muted-foreground">
           <li>
-            при доказанных нарушениях (небезопасно, инструктор некомпетентен) агент организует частичный или полный
-            возврат по итогам разбирательства.
+            <strong>{qualityClaimCategoryLabels.UNSAFE}</strong> — <strong>100%</strong> при оценке ≤ 2 и описании от{" "}
+            {QUALITY_CLAIM_MIN_DESCRIPTION_CHARS} символов;
+          </li>
+          <li>
+            <strong>{qualityClaimCategoryLabels.NO_LESSON}</strong> — <strong>100%</strong>, если урок не начинался или
+            длился менее {QUALITY_NO_LESSON_MAX_MINUTES} мин;
+          </li>
+          <li>
+            <strong>{qualityClaimCategoryLabels.SHORT_LESSON}</strong> — от{" "}
+            {QUALITY_SHORT_LESSON_REFUND_MIN_PERCENT}% до {QUALITY_SHORT_LESSON_REFUND_MAX_PERCENT}%, если фактическая
+            длительность менее {QUALITY_SHORT_LESSON_THRESHOLD_PERCENT}% от заказанной (пропорционально недополученному
+            времени);
+          </li>
+          <li>
+            <strong>{qualityClaimCategoryLabels.INCOMPETENCE}</strong> и{" "}
+            <strong>{qualityClaimCategoryLabels.WRONG_SERVICE}</strong> — <strong>
+              {QUALITY_INCOMPETENCE_REFUND_PERCENT}%
+            </strong>{" "}
+            при оценке ≤ 3 и описании от {QUALITY_CLAIM_MIN_DESCRIPTION_CHARS} символов.
           </li>
         </ul>
+        <p className="text-muted-foreground">
+          Возврат инициируется через ЮKassa; доля инструктора уменьшается пропорционально. Повторная претензия по одному
+          заказу не принимается.
+        </p>
       </section>
 
       <section className="space-y-3">
@@ -168,9 +202,12 @@ export default function ReturnsPolicyPage() {
           просрочки, но не более суммы возврата.
         </p>
         <p className="text-muted-foreground">
-          6.2. Споры о качестве услуг рассматриваются с участием обеих сторон. Если Инструктор отказывается возвращать
-          деньги, Агент возвращает Клиенту деньги за свой счёт и затем взыскивает убытки с Инструктора в судебном
-          порядке.
+          6.2. Претензии по качеству урока (п. 2.5) рассчитываются автоматически в сервисе; при одобренном возврате
+          Агент уменьшает долю Инструктора пропорционально. Споры, не покрытые алгоритмом, — через{" "}
+          <Link href={LEGAL_ROUTES.support} className="text-accent underline">
+            поддержку
+          </Link>{" "}
+          в течение 5 рабочих дней.
         </p>
       </section>
 
@@ -190,7 +227,7 @@ export default function ReturnsPolicyPage() {
         </p>
         <p className="text-muted-foreground">
           8.2. Актуальная версия Правил всегда доступна на этой странице. Датой последнего обновления является{" "}
-          {CLIENT_OFFER_VERSION.replace(/-/g, ".")}.
+          {formatLegalEditionDate()}.
         </p>
       </section>
     </LegalDocLayout>

@@ -8,6 +8,8 @@ import { toast } from "sonner";
 
 import { OrderChat } from "@/features/chat/order-chat";
 import { CancelOrderButton, ClaimLateRefundButton } from "@/features/orders/cancel-order-button";
+import { QualityRefundClaim } from "@/features/orders/quality-refund-claim";
+import { canClaimQualityRefund } from "@/lib/refund-policy";
 import { LEGAL_ROUTES } from "@/lib/legal";
 import { InstructorServiceExecutorNotice } from "@/shared/legal/instructor-service-executor-notice";
 import type { InstructorTaxStatus } from "@prisma/client";
@@ -295,6 +297,16 @@ function ClientOrderDetailContent({
     (status === "ACCEPTED" || status === "INSTRUCTOR_EN_ROUTE") &&
     arrivalDeadlineMs != null &&
     Date.now() >= arrivalDeadlineMs + INSTRUCTOR_LATE_GRACE_MINUTES * 60_000;
+
+  const qualityRefundEligible = canClaimQualityRefund({
+    status: o.status,
+    paymentStatus: o.paymentStatus,
+    refundStatus: o.refundStatus,
+    refundPercent: o.refundPercent,
+    qualityClaimedAt: o.qualityClaimedAt,
+    lessonEndedAt: o.lessonEndedAt,
+    instructorPayoutPaidAt: o.instructorPayoutPaidAt,
+  });
 
   const refreshOrder = () => void queryClient.invalidateQueries({ queryKey: ["order", id] });
 
@@ -585,10 +597,14 @@ function ClientOrderDetailContent({
                     Я принимаю условия{" "}
                     <Link className="text-accent underline" href={LEGAL_ROUTES.oferta}>
                       Договора-оферты
-                    </Link>{" "}
-                    и даю согласие на обработку{" "}
+                    </Link>
+                    , даю согласие на обработку{" "}
                     <Link className="text-accent underline" href={LEGAL_ROUTES.privacy}>
                       персональных данных
+                    </Link>{" "}
+                    и{" "}
+                    <Link className="text-accent underline" href={LEGAL_ROUTES.returns}>
+                      правил возврата
                     </Link>
                     .
                   </span>
@@ -836,6 +852,25 @@ function ClientOrderDetailContent({
               </Button>
             </CardContent>
           </Card>
+        ) : null}
+
+        {qualityRefundEligible ? (
+          <QualityRefundClaim
+            orderId={id}
+            clientRating={o.clientRating}
+            disabled={patch.isPending}
+            onDone={refreshOrder}
+          />
+        ) : null}
+
+        {status === "COMPLETED" && o.qualityClaimedAt ? (
+          <p className="w-full text-xs text-muted-foreground">
+            Претензия по качеству подана{" "}
+            {o.qualityClaimedAt ? new Date(o.qualityClaimedAt).toLocaleString("ru-RU") : ""}.
+            {o.refundAmount != null && Number(o.refundAmount) > 0
+              ? ` Возврат: ${Number(o.refundAmount)} ₽ (${o.refundPercent ?? 0}%).`
+              : null}
+          </p>
         ) : null}
       </div>
 

@@ -5,7 +5,12 @@ import { prisma } from "@/lib/prisma";
 import { getStripe } from "@/lib/stripe";
 import { createYooKassaRefund, isYooKassaConfigured } from "@/lib/yookassa";
 import { transitionOrderStatus } from "@/lib/services/order-service";
-import { computeCancelRefundQuote } from "@/lib/refund-policy";
+import {
+  canClaimQualityRefund,
+  computeCancelRefundQuote,
+  computeQualityRefundQuote,
+  type QualityClaimCategory,
+} from "@/lib/refund-policy";
 import {
   applyInstructorLessonPenalty,
   shouldChargeInstructorLessonPenalty,
@@ -180,6 +185,88 @@ export async function applyRefundForExpiredOrder(orderId: string): Promise<void>
       refundNote,
     },
   });
+}
+
+export async function claimQualityRefund(params: {
+  orderId: string;
+  actorUserId: string;
+  category: QualityClaimCategory;
+  description: string;
+}): Promise<CancelOrderResult> {
+  const order = await prisma.order.findUnique({ where: { id: params.orderId } });
+  if (!order || order.clientId !== params.actorUserId) throw new Error("FORBIDDEN");
+
+  if (
+    !canClaimQualityRefund({
+      status: order.status,
+      paymentStatus: order.paymentStatus,
+      refundStatus: order.refundStatus,
+      refundPercent: order.refundPercent,
+      qualityClaimedAt: order.qualityClaimedAt,
+      lessonEndedAt: order.lessonEndedAt,
+      instructorPayoutPaidAt: order.instructorPayoutPaidAt,
+    })
+  ) {
+    throw new Error("QUALITY_CLAIM_NOT_ELIGIBLE");
+  }
+
+  const quote = computeQualityRefundQuote({
+    category: params.category,
+    description: params.description,
+    duration: order.duration,
+    lessonStartedAt: order.lessonStartedAt,
+    lessonEndedAt: order.lessonEndedAt,
+    clientRating: order.clientRating,
+  });
+
+  if (quote.percent <= 0) {
+    throw new Error(quote.reason);
+  }
+
+  const totalRub = order.amountTotal != null ? Number(order.amountTotal) : 0;
+  const refundAmount = refundAmountFromTotal(totalRub, quote.percent);
+
+  let refundStatus: Order["refundStatus"] = "NOT_APPLICABLE";
+  let refundNote = `${quote.reason}. Претензия: ${params.description.trim()}`;
+
+  if (refundAmount > 0) {
+    refundStatus = "PENDING";
+    try {
+      await executePaymentRefund(order, refundAmount);
+      refundStatus = "COMPLETED";
+      refundNote = `${quote.reason}. Возврат ${refundAmount} ₽ (${quote.percent}%) инициирован.`;
+    } catch (e) {
+      refundStatus = "FAILED";
+      refundNote += `. Ошибка: ${e instanceof Error ? e.message : "unknown"}`;
+    }
+  }
+
+  const instructorShareBefore =
+    order.instructorShareAmount != null ? Number(order.instructorShareAmount) : 0;
+  const instructorShareAfter =
+    instructorShareBefore > 0
+      ? Math.max(0, Math.round((instructorShareBefore * (100 - quote.percent)) / 100 * 100) / 100)
+      : null;
+
+  const updated = await prisma.order.update({
+    where: { id: params.orderId },
+    data: {
+      refundPercent: quote.percent,
+      refundAmount: refundAmount > 0 ? refundAmount : null,
+      refundStatus,
+      refundNote,
+      qualityClaimCategory: params.category,
+      qualityClaimDescription: params.description.trim(),
+      qualityClaimedAt: new Date(),
+      ...(instructorShareAfter != null ? { instructorShareAmount: instructorShareAfter } : {}),
+    },
+  });
+
+  return {
+    order: updated,
+    refundPercent: quote.percent,
+    refundAmount,
+  };
 }
 
 async function executePaymentRefund(order: Order, amountRub: number): Promise<void> {

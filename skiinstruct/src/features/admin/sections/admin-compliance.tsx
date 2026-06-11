@@ -8,6 +8,7 @@ import {
   useAdminComplianceReviewMutation,
   useAdminPendingCompliance,
 } from "@/features/admin/use-admin-compliance";
+import { AdminQualityClaimsSection } from "@/features/admin/sections/admin-quality-claims";
 import { AdminYookassaExportCard } from "@/features/admin/admin-yookassa-export-card";
 import { complianceDocTypeLabel } from "@/lib/instructor-agency-registry";
 import { LEGAL_ROUTES } from "@/lib/legal";
@@ -37,6 +38,7 @@ export function AdminComplianceSection() {
 
   return (
     <div className="space-y-6">
+      <AdminQualityClaimsSection />
       <AdminYookassaExportCard />
 
       <Card>

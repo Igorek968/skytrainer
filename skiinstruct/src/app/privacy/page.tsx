@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { roskomnadzorRegistryNumber } from "@/lib/legal-config";
+import { formatLegalEditionDate, roskomnadzorRegistryNumber } from "@/lib/legal-config";
 import { LEGAL_AGENT, LEGAL_SITE_URL, legalRegisteredAddress } from "@/lib/legal-entity";
 import { LEGAL_ROUTES } from "@/lib/legal";
 import { LegalDocLayout } from "@/shared/layout/legal-doc-layout";
@@ -72,6 +72,11 @@ export default function PrivacyPolicyPage() {
           2.3. <strong>Геолокация</strong> запрашивается отдельно через стандартный диалог браузера. Отказ не блокирует
           основной функционал (регистрация, заказы, оплата), но ограничивает работу карты: не отображаются ближайшие
           инструкторы и точка «где я».
+        </p>
+        <p className="text-muted-foreground">
+          2.4. <strong>Cookies и локальное хранилище</strong> используются для входа в аккаунт, безопасности сессии,
+          сохранения настроек и реферальной программы (cookie <code>utr_ref</code>). При первом посещении Сайт показывает
+          уведомление; продолжая пользоваться сервисом или нажимая «Принять», вы соглашаетесь с настоящей Политикой.
         </p>
       </section>
 
@@ -190,7 +195,7 @@ export default function PrivacyPolicyPage() {
       </section>
 
       <p className="text-xs text-muted-foreground">
-        Редакция от 06.06.2026. Оформление заказа при принятии{" "}
+        Редакция от {formatLegalEditionDate()}. Оформление заказа при принятии{" "}
         <Link href={LEGAL_ROUTES.oferta} className="underline">
           оферты
         </Link>{" "}

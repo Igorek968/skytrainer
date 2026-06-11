@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import {
-  CLIENT_OFFER_VERSION,
+  formatLegalEditionDate,
   EVENT_CANCEL_FULL_REFUND_HOURS,
   INSTRUCTOR_CANCEL_NOTICE_HOURS,
   INSTRUCTOR_LATE_GRACE_MINUTES,
@@ -358,7 +358,7 @@ export default function PublicOfferPage() {
         <LegalRequisitesBlock />
       </section>
 
-      <p className="text-xs text-muted-foreground">Редакция от {CLIENT_OFFER_VERSION.replace(/-/g, ".")}.</p>
+      <p className="text-xs text-muted-foreground">Редакция от {formatLegalEditionDate()}.</p>
     </LegalDocLayout>
   );
 }

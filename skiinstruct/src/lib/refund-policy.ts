@@ -1,12 +1,26 @@
-import type { OrderCancelledBy, OrderStatus, PaymentStatus } from "@prisma/client";
+import type {
+  LessonDuration,
+  OrderCancelledBy,
+  OrderStatus,
+  PaymentStatus,
+  RefundStatus,
+} from "@prisma/client";
 
 import {
   CANCEL_CLIENT_FULL_REFUND_HOURS,
   CANCEL_CLIENT_PARTIAL_PERCENT,
   CANCEL_CLIENT_PARTIAL_REFUND_HOURS,
   INSTRUCTOR_LATE_GRACE_MINUTES,
+  QUALITY_CLAIM_MIN_DESCRIPTION_CHARS,
+  QUALITY_CLAIM_WINDOW_HOURS,
+  QUALITY_INCOMPETENCE_REFUND_PERCENT,
+  QUALITY_NO_LESSON_MAX_MINUTES,
+  QUALITY_SHORT_LESSON_REFUND_MAX_PERCENT,
+  QUALITY_SHORT_LESSON_REFUND_MIN_PERCENT,
+  QUALITY_SHORT_LESSON_THRESHOLD_PERCENT,
 } from "@/lib/legal-config";
 import { getLessonStartAt, hoursUntilLesson } from "@/lib/lesson-schedule";
+import { durationHours } from "@/lib/pricing";
 
 export type RefundQuote = {
   percent: number;
@@ -117,4 +131,140 @@ export function refundAmountFromTotal(totalRub: number, percent: number): number
   if (percent <= 0) return 0;
   if (percent >= 100) return Math.round(totalRub * 100) / 100;
   return Math.round(((totalRub * percent) / 100) * 100) / 100;
+}
+
+export const QUALITY_CLAIM_CATEGORIES = [
+  "UNSAFE",
+  "NO_LESSON",
+  "SHORT_LESSON",
+  "INCOMPETENCE",
+  "WRONG_SERVICE",
+] as const;
+
+export type QualityClaimCategory = (typeof QUALITY_CLAIM_CATEGORIES)[number];
+
+export const qualityClaimCategoryLabels: Record<QualityClaimCategory, string> = {
+  UNSAFE: "Нарушение техники безопасности",
+  NO_LESSON: "Урок не состоялся",
+  SHORT_LESSON: "Сокращённое занятие",
+  INCOMPETENCE: "Некомпетентное обучение",
+  WRONG_SERVICE: "Несоответствие заказанным условиям",
+};
+
+function lessonActualMinutes(lessonStartedAt: Date | null, lessonEndedAt: Date | null): number | null {
+  if (!lessonStartedAt || !lessonEndedAt) return null;
+  const ms = lessonEndedAt.getTime() - lessonStartedAt.getTime();
+  if (ms < 0) return null;
+  return Math.round(ms / 60_000);
+}
+
+function computeShortLessonRefundPercent(
+  duration: LessonDuration,
+  lessonStartedAt: Date | null,
+  lessonEndedAt: Date | null,
+): number | null {
+  const actual = lessonActualMinutes(lessonStartedAt, lessonEndedAt);
+  if (actual == null) return null;
+  const expectedMinutes = durationHours(duration) * 60;
+  if (expectedMinutes <= 0) return null;
+  const ratioPercent = (actual / expectedMinutes) * 100;
+  if (ratioPercent >= QUALITY_SHORT_LESSON_THRESHOLD_PERCENT) return null;
+  const raw = Math.round(100 * (1 - actual / expectedMinutes));
+  return Math.min(
+    QUALITY_SHORT_LESSON_REFUND_MAX_PERCENT,
+    Math.max(QUALITY_SHORT_LESSON_REFUND_MIN_PERCENT, raw),
+  );
+}
+
+export function canClaimQualityRefund(params: {
+  status: OrderStatus;
+  paymentStatus: PaymentStatus;
+  refundStatus: RefundStatus;
+  refundPercent: number | null;
+  qualityClaimedAt: Date | null;
+  lessonEndedAt: Date | null;
+  instructorPayoutPaidAt: Date | null;
+  now?: Date;
+}): boolean {
+  const now = params.now ?? new Date();
+  if (params.status !== "COMPLETED") return false;
+  if (params.paymentStatus !== "PAID") return false;
+  if (params.qualityClaimedAt) return false;
+  if (params.instructorPayoutPaidAt) return false;
+  if (params.refundStatus === "COMPLETED" || params.refundStatus === "PENDING") return false;
+  if ((params.refundPercent ?? 0) > 0) return false;
+  if (!params.lessonEndedAt) return false;
+  const deadline = params.lessonEndedAt.getTime() + QUALITY_CLAIM_WINDOW_HOURS * 3600 * 1000;
+  return now.getTime() <= deadline;
+}
+
+/** Доля возврата по претензии о качестве (0–100). */
+export function computeQualityRefundQuote(params: {
+  category: QualityClaimCategory;
+  description: string;
+  duration: LessonDuration;
+  lessonStartedAt: Date | null;
+  lessonEndedAt: Date | null;
+  clientRating: number | null;
+}): RefundQuote {
+  const description = params.description.trim();
+  const rating = params.clientRating;
+
+  if (params.category === "NO_LESSON") {
+    const actual = lessonActualMinutes(params.lessonStartedAt, params.lessonEndedAt);
+    if (!params.lessonStartedAt || actual == null || actual < QUALITY_NO_LESSON_MAX_MINUTES) {
+      return { percent: 100, reason: qualityClaimCategoryLabels.NO_LESSON };
+    }
+    return {
+      percent: 0,
+      reason: "Урок отмечен как проведённый — для этой категории выберите «Сокращённое занятие» или другую причину",
+    };
+  }
+
+  if (params.category === "SHORT_LESSON") {
+    const percent = computeShortLessonRefundPercent(
+      params.duration,
+      params.lessonStartedAt,
+      params.lessonEndedAt,
+    );
+    if (percent == null || percent <= 0) {
+      return {
+        percent: 0,
+        reason: `Фактическая длительность не ниже ${QUALITY_SHORT_LESSON_THRESHOLD_PERCENT}% от заказанной`,
+      };
+    }
+    return { percent, reason: qualityClaimCategoryLabels.SHORT_LESSON };
+  }
+
+  if (description.length < QUALITY_CLAIM_MIN_DESCRIPTION_CHARS) {
+    return {
+      percent: 0,
+      reason: `Опишите ситуацию не менее чем в ${QUALITY_CLAIM_MIN_DESCRIPTION_CHARS} символов`,
+    };
+  }
+
+  if (params.category === "UNSAFE") {
+    if (rating == null) {
+      return { percent: 0, reason: "Сначала оставьте оценку инструктору (нужна оценка ≤ 2)" };
+    }
+    if (rating > 2) {
+      return { percent: 0, reason: "Для категории «безопасность» требуется оценка 2 или ниже" };
+    }
+    return { percent: 100, reason: qualityClaimCategoryLabels.UNSAFE };
+  }
+
+  if (params.category === "INCOMPETENCE" || params.category === "WRONG_SERVICE") {
+    if (rating == null) {
+      return { percent: 0, reason: "Сначала оставьте оценку инструктору (нужна оценка ≤ 3)" };
+    }
+    if (rating > 3) {
+      return { percent: 0, reason: "Для этой категории требуется оценка 3 или ниже" };
+    }
+    return {
+      percent: QUALITY_INCOMPETENCE_REFUND_PERCENT,
+      reason: qualityClaimCategoryLabels[params.category],
+    };
+  }
+
+  return { percent: 0, reason: "Неизвестная категория претензии" };
 }

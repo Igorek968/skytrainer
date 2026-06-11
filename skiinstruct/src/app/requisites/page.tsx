@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { formatLegalEditionDate } from "@/lib/legal-config";
 import { LegalRequisitesBlock } from "@/shared/legal/legal-requisites-block";
 import { LegalDocLayout } from "@/shared/layout/legal-doc-layout";
 
@@ -15,7 +16,7 @@ export default function RequisitesPage() {
         Реквизиты агента (оператора сервиса uTrainer) для оплаты и договорных отношений.
       </p>
       <LegalRequisitesBlock />
-      <p className="text-xs text-muted-foreground">Редакция от 04.06.2026.</p>
+      <p className="text-xs text-muted-foreground">Редакция от {formatLegalEditionDate()}.</p>
     </LegalDocLayout>
   );
 }

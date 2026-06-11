@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { QUALITY_CLAIM_CATEGORIES } from "@/lib/refund-policy";
+
 /**
  * HTML `<input type="time">` в части браузеров отдаёт `HH:MM:SS` (иногда с долями секунды),
  * а не только `HH:MM` — без нормализации Zod отклонял тело POST /api/orders.
@@ -92,6 +94,16 @@ export const createOrderSchema = z
 export const orderActionSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("cancel") }),
   z.object({ action: z.literal("claim_late_refund") }),
+  z.object({
+    action: z.literal("preview_quality_refund"),
+    category: z.enum(QUALITY_CLAIM_CATEGORIES),
+    description: z.string().max(2000).optional().default(""),
+  }),
+  z.object({
+    action: z.literal("claim_quality_refund"),
+    category: z.enum(QUALITY_CLAIM_CATEGORIES),
+    description: z.string().trim().min(1).max(2000),
+  }),
   z.object({ action: z.literal("preview_cancel_refund") }),
   z.object({
     action: z.literal("accept"),

@@ -3,6 +3,7 @@ import {
   INSTRUCTOR_CANCEL_NOTICE_HOURS,
   INSTRUCTOR_LATE_GRACE_MINUTES,
   INSTRUCTOR_NO_SHOW_PENALTY_PERCENT,
+  QUALITY_CLAIM_WINDOW_HOURS,
 } from "@/lib/legal-config";
 
 /** Краткое описание отмены клиентом (синхронизировано с refund-policy.ts). */
@@ -28,4 +29,9 @@ export function eventCancelRefundSummary(): string {
 /** Штраф инструктору при неявке или поздней отмене. */
 export function instructorNoShowPenaltySummary(): string {
   return `${INSTRUCTOR_NO_SHOW_PENALTY_PERCENT}% от суммы заявки удерживается платформой из будущих выплат инструктору`;
+}
+
+/** Претензия по качеству после завершённого урока. */
+export function qualityClaimRefundSummary(): string {
+  return `в течение ${QUALITY_CLAIM_WINDOW_HOURS} ч после занятия — автоматический расчёт по категории (см. /returns п. 2.5)`;
 }

@@ -1,13 +1,24 @@
+/** Единая дата редакции всех юридических документов (оферты, ПДн, возвраты, реквизиты). */
+export const LEGAL_DOCS_VERSION = "2026-06-12";
+
 /** Версия агентской оферты для инструкторов (акцепт в БД). */
-export const AGENCY_OFFER_VERSION = "2026-06-11";
+export const AGENCY_OFFER_VERSION = LEGAL_DOCS_VERSION;
 
 /** Дата редакции клиентской оферты (футер, /oferta). */
-export const CLIENT_OFFER_VERSION = "2026-06-11";
+export const CLIENT_OFFER_VERSION = LEGAL_DOCS_VERSION;
+
+/** Формат даты для текста документов: 2026-06-11 → 11.06.2026 */
+export function formatLegalEditionDate(version: string = LEGAL_DOCS_VERSION): string {
+  const [y, m, d] = version.split("-");
+  if (!y || !m || !d) return version.replace(/-/g, ".");
+  return `${d}.${m}.${y}`;
+}
 
 export const PLATFORM_FEE_PERCENT = 15;
 
-/** До принятия инструктором — полный возврат; после принятия — невозвратно (refund-policy.ts). */
+/** До принятия инструктором — полный возврат; после принятия клиентом — 0% (refund-policy.ts). */
 export const CANCEL_CLIENT_FULL_REFUND_HOURS = 24;
+/** Устаревшие пороги частичного возврата — не используются в текущей оферте; оставлены для совместимости расчёта. */
 export const CANCEL_CLIENT_PARTIAL_REFUND_HOURS = 2;
 export const CANCEL_CLIENT_PARTIAL_PERCENT = 50;
 
@@ -37,6 +48,29 @@ export const INSTRUCTOR_NO_SHOW_PENALTY_PERCENT = 30;
 
 /** Отмена записи на мероприятие клиентом: полный возврат при отмене за N ч и более. */
 export const EVENT_CANCEL_FULL_REFUND_HOURS = 24;
+
+/** Претензия по качеству урока: срок подачи после lessonEndedAt (ч). Совпадает с окном удержания выплаты. */
+export const QUALITY_CLAIM_WINDOW_HOURS = PAYOUT_CONFIRMATION_HOURS;
+
+/** Минимальная длительность урока (мин), ниже — считается «урок не состоялся». */
+export const QUALITY_NO_LESSON_MAX_MINUTES = 5;
+
+/** Порог «сокращённого занятия»: фактическая длительность < N% от заказанной. */
+export const QUALITY_SHORT_LESSON_THRESHOLD_PERCENT = 75;
+
+/** Минимальный и максимальный автоматический возврат при сокращённом занятии (%). */
+export const QUALITY_SHORT_LESSON_REFUND_MIN_PERCENT = 25;
+export const QUALITY_SHORT_LESSON_REFUND_MAX_PERCENT = 75;
+
+/** Возврат при некомпетентности / несоответствии условий (%). */
+export const QUALITY_INCOMPETENCE_REFUND_PERCENT = 50;
+
+/** Минимальная длина описания претензии (символов). */
+export const QUALITY_CLAIM_MIN_DESCRIPTION_CHARS = 30;
+
+export const COOKIE_CONSENT_COOKIE_NAME = "utr_cookie_consent";
+export const COOKIE_CONSENT_STORAGE_KEY = "utr_cookie_consent";
+export const COOKIE_CONSENT_VERSION = "1";
 
 /** Рег. номер уведомления Роскомнадзора (NEXT_PUBLIC_PDN_REGISTRY_NUMBER). */
 export function roskomnadzorRegistryNumber(): string | null {

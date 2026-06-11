@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import {
   AGENCY_OFFER_VERSION,
+  formatLegalEditionDate,
   INSTRUCTOR_CANCEL_NOTICE_HOURS,
   INSTRUCTOR_LATE_GRACE_MINUTES,
   INSTRUCTOR_NO_SHOW_PENALTY_PERCENT,
@@ -168,7 +169,7 @@ export default function InstructorAgencyOfferPage() {
       </section>
 
       <p className="text-xs text-muted-foreground">
-        Редакция {AGENCY_OFFER_VERSION.replace(/-/g, ".")}. Для клиентов действует{" "}
+        Редакция {formatLegalEditionDate()}. Для клиентов действует{" "}
         <Link href={LEGAL_ROUTES.oferta} className="underline">
           договор-оферта
         </Link>

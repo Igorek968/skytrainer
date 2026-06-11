@@ -1,15 +1,9 @@
 import Link from "next/link";
 
-import { CLIENT_OFFER_VERSION, LEGAL_PLATFORM_NAME } from "@/lib/legal-config";
+import { formatLegalEditionDate, LEGAL_PLATFORM_NAME } from "@/lib/legal-config";
 import { LEGAL_AGENT } from "@/lib/legal-entity";
 import { LEGAL_ROUTES } from "@/lib/legal";
 import { SupportLauncher } from "@/features/support/support-launcher";
-
-function formatOfferVersionDate(iso: string): string {
-  const [y, m, d] = iso.split("-");
-  if (!y || !m || !d) return iso;
-  return `${d}.${m}.${y}`;
-}
 
 export function SiteFooter() {
   const telHref = `tel:${LEGAL_AGENT.phone.replace(/[^\d+]/g, "")}`;
@@ -26,6 +20,13 @@ export function SiteFooter() {
           |{" "}
           <Link className="underline underline-offset-2 hover:text-foreground" href={LEGAL_ROUTES.oferta}>
             Оферта
+          </Link>{" "}
+          |{" "}
+          <Link
+            className="underline underline-offset-2 hover:text-foreground"
+            href={LEGAL_ROUTES.ofertaInstructor}
+          >
+            Оферта инструктора
           </Link>{" "}
           |{" "}
           <Link className="underline underline-offset-2 hover:text-foreground" href={LEGAL_ROUTES.privacy}>
@@ -53,7 +54,7 @@ export function SiteFooter() {
           {LEGAL_PLATFORM_NAME} — информационный сервис; услуги обучения оказывают инструкторы-партнёры (НПД/ИП).
         </p>
         <p className="text-[11px] text-muted-foreground/90">
-          Версия оферты от {formatOfferVersionDate(CLIENT_OFFER_VERSION)}
+          Редакция документов от {formatLegalEditionDate()}
         </p>
       </div>
     </footer>

@@ -17,6 +17,7 @@ import type { ClientCheckoutInstructorSummary } from "@/lib/client-checkout-inst
 import { CLIENT_BOOKING_RETURN_PATH } from "@/lib/client-pending-checkout";
 import { LEGAL_ROUTES } from "@/lib/legal";
 import { InstructorServiceExecutorNotice } from "@/shared/legal/instructor-service-executor-notice";
+import { LegalConsentCheckbox } from "@/shared/legal/legal-consent-checkbox";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
@@ -374,26 +375,12 @@ export function ClientOrderCheckoutDialog({ open, onOpenChange, instructor, onCr
               )}
               {estimatedTotal ? <p className="mt-2 text-xs">{estimatedTotal}</p> : null}
             </div>
-            <label className="flex cursor-pointer gap-2 text-sm">
-              <input
-                type="checkbox"
-                className="mt-1"
-                required
-                checked={acceptLegal}
-                onChange={(e) => setAcceptLegal(e.target.checked)}
-              />
-              <span>
-                Я принимаю условия{" "}
-                <Link className="text-accent underline" href={LEGAL_ROUTES.oferta}>
-                  Договора-оферты
-                </Link>{" "}
-                и даю согласие на обработку{" "}
-                <Link className="text-accent underline" href={LEGAL_ROUTES.privacy}>
-                  персональных данных
-                </Link>
-                .
-              </span>
-            </label>
+            <LegalConsentCheckbox
+              id="checkout-accept-legal"
+              checked={acceptLegal}
+              onChange={setAcceptLegal}
+              includeReturns
+            />
             <div className="flex justify-between gap-2">
               <Button type="button" variant="outline" onClick={() => (loggedInAsClient ? closeAll() : setStep("account"))}>
                 {loggedInAsClient ? "Отмена" : "Назад"}

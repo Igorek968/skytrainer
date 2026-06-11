@@ -12,8 +12,18 @@ import {
 } from "@/lib/services/instructor-routing";
 import type { OrderCancelledBy } from "@prisma/client";
 
-import { cancelOrderWithRefund, claimInstructorLateRefund } from "@/lib/services/order-refund";
-import { canClaimInstructorLateRefund, computeCancelRefundQuote } from "@/lib/refund-policy";
+import {
+  cancelOrderWithRefund,
+  claimInstructorLateRefund,
+  claimQualityRefund,
+} from "@/lib/services/order-refund";
+import {
+  canClaimInstructorLateRefund,
+  canClaimQualityRefund,
+  computeCancelRefundQuote,
+  computeQualityRefundQuote,
+  refundAmountFromTotal,
+} from "@/lib/refund-policy";
 import { transitionOrderStatus } from "@/lib/services/order-service";
 import { maybeAwardReferralReward } from "@/lib/services/referral";
 import { orderActionSchema } from "@/lib/validations/order";
@@ -257,6 +267,68 @@ export async function PATCH(req: Request, ctx: Ctx) {
         refundPercent: result.refundPercent,
         refundAmount: result.refundAmount,
       });
+    }
+
+    if (action.action === "preview_quality_refund") {
+      if (order.clientId !== actor) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+      const eligible = canClaimQualityRefund({
+        status: order.status,
+        paymentStatus: order.paymentStatus,
+        refundStatus: order.refundStatus,
+        refundPercent: order.refundPercent,
+        qualityClaimedAt: order.qualityClaimedAt,
+        lessonEndedAt: order.lessonEndedAt,
+        instructorPayoutPaidAt: order.instructorPayoutPaidAt,
+      });
+      const quote = computeQualityRefundQuote({
+        category: action.category,
+        description: action.description ?? "",
+        duration: order.duration,
+        lessonStartedAt: order.lessonStartedAt,
+        lessonEndedAt: order.lessonEndedAt,
+        clientRating: order.clientRating,
+      });
+      const totalRub = order.amountTotal != null ? Number(order.amountTotal) : 0;
+      const refundAmount = refundAmountFromTotal(totalRub, quote.percent);
+      return NextResponse.json({
+        eligible,
+        refundPercent: quote.percent,
+        refundAmount,
+        reason: quote.reason,
+      });
+    }
+
+    if (action.action === "claim_quality_refund") {
+      if (order.clientId !== actor) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+      try {
+        const result = await claimQualityRefund({
+          orderId: id,
+          actorUserId: actor,
+          category: action.category,
+          description: action.description,
+        });
+        return NextResponse.json({
+          order: result.order,
+          refundPercent: result.refundPercent,
+          refundAmount: result.refundAmount,
+        });
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "ERROR";
+        if (msg === "QUALITY_CLAIM_NOT_ELIGIBLE") {
+          return NextResponse.json(
+            { error: "Претензия по качеству сейчас недоступна для этого заказа" },
+            { status: 400 },
+          );
+        }
+        if (msg !== "FORBIDDEN") {
+          return NextResponse.json({ error: msg }, { status: 400 });
+        }
+        throw e;
+      }
     }
 
     if (action.action === "claim_late_refund") {

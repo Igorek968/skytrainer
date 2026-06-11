@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 
 import { auth } from "@/auth";
 import { AppProviders } from "@/app/providers";
+import { CookieConsentBanner } from "@/shared/legal/cookie-consent-banner";
 import { SiteFooter } from "@/shared/layout/site-footer";
 import { SiteHeader } from "@/shared/layout/site-header";
 
@@ -53,6 +54,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             {children}
           </main>
           <SiteFooter />
+          <CookieConsentBanner />
         </AppProviders>
       </body>
     </html>
