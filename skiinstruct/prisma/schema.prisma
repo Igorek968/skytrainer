@@ -233,7 +233,7 @@ model PasswordResetToken {
   usedAt    DateTime?
 }
 
-/// Одноразовый код входа по телефону (SMS). Одна активная запись на номер.
+/// Устарело: вход по SMS отключён. Таблица сохранена для совместимости с существующими БД.
 model PhoneOtpChallenge {
   id          String   @id @default(cuid())
   phoneNorm   String   @unique

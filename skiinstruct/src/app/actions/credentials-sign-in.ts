@@ -11,7 +11,6 @@ import {
 } from "@/lib/auth-routes";
 import { credentialsSignInNoRedirect } from "@/lib/credentials-sign-in-core";
 import { prisma } from "@/lib/prisma";
-import { normalizeRussianPhone } from "@/lib/phone";
 import { sanitizeRedirectPath } from "@/lib/sanitize-auth-redirect";
 
 export type CredentialsSignInState = {
@@ -41,18 +40,9 @@ export async function validateClientLoginEmail(email: string): Promise<{ error: 
 
 async function lookupRoleForIdentifier(identifier: string): Promise<UserRole | undefined> {
   const email = identifier.trim();
-  if (!email) return undefined;
-  if (email.includes("@")) {
-    const row = await prisma.user.findFirst({
-      where: { email: { equals: email, mode: "insensitive" } },
-      select: { role: true },
-    });
-    return row?.role;
-  }
-  const digits = normalizeRussianPhone(email);
-  if (!digits) return undefined;
-  const row = await prisma.user.findUnique({
-    where: { phone: digits },
+  if (!email || !email.includes("@")) return undefined;
+  const row = await prisma.user.findFirst({
+    where: { email: { equals: email, mode: "insensitive" } },
     select: { role: true },
   });
   return row?.role;

@@ -6,8 +6,6 @@ import { z } from "zod";
 
 import { authConfig } from "@/auth.config";
 import { prisma } from "@/lib/prisma";
-import { consumePhoneOtpIfValid } from "@/lib/phone-otp";
-import { normalizeRussianPhone } from "@/lib/phone";
 import { rateLimit } from "@/lib/rate-limit";
 import { validatePasswordResetToken } from "@/lib/services/password-reset";
 import { bindReferralFromCookie, ensureUserReferralCode } from "@/lib/services/referral";
@@ -16,32 +14,25 @@ const credentialsSchema = z
   .object({
     email: z.string().optional(),
     password: z.string().optional(),
-    otp: z.string().optional(),
     resetToken: z.string().optional(),
   })
-  .refine((d) => Boolean(d.resetToken?.trim().length || d.password?.length || d.otp?.trim().length), {
-    message: "password, otp or resetToken required",
+  .refine((d) => Boolean(d.resetToken?.trim().length || d.password?.length), {
+    message: "password or resetToken required",
   });
 
-async function findUserForCredentials(identifier: string) {
-  const trimmed = identifier.trim();
-  if (!trimmed) return null;
-  if (trimmed.includes("@")) {
-    return prisma.user.findFirst({
-      where: { email: { equals: trimmed, mode: "insensitive" } },
-    });
-  }
-  const digits = normalizeRussianPhone(trimmed);
-  if (!digits) return null;
-  return prisma.user.findUnique({ where: { phone: digits } });
+async function findUserForCredentials(email: string) {
+  const trimmed = email.trim();
+  if (!trimmed || !trimmed.includes("@")) return null;
+  return prisma.user.findFirst({
+    where: { email: { equals: trimmed, mode: "insensitive" } },
+  });
 }
 
 const credentialsProvider = Credentials({
   name: "credentials",
   credentials: {
-    email: { label: "Email или телефон", type: "text" },
+    email: { label: "Email", type: "text" },
     password: { label: "Пароль", type: "password" },
-    otp: { label: "Код из SMS", type: "text" },
     resetToken: { label: "Токен сброса пароля", type: "text" },
   },
   authorize: async (raw: Record<string, unknown> | undefined) => {
@@ -65,49 +56,14 @@ const credentialsProvider = Credentials({
     const normalized = {
       email: typeof raw?.email === "string" ? raw.email.trim() : "",
       password: typeof raw?.password === "string" ? raw.password : "",
-      otp: typeof raw?.otp === "string" ? raw.otp.trim() : "",
       resetToken: "",
     };
     const parsed = credentialsSchema.safeParse(normalized);
     if (!parsed.success) return null;
-    const { email: identifier, password, otp } = parsed.data;
-    if (!identifier) return null;
+    const { email: identifier, password } = parsed.data;
+    if (!identifier || !password) return null;
 
-    const phoneNorm = normalizeRussianPhone(identifier);
-    if (phoneNorm && otp) {
-      if (!rateLimit(`phone-otp-verify:${phoneNorm}`, 12, 3_600_000)) {
-        return null;
-      }
-      const otpResult = await consumePhoneOtpIfValid(phoneNorm, otp);
-      if (!otpResult.ok) return null;
-
-      let user = await prisma.user.findUnique({ where: { phone: phoneNorm } });
-      if (!user) {
-        user = await prisma.user.create({
-          data: {
-            phone: phoneNorm,
-            email: `phone+${phoneNorm}@clients.utrainer.local`,
-            name: otpResult.pendingName,
-            role: "CLIENT",
-          },
-        });
-        await bindReferralFromCookie(user.id);
-        void ensureUserReferralCode(user.id).catch(() => {});
-      }
-      return {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        image: user.image,
-        role: user.role,
-      };
-    }
-
-    if (!password) return null;
-
-    const loginKey = identifier.includes("@")
-      ? identifier.trim().toLowerCase()
-      : normalizeRussianPhone(identifier) ?? identifier.trim();
+    const loginKey = identifier.trim().toLowerCase();
     if (!rateLimit(`login:${loginKey}`, 12, 900_000)) {
       return null;
     }

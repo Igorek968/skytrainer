@@ -143,7 +143,7 @@ async function main() {
   await seedDemoInstructors(prisma);
 
   console.log("Seed OK", {
-    client: `${client.email} (вход клиента по телефону 89000000001)`,
+    client: `${client.email} (пароль Password123!)`,
     admin: admin.email,
     resorts: resorts.length,
     demoInstructors: "demo-skier-01@example.com … (инструкторы) — вход /instructor/login, пароль Password123!",

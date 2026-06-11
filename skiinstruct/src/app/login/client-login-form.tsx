@@ -6,7 +6,6 @@ import { useSearchParams } from "next/navigation";
 import { Suspense, useMemo, useState, type FormEvent } from "react";
 
 import { validateClientLoginEmail } from "@/app/actions/credentials-sign-in";
-import { PhoneOtpLogin } from "@/shared/auth/phone-otp-login";
 import { SocialSignInButtons } from "@/shared/auth/social-sign-in-buttons";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
@@ -28,7 +27,6 @@ function LoginFormInner() {
 
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
-  const [mode, setMode] = useState<"email" | "phone">("email");
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -108,28 +106,6 @@ function LoginFormInner() {
             </p>
           ) : null}
 
-          <div className="flex gap-2">
-            <Button
-              type="button"
-              variant={mode === "email" ? "default" : "outline"}
-              className="flex-1"
-              onClick={() => setMode("email")}
-            >
-              Email
-            </Button>
-            <Button
-              type="button"
-              variant={mode === "phone" ? "default" : "outline"}
-              className="flex-1"
-              onClick={() => setMode("phone")}
-            >
-              Телефон
-            </Button>
-          </div>
-
-          {mode === "phone" ? (
-            <PhoneOtpLogin callbackUrl={callbackUrl} />
-          ) : (
           <form className="space-y-4" onSubmit={onSubmit} noValidate>
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
@@ -175,7 +151,6 @@ function LoginFormInner() {
               {pending ? "Вход…" : "Войти"}
             </Button>
           </form>
-          )}
 
           <SocialSignInButtons callbackUrl={callbackUrl} />
 

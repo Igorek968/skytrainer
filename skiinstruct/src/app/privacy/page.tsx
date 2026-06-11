@@ -89,8 +89,7 @@ export default function PrivacyPolicyPage() {
             <strong>показ ближайших инструкторов на карте</strong> и расчёт расстояния до точки встречи;
           </li>
           <li>
-            <strong>отправка SMS</strong> (коды входа, сервисные уведомления) и <strong>push-уведомлений</strong> о
-            заявках, напоминаниях о занятиях;
+            <strong>push-уведомления</strong> о заявках и напоминаниях о занятиях;
           </li>
           <li>выплата вознаграждения Инструкторам;</li>
           <li>обработка обращений в службу поддержки;</li>
@@ -138,30 +137,26 @@ export default function PrivacyPolicyPage() {
           банковской карты обрабатываются только на стороне ЮKassa.
         </p>
         <p className="text-muted-foreground">
-          6.3. <strong>Twilio</strong> или иной SMS-провайдер (по настройке) — номер телефона и текст сервисного
-          сообщения для кодов входа.
-        </p>
-        <p className="text-muted-foreground">
-          6.4. <strong>SMTP-хостинг</strong> (почтовый сервер оператора, например Beget) — адрес email, имя, текст
+          6.3. <strong>SMTP-хостинг</strong> (почтовый сервер оператора, например Beget) — адрес email, имя, текст
           писем (сброс пароля, уведомления).
         </p>
         <p className="text-muted-foreground">
-          6.5. <strong>MAX</strong> (Bot API) — текст обращений в поддержку, email/имя пользователя при создании
+          6.4. <strong>MAX</strong> (Bot API) — текст обращений в поддержку, email/имя пользователя при создании
           тикета.
         </p>
         <p className="text-muted-foreground">
-          6.6. <strong>Яндекс.Карты</strong> — координаты и адреса для отображения карты и геокодирования (при
+          6.5. <strong>Яндекс.Карты</strong> — координаты и адреса для отображения карты и геокодирования (при
           использовании API карт).
         </p>
         <p className="text-muted-foreground">
-          6.7. <strong>Web Push</strong> (браузерные push-сервисы Google/Mozilla и др.) — push-токен подписки и текст
+          6.6. <strong>Web Push</strong> (браузерные push-сервисы Google/Mozilla и др.) — push-токен подписки и текст
           уведомления.
         </p>
         <p className="text-muted-foreground">
-          6.8. <strong>Google OAuth</strong> (при входе через Google) — email, имя, идентификатор аккаунта Google.
+          6.7. <strong>Google OAuth</strong> (при входе через Google) — email, имя, идентификатор аккаунта Google.
         </p>
         <p className="text-muted-foreground">
-          6.9. По требованию уполномоченных органов данные могут быть переданы в соответствии с законодательством РФ.
+          6.8. По требованию уполномоченных органов данные могут быть переданы в соответствии с законодательством РФ.
         </p>
       </section>
 
