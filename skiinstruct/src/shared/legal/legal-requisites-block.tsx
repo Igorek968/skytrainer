@@ -24,12 +24,6 @@ export function LegalRequisitesBlock() {
         Юридический адрес: <span className="text-foreground">{address}</span>
       </p>
       <p>
-        Телефон:{" "}
-        <a className="font-medium text-accent underline" href={`tel:${LEGAL_AGENT.phone.replace(/\s/g, "")}`}>
-          {LEGAL_AGENT.phone}
-        </a>
-      </p>
-      <p>
         Email:{" "}
         <a className="font-medium text-accent underline" href={`mailto:${LEGAL_AGENT.email}`}>
           {LEGAL_AGENT.email}

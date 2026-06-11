@@ -6,7 +6,6 @@ export const LEGAL_AGENT = {
   shortName: "ИП Ершов Андрей Валерьевич",
   inn: "110116757261",
   ogrn: "323112100004244",
-  phone: "+7 (928) 282-13-14",
   email: "berezka23igor@yandex.ru",
   bankAccount: "40817810500003053681",
   bankName: "АО «ТБанк»",

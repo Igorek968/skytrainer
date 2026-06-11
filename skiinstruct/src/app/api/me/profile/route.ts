@@ -33,7 +33,7 @@ export async function GET() {
   try {
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
-      select: { name: true, email: true, phone: true, image: true, birthDate: true },
+      select: { name: true, email: true, image: true, birthDate: true },
     });
     if (!user) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -42,7 +42,6 @@ export async function GET() {
     return NextResponse.json({
       name: user.name,
       email: user.email,
-      phone: user.phone,
       image: user.image,
       birthDate: user.birthDate ? user.birthDate.toISOString().slice(0, 10) : null,
     });
@@ -101,13 +100,12 @@ export async function PATCH(req: Request) {
     const user = await prisma.user.update({
       where: { id: session.user.id },
       data,
-      select: { name: true, email: true, phone: true, image: true, birthDate: true },
+      select: { name: true, email: true, image: true, birthDate: true },
     });
 
     return NextResponse.json({
       name: user.name,
       email: user.email,
-      phone: user.phone,
       image: user.image,
       birthDate: user.birthDate ? user.birthDate.toISOString().slice(0, 10) : null,
     });

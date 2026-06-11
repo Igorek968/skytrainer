@@ -6,8 +6,6 @@ import { LEGAL_ROUTES } from "@/lib/legal";
 import { SupportLauncher } from "@/features/support/support-launcher";
 
 export function SiteFooter() {
-  const telHref = `tel:${LEGAL_AGENT.phone.replace(/[^\d+]/g, "")}`;
-
   return (
     <footer className="border-t border-border bg-muted/20 py-6 text-center text-xs text-muted-foreground">
       <div className="mx-auto max-w-6xl space-y-4 px-4">
@@ -40,10 +38,6 @@ export function SiteFooter() {
           <Link className="underline underline-offset-2 hover:text-foreground" href={LEGAL_ROUTES.support}>
             Поддержка
           </Link>{" "}
-          | Телефон:{" "}
-          <a className="underline underline-offset-2 hover:text-foreground" href={telHref}>
-            {LEGAL_AGENT.phone}
-          </a>{" "}
           | Email:{" "}
           <a className="underline underline-offset-2 hover:text-foreground" href={`mailto:${LEGAL_AGENT.email}`}>
             {LEGAL_AGENT.email}

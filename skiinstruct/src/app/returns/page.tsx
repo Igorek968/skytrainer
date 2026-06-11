@@ -215,8 +215,6 @@ export default function ReturnsPolicyPage() {
         <h2 className="text-lg font-semibold">7. Контакты для связи по возвратам</h2>
         <p className="text-muted-foreground">
           Email: <strong>{LEGAL_AGENT.email}</strong>
-          <br />
-          Телефон: <strong>{LEGAL_AGENT.phone}</strong>
         </p>
       </section>
 

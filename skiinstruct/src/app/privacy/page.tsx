@@ -183,8 +183,7 @@ export default function PrivacyPolicyPage() {
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">9. Контактная информация</h2>
         <p className="text-muted-foreground">
-          По вопросам обработки персональных данных обращаться: <strong>{LEGAL_AGENT.email}</strong>, телефон{" "}
-          <strong>{LEGAL_AGENT.phone}</strong>.
+          По вопросам обработки персональных данных обращаться: <strong>{LEGAL_AGENT.email}</strong>.
         </p>
         <p className="text-muted-foreground">Адрес для письменных обращений: {address}.</p>
       </section>

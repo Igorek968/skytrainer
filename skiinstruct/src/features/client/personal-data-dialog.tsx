@@ -9,12 +9,10 @@ import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
 import { redirectToYooCardBinding } from "@/lib/payments/redirect-to-checkout";
-import { formatRussianPhoneDisplay } from "@/lib/phone";
 
 type MeProfile = {
   name: string | null;
   email: string;
-  phone?: string | null;
   image: string | null;
   birthDate: string | null;
 };
@@ -219,16 +217,10 @@ export function PersonalDataDialog({
               <p className="text-[11px] text-muted-foreground">Очистите поле и сохраните, чтобы убрать дату.</p>
             </div>
 
-            {data?.phone ? (
-              <p className="text-xs text-muted-foreground">
-                Телефон: <span className="text-foreground">{formatRussianPhoneDisplay(data.phone)}</span>
-              </p>
-            ) : null}
             {data?.email ? (
               <p className="text-xs text-muted-foreground">
-                {data.phone ? "Служебный email" : "Email для входа"}:{" "}
-                <span className="text-foreground">{data.email}</span>
-                {!data.phone ? " (меняется только через поддержку)." : "."}
+                Email для входа: <span className="text-foreground">{data.email}</span> (меняется только через
+                поддержку).
               </p>
             ) : null}
 

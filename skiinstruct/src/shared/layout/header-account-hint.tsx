@@ -4,12 +4,9 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSession } from "next-auth/react";
 import { useEffect } from "react";
 
-import { formatRussianPhoneDisplay } from "@/lib/phone";
-
 type MeProfile = {
   name: string | null;
   email: string;
-  phone?: string | null;
   birthDate: string | null;
 };
 
@@ -37,9 +34,7 @@ export function HeaderAccountHint() {
 
   if (status !== "authenticated" || !userId) return null;
 
-  const contactLine = data?.phone
-    ? formatRussianPhoneDisplay(data.phone)
-    : data?.email ?? session.user?.email ?? "";
+  const contactLine = data?.email ?? session.user?.email ?? "";
   const nameLine =
     data?.name?.trim() || session.user?.name?.trim() || "Ф.И.О. не указано";
   const birthLine = data?.birthDate
