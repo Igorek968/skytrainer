@@ -13,7 +13,7 @@ import {
   REFERRAL_MAX_ORDERS_PER_CLIENT,
   REFERRAL_REWARD_RUB,
 } from "@/lib/legal-config";
-import { LEGAL_AGENT, LEGAL_SITE_URL } from "@/lib/legal-entity";
+import { LEGAL_AGENT, LEGAL_SITE_URL, legalRegisteredAddress } from "@/lib/legal-entity";
 import { LegalRequisitesBlock } from "@/shared/legal/legal-requisites-block";
 import { LEGAL_ROUTES } from "@/lib/legal";
 import { LegalDocLayout } from "@/shared/layout/legal-doc-layout";
@@ -350,7 +350,7 @@ export default function PublicOfferPage() {
           дня до вступления изменений в силу.
         </p>
         <p className="text-muted-foreground">
-          10.3. Все споры подлежат рассмотрению по месту регистрации Агента (Республика Коми, г. Сыктывкар, если иное не
+          10.3. Все споры подлежат рассмотрению по месту регистрации Агента ({legalRegisteredAddress()}, если иное не
           установлено законом).
         </p>
       </section>

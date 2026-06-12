@@ -14,6 +14,10 @@ export const LEGAL_AGENT = {
   agentFeePercent: 15,
 } as const;
 
+/** Юридический адрес оператора (ЕГРИП); переопределяется через NEXT_PUBLIC_LEGAL_ADDRESS. */
+export const LEGAL_REGISTERED_ADDRESS_DEFAULT =
+  "167000, Республика Коми, г. Сыктывкар, ул. Коммунистическая, д. 85, кв. 3";
+
 export function legalRegisteredAddress(): string {
-  return process.env.NEXT_PUBLIC_LEGAL_ADDRESS?.trim() || "Республика Коми, г. Сыктывкар";
+  return process.env.NEXT_PUBLIC_LEGAL_ADDRESS?.trim() || LEGAL_REGISTERED_ADDRESS_DEFAULT;
 }
