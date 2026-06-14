@@ -12,7 +12,7 @@ const querySchema = z.object({
 });
 
 export async function GET(req: Request) {
-  const ip = clientIp(req);
+  const ip = clientIp(req.headers);
   const session = await auth();
   const rateKey = session?.user?.id ? `display-name:${session.user.id}` : `display-name:${ip}`;
   if (!rateLimit(rateKey, 40, 60_000)) {
