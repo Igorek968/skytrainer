@@ -30,6 +30,8 @@ import {
   repairStaleCatalogSyntheticBio,
   syncSyntheticBioLineWithSpecs,
 } from "@/lib/services/instructor-match";
+import { findDuplicateParticipantByDisplayName } from "@/lib/services/user-display-name-uniqueness";
+import { DISPLAY_NAME_DUPLICATE_MESSAGE } from "@/lib/user-display-name";
 
 const drivingDetailsSchema = z.object({
   vehicleOptions: z
@@ -364,6 +366,15 @@ export async function PATCH(req: Request) {
       resolvedCoverUpdate,
     });
     const merged = mergeProfileDraft(base, patch);
+
+    const mergedFirst = merged.firstName?.trim() ?? "";
+    const mergedLast = merged.lastName?.trim() ?? "";
+    if (mergedFirst && mergedLast) {
+      const duplicate = await findDuplicateParticipantByDisplayName(userId, mergedFirst, mergedLast);
+      if (duplicate) {
+        return NextResponse.json({ error: DISPLAY_NAME_DUPLICATE_MESSAGE }, { status: 409 });
+      }
+    }
 
     await prisma.instructorProfile.update({
       where: { userId },

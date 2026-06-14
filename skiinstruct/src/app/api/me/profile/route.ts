@@ -4,6 +4,8 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { clientSafeErrorMessage, isPrismaSchemaMismatch, prismaSchemaMismatchMessage } from "@/lib/api-error";
 import { prisma } from "@/lib/prisma";
+import { findDuplicateParticipantByDisplayName } from "@/lib/services/user-display-name-uniqueness";
+import { DISPLAY_NAME_DUPLICATE_MESSAGE, parseFullNameToParts } from "@/lib/user-display-name";
 
 /** Частичное обновление: пустой `name` в теле не передавайте — иначе не трогаем поле в БД. */
 const patchSchema = z
@@ -94,6 +96,16 @@ export async function PATCH(req: Request) {
       { error: "Нет полей для обновления. Укажите Ф.И.О. или дату рождения." },
       { status: 400 }
     );
+  }
+
+  if (name !== undefined) {
+    const { firstName, lastName } = parseFullNameToParts(name);
+    if (firstName && lastName) {
+      const duplicate = await findDuplicateParticipantByDisplayName(session.user.id, firstName, lastName);
+      if (duplicate) {
+        return NextResponse.json({ error: DISPLAY_NAME_DUPLICATE_MESSAGE }, { status: 409 });
+      }
+    }
   }
 
   try {

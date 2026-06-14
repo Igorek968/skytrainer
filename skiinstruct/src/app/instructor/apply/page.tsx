@@ -1,13 +1,16 @@
 "use client";
 
 import Link from "next/link";
+import { useMemo } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 
 import { instructorApplyAction, type InstructorApplyState } from "@/app/actions/instructor-apply";
 import { FORM_DRAFT_KEYS } from "@/lib/form-draft-storage";
 import { LEGAL_ROUTES } from "@/lib/legal";
 import { INSTRUCTOR_ACTIVITY_LABELS } from "@/lib/services/instructor-match";
+import { parseFullNameToParts } from "@/lib/user-display-name";
 import { useFormDraft } from "@/shared/hooks/use-form-draft";
+import { useDisplayNameDuplicateCheck } from "@/shared/hooks/use-display-name-duplicate-check";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Input } from "@/shared/ui/input";
@@ -45,10 +48,15 @@ const defaultDraft: InstructorApplyDraft = {
   acceptPrivacy: false,
 };
 
-function SubmitButton() {
+function SubmitButton({ disabledByName }: { disabledByName: boolean }) {
   const { pending } = useFormStatus();
   return (
-    <Button className="w-full" type="submit" disabled={pending} aria-busy={pending}>
+    <Button
+      className="w-full"
+      type="submit"
+      disabled={pending || disabledByName}
+      aria-busy={pending}
+    >
       {pending ? "Отправка…" : "Отправить заявку на модерацию"}
     </Button>
   );
@@ -60,6 +68,11 @@ export default function InstructorApplyPage() {
     FORM_DRAFT_KEYS.instructorApply,
     defaultDraft,
   );
+  const { firstName, lastName } = useMemo(
+    () => parseFullNameToParts(values.name),
+    [values.name],
+  );
+  const displayNameDuplicate = useDisplayNameDuplicateCheck(firstName, lastName);
 
   return (
     <div className="mx-auto max-w-lg space-y-6 py-4">
@@ -88,6 +101,14 @@ export default function InstructorApplyPage() {
                 value={values.name}
                 onChange={(e) => setField("name", e.target.value)}
               />
+              <p className="text-xs text-muted-foreground">
+                Укажите имя и фамилию через пробел — по ним клиенты найдут вас на сайте.
+              </p>
+              {displayNameDuplicate.duplicate ? (
+                <p className="text-xs text-destructive">{displayNameDuplicate.message}</p>
+              ) : displayNameDuplicate.checking && firstName && lastName ? (
+                <p className="text-xs text-muted-foreground">Проверка имени…</p>
+              ) : null}
             </div>
             <div className="space-y-2">
               <Label htmlFor="email">Email для входа</Label>
@@ -256,7 +277,7 @@ export default function InstructorApplyPage() {
 
             {state.error ? <p className="text-sm text-destructive">{state.error}</p> : null}
 
-            <SubmitButton />
+            <SubmitButton disabledByName={displayNameDuplicate.duplicate} />
           </form>
 
           <p className="mt-4 text-center text-sm text-muted-foreground">

@@ -5,6 +5,8 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { sendEmailVerification } from "@/lib/services/email-verification";
 import { bindReferralByCode, bindReferralFromCookie, ensureUserReferralCode } from "@/lib/services/referral";
+import { findDuplicateParticipantByDisplayName } from "@/lib/services/user-display-name-uniqueness";
+import { DISPLAY_NAME_DUPLICATE_MESSAGE, parseFullNameToParts } from "@/lib/user-display-name";
 
 const registerSchema = z.object({
   email: z.string().trim().email("Некорректный email").max(254).transform((s) => s.toLowerCase()),
@@ -46,6 +48,16 @@ export async function createClientUser(input: {
   const { email, password } = parsed.data;
   const nameRaw = typeof input.name === "string" ? input.name.trim() : "";
   const name = nameRaw.length > 0 ? nameRaw.slice(0, 120) : null;
+
+  if (name) {
+    const { firstName, lastName } = parseFullNameToParts(name);
+    if (firstName && lastName) {
+      const duplicateName = await findDuplicateParticipantByDisplayName(null, firstName, lastName);
+      if (duplicateName) {
+        return { ok: false, error: DISPLAY_NAME_DUPLICATE_MESSAGE, status: 409 };
+      }
+    }
+  }
 
   const existing = await prisma.user.findFirst({
     where: { email: { equals: email, mode: "insensitive" } },

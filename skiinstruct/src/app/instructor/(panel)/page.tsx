@@ -35,6 +35,7 @@ import { Label } from "@/shared/ui/label";
 import { cn } from "@/lib/utils";
 import { INSTRUCTOR_ACTIVITY_LABELS } from "@/lib/services/instructor-match";
 import { INSTRUCTOR_NO_SHOW_PENALTY_PERCENT } from "@/lib/legal-config";
+import { useDisplayNameDuplicateCheck } from "@/shared/hooks/use-display-name-duplicate-check";
 
 const instructorFetch = (input: RequestInfo | URL, init?: RequestInit) =>
   fetch(input, { ...init, credentials: "include" });
@@ -386,6 +387,7 @@ export default function InstructorHomePage() {
   const [inited, setInited] = useState(false);
   /** Иначе Chrome подставляет «чужие» имя/фамилию из профиля браузера в поля с id вроде first-name. */
   const [publicNameFieldsUnlocked, setPublicNameFieldsUnlocked] = useState(false);
+  const displayNameDuplicate = useDisplayNameDuplicateCheck(firstName, lastName, inited);
 
   useEffect(() => {
     if (searchParams.get("applied") === "1") {
@@ -579,6 +581,11 @@ export default function InstructorHomePage() {
 
   function validateProfileForm(): { ok: boolean; availabilitySlots: AvailabilitySlot[] } {
     const errors: Partial<Record<ProfileField, string>> = {};
+
+    if (displayNameDuplicate.duplicate) {
+      toast.error(displayNameDuplicate.message ?? "Укажите другие имя или фамилию");
+      return { ok: false, availabilitySlots: normalizeAvailabilitySlots(availabilitySlots) };
+    }
 
     if (!certificationLevel.trim()) errors.certificationLevel = "Укажите уровень сертификации";
     if (!languagesRaw.trim()) errors.languagesRaw = "Укажите хотя бы один язык";
@@ -977,6 +984,11 @@ export default function InstructorHomePage() {
                     placeholder="Иванов"
                   />
                 </div>
+                {displayNameDuplicate.duplicate ? (
+                  <p className="md:col-span-2 text-xs text-destructive">{displayNameDuplicate.message}</p>
+                ) : displayNameDuplicate.checking && firstName.trim() && lastName.trim() ? (
+                  <p className="md:col-span-2 text-xs text-muted-foreground">Проверка имени…</p>
+                ) : null}
                 <div className="space-y-2">
                   <Label htmlFor="cert">Сертификация</Label>
                   <Input
@@ -1213,7 +1225,9 @@ export default function InstructorHomePage() {
                 <Button
                   type="button"
                   variant="accent"
-                  disabled={saveProfile.isPending || signedInAsOtherRole}
+                  disabled={
+                    saveProfile.isPending || signedInAsOtherRole || displayNameDuplicate.duplicate
+                  }
                   onClick={() => saveProfile.mutate()}
                 >
                   Сохранить профиль

@@ -2,13 +2,15 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSession } from "next-auth/react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
 import { redirectToYooCardBinding } from "@/lib/payments/redirect-to-checkout";
+import { parseFullNameToParts } from "@/lib/user-display-name";
+import { useDisplayNameDuplicateCheck } from "@/shared/hooks/use-display-name-duplicate-check";
 
 type MeProfile = {
   name: string | null;
@@ -36,6 +38,8 @@ export function PersonalDataDialog({
   const userId = session?.user?.id;
   const [name, setName] = useState("");
   const [birthDate, setBirthDate] = useState("");
+  const { firstName, lastName } = useMemo(() => parseFullNameToParts(name), [name]);
+  const displayNameDuplicate = useDisplayNameDuplicateCheck(firstName, lastName, open);
 
   const { data, isLoading } = useQuery({
     queryKey: ["me-profile", userId],
@@ -65,6 +69,9 @@ export function PersonalDataDialog({
 
   const save = useMutation({
     mutationFn: async () => {
+      if (displayNameDuplicate.duplicate) {
+        throw new Error(displayNameDuplicate.message ?? "Укажите другие имя или фамилию");
+      }
       const tn = name.trim();
       const bd = birthDate.trim();
       const body: { name?: string; birthDate: string } = { birthDate: bd === "" ? "" : bd };
@@ -204,6 +211,11 @@ export function PersonalDataDialog({
                 placeholder="Иванов Иван Иванович"
                 autoComplete="name"
               />
+              {displayNameDuplicate.duplicate ? (
+                <p className="text-xs text-destructive">{displayNameDuplicate.message}</p>
+              ) : displayNameDuplicate.checking && firstName && lastName ? (
+                <p className="text-xs text-muted-foreground">Проверка имени…</p>
+              ) : null}
             </div>
 
             <div className="space-y-2">
@@ -258,7 +270,12 @@ export function PersonalDataDialog({
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 Закрыть
               </Button>
-              <Button type="button" variant="accent" disabled={save.isPending} onClick={() => save.mutate()}>
+              <Button
+                type="button"
+                variant="accent"
+                disabled={save.isPending || displayNameDuplicate.duplicate}
+                onClick={() => save.mutate()}
+              >
                 Сохранить
               </Button>
             </div>

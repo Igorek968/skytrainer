@@ -6,6 +6,8 @@ import { buildInstructorProfileCreateData } from "@/lib/instructor-profile-defau
 import { AGENCY_OFFER_VERSION } from "@/lib/legal-config";
 import { prisma } from "@/lib/prisma";
 import { canonicalizeActivityLabel, canonicalizeActivityLabels } from "@/lib/services/instructor-match";
+import { findDuplicateParticipantByDisplayName } from "@/lib/services/user-display-name-uniqueness";
+import { DISPLAY_NAME_DUPLICATE_MESSAGE, parseFullNameToParts } from "@/lib/user-display-name";
 
 const applySchema = z.object({
   email: z.string().trim().email("Некорректный email").max(254).transform((s) => s.toLowerCase()),
@@ -85,6 +87,14 @@ export async function createInstructorApplication(input: {
     .slice(0, 20);
 
   const { email, password, name, bio, hourlyRate } = parsed.data;
+
+  const { firstName, lastName } = parseFullNameToParts(name);
+  if (firstName && lastName) {
+    const duplicateName = await findDuplicateParticipantByDisplayName(null, firstName, lastName);
+    if (duplicateName) {
+      return { ok: false, error: DISPLAY_NAME_DUPLICATE_MESSAGE, status: 409 };
+    }
+  }
 
   const existing = await prisma.user.findFirst({
     where: { email: { equals: email, mode: "insensitive" } },
