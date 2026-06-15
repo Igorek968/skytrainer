@@ -9,6 +9,7 @@ import {
   sendPasswordResetEmailViaWebhook,
 } from "@/lib/services/password-reset-email";
 import { getPasswordResetBaseUrl } from "@/lib/services/password-reset";
+import { getPublicProductName } from "@/shared/lib/product";
 
 const VERIFY_TTL_MS = 48 * 60 * 60 * 1000;
 
@@ -64,7 +65,7 @@ export async function sendEmailVerification(email: string): Promise<boolean> {
   const raw = await createEmailVerificationToken(email);
   const link = buildEmailVerificationLink(raw);
   const { from, subject: defaultSubject } = passwordResetEmailDefaults();
-  const appName = process.env.NEXT_PUBLIC_APP_NAME?.trim() || "uTrainer";
+  const appName = getPublicProductName();
   const subject = `${appName}: подтвердите email`;
   const { text: baseText, html: baseHtml } = buildPasswordResetEmailContent(link);
   const text = baseText.replace("восстановление пароля", "подтверждение email").replace("Сбросить пароль", "Подтвердить email");

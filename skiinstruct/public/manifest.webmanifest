@@ -1,6 +1,6 @@
 {
-  "name": "SkiInstruct",
-  "short_name": "SkiInstruct",
+  "name": "Utrainer",
+  "short_name": "Utrainer",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0f172a",

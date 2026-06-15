@@ -1,6 +1,6 @@
 import type { OrderStatus, PaymentStatus, UserRole } from "@prisma/client";
 
-/** Домен приложения SkiInstruct (заказы, пользователи, чаты — одна БД Prisma). */
+/** Домен приложения Utrainer (заказы, пользователи, чаты — одна БД Prisma). */
 export type AdminActivityCategory = "order" | "user" | "instructor" | "message";
 
 export type AdminActivityItem = {
@@ -55,7 +55,7 @@ export type AdminParticipantInsights = {
 };
 
 export type AdminOverview = {
-  /** Привязка сводки к продукту SkiInstruct */
+  /** Привязка сводки к продукту Utrainer */
   context: {
     productName: string;
     generatedAt: string;

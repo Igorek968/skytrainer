@@ -12,6 +12,7 @@ import {
 import { completeOrderPrepayment } from "@/lib/services/order-prepayment";
 import { orderAmountDueRub } from "@/lib/services/referral";
 import { createYooKassaLessonPayment, isYooKassaConfigured } from "@/lib/yookassa";
+import { getPublicProductName } from "@/shared/lib/product";
 
 const bodySchema = z.object({
   orderId: z.string().cuid(),
@@ -130,7 +131,7 @@ export async function POST(req: Request) {
         pay = await createYooKassaLessonPayment({
           orderId: order.id,
           amountRub,
-          description: `uTrainer — заказ ${order.id.slice(0, 8)}`,
+          description: `${getPublicProductName()} — заказ ${order.id.slice(0, 8)}`,
           customerEmail: email,
           returnUrl,
           paymentMethodId: user.yookassaPaymentMethodId,
@@ -139,7 +140,7 @@ export async function POST(req: Request) {
         pay = await createYooKassaLessonPayment({
           orderId: order.id,
           amountRub,
-          description: `uTrainer — заказ ${order.id.slice(0, 8)}`,
+          description: `${getPublicProductName()} — заказ ${order.id.slice(0, 8)}`,
           customerEmail: email,
           returnUrl,
           savePaymentMethod: true,

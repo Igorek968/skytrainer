@@ -1,4 +1,4 @@
-﻿# Деплой SkiInstruct QA на VPS (SSH host "vps" из ~/.ssh/config).
+# Деплой Utrainer QA на VPS (SSH host "vps" из ~/.ssh/config).
 param(
   [string]$SshHost = "vps",
   [string]$RemoteDir = "/opt/skytrainer",

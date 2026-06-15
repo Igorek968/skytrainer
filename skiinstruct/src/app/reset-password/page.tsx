@@ -11,6 +11,7 @@ import type { UserRole } from "@prisma/client";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Input } from "@/shared/ui/input";
+import { PasswordInput } from "@/shared/ui/password-input";
 import { Label } from "@/shared/ui/label";
 
 function homeForRole(role: UserRole | undefined): string {
@@ -149,9 +150,8 @@ function ResetPasswordForm() {
             <form className="space-y-4" onSubmit={onConfirm} noValidate>
               <div className="space-y-2">
                 <Label htmlFor="newPassword">Новый пароль</Label>
-                <Input
+                <PasswordInput
                   id="newPassword"
-                  type="password"
                   autoComplete="new-password"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}

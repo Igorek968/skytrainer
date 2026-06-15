@@ -33,6 +33,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/sha
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
 import { cn } from "@/lib/utils";
+import { getPublicProductName } from "@/shared/lib/product";
 import { INSTRUCTOR_ACTIVITY_LABELS } from "@/lib/services/instructor-match";
 import { INSTRUCTOR_NO_SHOW_PENALTY_PERCENT } from "@/lib/legal-config";
 import { useDisplayNameDuplicateCheck } from "@/shared/hooks/use-display-name-duplicate-check";
@@ -365,7 +366,6 @@ export default function InstructorHomePage() {
   const [lastName, setLastName] = useState("");
   const [bio, setBio] = useState("");
   const [certificationLevel, setCertificationLevel] = useState("");
-  const [certificationsRaw, setCertificationsRaw] = useState("");
   const [skillLevelsRaw, setSkillLevelsRaw] = useState("");
   const [languagesRaw, setLanguagesRaw] = useState("");
   const [specializationOffers, setSpecializationOffers] = useState<SpecializationOffer[]>([]);
@@ -484,7 +484,7 @@ export default function InstructorHomePage() {
           ? "Уведомления включены — заявки придут push и на почту, даже если сайт закрыт"
           : "Браузерные уведомления включены",
       );
-      new Notification("SkiInstruct", {
+      new Notification(getPublicProductName(), {
         body: "Тест: уведомления работают.",
       });
     } else if (perm === "denied") {
@@ -500,7 +500,6 @@ export default function InstructorHomePage() {
     setLastName(data.profile.lastName ?? "");
     setBio(data.profile.bio ?? "");
     setCertificationLevel(data.profile.certificationLevel ?? "");
-    setCertificationsRaw(data.profile.certifications.join(", "));
     setSkillLevelsRaw(data.profile.skillLevels.join(", "));
     setLanguagesRaw(data.profile.languages.join(", "));
     setSpecializationOffers(
@@ -653,10 +652,8 @@ export default function InstructorHomePage() {
         .split(",")
         .map((s) => s.trim())
         .filter(Boolean);
-      const certifications = certificationsRaw
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean);
+      const certLevel = certificationLevel.trim();
+      const certifications = certLevel ? [certLevel] : [];
       const skillLevels = skillLevelsRaw
         .split(",")
         .map((s) => s.trim())
@@ -1039,14 +1036,6 @@ export default function InstructorHomePage() {
                   />
                 </div>
               </div>
-              <MultiSelectChipsField
-                id="certs"
-                label="Ключевые сертификаты"
-                value={certificationsRaw}
-                onChange={setCertificationsRaw}
-                options={CERTIFICATION_LEVEL_OPTIONS}
-                placeholder="ISIA, CASI, Austrian Ski Instructor"
-              />
               <MultiSelectChipsField
                 id="levels"
                 label="Уровни подготовки"

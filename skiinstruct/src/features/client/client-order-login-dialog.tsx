@@ -10,6 +10,7 @@ import { signInClientSessionAction } from "@/app/actions/client-order-sign-in";
 import { CLIENT_BOOKING_RETURN_PATH } from "@/lib/client-pending-checkout";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
+import { PasswordInput } from "@/shared/ui/password-input";
 import { Label } from "@/shared/ui/label";
 
 type Props = {
@@ -110,9 +111,8 @@ export function ClientOrderLoginDialog({ open, onOpenChange, onAuthenticated }: 
           </div>
           <div className="space-y-2">
             <Label htmlFor="col-password">Пароль</Label>
-            <Input
+            <PasswordInput
               id="col-password"
-              type="password"
               name="password"
               autoComplete="current-password"
               value={password}

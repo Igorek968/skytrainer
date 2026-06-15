@@ -11,6 +11,7 @@ import { Button } from "@/shared/ui/button";
 import { LegalConsentCheckbox } from "@/shared/legal/legal-consent-checkbox";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Input } from "@/shared/ui/input";
+import { PasswordInput } from "@/shared/ui/password-input";
 import { Label } from "@/shared/ui/label";
 import { useFormDraft } from "@/shared/hooks/use-form-draft";
 
@@ -127,10 +128,9 @@ function RegisterForm() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="reg-password">Пароль</Label>
-              <Input
+              <PasswordInput
                 id="reg-password"
                 name="password"
-                type="password"
                 autoComplete="new-password"
                 required
                 minLength={8}
@@ -142,10 +142,9 @@ function RegisterForm() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="reg-password2">Пароль ещё раз</Label>
-              <Input
+              <PasswordInput
                 id="reg-password2"
                 name="passwordConfirm"
-                type="password"
                 autoComplete="new-password"
                 required
                 minLength={8}

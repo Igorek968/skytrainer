@@ -11,7 +11,7 @@ import {
   snapshotProfileToDraft,
 } from "@/lib/instructor-profile-draft";
 import { prisma } from "@/lib/prisma";
-import { SKIINSTRUCT_PRODUCT_NAME } from "@/shared/lib/product";
+import { UTRAINER_PRODUCT_NAME } from "@/shared/lib/product";
 import { orderStatusLabel } from "@/shared/lib/order-status";
 
 export const dynamic = "force-dynamic";
@@ -625,7 +625,7 @@ export async function GET(req: Request) {
     return NextResponse.json(
       {
         context: {
-          productName: SKIINSTRUCT_PRODUCT_NAME,
+          productName: UTRAINER_PRODUCT_NAME,
           generatedAt: new Date().toISOString(),
         },
         focus: {

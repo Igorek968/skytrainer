@@ -8,7 +8,7 @@ import { LegalDocLayout } from "@/shared/layout/legal-doc-layout";
 
 export const metadata: Metadata = {
   title: "Политика обработки персональных данных",
-  description: "Порядок обработки ПДн пользователей uTrainer",
+  description: "Порядок обработки ПДн пользователей Utrainer",
 };
 
 export default function PrivacyPolicyPage() {
@@ -127,7 +127,7 @@ export default function PrivacyPolicyPage() {
         </p>
         <p className="text-muted-foreground">
           5.3. Персональные данные хранятся в информационной системе персональных данных (ИСПДн) платформы{" "}
-          <strong>uTrainer</strong> на арендованном виртуальном сервере (VPS) на территории Российской Федерации.
+          <strong>Utrainer</strong> на арендованном виртуальном сервере (VPS) на территории Российской Федерации.
           Инфраструктуру размещения предоставляет хостинг-провайдер <strong>ООО «Бегет»</strong> (ИНН 7801451618); ООО
           «Бегет» не является оператором персональных данных и не определяет цели обработки. Основное хранилище — СУБД
           PostgreSQL; отдельное шифрование носителей и полей базы данных не применяется.

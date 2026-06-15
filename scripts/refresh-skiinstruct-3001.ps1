@@ -39,7 +39,7 @@ try {
   }
 
   $mode = Get-SkiinstructMode
-  Write-Host "SkiInstruct refresh (mode=$mode) -> http://localhost:3001 ..."
+  Write-Host "Utrainer refresh (mode=$mode) -> http://localhost:3001 ..."
 
   $dirtyMarker = Join-Path $repoRoot ".cursor/.skiinstruct-dirty"
   $hadEdits = Test-Path $dirtyMarker

@@ -9,7 +9,7 @@ $env:SKIINSTRUCT_USE_POLLING = "true"
 $env:SKIINSTRUCT_FORCE_REBUILD = "0"
 Remove-Item Env:SKIINSTRUCT_NODE_ENV -ErrorAction SilentlyContinue
 
-Write-Host "SkiInstruct repair: dev + чистый .next -> http://localhost:3001 ..."
+Write-Host "Utrainer repair: dev + чистый .next -> http://localhost:3001 ..."
 
 docker compose stop skiinstruct | Out-Host
 docker compose rm -sf skiinstruct | Out-Host

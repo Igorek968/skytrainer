@@ -1,10 +1,14 @@
 import type { Metadata } from "next";
 
-/** Весь раздел /admin относится к приложению SkiInstruct (этот репозиторий Next.js). */
+import { getPublicProductName } from "@/shared/lib/product";
+
+const productName = getPublicProductName();
+
+/** Весь раздел /admin относится к приложению Utrainer (этот репозиторий Next.js). */
 export const metadata: Metadata = {
   title: {
-    default: "Администрирование · SkiInstruct",
-    template: "%s · SkiInstruct Admin",
+    default: `Администрирование · ${productName}`,
+    template: `%s · ${productName} Admin`,
   },
   robots: { index: false, follow: false },
 };

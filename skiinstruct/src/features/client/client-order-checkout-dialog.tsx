@@ -20,6 +20,7 @@ import { InstructorServiceExecutorNotice } from "@/shared/legal/instructor-servi
 import { LegalConsentCheckbox } from "@/shared/legal/legal-consent-checkbox";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
+import { PasswordInput } from "@/shared/ui/password-input";
 import { Label } from "@/shared/ui/label";
 
 type Props = {
@@ -272,9 +273,8 @@ export function ClientOrderCheckoutDialog({ open, onOpenChange, instructor, onCr
             </div>
             <div className="space-y-2">
               <Label htmlFor="co-pass">Пароль</Label>
-              <Input
+              <PasswordInput
                 id="co-pass"
-                type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
@@ -285,9 +285,8 @@ export function ClientOrderCheckoutDialog({ open, onOpenChange, instructor, onCr
             {authMode === "register" ? (
               <div className="space-y-2">
                 <Label htmlFor="co-pass2">Пароль ещё раз</Label>
-                <Input
+                <PasswordInput
                   id="co-pass2"
-                  type="password"
                   value={passwordConfirm}
                   onChange={(e) => setPasswordConfirm(e.target.value)}
                   required

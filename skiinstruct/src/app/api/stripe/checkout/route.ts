@@ -9,6 +9,7 @@ import { orderAmountDueRub } from "@/lib/services/referral";
 import { isYooKassaConfigured } from "@/lib/yookassa";
 import { getStripe } from "@/lib/stripe";
 import { findStripeCustomerByEmail } from "@/lib/stripe-customer";
+import { getPublicProductName } from "@/shared/lib/product";
 
 const bodySchema = z.object({
   orderId: z.string().cuid(),
@@ -92,7 +93,7 @@ export async function POST(req: Request) {
             currency: "rub",
             unit_amount: Math.round(amountDue * 100),
             product_data: {
-              name: `SkiInstruct — заказ ${order.id.slice(0, 8)}`,
+              name: `${getPublicProductName()} — заказ ${order.id.slice(0, 8)}`,
             },
           },
         },

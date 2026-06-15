@@ -2,6 +2,7 @@ import { isMockCheckoutEnabled } from "@/lib/checkout-config";
 import { isInstructorEventCompleted } from "@/lib/instructor-events";
 import { prisma } from "@/lib/prisma";
 import { getStripe } from "@/lib/stripe";
+import { getPublicProductName } from "@/shared/lib/product";
 import {
   createYooKassaEventPayment,
   isYooKassaConfigured,
@@ -92,7 +93,7 @@ export async function createEventCheckoutUrl(
     const pay = await createYooKassaEventPayment({
       eventRegistrationId: registrationId,
       amountRub: amount,
-      description: `uTrainer — ${reg.event.title.slice(0, 80)}`,
+      description: `${getPublicProductName()} — ${reg.event.title.slice(0, 80)}`,
       customerEmail: email,
       returnUrl,
     });
@@ -117,7 +118,7 @@ export async function createEventCheckoutUrl(
           currency: "rub",
           unit_amount: Math.round(amount * 100),
           product_data: {
-            name: `SkiInstruct — ${reg.event.title.slice(0, 80)}`,
+            name: `${getPublicProductName()} — ${reg.event.title.slice(0, 80)}`,
           },
         },
       },

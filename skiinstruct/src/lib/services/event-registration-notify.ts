@@ -2,6 +2,7 @@ import nodemailer from "nodemailer";
 
 import { formatEventDateRu, formatSlotTimeRu } from "@/lib/instructor-events";
 import { prisma } from "@/lib/prisma";
+import { getPublicProductName } from "@/shared/lib/product";
 
 function envSecret(value: string | undefined): string {
   const v = value?.trim() ?? "";
@@ -54,7 +55,7 @@ export function buildEventRegistrationEmailContent(p: EventRegistrationNotifyPay
   text: string;
   html: string;
 } {
-  const appName = process.env.NEXT_PUBLIC_APP_NAME?.trim() || "uTrainer";
+  const appName = getPublicProductName();
   const when = p.slotStartsAt
     ? `${formatEventDateRu(p.slotStartsAt.toISOString())} (${formatSlotTimeRu(p.slotStartsAt)})`
     : formatEventDateRu(p.eventAt?.toISOString() ?? null) ?? "дата не указана";
@@ -164,7 +165,7 @@ export async function notifyInstructorOfEventRegistration(registrationId: string
     panelUrl,
   });
 
-  const appName = process.env.NEXT_PUBLIC_APP_NAME?.trim() || "uTrainer";
+  const appName = getPublicProductName();
   const from =
     process.env.SMTP_FROM?.trim() ||
     process.env.PASSWORD_RESET_EMAIL_FROM?.trim() ||

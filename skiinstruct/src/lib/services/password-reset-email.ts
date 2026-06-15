@@ -32,8 +32,10 @@ export function buildPasswordResetEmailContent(resetLink: string): { text: strin
   return { text, html };
 }
 
+import { getPublicProductName } from "@/shared/lib/product";
+
 export function passwordResetEmailDefaults(): { from: string; subject: string } {
-  const appName = process.env.NEXT_PUBLIC_APP_NAME?.trim() || "UTrainer";
+  const appName = getPublicProductName();
   return {
     from:
       process.env.PASSWORD_RESET_EMAIL_FROM?.trim() ||
@@ -41,7 +43,7 @@ export function passwordResetEmailDefaults(): { from: string; subject: string } 
       `${appName} <noreply@localhost>`,
     subject:
       process.env.PASSWORD_RESET_EMAIL_SUBJECT?.trim() ||
-      "восстановление пароля на UTrainer",
+      `восстановление пароля на ${appName}`,
   };
 }
 

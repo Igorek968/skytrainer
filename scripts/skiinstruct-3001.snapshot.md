@@ -1,4 +1,4 @@
-# SkiInstruct localhost:3001 — рабочая сборка (snapshot)
+# Utrainer localhost:3001 — рабочая сборка (snapshot)
 
 Зафиксировано: **2026-06-05**, ветка `yandex-experement` (коммит: `git rev-parse --short HEAD`). Использовать эти настройки для локального :3001.
 

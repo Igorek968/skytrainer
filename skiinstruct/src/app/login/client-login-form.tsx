@@ -10,6 +10,7 @@ import { SocialSignInButtons } from "@/shared/auth/social-sign-in-buttons";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Input } from "@/shared/ui/input";
+import { PasswordInput } from "@/shared/ui/password-input";
 import { Label } from "@/shared/ui/label";
 
 function LoginFormInner() {
@@ -122,10 +123,9 @@ function LoginFormInner() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">Пароль</Label>
-              <Input
+              <PasswordInput
                 id="password"
                 name="password"
-                type="password"
                 autoComplete="current-password"
                 required
                 disabled={pending}

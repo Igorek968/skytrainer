@@ -4,12 +4,14 @@ import type { AdminOverview } from "@/features/admin/admin-overview-types";
 import { adminActivityCategoryLabel } from "@/features/admin/admin-overview-types";
 import { Badge } from "@/shared/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
+import { getPublicProductName } from "@/shared/lib/product";
 
 export function AdminActivitySection({ data }: { data: AdminOverview }) {
+  const productName = getPublicProductName();
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Лента событий SkiInstruct</CardTitle>
+        <CardTitle className="text-base">Лента событий {productName}</CardTitle>
         <CardDescription>
           Журнал в реальном времени по данным приложения: заказы (создание и изменения), регистрации, модерация
           инструкторов и сообщения в чатах заказов.

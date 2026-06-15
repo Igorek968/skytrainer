@@ -14,6 +14,7 @@ import { useDisplayNameDuplicateCheck } from "@/shared/hooks/use-display-name-du
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Input } from "@/shared/ui/input";
+import { PasswordInput } from "@/shared/ui/password-input";
 import { Label } from "@/shared/ui/label";
 
 const initialState: InstructorApplyState = { error: null, success: false };
@@ -126,10 +127,9 @@ export default function InstructorApplyPage() {
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="password">Пароль</Label>
-                <Input
+                <PasswordInput
                   id="password"
                   name="password"
-                  type="password"
                   autoComplete="new-password"
                   required
                   minLength={8}
@@ -139,10 +139,9 @@ export default function InstructorApplyPage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="passwordConfirm">Пароль ещё раз</Label>
-                <Input
+                <PasswordInput
                   id="passwordConfirm"
                   name="passwordConfirm"
-                  type="password"
                   autoComplete="new-password"
                   required
                   minLength={8}

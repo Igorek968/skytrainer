@@ -20,7 +20,7 @@ import { LegalDocLayout } from "@/shared/layout/legal-doc-layout";
 
 export const metadata: Metadata = {
   title: "Договор-оферта",
-  description: "Условия подбора инструктора, бронирования и оплаты на uTrainer",
+  description: "Условия подбора инструктора, бронирования и оплаты на Utrainer",
 };
 
 export default function PublicOfferPage() {

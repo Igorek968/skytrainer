@@ -1,4 +1,4 @@
-# Подключение ЮKassa к SkiInstruct
+# Подключение ЮKassa к Utrainer
 
 Сейчас в **skiinstruct** оплата идёт через **Stripe** (или mock без ключа в dev).  
 В корневом **legacy API** (`api/`) уже есть черновик ЮKassa — для единого продакшена лучше перенести логику в Next.js.

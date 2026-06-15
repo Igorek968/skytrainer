@@ -1,9 +1,13 @@
 import type { Metadata } from "next";
 
+import { getPublicProductName } from "@/shared/lib/product";
+
+const productName = getPublicProductName();
+
 export const metadata: Metadata = {
   title: {
-    default: "Кабинет инструктора · SkiInstruct",
-    template: "%s · SkiInstruct",
+    default: `Кабинет инструктора · ${productName}`,
+    template: `%s · ${productName}`,
   },
 };
 

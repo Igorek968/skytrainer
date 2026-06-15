@@ -4,6 +4,7 @@ import type { LessonDuration } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { sendWebPushToUser } from "@/lib/push-web";
 import { lessonDurationLabelRu, skillLevelLabelRu } from "@/shared/lib/order-booking-labels";
+import { getPublicProductName } from "@/shared/lib/product";
 import { orderIsUrgent, URGENT_INSTRUCTOR_DEADLINE_MIN } from "@/shared/lib/order-flex";
 
 function envSecret(value: string | undefined): string {
@@ -178,7 +179,7 @@ export async function notifyInstructorOfPendingOrder(orderId: string): Promise<b
 
   const origin = process.env.NEXT_PUBLIC_APP_URL?.trim() || "http://localhost:3001";
   const orderUrl = `${origin}/instructor/orders/${orderId}`;
-  const appName = process.env.NEXT_PUBLIC_APP_NAME?.trim() || "uTrainer";
+  const appName = getPublicProductName();
   const clientName = order.client?.name?.trim() || "Клиент";
   const amountRub = order.amountTotal != null ? Number(order.amountTotal) : null;
   const urgent = orderIsUrgent(order);

@@ -1,4 +1,4 @@
-// SkiInstruct — PostgreSQL schema (Supabase / Vercel compatible)
+// Utrainer — PostgreSQL schema (Supabase / Vercel compatible)
 
 generator client {
   provider = "prisma-client-js"

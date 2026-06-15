@@ -170,7 +170,7 @@ function AdminSidebarNav() {
           "flex flex-col gap-0.5 rounded-lg border border-border bg-muted/20 p-1",
           open ? "flex" : "hidden lg:flex",
         )}
-        aria-label="Разделы админки SkiInstruct"
+        aria-label={`Разделы админки ${product}`}
       >
         {nav.map(({ href, label, icon: Icon }) => {
           const active = pathname === href;

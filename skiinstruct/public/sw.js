@@ -4,9 +4,9 @@ self.addEventListener("push", (event) => {
   try {
     data = event.data ? event.data.json() : {};
   } catch {
-    data = { title: "SkiInstruct", body: event.data ? String(event.data.text()) : "" };
+    data = { title: "Utrainer", body: event.data ? String(event.data.text()) : "" };
   }
-  const title = data.title || "SkiInstruct";
+  const title = data.title || "Utrainer";
   const url = typeof data.url === "string" ? data.url : "/";
   const tag = typeof data.tag === "string" ? data.tag : "skiinstruct";
   const options = {

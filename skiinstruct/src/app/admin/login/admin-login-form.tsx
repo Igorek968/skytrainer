@@ -11,7 +11,9 @@ import {
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Input } from "@/shared/ui/input";
+import { PasswordInput } from "@/shared/ui/password-input";
 import { Label } from "@/shared/ui/label";
+import { getPublicProductName } from "@/shared/lib/product";
 
 const initialState: CredentialsSignInState = { error: null };
 
@@ -28,12 +30,13 @@ export function AdminLoginForm({ callbackUrl = "/admin/activity" }: { callbackUr
   const { data: session } = useSession();
   const [state, formAction] = useFormState(signInAdminCredentialsAction, initialState);
   const signedInAsOther = Boolean(session?.user?.role && session.user.role !== "ADMIN");
+  const productName = getPublicProductName();
 
   return (
     <div className="mx-auto max-w-md space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>SkiInstruct — вход администратора</CardTitle>
+          <CardTitle>{productName} — вход администратора</CardTitle>
           <CardDescription>Кабинет привязан к этому приложению. Доступ только для роли ADMIN.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -59,10 +62,9 @@ export function AdminLoginForm({ callbackUrl = "/admin/activity" }: { callbackUr
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">Пароль</Label>
-              <Input
+              <PasswordInput
                 id="password"
                 name="password"
-                type="password"
                 autoComplete="current-password"
                 required
                 aria-invalid={Boolean(state.error)}
