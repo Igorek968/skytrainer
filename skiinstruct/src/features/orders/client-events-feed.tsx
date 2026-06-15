@@ -176,7 +176,11 @@ function EventPosterCard({
           ) : null}
         </button>
         {selected ? (
-          <div className="space-y-0.5 p-3" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="relative z-10 space-y-0.5 touch-manipulation p-3"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+          >
             <EventFeedDetails
               event={event}
               queryKey={queryKey}

@@ -179,7 +179,11 @@ export function EventRegistrationButton({
   const priceLabel = formatEventPriceRu(event.priceRub);
 
   return (
-    <div className="mt-2 space-y-2">
+    <div
+      className="mt-2 space-y-2"
+      onPointerDown={(e) => e.stopPropagation()}
+      onClick={(e) => e.stopPropagation()}
+    >
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-xs font-medium text-foreground">{priceLabel}</span>
         {!event.isFree ? (
