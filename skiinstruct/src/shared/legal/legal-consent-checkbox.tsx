@@ -23,36 +23,49 @@ export function LegalConsentCheckbox({
   className,
 }: LegalConsentCheckboxProps) {
   return (
-    <label className={`flex cursor-pointer gap-2 text-sm ${className ?? ""}`}>
+    <div className={`flex gap-2 text-sm ${className ?? ""}`}>
       <input
         id={id}
         name={name}
         type="checkbox"
-        className="mt-1"
+        className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer rounded border border-input accent-[hsl(var(--accent))]"
         required={required}
         checked={checked}
         onChange={(e) => onChange(e.target.checked)}
+        onClick={(e) => e.stopPropagation()}
       />
-      <span>
+      <label htmlFor={id} className="cursor-pointer leading-snug">
         Я принимаю условия{" "}
-        <Link className="text-accent underline" href={LEGAL_ROUTES.oferta}>
+        <Link
+          className="text-accent underline"
+          href={LEGAL_ROUTES.oferta}
+          onClick={(e) => e.stopPropagation()}
+        >
           Договора-оферты
         </Link>
         ,{" "}
-        <Link className="text-accent underline" href={LEGAL_ROUTES.privacy}>
+        <Link
+          className="text-accent underline"
+          href={LEGAL_ROUTES.privacy}
+          onClick={(e) => e.stopPropagation()}
+        >
           политики обработки ПДн
         </Link>
         {includeReturns ? (
           <>
             {" "}
             и{" "}
-            <Link className="text-accent underline" href={LEGAL_ROUTES.returns}>
+            <Link
+              className="text-accent underline"
+              href={LEGAL_ROUTES.returns}
+              onClick={(e) => e.stopPropagation()}
+            >
               правил возврата
             </Link>
           </>
         ) : null}
         .
-      </span>
-    </label>
+      </label>
+    </div>
   );
 }

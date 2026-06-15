@@ -115,10 +115,10 @@ function EventPosterCard({
   const distanceTitle =
     event.distanceKm != null ? `${formatDistanceKm(event.distanceKm)} от вас` : undefined;
 
+  const toggleSelected = () => onSelect(selected ? null : event.id);
+
   return (
-    <button
-      type="button"
-      onClick={() => onSelect(selected ? null : event.id)}
+    <div
       className={cn(
         "group shrink-0 snap-start text-left transition-[width] duration-200",
         selected
@@ -126,8 +126,6 @@ function EventPosterCard({
           : "w-[7.25rem] sm:w-[8.5rem]",
         selected && "rounded-2xl ring-2 ring-accent ring-offset-2 ring-offset-background",
       )}
-      aria-expanded={selected}
-      aria-label={`${event.title}${distanceTitle ? `, ${distanceTitle}` : ""}`}
     >
       <div
         className={cn(
@@ -135,34 +133,50 @@ function EventPosterCard({
           !selected && "transition-transform group-hover:scale-[1.02]",
         )}
       >
-        <div className={cn("relative overflow-hidden bg-muted", selected ? "aspect-[16/10]" : "aspect-[2/3]")}>
-          {publicUploadDisplaySrc(event.photoUrl) ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={publicUploadDisplaySrc(event.photoUrl)!}
-              alt={event.title}
-              className="h-full w-full object-cover"
-              loading="lazy"
-            />
-          ) : (
-            <div className="flex h-full w-full flex-col items-center justify-center gap-1 bg-gradient-to-b from-slate-200 to-slate-300 px-2 text-center dark:from-slate-700 dark:to-slate-800">
-              <span className="text-2xl" aria-hidden>
-                🎿
-              </span>
-              <span className="line-clamp-3 text-[10px] font-medium leading-tight text-slate-600 dark:text-slate-300">
-                {event.title}
-              </span>
+        <button
+          type="button"
+          onClick={toggleSelected}
+          className="block w-full text-left"
+          aria-expanded={selected}
+          aria-label={`${event.title}${distanceTitle ? `, ${distanceTitle}` : ""}`}
+        >
+          <div className={cn("relative overflow-hidden bg-muted", selected ? "aspect-[16/10]" : "aspect-[2/3]")}>
+            {publicUploadDisplaySrc(event.photoUrl) ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={publicUploadDisplaySrc(event.photoUrl)!}
+                alt={event.title}
+                className="h-full w-full object-cover"
+                loading="lazy"
+              />
+            ) : (
+              <div className="flex h-full w-full flex-col items-center justify-center gap-1 bg-gradient-to-b from-slate-200 to-slate-300 px-2 text-center dark:from-slate-700 dark:to-slate-800">
+                <span className="text-2xl" aria-hidden>
+                  🎿
+                </span>
+                <span className="line-clamp-3 text-[10px] font-medium leading-tight text-slate-600 dark:text-slate-300">
+                  {event.title}
+                </span>
+              </div>
+            )}
+            <span
+              className="absolute bottom-2 left-2 min-w-[2rem] rounded-md bg-[#3dbb4e] px-1.5 py-0.5 text-center text-xs font-bold leading-none text-white shadow-sm"
+              title={distanceTitle ?? "Цена или расстояние"}
+            >
+              {badge}
+            </span>
+          </div>
+          {!selected ? (
+            <div className="px-0.5 pb-1.5 pt-1">
+              <p className="line-clamp-2 text-xs font-medium leading-snug text-foreground">{event.title}</p>
+              {event.instructorName ? (
+                <p className="mt-0.5 line-clamp-1 text-[10px] text-muted-foreground">{event.instructorName}</p>
+              ) : null}
             </div>
-          )}
-          <span
-            className="absolute bottom-2 left-2 min-w-[2rem] rounded-md bg-[#3dbb4e] px-1.5 py-0.5 text-center text-xs font-bold leading-none text-white shadow-sm"
-            title={distanceTitle ?? "Цена или расстояние"}
-          >
-            {badge}
-          </span>
-        </div>
+          ) : null}
+        </button>
         {selected ? (
-          <div className="space-y-0.5 p-3">
+          <div className="space-y-0.5 p-3" onClick={(e) => e.stopPropagation()}>
             <EventFeedDetails
               event={event}
               queryKey={queryKey}
@@ -171,16 +185,9 @@ function EventPosterCard({
               compact
             />
           </div>
-        ) : (
-          <div className="px-0.5 pb-1.5 pt-1">
-            <p className="line-clamp-2 text-xs font-medium leading-snug text-foreground">{event.title}</p>
-            {event.instructorName ? (
-              <p className="mt-0.5 line-clamp-1 text-[10px] text-muted-foreground">{event.instructorName}</p>
-            ) : null}
-          </div>
-        )}
+        ) : null}
       </div>
-    </button>
+    </div>
   );
 }
 
