@@ -20,6 +20,48 @@ export type SpecializationOffer = {
   drivingDetails?: DrivingSchoolOfferDetails;
 };
 
+export function normalizeInstructorActivityLabelInput(raw: string): string {
+  const trimmed = raw.trim().replace(/\s+/g, " ").slice(0, 80);
+  if (!trimmed) return "";
+  return (
+    canonicalizeActivityLabel(trimmed) ??
+    canonicalizeAutoInstructorLabel(trimmed) ??
+    trimmed
+  );
+}
+
+export function emptySpecializationOffer(hourlyRate = 2500): SpecializationOffer {
+  return { label: "", hourlyRate, lessonsCompleted: 0 };
+}
+
+/** Строки с заполненным названием — для сохранения и валидации. */
+export function filledSpecializationOffers(offers: SpecializationOffer[]): SpecializationOffer[] {
+  const seen = new Set<string>();
+  const result: SpecializationOffer[] = [];
+  for (const row of offers) {
+    const label = normalizeInstructorActivityLabelInput(row.label);
+    if (!label) continue;
+    const key = activityLabelSortKey(label);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(
+      normalizeSpecializationOffer({
+        ...row,
+        label,
+        lessonsCompleted: row.lessonsCompleted ?? 0,
+      }),
+    );
+  }
+  return result;
+}
+
+export function ensureSpecializationOfferRows(
+  offers: SpecializationOffer[],
+  defaultRate = 2500,
+): SpecializationOffer[] {
+  return offers.length ? offers : [emptySpecializationOffer(defaultRate)];
+}
+
 function isOfferRowCore(v: unknown): v is Pick<SpecializationOffer, "label" | "hourlyRate" | "lessonsCompleted"> {
   if (!v || typeof v !== "object") return false;
   const o = v as Record<string, unknown>;

@@ -27,7 +27,10 @@ import { isAutoInstructorLabel, validateDrivingSchoolDetails } from "@/lib/auto-
 import {
   parseSpecializationOffers,
   type SpecializationOffer,
+  filledSpecializationOffers,
+  ensureSpecializationOfferRows,
 } from "@/lib/instructor-specialization-offers";
+import { activityLabelSortKey } from "@/lib/services/instructor-match";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Input } from "@/shared/ui/input";
@@ -503,13 +506,16 @@ export default function InstructorHomePage() {
     setSkillLevelsRaw(data.profile.skillLevels.join(", "));
     setLanguagesRaw(data.profile.languages.join(", "));
     setSpecializationOffers(
-      data.profile.specializationOffers?.length
-        ? data.profile.specializationOffers
-        : parseSpecializationOffers(
-            null,
-            data.profile.hourlyRate,
-            data.profile.specializations,
-          ),
+      ensureSpecializationOfferRows(
+        data.profile.specializationOffers?.length
+          ? data.profile.specializationOffers
+          : parseSpecializationOffers(
+              null,
+              data.profile.hourlyRate,
+              data.profile.specializations,
+            ),
+        data.profile.hourlyRate,
+      ),
     );
     setAdditionalServicesRaw(data.profile.additionalServices.join(", "));
     setOfferedDurationsRaw(data.profile.offeredDurations.join(", "));
@@ -588,12 +594,17 @@ export default function InstructorHomePage() {
 
     if (!certificationLevel.trim()) errors.certificationLevel = "Укажите уровень сертификации";
     if (!languagesRaw.trim()) errors.languagesRaw = "Укажите хотя бы один язык";
-    if (!specializationOffers.length) {
-      errors.specializationOffers = "Добавьте хотя бы одно направление с ценой";
-    } else if (specializationOffers.some((o) => o.hourlyRate < 500)) {
+    const filledOffers = filledSpecializationOffers(specializationOffers);
+    if (!filledOffers.length) {
+      errors.specializationOffers = "Укажите хотя бы одно направление и цену";
+    } else if (filledOffers.some((o) => o.hourlyRate < 500)) {
       errors.specializationOffers = "Минимум 500 ₽/ч для каждого направления";
+    } else if (
+      new Set(filledOffers.map((o) => activityLabelSortKey(o.label))).size !== filledOffers.length
+    ) {
+      errors.specializationOffers = "Направления не должны повторяться";
     } else {
-      for (const o of specializationOffers) {
+      for (const o of filledOffers) {
         if (!isAutoInstructorLabel(o.label)) continue;
         const drivingErr = validateDrivingSchoolDetails(o.drivingDetails);
         if (drivingErr) {
@@ -672,6 +683,8 @@ export default function InstructorHomePage() {
         .filter(Boolean);
       const availabilitySlots = validation.availabilitySlots;
 
+      const offersToSave = filledSpecializationOffers(specializationOffers);
+
       const r = await instructorFetch("/api/instructor/me", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -683,7 +696,7 @@ export default function InstructorHomePage() {
           certifications,
           skillLevels,
           languages,
-          specializationOffers,
+          specializationOffers: offersToSave,
           additionalServices,
           offeredDurations,
           achievements,

@@ -1,6 +1,7 @@
 "use client";
 
-import { X } from "lucide-react";
+import { Plus, X } from "lucide-react";
+import { useId } from "react";
 
 import {
   AUTO_INSTRUCTOR_LABEL,
@@ -15,6 +16,10 @@ import {
   type DrivingVehicleOption,
 } from "@/lib/auto-instructor-offer";
 import type { SpecializationOffer } from "@/lib/instructor-specialization-offers";
+import {
+  emptySpecializationOffer,
+  normalizeInstructorActivityLabelInput,
+} from "@/lib/instructor-specialization-offers";
 import { instructorActivityLabelsAlphabetical } from "@/lib/services/instructor-match";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
@@ -130,116 +135,137 @@ function DrivingDetailsFields({
 }
 
 export function SpecializationOffersEditor({ offers, onChange, error }: Props) {
-  const selectedLabels = new Set(offers.map((o) => o.label));
-  const canAdd = instructorActivityLabelsAlphabetical().filter((l) => !selectedLabels.has(l));
+  const datalistId = useId();
+  const catalogSuggestions = instructorActivityLabelsAlphabetical();
+  const rows = offers.length ? offers : [emptySpecializationOffer()];
 
-  const add = (label: string) => {
-    if (selectedLabels.has(label)) return;
-    const row: SpecializationOffer = {
-      label,
-      hourlyRate: offers[0]?.hourlyRate ?? 2500,
-      lessonsCompleted: 0,
-    };
-    if (label === AUTO_INSTRUCTOR_LABEL || isAutoInstructorLabel(label)) {
-      row.drivingDetails = defaultDrivingSchoolDetails();
+  const patchRow = (index: number, patch: Partial<SpecializationOffer>) => {
+    const next = rows.map((row, i) => (i === index ? { ...row, ...patch } : row));
+    onChange(next);
+  };
+
+  const commitLabel = (index: number, raw: string) => {
+    const label = normalizeInstructorActivityLabelInput(raw);
+    const patch: Partial<SpecializationOffer> = { label };
+    if (
+      (label === AUTO_INSTRUCTOR_LABEL || isAutoInstructorLabel(label)) &&
+      !rows[index]?.drivingDetails
+    ) {
+      patch.drivingDetails = defaultDrivingSchoolDetails();
     }
-    onChange([...offers, row]);
+    patchRow(index, patch);
   };
 
-  const remove = (label: string) => {
-    onChange(offers.filter((o) => o.label !== label));
+  const addRow = () => {
+    if (rows.length >= 12) return;
+    onChange([...rows, emptySpecializationOffer(rows[0]?.hourlyRate ?? 2500)]);
   };
 
-  const updateRate = (label: string, hourlyRate: number) => {
-    onChange(
-      offers.map((o) =>
-        o.label === label ? { ...o, hourlyRate: Math.max(500, Math.round(hourlyRate) || 500) } : o,
-      ),
-    );
+  const removeRow = (index: number) => {
+    if (rows.length <= 1) {
+      onChange([emptySpecializationOffer(rows[0]?.hourlyRate ?? 2500)]);
+      return;
+    }
+    onChange(rows.filter((_, i) => i !== index));
   };
 
-  const updateDrivingDetails = (label: string, drivingDetails: DrivingSchoolOfferDetails) => {
-    onChange(offers.map((o) => (o.label === label ? { ...o, drivingDetails } : o)));
-  };
-
-  const totalLessons = offers.reduce((s, o) => s + o.lessonsCompleted, 0);
+  const totalLessons = rows.reduce((s, o) => s + (o.lessonsCompleted ?? 0), 0);
 
   return (
     <div className="space-y-3">
       <div>
         <Label>Направления и цены</Label>
         <p className="mt-1 text-xs text-muted-foreground">
-          Добавьте вид спорта и укажите ставку ₽/час для каждого. Для «Автоинструктора» появятся поля про
-          авто, КПП и категории прав.
+          Укажите вид спорта и ставку ₽/час. Можно выбрать из подсказок или написать своё — после
+          одобрения анкеты администратором направление появится в поиске у клиентов. Для
+          «Автоинструктора» — дополнительные поля про авто, КПП и категории прав.
         </p>
       </div>
 
-      {offers.length ? (
-        <ul className="space-y-2">
-          {offers.map((o) => (
-            <li
-              key={o.label}
-              className="rounded-md border border-border bg-muted/20 p-2"
-            >
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="min-w-[10rem] flex-1 text-sm font-medium">{o.label}</span>
-                <div className="flex items-center gap-2">
-                  <Label htmlFor={`rate-${o.label}`} className="sr-only">
-                    Цена за час
-                  </Label>
-                  <Input
-                    id={`rate-${o.label}`}
-                    type="number"
-                    min={500}
-                    step={100}
-                    className="h-9 w-28"
-                    value={o.hourlyRate}
-                    onChange={(e) => updateRate(o.label, Number(e.target.value) || 500)}
-                  />
-                  <span className="text-xs text-muted-foreground">₽/ч</span>
-                </div>
+      <ul className="space-y-2">
+        {rows.map((o, index) => (
+          <li key={`offer-row-${index}`} className="rounded-md border border-border bg-muted/20 p-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="min-w-[12rem] flex-1 space-y-1">
+                <Label htmlFor={`sport-${index}`} className="sr-only">
+                  Вид спорта
+                </Label>
+                <Input
+                  id={`sport-${index}`}
+                  list={datalistId}
+                  placeholder="Например: горные лыжи или кайтсёрфинг"
+                  className="h-9"
+                  value={o.label}
+                  onChange={(e) => patchRow(index, { label: e.target.value })}
+                  onBlur={(e) => commitLabel(index, e.target.value)}
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <Label htmlFor={`rate-${index}`} className="sr-only">
+                  Цена за час
+                </Label>
+                <Input
+                  id={`rate-${index}`}
+                  type="number"
+                  min={500}
+                  step={100}
+                  className="h-9 w-28"
+                  value={o.hourlyRate}
+                  onChange={(e) =>
+                    patchRow(index, { hourlyRate: Math.max(500, Math.round(Number(e.target.value) || 500)) })
+                  }
+                />
+                <span className="text-xs text-muted-foreground">₽/ч</span>
+              </div>
+              {o.lessonsCompleted > 0 ? (
                 <span className="text-xs text-muted-foreground">
                   Занятий: <strong className="text-foreground">{o.lessonsCompleted}</strong>
                 </span>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 shrink-0"
-                  onClick={() => remove(o.label)}
-                  aria-label={`Убрать ${o.label}`}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-              {isAutoInstructorLabel(o.label) ? (
-                <DrivingDetailsFields
-                  details={o.drivingDetails ?? defaultDrivingSchoolDetails()}
-                  onChange={(next) => updateDrivingDetails(o.label, next)}
-                />
               ) : null}
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="text-sm text-muted-foreground">Добавьте хотя бы одно направление.</p>
-      )}
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 shrink-0"
+                onClick={() => removeRow(index)}
+                aria-label="Убрать направление"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            {isAutoInstructorLabel(o.label) ? (
+              <DrivingDetailsFields
+                details={o.drivingDetails ?? defaultDrivingSchoolDetails()}
+                onChange={(next) => patchRow(index, { drivingDetails: next })}
+              />
+            ) : null}
+          </li>
+        ))}
+      </ul>
 
-      {canAdd.length ? (
-        <div className="flex flex-wrap gap-2">
-          {canAdd.map((label) => (
-            <Button key={label} type="button" variant="outline" size="sm" onClick={() => add(label)}>
-              + {label}
-            </Button>
-          ))}
-        </div>
-      ) : null}
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="gap-1.5"
+        disabled={rows.length >= 12}
+        onClick={addRow}
+      >
+        <Plus className="h-4 w-4" />
+        Добавить направление
+      </Button>
 
-      {offers.length ? (
+      {totalLessons > 0 ? (
         <p className="text-xs text-muted-foreground">
-          Всего занятий по направлениям (считается автоматически после завершённых заказов): {totalLessons}
+          Всего занятий по направлениям (после завершённых заказов): {totalLessons}
         </p>
       ) : null}
+
+      <datalist id={datalistId}>
+        {catalogSuggestions.map((label) => (
+          <option key={label} value={label} />
+        ))}
+      </datalist>
 
       {error ? <p className="text-xs text-destructive">{error}</p> : null}
     </div>
