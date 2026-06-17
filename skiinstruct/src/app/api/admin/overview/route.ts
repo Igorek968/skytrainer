@@ -119,7 +119,7 @@ const userMatchSelect = {
   name: true,
   role: true,
   createdAt: true,
-  instructorProfile: { select: { specializations: true } },
+  instructorProfile: { select: { specializations: true, inn: true } },
 } as const;
 
 const orderOverviewSelect = {
@@ -637,6 +637,7 @@ export async function GET(req: Request) {
             name: u.name,
             role: u.role,
             instructorSpecializations: u.instructorProfile?.specializations ?? null,
+            instructorInn: u.instructorProfile?.inn ?? null,
           })),
           email: hasUserFocus ? focusQueryRaw : null,
           userFound: focusUserFound,

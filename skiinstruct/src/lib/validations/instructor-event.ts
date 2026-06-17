@@ -25,7 +25,7 @@ const eventSlotInputSchema = z.object({
 
 export const createInstructorEventSchema = z.object({
   title: z.string().trim().min(1).max(120),
-  body: z.string().trim().min(1).max(4000),
+  body: z.string().trim().min(1).max(200),
   /** День мероприятия YYYY-MM-DD (для слотов) или ISO datetime (legacy) */
   eventDay: z.string().max(40).optional().nullable(),
   eventAt: z.string().max(40).optional().nullable(),
@@ -38,7 +38,7 @@ export const createInstructorEventSchema = z.object({
 
 export const updateInstructorEventSchema = z.object({
   title: z.string().trim().min(1).max(120).optional(),
-  body: z.string().trim().min(1).max(4000).optional(),
+  body: z.string().trim().min(1).max(200).optional(),
   eventAt: z.string().max(40).optional().nullable(),
   orderId: z.string().cuid().optional().nullable(),
   priceRub: priceRubField,

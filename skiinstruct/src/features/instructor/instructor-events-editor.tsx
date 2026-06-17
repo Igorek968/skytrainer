@@ -594,7 +594,7 @@ export function InstructorEventsEditor({
               value={body}
               onChange={(e) => setBody(e.target.value)}
               disabled={formLocked}
-              maxLength={4000}
+              maxLength={200}
               required
             />
           </div>

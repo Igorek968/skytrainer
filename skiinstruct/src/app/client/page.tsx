@@ -728,21 +728,74 @@ export default function ClientHomePage() {
     void queryClient.invalidateQueries({ queryKey: ["instructor-profile"], exact: false });
   }, [dataUpdatedAt, queryClient]);
 
+  const instructorNameSearchQ = instructorNameQuery.trim();
+  const { data: nameSearchData, isFetching: isNameSearchFetching } = useQuery({
+    queryKey: ["instructors-search", instructorNameSearchQ, meetLat, meetLng, specializationPref],
+    enabled: instructorNameSearchQ.length >= 2,
+    queryFn: async () => {
+      const qs = new URLSearchParams({
+        q: instructorNameSearchQ,
+        lat: String(meetLat),
+        lng: String(meetLng),
+        specialization: specializationPref,
+      });
+      const r = await fetch(`/api/instructors/search?${qs}`, { cache: "no-store" });
+      if (!r.ok) throw new Error("search");
+      return r.json() as Promise<NearbyResponse>;
+    },
+    staleTime: 30_000,
+  });
+
+  const { data: pinnedInstructorData } = useQuery({
+    queryKey: ["instructors-search-by-id", listPriorityId, meetLat, meetLng, specializationPref],
+    enabled: Boolean(listPriorityId),
+    queryFn: async () => {
+      const qs = new URLSearchParams({
+        id: listPriorityId!,
+        lat: String(meetLat),
+        lng: String(meetLng),
+        specialization: specializationPref,
+      });
+      const r = await fetch(`/api/instructors/search?${qs}`, { cache: "no-store" });
+      if (!r.ok) throw new Error("search-by-id");
+      return r.json() as Promise<NearbyResponse>;
+    },
+    staleTime: 60_000,
+  });
+
   const instructorsForList = useMemo(() => {
-    let list = data?.instructors ?? [];
-    if (listPriorityId) {
+    const q = instructorNameSearchQ.toLowerCase();
+    const reorder = (list: NearbyResponse["instructors"]) => {
+      if (!listPriorityId) return list;
       const idx = list.findIndex((i) => i.id === listPriorityId);
-      if (idx > 0) {
-        const reordered = [...list];
-        const [picked] = reordered.splice(idx, 1);
-        reordered.unshift(picked);
-        list = reordered;
-      }
+      if (idx <= 0) return list;
+      const reordered = [...list];
+      const [picked] = reordered.splice(idx, 1);
+      reordered.unshift(picked);
+      return reordered;
+    };
+    const mergePinned = (list: NearbyResponse["instructors"]) => {
+      const pinned = pinnedInstructorData?.instructors?.[0];
+      if (!pinned || list.some((i) => i.id === pinned.id)) return list;
+      return [pinned, ...list];
+    };
+
+    if (q.length >= 2) {
+      return reorder(mergePinned(nameSearchData?.instructors ?? []));
     }
-    const q = instructorNameQuery.trim().toLowerCase();
-    if (!q) return list;
-    return list.filter((i) => (i.name ?? "").toLowerCase().includes(q));
-  }, [data?.instructors, listPriorityId, instructorNameQuery]);
+
+    let list = data?.instructors ?? [];
+    if (q) {
+      list = list.filter((i) => (i.name ?? "").toLowerCase().includes(q));
+    }
+    return reorder(mergePinned(list));
+  }, [
+    data?.instructors,
+    listPriorityId,
+    instructorNameSearchQ,
+    nameSearchData?.instructors,
+    pinnedInstructorData?.instructors,
+  ]);
 
   function focusInstructorFromMap(id: string) {
     setListPriorityId(id);
@@ -750,6 +803,13 @@ export default function ClientHomePage() {
     setExpandedId(id);
     setShowAllReviewsFor(null);
     scrollToClientSection(CLIENT_SECTION_IDS.nearbyInstructors);
+  }
+
+  function focusInstructorFromEvent(instructor: { id: string; name: string | null }) {
+    focusInstructorFromMap(instructor.id);
+    if (instructor.name?.trim()) {
+      setInstructorNameQuery(instructor.name.trim());
+    }
   }
 
   const { data: myInstructorReviews } = useQuery({
@@ -1040,7 +1100,7 @@ export default function ClientHomePage() {
 
       <div id={CLIENT_SECTION_IDS.events} className="scroll-mt-24">
         <SectionErrorBoundary title="Мероприятия временно недоступны">
-          <ClientEventsFeed layout="carousel" />
+          <ClientEventsFeed layout="carousel" onInstructorPick={focusInstructorFromEvent} />
         </SectionErrorBoundary>
       </div>
 
@@ -1321,6 +1381,9 @@ export default function ClientHomePage() {
                   : nearbyRelaxed
                     ? "Включая офлайн; на карте — только с координатами."
                     : "Сегодня в списке только инструкторы «на линии»; данные обновляются каждые ~12 с."}
+                {instructorNameSearchQ.length >= 2
+                  ? " Поиск по имени — по всем одобренным инструкторам, без фильтров карты."
+                  : null}
               </CardDescription>
               <Input
                 type="search"
@@ -1346,23 +1409,25 @@ export default function ClientHomePage() {
             </Button>
           </CardHeader>
           <CardContent className="space-y-3">
-            {isLoading ? (
+            {isLoading ||
+            (instructorNameSearchQ.length >= 2 && isNameSearchFetching && !nameSearchData) ||
+            (listPriorityId && !instructorsForList.length && !pinnedInstructorData) ? (
               <div className="space-y-2">
                 <Skeleton className="h-10 w-full" />
                 <Skeleton className="h-10 w-full" />
               </div>
-            ) : error ? (
+            ) : error && instructorNameSearchQ.length < 2 ? (
               <p className="text-sm text-destructive">Не удалось загрузить список</p>
-            ) : !data?.instructors.length ? (
+            ) : instructorNameSearchQ.length >= 2 && !instructorsForList.length ? (
+              <p className="text-sm text-muted-foreground">
+                По запросу «{instructorNameSearchQ}» никого не найдено. Проверьте написание имени или очистите поиск.
+              </p>
+            ) : !instructorsForList.length ? (
               <p className="text-sm text-muted-foreground">
                 Нет подходящих инструкторов: совпадение по направлению, уровню и длительности.
                 {nearbyRelaxed
                   ? " Сдвиньте маркер встречи или ослабьте фильтры."
                   : " На сегодня показываются только инструкторы «на линии» (до ~100 км). Выберите дату позже или включите «Запись на дату» — тогда появятся и офлайн."}
-              </p>
-            ) : !instructorsForList.length ? (
-              <p className="text-sm text-muted-foreground">
-                По запросу «{instructorNameQuery.trim()}» никого не найдено. Попробуйте другое имя или очистите поиск.
               </p>
             ) : (
               <ul className="space-y-2" aria-label="Список инструкторов">

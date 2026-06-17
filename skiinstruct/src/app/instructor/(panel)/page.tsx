@@ -380,7 +380,7 @@ export default function InstructorHomePage() {
   const [sportsExperienceYears, setSportsExperienceYears] = useState<number>(0);
   const [photoUrl, setPhotoUrl] = useState("");
   const [photoGallery, setPhotoGallery] = useState<string[]>([]);
-  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
   const [dragPhotoUrl, setDragPhotoUrl] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<ProfileField, string>>>({});
@@ -734,9 +734,8 @@ export default function InstructorHomePage() {
   });
 
   const uploadPhoto = useMutation({
-    mutationFn: async () => {
-      if (!photoFile) throw new Error("file");
-      const toUpload = await compressImageFile(photoFile);
+    mutationFn: async (file: File) => {
+      const toUpload = await compressImageFile(file);
       const fd = new FormData();
       fd.append("file", toUpload);
       const r = await instructorFetch("/api/instructor/photo", {
@@ -757,7 +756,7 @@ export default function InstructorHomePage() {
     onSuccess: async (payload) => {
       setPhotoUrl(payload.photoUrl ?? "");
       setPhotoGallery(payload.photoGallery ?? []);
-      setPhotoFile(null);
+      if (photoInputRef.current) photoInputRef.current.value = "";
       toast.success(
         payload.profilePendingReview
           ? "Фото в черновике — ждёт одобрения администратором"
@@ -768,7 +767,10 @@ export default function InstructorHomePage() {
       setInited(false);
       await qc.invalidateQueries({ queryKey: ["nearby"], exact: false });
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => {
+      if (photoInputRef.current) photoInputRef.current.value = "";
+      toast.error(e.message);
+    },
   });
 
   const removePhoto = useMutation({
@@ -789,7 +791,7 @@ export default function InstructorHomePage() {
     onSuccess: async (payload) => {
       setPhotoUrl(payload.photoUrl ?? "");
       setPhotoGallery(payload.photoGallery ?? []);
-      setPhotoFile(null);
+      if (photoInputRef.current) photoInputRef.current.value = "";
       toast.success("Фото удалено");
       await qc.invalidateQueries({ queryKey: ["io-online"] });
       await qc.refetchQueries({ queryKey: ["io-online"] });
@@ -1090,19 +1092,25 @@ export default function InstructorHomePage() {
                 <Label htmlFor="photo-upload">Фото профиля</Label>
                 <div className="flex flex-wrap items-center gap-2">
                   <Input
+                    ref={photoInputRef}
                     id="photo-upload"
                     type="file"
                     accept="image/png,image/jpeg,image/webp"
-                    onChange={(e) => setPhotoFile(e.target.files?.[0] ?? null)}
+                    disabled={uploadPhoto.isPending || photoGallery.length >= 5}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      if (photoGallery.length >= 5) {
+                        toast.error("Максимум 5 фото");
+                        e.target.value = "";
+                        return;
+                      }
+                      uploadPhoto.mutate(file);
+                    }}
                   />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    disabled={!photoFile || uploadPhoto.isPending || photoGallery.length >= 5}
-                    onClick={() => uploadPhoto.mutate()}
-                  >
-                    Загрузить фото (сжатие)
-                  </Button>
+                  {uploadPhoto.isPending ? (
+                    <span className="text-sm text-muted-foreground">Загрузка…</span>
+                  ) : null}
                   <Button
                     type="button"
                     variant="outline"

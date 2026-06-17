@@ -40,12 +40,14 @@ function EventFeedDetails({
   showDistance,
   isClient,
   compact,
+  onInstructorPick,
 }: {
   event: ClientInstructorEventDTO;
   queryKey: string[];
   showDistance: boolean;
   isClient: boolean;
   compact?: boolean;
+  onInstructorPick?: (instructor: { id: string; name: string | null }) => void;
 }) {
   const when = formatEventDateRu(event.eventAt) ?? formatEventDateRu(event.createdAt);
   return (
@@ -57,7 +59,19 @@ function EventFeedDetails({
         ) : null}
       </div>
       {event.instructorName ? (
-        <p className="mt-0.5 text-xs font-medium text-foreground">{event.instructorName}</p>
+        onInstructorPick ? (
+          <button
+            type="button"
+            className="mt-0.5 text-left text-xs font-medium text-accent underline-offset-2 hover:underline"
+            onClick={() =>
+              onInstructorPick({ id: event.instructorId, name: event.instructorName ?? null })
+            }
+          >
+            {event.instructorName}
+          </button>
+        ) : (
+          <p className="mt-0.5 text-xs font-medium text-foreground">{event.instructorName}</p>
+        )
       ) : null}
       <h3 className={cn("font-semibold text-foreground", compact ? "mt-1 text-sm" : "mt-1 text-sm")}>
         {event.title}
@@ -83,15 +97,23 @@ function EventFeedItem({
   queryKey,
   showDistance,
   isClient,
+  onInstructorPick,
 }: {
   event: ClientInstructorEventDTO;
   queryKey: string[];
   showDistance: boolean;
   isClient: boolean;
+  onInstructorPick?: (instructor: { id: string; name: string | null }) => void;
 }) {
   return (
     <article className="border-b border-border pb-4 last:border-0 last:pb-0">
-      <EventFeedDetails event={event} queryKey={queryKey} showDistance={showDistance} isClient={isClient} />
+      <EventFeedDetails
+        event={event}
+        queryKey={queryKey}
+        showDistance={showDistance}
+        isClient={isClient}
+        onInstructorPick={onInstructorPick}
+      />
     </article>
   );
 }
@@ -103,6 +125,7 @@ function EventPosterCard({
   queryKey,
   showDistance,
   isClient,
+  onInstructorPick,
 }: {
   event: ClientInstructorEventDTO;
   selected: boolean;
@@ -110,6 +133,7 @@ function EventPosterCard({
   queryKey: string[];
   showDistance: boolean;
   isClient: boolean;
+  onInstructorPick?: (instructor: { id: string; name: string | null }) => void;
 }) {
   const badge = eventPosterBadgeValue(event);
   const distanceTitle =
@@ -187,6 +211,7 @@ function EventPosterCard({
               showDistance={showDistance}
               isClient={isClient}
               compact
+              onInstructorPick={onInstructorPick}
             />
           </div>
         ) : null}
@@ -200,11 +225,13 @@ function EventsCarousel({
   queryKey,
   showDistance,
   isClient,
+  onInstructorPick,
 }: {
   events: ClientInstructorEventDTO[];
   queryKey: string[];
   showDistance: boolean;
   isClient: boolean;
+  onInstructorPick?: (instructor: { id: string; name: string | null }) => void;
 }) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -239,6 +266,7 @@ function EventsCarousel({
                 queryKey={queryKey}
                 showDistance={showDistance}
                 isClient={isClient}
+                onInstructorPick={onInstructorPick}
               />
             </div>
           ))}
@@ -260,7 +288,13 @@ function EventsCarousel({
   );
 }
 
-export function ClientEventsFeed({ layout = "carousel" }: { layout?: "carousel" | "list" }) {
+export function ClientEventsFeed({
+  layout = "carousel",
+  onInstructorPick,
+}: {
+  layout?: "carousel" | "list";
+  onInstructorPick?: (instructor: { id: string; name: string | null }) => void;
+}) {
   const { data: session } = useSession();
   const isClient = session?.user?.role === "CLIENT";
   const meetLat = useMeetPoint((s) => s.meetLat);
@@ -383,7 +417,13 @@ export function ClientEventsFeed({ layout = "carousel" }: { layout?: "carousel" 
               : `В радиусе ${CLIENT_EVENTS_RADIUS_KM} км от вашей точки на карте мероприятий нет. Отметьте себя на карте или включите «Показать все мероприятия».`}
           </p>
         ) : layout === "carousel" ? (
-          <EventsCarousel events={events} queryKey={queryKey} showDistance isClient={isClient} />
+          <EventsCarousel
+            events={events}
+            queryKey={queryKey}
+            showDistance
+            isClient={isClient}
+            onInstructorPick={onInstructorPick}
+          />
         ) : (
           <div className="max-h-80 space-y-4 overflow-y-auto pr-1" role="feed" aria-label="Мероприятия">
             {events.map((ev) => (
@@ -393,6 +433,7 @@ export function ClientEventsFeed({ layout = "carousel" }: { layout?: "carousel" 
                 queryKey={queryKey}
                 showDistance
                 isClient={isClient}
+                onInstructorPick={onInstructorPick}
               />
             ))}
           </div>

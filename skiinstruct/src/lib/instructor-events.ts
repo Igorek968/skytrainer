@@ -55,6 +55,7 @@ export type InstructorEventSlotForm = {
 };
 
 export type ClientInstructorEventDTO = InstructorEventDTO & {
+  instructorId: string;
   instructorName?: string | null;
   /** Расстояние от точки клиента на карте до инструктора, км */
   distanceKm?: number;
@@ -239,6 +240,7 @@ export async function enrichClientEvent(
     const mySlotReg = slots.find((s) => s.myRegistration)?.myRegistration ?? null;
     return {
       ...base,
+      instructorId: row.instructorId,
       instructorName: instructorName ?? null,
       slots,
       hasSlots: true,
@@ -255,6 +257,7 @@ export async function enrichClientEvent(
   const base = serializeInstructorEvent(row, { paidRegistrationCount: paidCount });
   return {
     ...base,
+    instructorId: row.instructorId,
     instructorName: instructorName ?? null,
     slots: [],
     hasSlots: false,

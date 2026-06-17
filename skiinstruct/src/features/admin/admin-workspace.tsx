@@ -189,8 +189,25 @@ function AdminWorkspaceInner({ title, subtitle, children }: Props) {
                       >
                         <div className="min-w-0">
                           <div className="font-medium text-foreground">{u.name?.trim() || "ФИО не указано"}</div>
-                          <div className="truncate text-muted-foreground">{u.email}</div>
-                          <div className="text-[11px] text-muted-foreground">{adminRoleRu(u.role)}</div>
+                          <div className="truncate text-muted-foreground">
+                            {u.email}
+                            {u.role === "INSTRUCTOR" ? (
+                              <>
+                                <span aria-hidden> · </span>
+                                <span>инструктор</span>
+                                <span aria-hidden> · </span>
+                                <span>
+                                  ИНН{" "}
+                                  {u.instructorInn?.trim() ? u.instructorInn.trim() : "не указан"}
+                                </span>
+                              </>
+                            ) : (
+                              <>
+                                <span aria-hidden> · </span>
+                                <span>{adminRoleRu(u.role)}</span>
+                              </>
+                            )}
+                          </div>
                           {u.instructorSpecializations?.length ? (
                             <div className="text-[11px] text-muted-foreground">
                               Специализации: {u.instructorSpecializations.join(", ")}

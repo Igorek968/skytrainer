@@ -71,6 +71,7 @@ export type AdminOverview = {
       name: string | null;
       role: UserRole;
       instructorSpecializations: string[] | null;
+      instructorInn: string | null;
     }[];
     /** Фильтр по виду деятельности (?activity=): специализации, услуги, био, сертификация инструктора */
     activityQuery: string | null;
