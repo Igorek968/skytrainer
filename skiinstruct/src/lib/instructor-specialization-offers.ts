@@ -6,9 +6,9 @@ import {
   type DrivingSchoolOfferDetails,
 } from "@/lib/auto-instructor-offer";
 import {
+  activityLabelSortKey,
   canonicalizeActivityLabel,
   canonicalizeActivityLabels,
-  INSTRUCTOR_ACTIVITY_LABELS,
 } from "@/lib/services/instructor-match";
 
 export type { DrivingSchoolOfferDetails };
@@ -93,9 +93,9 @@ function dedupeOffers(offers: SpecializationOffer[]): SpecializationOffer[] {
   for (const o of offers) {
     map.set(o.label, o);
   }
-  const order = [...INSTRUCTOR_ACTIVITY_LABELS];
-  const labels = order as readonly string[];
-  return [...map.values()].sort((a, b) => labels.indexOf(a.label) - labels.indexOf(b.label));
+  return [...map.values()].sort((a, b) =>
+    activityLabelSortKey(a.label).localeCompare(activityLabelSortKey(b.label), "ru"),
+  );
 }
 
 export function offersFromLabels(

@@ -34,7 +34,7 @@ import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
 import { cn } from "@/lib/utils";
 import { getPublicProductName } from "@/shared/lib/product";
-import { INSTRUCTOR_ACTIVITY_LABELS } from "@/lib/services/instructor-match";
+import { instructorActivityLabelsAlphabetical } from "@/lib/services/instructor-match";
 import { INSTRUCTOR_NO_SHOW_PENALTY_PERCENT } from "@/lib/legal-config";
 import { useDisplayNameDuplicateCheck } from "@/shared/hooks/use-display-name-duplicate-check";
 
@@ -1345,7 +1345,7 @@ export default function InstructorHomePage() {
         ))}
       </datalist>
       <datalist id="specialization-options">
-        {INSTRUCTOR_ACTIVITY_LABELS.map((opt) => (
+        {instructorActivityLabelsAlphabetical().map((opt) => (
           <option key={opt} value={opt} />
         ))}
       </datalist>

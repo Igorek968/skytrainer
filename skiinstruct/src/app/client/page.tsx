@@ -36,7 +36,7 @@ import {
   isAutoInstructorLabel,
 } from "@/lib/auto-instructor-offer";
 import type { SpecializationOffer } from "@/lib/instructor-specialization-offers";
-import { INSTRUCTOR_ACTIVITY_LABELS, isSyntheticInstructorBioLine } from "@/lib/services/instructor-match";
+import { instructorActivityLabelsAlphabetical, isSyntheticInstructorBioLine } from "@/lib/services/instructor-match";
 import { cn } from "@/lib/utils";
 import type { LessonDuration } from "@prisma/client";
 import { URGENT_INSTRUCTOR_DEADLINE_MIN } from "@/shared/lib/order-flex";
@@ -606,6 +606,18 @@ export default function ClientHomePage() {
   const [todayLeadLine, setTodayLeadLine] = useState<string | null>(null);
   const isOutdoorTour = specializationPref.includes("Пешие туры") || specializationPref.includes("Маунтибайк");
 
+  const { data: activityLabelsData } = useQuery({
+    queryKey: ["instructor-activity-labels"],
+    queryFn: async () => {
+      const r = await fetch("/api/instructors/activity-labels", { cache: "no-store" });
+      if (!r.ok) throw new Error("activity-labels");
+      return r.json() as Promise<{ labels: string[] }>;
+    },
+    staleTime: 60_000,
+  });
+  const specializationOptions =
+    activityLabelsData?.labels?.length ? activityLabelsData.labels : instructorActivityLabelsAlphabetical();
+
   const lessonDuration = duration as LessonDuration;
 
   const syncLessonEndTime = (startHm: string, dur: LessonDuration) => {
@@ -1119,7 +1131,7 @@ export default function ClientHomePage() {
                 value={specializationPref}
                 onChange={(e) => setSpecializationPref(e.target.value)}
               >
-                {INSTRUCTOR_ACTIVITY_LABELS.map((opt) => (
+                {specializationOptions.map((opt) => (
                   <option key={opt} value={opt}>
                     {opt}
                   </option>

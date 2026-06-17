@@ -92,6 +92,35 @@ export const INSTRUCTOR_ACTIVITY_LABELS = [
   "🚗 Автоинструктор",
 ] as const;
 
+export function activityLabelSortKey(label: string): string {
+  return normalizeText(label);
+}
+
+/** Алфавит по русскому названию (без эмодзи в ключе сортировки). */
+export function sortActivityLabelsAlphabetically(labels: Iterable<string>): string[] {
+  return [...new Set([...labels].map((l) => l.trim()).filter(Boolean))].sort((a, b) =>
+    activityLabelSortKey(a).localeCompare(activityLabelSortKey(b), "ru"),
+  );
+}
+
+/** Каталог направлений для выпадающих списков и чипов (А→Я). */
+export function instructorActivityLabelsAlphabetical(): string[] {
+  return sortActivityLabelsAlphabetically(INSTRUCTOR_ACTIVITY_LABELS);
+}
+
+/**
+ * Каталог + направления из анкет одобренных инструкторов (в т.ч. вне каталога), А→Я.
+ */
+export function mergeActivityLabelsForClientSearch(extraLabels: string[]): string[] {
+  const merged = new Set<string>(INSTRUCTOR_ACTIVITY_LABELS);
+  for (const raw of extraLabels) {
+    const t = raw?.trim();
+    if (!t) continue;
+    merged.add(canonicalizeActivityLabel(t) ?? t);
+  }
+  return sortActivityLabelsAlphabetically(merged);
+}
+
 /** Привести произвольную строку к канону каталога (без эмодзи в БД / из сида тоже совпадает). */
 export function canonicalizeActivityLabel(raw: string): string | null {
   const t = raw?.trim();
@@ -144,7 +173,7 @@ export function canonicalizeActivityLabels(raw: string[]): string[] {
     if (!unknown.includes(t)) unknown.push(t);
   }
 
-  return [...result, ...unknown];
+  return sortActivityLabelsAlphabetically([...result, ...unknown]);
 }
 
 export function toCanonicalSpecialization(value: string): string {

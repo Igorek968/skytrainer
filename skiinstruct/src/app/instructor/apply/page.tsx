@@ -7,7 +7,7 @@ import { useFormState, useFormStatus } from "react-dom";
 import { instructorApplyAction, type InstructorApplyState } from "@/app/actions/instructor-apply";
 import { FORM_DRAFT_KEYS } from "@/lib/form-draft-storage";
 import { LEGAL_ROUTES } from "@/lib/legal";
-import { INSTRUCTOR_ACTIVITY_LABELS } from "@/lib/services/instructor-match";
+import { instructorActivityLabelsAlphabetical } from "@/lib/services/instructor-match";
 import { parseFullNameToParts } from "@/lib/user-display-name";
 import { useFormDraft } from "@/shared/hooks/use-form-draft";
 import { useDisplayNameDuplicateCheck } from "@/shared/hooks/use-display-name-duplicate-check";
@@ -163,7 +163,7 @@ export default function InstructorApplyPage() {
                 <option value="" disabled>
                   Выберите…
                 </option>
-                {INSTRUCTOR_ACTIVITY_LABELS.map((label) => (
+                {instructorActivityLabelsAlphabetical().map((label) => (
                   <option key={label} value={label}>
                     {label}
                   </option>

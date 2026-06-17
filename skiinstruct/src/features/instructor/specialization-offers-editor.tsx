@@ -15,7 +15,7 @@ import {
   type DrivingVehicleOption,
 } from "@/lib/auto-instructor-offer";
 import type { SpecializationOffer } from "@/lib/instructor-specialization-offers";
-import { INSTRUCTOR_ACTIVITY_LABELS } from "@/lib/services/instructor-match";
+import { instructorActivityLabelsAlphabetical } from "@/lib/services/instructor-match";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
@@ -131,7 +131,7 @@ function DrivingDetailsFields({
 
 export function SpecializationOffersEditor({ offers, onChange, error }: Props) {
   const selectedLabels = new Set(offers.map((o) => o.label));
-  const canAdd = INSTRUCTOR_ACTIVITY_LABELS.filter((l) => !selectedLabels.has(l));
+  const canAdd = instructorActivityLabelsAlphabetical().filter((l) => !selectedLabels.has(l));
 
   const add = (label: string) => {
     if (selectedLabels.has(label)) return;
