@@ -43,6 +43,10 @@ function resolvedYandexMapsApiKeyForClient() {
   );
 }
 
+function resolvedVapidPublicKeyForClient() {
+  return process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY?.trim() || "";
+}
+
 const isProd = process.env.NODE_ENV === "production";
 
 const cspDirectives = [
@@ -83,6 +87,7 @@ const nextConfig = {
   env: {
     NEXTAUTH_URL: resolvedNextAuthUrlForClient(),
     NEXT_PUBLIC_YANDEX_MAPS_API_KEY: resolvedYandexMapsApiKeyForClient(),
+    NEXT_PUBLIC_VAPID_PUBLIC_KEY: resolvedVapidPublicKeyForClient(),
   },
   async headers() {
     return [{ source: "/(.*)", headers: securityHeaders }];

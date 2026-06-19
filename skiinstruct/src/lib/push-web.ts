@@ -26,6 +26,10 @@ export type PushPayload = {
   body: string;
   url: string;
   tag: string;
+  /** Заявка инструктору — кнопки «Принять/Отклонить» в push. */
+  kind?: "instructor-order";
+  orderId?: string;
+  actionToken?: string;
 };
 
 export async function sendWebPushToUser(userId: string, payload: PushPayload): Promise<{ sent: number; errors: number }> {

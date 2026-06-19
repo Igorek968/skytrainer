@@ -72,7 +72,9 @@ Host vps
 | `MAX_WEBHOOK_SECRET` | webhook MAX → сайт | ☐ |
 | `NEXT_PUBLIC_YANDEX_MAPS_API_KEY` | карты /client | ☐ |
 | `SKIINSTRUCT_AUTH_GOOGLE_ID` / `SECRET` | Google OAuth | ☐ |
-| `SKIINSTRUCT_VAPID_*` | web push | ☐ |
+| `SKIINSTRUCT_VAPID_PUBLIC_KEY` | web push (клиент) | ☐ |
+| `SKIINSTRUCT_VAPID_PRIVATE_KEY` | web push (сервер) | ☐ |
+| `SKIINSTRUCT_VAPID_SUBJECT` | `mailto:…` для VAPID | ☐ |
 
 ### Прод / VPS — `.env.qa` (корень репо, на сервере `/opt/skytrainer/.env.qa`)
 
@@ -92,6 +94,9 @@ Host vps
 | `SKIINSTRUCT_SMTP_*` | noreply@utrainer.ru | ☐ |
 | `MAX_*` | поддержка | ☐ |
 | `NEXT_PUBLIC_YANDEX_MAPS_API_KEY` | нужен при `docker build` | ☐ |
+| `SKIINSTRUCT_VAPID_PUBLIC_KEY` | web push (клиент, build arg) | ☐ |
+| `SKIINSTRUCT_VAPID_PRIVATE_KEY` | web push (сервер) | ☐ |
+| `SKIINSTRUCT_VAPID_SUBJECT` | `mailto:noreply@utrainer.ru` | ☐ |
 
 ---
 

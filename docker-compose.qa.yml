@@ -46,6 +46,7 @@ services:
         NEXT_PUBLIC_YANDEX_MAPS_API_KEY: ${NEXT_PUBLIC_YANDEX_MAPS_API_KEY:-${VITE_YANDEX_MAPS_API_KEY:-}}
         YANDEX_GEOCODER_API_KEY: ${YANDEX_GEOCODER_API_KEY:-}
         VITE_YANDEX_MAPS_API_KEY: ${VITE_YANDEX_MAPS_API_KEY:-}
+        NEXT_PUBLIC_VAPID_PUBLIC_KEY: ${SKIINSTRUCT_VAPID_PUBLIC_KEY:-}
     container_name: skiinstruct-qa-web
     restart: unless-stopped
     environment:

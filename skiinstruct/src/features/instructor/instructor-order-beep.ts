@@ -1,4 +1,5 @@
 let sharedCtx: AudioContext | null = null;
+let repeatIntervalId: ReturnType<typeof setInterval> | null = null;
 
 /** Разблокировать звук после клика/клавиши (требование браузера). */
 export function unlockInstructorOrderBeep(): void {
@@ -41,5 +42,21 @@ export function playInstructorOrderBeep() {
     }
   } catch {
     /* ignore */
+  }
+}
+
+const BEEP_REPEAT_MS = 12_000;
+
+/** Повторять сигнал, пока заявка не обработана (сайт открыт). */
+export function startInstructorOrderBeepRepeat(intervalMs = BEEP_REPEAT_MS): void {
+  stopInstructorOrderBeepRepeat();
+  playInstructorOrderBeep();
+  repeatIntervalId = setInterval(() => playInstructorOrderBeep(), intervalMs);
+}
+
+export function stopInstructorOrderBeepRepeat(): void {
+  if (repeatIntervalId != null) {
+    clearInterval(repeatIntervalId);
+    repeatIntervalId = null;
   }
 }

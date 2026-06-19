@@ -2,6 +2,7 @@ import nodemailer from "nodemailer";
 import type { LessonDuration } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
+import { createOrderPushActionToken } from "@/lib/order-push-action-token";
 import { sendWebPushToUser } from "@/lib/push-web";
 import { lessonDurationLabelRu, skillLevelLabelRu } from "@/shared/lib/order-booking-labels";
 import { getPublicProductName } from "@/shared/lib/product";
@@ -187,12 +188,16 @@ export async function notifyInstructorOfPendingOrder(orderId: string): Promise<b
 
   const pushTitle = urgent ? "⚡ Срочная заявка" : "Новая заявка на урок";
   const pushBody = `${clientName} · ${durationLabel}${amountRub != null ? ` · ${formatRub(amountRub)}` : ""}`;
+  const actionToken = createOrderPushActionToken(orderId, order.instructor.id);
 
   void sendWebPushToUser(order.instructor.id, {
     title: pushTitle,
     body: pushBody,
     url: orderUrl,
     tag: `instructor-order-${orderId}`,
+    kind: "instructor-order",
+    orderId,
+    actionToken: actionToken ?? undefined,
   }).catch((e) => {
     console.error("[instructor-order-notify] push", e instanceof Error ? e.message : e);
   });

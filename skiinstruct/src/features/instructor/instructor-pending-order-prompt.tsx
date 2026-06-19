@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { OrderStatus } from "@prisma/client";
 
-import { playInstructorOrderBeep } from "@/features/instructor/instructor-order-beep";
+import { playInstructorOrderBeep, startInstructorOrderBeepRepeat, stopInstructorOrderBeepRepeat } from "@/features/instructor/instructor-order-beep";
 import { instructorAlertPollInterval } from "@/lib/query-poll";
 import {
   dismissPendingPrompt,
@@ -165,6 +165,7 @@ export function InstructorPendingOrderPrompt() {
       for (const p of pending) seenIdsRef.current.add(p.id);
       if (toPrompt) {
         playInstructorOrderBeep();
+        startInstructorOrderBeepRepeat();
         notifyInstructorNewOrder(toPrompt);
         setPendingPromptOrderId(toPrompt.id);
         setEtaMinutes(20);
@@ -177,6 +178,7 @@ export function InstructorPendingOrderPrompt() {
 
     if (newlySeen) {
       playInstructorOrderBeep();
+      startInstructorOrderBeepRepeat();
       notifyInstructorNewOrder(newlySeen);
       setPendingPromptOrderId(newlySeen.id);
       setEtaMinutes(20);
@@ -199,6 +201,24 @@ export function InstructorPendingOrderPrompt() {
   const longEtaPending = !skipsEta && isLongInstructorEtaMinutes(etaMinutes);
   const hasMeetPlace = activeOrder ? orderHasMeetAddress(activeOrder) : false;
   const meetPlaceLabel = activeOrder ? resolveMeetAddress(activeOrder) : null;
+
+  useEffect(() => {
+    if (!pendingPromptOrderId || !activeOrder) {
+      stopInstructorOrderBeepRepeat();
+      return;
+    }
+    const baseTitle = document.title;
+    let on = false;
+    const id = window.setInterval(() => {
+      on = !on;
+      document.title = on ? "⚡ Новая заявка! — Utrainer" : baseTitle;
+    }, 900);
+    return () => {
+      window.clearInterval(id);
+      document.title = baseTitle;
+      stopInstructorOrderBeepRepeat();
+    };
+  }, [pendingPromptOrderId, activeOrder?.id]);
 
   useEffect(() => {
     if (!pendingPromptOrderId) return;
@@ -287,6 +307,7 @@ export function InstructorPendingOrderPrompt() {
       return payload;
     },
     onSuccess: async ({ orderId, action }) => {
+      stopInstructorOrderBeepRepeat();
       dismissPendingPrompt(orderId);
       dismissedRef.current = readDismissedPendingPromptIds();
       await qc.invalidateQueries({ queryKey: ["instructor-order-alerts"] });
@@ -398,6 +419,7 @@ export function InstructorPendingOrderPrompt() {
             variant="outline"
             className="w-full sm:w-auto"
             onClick={() => {
+              stopInstructorOrderBeepRepeat();
               dismissPendingPrompt(activeOrder.id);
               dismissedRef.current = readDismissedPendingPromptIds();
               setPendingPromptOrderId(null);

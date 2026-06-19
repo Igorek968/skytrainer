@@ -2,6 +2,7 @@
 
 import { InstructorLessonSoonPrompt } from "@/features/instructor/instructor-lesson-soon-prompt";
 import { InstructorPendingOrderPrompt } from "@/features/instructor/instructor-pending-order-prompt";
+import { InstructorPushAlertsBanner } from "@/features/instructor/instructor-push-alerts-banner";
 import { unlockInstructorOrderBeep } from "@/features/instructor/instructor-order-beep";
 import { isWebPushAvailable, subscribeWebPush, syncWebPushSubscription } from "@/features/push/web-push-client";
 import { useEffect } from "react";
@@ -28,6 +29,7 @@ export function InstructorPanelShell({ children }: { children: React.ReactNode }
 
   return (
     <>
+      <InstructorPushAlertsBanner />
       {children}
       <InstructorPendingOrderPrompt />
       <InstructorLessonSoonPrompt />

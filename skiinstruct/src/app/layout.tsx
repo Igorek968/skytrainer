@@ -27,8 +27,8 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   metadataBase: metadataBaseUrl,
-  title: "Инструктор для тебя — заказ урока на курорте",
-  description: "Заказ инструктора по лыжам и сноуборду на горнолыжном курорте",
+  title: "Utrainer — маркетплейс персональных тренировок и осознанного спорта",
+  description: "Заказ инструктора для любого вида спорта",
   manifest: "/manifest.webmanifest",
 };
 

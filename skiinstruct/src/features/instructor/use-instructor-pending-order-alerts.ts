@@ -146,6 +146,8 @@ export function useInstructorPendingOrderAlerts(
               ]
                 .filter(Boolean)
                 .join(" "),
+        tag: `instructor-order-${first.id}`,
+        requireInteraction: true,
       });
       n.onclick = () => openFirstOrder();
     }
