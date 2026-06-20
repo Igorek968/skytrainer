@@ -86,7 +86,7 @@ function LoginFormInner() {
     <div className="mx-auto max-w-md space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>Вход клиента</CardTitle>
+          <CardTitle as="h1">Вход клиента</CardTitle>
           {returningToOrder ? (
             <CardDescription>
               После входа вы вернётесь к оформлению заказа с выбранным инструктором. Используйте аккаунт клиента, не

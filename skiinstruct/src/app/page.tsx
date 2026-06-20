@@ -1,6 +1,8 @@
+import type { Metadata } from "next";
 import { Suspense } from "react";
 
-import ClientHomePage from "@/app/client/page";
+import ClientHomePage from "@/app/client/client-home";
+import { pageMetadata, SEO_PAGES } from "@/lib/seo";
 import { Skeleton } from "@/shared/ui/skeleton";
 
 function ClientHomeFallback() {
@@ -15,6 +17,8 @@ function ClientHomeFallback() {
     </div>
   );
 }
+
+export const metadata: Metadata = pageMetadata(SEO_PAGES.home);
 
 /** Главная = поиск и заказ на карте; кабинеты — по ссылкам в шапке. */
 export default function HomePage() {

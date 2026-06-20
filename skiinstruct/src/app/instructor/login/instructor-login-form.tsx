@@ -46,7 +46,7 @@ export function InstructorLoginForm({
     <div className="mx-auto max-w-md space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>Вход инструктора</CardTitle>
+          <CardTitle as="h1">Вход инструктора</CardTitle>
           <CardDescription>
             Войдите с email и паролем, указанными при регистрации. После одобрения заявки администратором откроется
             кабинет инструктора.

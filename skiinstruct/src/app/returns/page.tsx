@@ -19,12 +19,10 @@ import {
 import { qualityClaimCategoryLabels } from "@/lib/refund-policy";
 import { LEGAL_AGENT, LEGAL_SITE_URL } from "@/lib/legal-entity";
 import { LEGAL_ROUTES } from "@/lib/legal";
+import { pageMetadata, SEO_PAGES } from "@/lib/seo";
 import { LegalDocLayout } from "@/shared/layout/legal-doc-layout";
 
-export const metadata: Metadata = {
-  title: "Правила возврата денежных средств",
-  description: "Отмена занятий, возврат оплаты через ЮKassa",
-};
+export const metadata: Metadata = pageMetadata(SEO_PAGES.returns);
 
 export default function ReturnsPolicyPage() {
   return (

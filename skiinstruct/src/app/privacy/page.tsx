@@ -4,12 +4,10 @@ import Link from "next/link";
 import { formatLegalEditionDate, roskomnadzorRegistryNumber } from "@/lib/legal-config";
 import { LEGAL_AGENT, LEGAL_SITE_URL, legalRegisteredAddress } from "@/lib/legal-entity";
 import { LEGAL_ROUTES } from "@/lib/legal";
+import { pageMetadata, SEO_PAGES } from "@/lib/seo";
 import { LegalDocLayout } from "@/shared/layout/legal-doc-layout";
 
-export const metadata: Metadata = {
-  title: "Политика обработки персональных данных",
-  description: "Порядок обработки ПДн пользователей Utrainer",
-};
+export const metadata: Metadata = pageMetadata(SEO_PAGES.privacy);
 
 export default function PrivacyPolicyPage() {
   const address = legalRegisteredAddress();

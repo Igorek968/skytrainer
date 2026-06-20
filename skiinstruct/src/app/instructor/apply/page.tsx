@@ -79,7 +79,7 @@ export default function InstructorApplyPage() {
     <div className="mx-auto max-w-lg space-y-6 py-4">
       <Card>
         <CardHeader>
-          <CardTitle>Стать инструктором</CardTitle>
+          <CardTitle as="h1">Стать инструктором</CardTitle>
           <CardDescription>
             Заполните анкету. После проверки администратором вы сможете войти, включить статус «онлайн» и принимать
             заявки клиентов по всей России (поиск рядом — в радиусе 5 км от точки встречи).

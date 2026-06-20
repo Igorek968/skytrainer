@@ -128,7 +128,7 @@ function ResetPasswordForm() {
         <CardHeader>
           {token ? (
             <>
-              <CardTitle>Установка нового пароля</CardTitle>
+              <CardTitle as="h1">Установка нового пароля</CardTitle>
               <CardDescription>
                 {signedIn
                   ? "Вы вошли по ссылке из письма. Можно задать новый пароль или перейти в кабинет."
@@ -137,7 +137,7 @@ function ResetPasswordForm() {
             </>
           ) : (
             <>
-              <CardTitle>Восстановление пароля</CardTitle>
+              <CardTitle as="h1">Восстановление пароля</CardTitle>
               <CardDescription>
                 Введите email — мы отправим ссылку на установку нового пароля.
               </CardDescription>

@@ -18,11 +18,9 @@ import { LEGAL_AGENT } from "@/lib/legal-entity";
 import { formatPayoutWindowHint } from "@/lib/services/order-payout";
 import { LegalRequisitesBlock } from "@/shared/legal/legal-requisites-block";
 import { LegalDocLayout } from "@/shared/layout/legal-doc-layout";
+import { pageMetadata, SEO_PAGES } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  title: "Агентский договор (оферта) для инструктора",
-  description: "Условия сотрудничества самозанятых и ИП с платформой",
-};
+export const metadata: Metadata = pageMetadata(SEO_PAGES.ofertaInstructor);
 
 export default function InstructorAgencyOfferPage() {
   const payoutHint = formatPayoutWindowHint();

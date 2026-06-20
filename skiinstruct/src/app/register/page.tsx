@@ -87,7 +87,7 @@ function RegisterForm() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Регистрация клиента</CardTitle>
+          <CardTitle as="h1">Регистрация клиента</CardTitle>
           <CardDescription>
             Укажите email и пароль — после регистрации вы сразу войдёте и сможете оформить заказ на{" "}
             <Link className="text-accent underline" href="/client">

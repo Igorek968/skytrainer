@@ -132,6 +132,7 @@ services:
       NEXT_PUBLIC_SUPPORT_MAX_URL: ${NEXT_PUBLIC_SUPPORT_MAX_URL:-}
       # Яндекс.Карты + геокодер (см. skiinstruct/docs/YANDEX_MAPS.md)
       NEXT_PUBLIC_YANDEX_MAPS_API_KEY: ${NEXT_PUBLIC_YANDEX_MAPS_API_KEY:-${VITE_YANDEX_MAPS_API_KEY:-}}
+      NEXT_PUBLIC_YANDEX_METRIKA_ID: ${NEXT_PUBLIC_YANDEX_METRIKA_ID:-}
     volumes:
       # Локальные правки в коде сразу видны в контейнере (без полной пересборки образа).
       - ./skiinstruct/src:/app/src

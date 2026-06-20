@@ -36,7 +36,7 @@ export function AdminLoginForm({ callbackUrl = "/admin/activity" }: { callbackUr
     <div className="mx-auto max-w-md space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>{productName} — вход администратора</CardTitle>
+          <CardTitle as="h1">{productName} — вход администратора</CardTitle>
           <CardDescription>Кабинет привязан к этому приложению. Доступ только для роли ADMIN.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">

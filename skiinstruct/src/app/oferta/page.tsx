@@ -16,12 +16,10 @@ import {
 import { LEGAL_AGENT, LEGAL_SITE_URL, legalRegisteredAddress } from "@/lib/legal-entity";
 import { LegalRequisitesBlock } from "@/shared/legal/legal-requisites-block";
 import { LEGAL_ROUTES } from "@/lib/legal";
+import { pageMetadata, SEO_PAGES } from "@/lib/seo";
 import { LegalDocLayout } from "@/shared/layout/legal-doc-layout";
 
-export const metadata: Metadata = {
-  title: "Договор-оферта",
-  description: "Условия подбора инструктора, бронирования и оплаты на Utrainer",
-};
+export const metadata: Metadata = pageMetadata(SEO_PAGES.oferta);
 
 export default function PublicOfferPage() {
   return (

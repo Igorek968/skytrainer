@@ -51,11 +51,11 @@ const isProd = process.env.NODE_ENV === "production";
 
 const cspDirectives = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://api-maps.yandex.ru https://yastatic.net",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://api-maps.yandex.ru https://yastatic.net https://mc.yandex.ru https://www.googletagmanager.com",
   "style-src 'self' 'unsafe-inline' https://yastatic.net",
   isProd ? "img-src 'self' data: blob: https:" : "img-src 'self' data: blob: https: http:",
   "font-src 'self' data: https://yastatic.net",
-  "connect-src 'self' https://api-maps.yandex.ru https://geocode-maps.yandex.ru https://*.yandex.ru wss:",
+  "connect-src 'self' https://api-maps.yandex.ru https://geocode-maps.yandex.ru https://*.yandex.ru https://mc.yandex.ru https://www.google-analytics.com https://region1.google-analytics.com wss:",
   "frame-src 'self' https://yoomoney.ru https://*.yookassa.ru",
   "frame-ancestors 'none'",
   "base-uri 'self'",

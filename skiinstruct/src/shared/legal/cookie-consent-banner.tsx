@@ -39,6 +39,7 @@ export function CookieConsentBanner() {
           onClick={() => {
             acceptCookieConsent();
             setVisible(false);
+            window.dispatchEvent(new CustomEvent("utrainer:cookie-consent"));
           }}
         >
           Принять
