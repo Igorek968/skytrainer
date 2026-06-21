@@ -1,4 +1,4 @@
-# Деплой Utrainer QA на VPS (SSH host "vps" из ~/.ssh/config).
+# Deploy Utrainer to VPS (SSH host "vps" from ~/.ssh/config).
 param(
   [string]$SshHost = "vps",
   [string]$RemoteDir = "/opt/skytrainer",
@@ -10,16 +10,16 @@ $ErrorActionPreference = "Stop"
 Set-Location $PSScriptRoot\..
 
 if (!(Test-Path $EnvFile)) {
-  Write-Error "Создайте $EnvFile из .env.qa.example (APP_DOMAIN, пароли, секреты)."
+  Write-Error "Create $EnvFile from .env.qa.example (APP_DOMAIN, passwords, secrets)."
 }
 
 $archive = Join-Path $env:TEMP "skytrainer-deploy.tar.gz"
-Write-Host "Архив проекта..."
+Write-Host "Archiving project..."
 tar -czf $archive `
   --exclude=node_modules --exclude=.next --exclude=.git --exclude="*.tar.gz" `
   --exclude=skiinstruct/node_modules --exclude=skiinstruct/.next .
 
-Write-Host "Загрузка на $SshHost..."
+Write-Host "Uploading to $SshHost..."
 scp $archive "${SshHost}:/tmp/skytrainer-deploy.tar.gz"
 scp $EnvFile "${SshHost}:${RemoteDir}/.env.qa"
 
@@ -27,7 +27,7 @@ $dataDir = Join-Path (Get-Location) "deploy\caddy-data"
 $configDir = Join-Path (Get-Location) "deploy\caddy-config"
 $hasCerts = (Get-ChildItem $dataDir -Force -ErrorAction SilentlyContinue | Where-Object { $_.Name -ne ".gitkeep" }).Count -gt 0
 if ($hasCerts) {
-  Write-Host "Загрузка сохранённых сертификатов Caddy..."
+  Write-Host "Uploading saved Caddy certificates..."
   ssh $SshHost "mkdir -p $RemoteDir/deploy/caddy-data $RemoteDir/deploy/caddy-config"
   scp -r "$dataDir/*" "${SshHost}:${RemoteDir}/deploy/caddy-data/"
   if ((Get-ChildItem $configDir -Force -ErrorAction SilentlyContinue | Where-Object { $_.Name -ne ".gitkeep" }).Count -gt 0) {
@@ -44,7 +44,7 @@ Get-Content -LiteralPath $EnvFile | ForEach-Object {
   }
 }
 if (-not $domain) {
-  Write-Warning "APP_DOMAIN не найден в $EnvFile"
+  Write-Warning "APP_DOMAIN not found in $EnvFile"
   $domain = "localhost"
 }
 if ($SyncInstructors) {
@@ -54,5 +54,5 @@ if ($SyncInstructors) {
 }
 
 Write-Host ""
-Write-Host "Готово. Откройте: https://$domain"
-Write-Host "После первой выдачи TLS: .\scripts\caddy-sync-certs.ps1 -Direction Pull"
+Write-Host "Done. Open: https://$domain"
+Write-Host "After first TLS issue: .\scripts\caddy-sync-certs.ps1 -Direction Pull"
