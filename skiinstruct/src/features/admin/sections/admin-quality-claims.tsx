@@ -49,7 +49,7 @@ export function AdminQualityClaimsSection() {
         <CardTitle>Претензии по качеству урока</CardTitle>
         <CardDescription>
           Автоматические претензии клиентов после завершённых занятий (алгоритм —{" "}
-          <Link href={LEGAL_ROUTES.returns} className="text-accent underline" target="_blank">
+          <Link href={LEGAL_ROUTES.returns} className="text-accent underline" target="_blank" rel="noopener noreferrer">
             правила возврата п. 2.5
           </Link>
           ).
@@ -110,6 +110,7 @@ export function AdminQualityClaimsSection() {
                         href={`/client/orders/${row.orderId}`}
                         className="text-accent underline"
                         target="_blank"
+                        rel="noopener noreferrer"
                       >
                         {row.orderId.slice(0, 8)}…
                       </Link>

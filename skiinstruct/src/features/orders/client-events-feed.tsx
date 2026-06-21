@@ -144,7 +144,7 @@ function EventPosterCard({
   return (
     <div
       className={cn(
-        "group shrink-0 snap-start text-left transition-[width] duration-200",
+        "group shrink-0 snap-start text-left",
         selected
           ? "w-[min(100%,18rem)] sm:w-72"
           : "w-[7.25rem] sm:w-[8.5rem]",
@@ -250,10 +250,10 @@ function EventsCarousel({
 
   return (
     <div className="space-y-4">
-      <div className="relative">
+      <div className="relative min-h-[26rem]">
         <div
           ref={scrollerRef}
-          className="flex gap-3 overflow-x-auto pb-1 pr-12 scroll-smooth snap-x snap-mandatory [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          className="flex items-start gap-3 overflow-x-auto pb-1 pr-12 scroll-smooth snap-x snap-mandatory [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           role="list"
           aria-label="Мероприятия — карусель"
         >

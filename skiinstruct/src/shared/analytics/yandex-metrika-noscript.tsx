@@ -11,6 +11,7 @@ export function YandexMetrikaNoscript() {
           src={`https://mc.yandex.ru/watch/${counterId}`}
           style={{ position: "absolute", left: "-9999px" }}
           alt=""
+          role="presentation"
         />
       </div>
     </noscript>

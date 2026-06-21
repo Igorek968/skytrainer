@@ -17,7 +17,7 @@ function YandexMetrika() {
   if (!YANDEX_ID) return null;
 
   return (
-    <Script id="yandex-metrika" strategy="afterInteractive">
+    <Script id="yandex-metrika" strategy="lazyOnload">
       {yandexMetrikaSnippet(YANDEX_ID)}
     </Script>
   );

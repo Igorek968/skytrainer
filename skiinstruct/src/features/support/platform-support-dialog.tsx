@@ -166,7 +166,7 @@ export function PlatformSupportDialog({
               )}
               <p className="text-xs text-muted-foreground">
                 Отправляя сообщение, вы соглашаетесь с{" "}
-                <Link href={LEGAL_ROUTES.privacy} className="text-accent underline" target="_blank">
+                <Link href={LEGAL_ROUTES.privacy} className="text-accent underline" target="_blank" rel="noopener noreferrer">
                   политикой ПДн
                 </Link>
                 .
@@ -214,7 +214,7 @@ export function PlatformSupportDialog({
             <div className="rounded-md border border-dashed border-border px-3 py-2 text-xs text-muted-foreground">
               Также:{" "}
               {data.maxUrl ? (
-                <a className="text-accent underline" href={data.maxUrl} target="_blank" rel="noreferrer">
+                <a className="text-accent underline" href={data.maxUrl} target="_blank" rel="noopener noreferrer">
                   MAX
                 </a>
               ) : null}

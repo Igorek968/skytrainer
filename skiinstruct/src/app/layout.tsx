@@ -71,6 +71,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 
   return (
     <html lang="ru" suppressHydrationWarning>
+      <head>
+        <link rel="preconnect" href="https://api-maps.yandex.ru" />
+        <link rel="preconnect" href="https://yastatic.net" crossOrigin="" />
+        <link rel="dns-prefetch" href="https://mc.yandex.ru" />
+        <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
+      </head>
       <body className={`${inter.variable} min-h-dvh font-sans`}>
         <script
           type="application/ld+json"

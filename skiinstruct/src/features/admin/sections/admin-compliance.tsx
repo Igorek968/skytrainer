@@ -50,12 +50,12 @@ export function AdminComplianceSection() {
         </CardHeader>
         <CardContent className="flex flex-wrap gap-2 text-sm">
           <Button type="button" variant="outline" size="sm" asChild>
-            <Link href={LEGAL_ROUTES.ofertaInstructor} target="_blank">
+            <Link href={LEGAL_ROUTES.ofertaInstructor} target="_blank" rel="noopener noreferrer">
               Агентский договор (оферта)
             </Link>
           </Button>
           <Button type="button" variant="outline" size="sm" asChild>
-            <Link href={LEGAL_ROUTES.requisites} target="_blank">
+            <Link href={LEGAL_ROUTES.requisites} target="_blank" rel="noopener noreferrer">
               Реквизиты агента
             </Link>
           </Button>
@@ -105,7 +105,7 @@ export function AdminComplianceSection() {
                     <div className="flex shrink-0 flex-wrap gap-2">
                       {href ? (
                         <Button type="button" size="sm" variant="outline" asChild>
-                          <Link href={href} target="_blank">
+                          <Link href={href} target="_blank" rel="noopener noreferrer">
                             Открыть файл
                           </Link>
                         </Button>
@@ -219,6 +219,7 @@ export function AdminComplianceSection() {
                         <Link
                           href={`/api/admin/agency-registry/${r.userId}/certificate`}
                           target="_blank"
+                          rel="noopener noreferrer"
                         >
                           PDF/печать
                         </Link>

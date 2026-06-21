@@ -1,21 +1,23 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSession, getSession } from "next-auth/react";
 import { Suspense, useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react";
 import { toast } from "sonner";
-import { ChevronDown, Star, Award, ShieldCheck, CalendarDays, Languages } from "lucide-react";
+import { Star } from "lucide-react";
 
-import { PersonalDataDialog } from "@/features/client/personal-data-dialog";
-import { ClientOrderCheckoutDialog } from "@/features/client/client-order-checkout-dialog";
 import type { ClientCheckoutInstructorSummary } from "@/lib/client-checkout-instructor";
 import type { InstructorTaxStatus } from "@prisma/client";
-import { ClientEventsFeed } from "@/features/orders/client-events-feed";
-import { GeolocationPermissionDialog } from "@/features/map/geolocation-permission-dialog";
+import { InstructorNearbyVirtualList } from "@/features/client/instructor-nearby-virtual-list";
+import type {
+  ClientInstructorListItem,
+  ClientInstructorProfileResponse,
+} from "@/features/client/instructor-profile-types";
 import { MeetAddressSearch } from "@/features/map/meet-address-search";
-import { BookingMapLazy } from "@/features/map/map-loader";
+import { BookingMapViewport } from "@/features/map/booking-map-viewport";
 import { consumeOpenPersonalDataFlag } from "@/lib/client-personal-data-storage";
 import { locateUserMeetPoint, useMeetPoint } from "@/features/map/use-client-meet-point";
 import { Button } from "@/shared/ui/button";
@@ -24,6 +26,7 @@ import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
 import { TimeInput24, normalizeTimeInput24 } from "@/shared/ui/time-input-24";
 import { Skeleton } from "@/shared/ui/skeleton";
+import { WhenInViewport } from "@/shared/ui/when-in-viewport";
 import {
   clearPendingCheckout,
   readPendingCheckout,
@@ -35,8 +38,7 @@ import {
   formatDrivingSchoolDetailsSummary,
   isAutoInstructorLabel,
 } from "@/lib/auto-instructor-offer";
-import type { SpecializationOffer } from "@/lib/instructor-specialization-offers";
-import { instructorActivityLabelsAlphabetical, isSyntheticInstructorBioLine } from "@/lib/services/instructor-match";
+import { instructorActivityLabelsAlphabetical } from "@/lib/services/instructor-match";
 import { cn } from "@/lib/utils";
 import type { LessonDuration } from "@prisma/client";
 import { URGENT_INSTRUCTOR_DEADLINE_MIN } from "@/shared/lib/order-flex";
@@ -52,6 +54,29 @@ import {
 import { lessonDurationLabelRu } from "@/shared/lib/order-duration";
 import { SectionErrorBoundary } from "@/shared/ui/section-error-boundary";
 
+const PersonalDataDialog = dynamic(
+  () => import("@/features/client/personal-data-dialog").then((m) => m.PersonalDataDialog),
+  { ssr: false },
+);
+
+const ClientOrderCheckoutDialog = dynamic(
+  () => import("@/features/client/client-order-checkout-dialog").then((m) => m.ClientOrderCheckoutDialog),
+  { ssr: false },
+);
+
+const ClientEventsFeed = dynamic(
+  () => import("@/features/orders/client-events-feed").then((m) => m.ClientEventsFeed),
+  {
+    ssr: false,
+    loading: () => <Skeleton className="h-48 w-full rounded-lg" aria-hidden />,
+  },
+);
+
+const GeolocationPermissionDialog = dynamic(
+  () => import("@/features/map/geolocation-permission-dialog").then((m) => m.GeolocationPermissionDialog),
+  { ssr: false },
+);
+
 function currentLocalTimeHm(): string {
   const now = new Date();
   return minutesToHm(now.getHours() * 60 + now.getMinutes());
@@ -65,69 +90,8 @@ function normalizeHm(value: string): string {
 const disableNearbyPoll = process.env.NEXT_PUBLIC_DISABLE_NEARBY_POLL === "1";
 
 type NearbyResponse = {
-  instructors: {
-    id: string;
-    name: string | null;
-    taxStatus?: InstructorTaxStatus | null;
-    image: string | null;
-    photoUrl?: string | null;
-    age?: number | null;
-    isOnline?: boolean;
-    hourlyRate: number;
-    lessonsForDiscipline?: number | null;
-    ratingAvg: number;
-    reviewCount: number;
-    languages: string[];
-    specializations: string[];
-    distanceKm: number;
-    lat: number | null;
-    lng: number | null;
-  }[];
+  instructors: ClientInstructorListItem[];
 };
-
-type InstructorProfileResponse = {
-  instructor: {
-    id: string;
-    name: string | null;
-    image: string | null;
-    profile: {
-      bio: string | null;
-      photoUrl: string | null;
-      photoGallery: string[];
-      certificationLevel: string | null;
-      certifications: string[];
-      skillLevels: string[];
-      languages: string[];
-      specializations: string[];
-      specializationOffers?: SpecializationOffer[];
-      additionalServices: string[];
-      offeredDurations: string[];
-      availabilitySlots: { day: number; from: string; to: string; busy?: boolean }[];
-      age: number | null;
-      experienceYears: number | null;
-      sportsExperienceYears: number | null;
-      totalLessons: number | null;
-      hourlyRate: number;
-      taxStatus?: InstructorTaxStatus | null;
-      ratingAvg: number;
-      reviewCount: number;
-    };
-    stats: {
-      completedLessons: number;
-      taughtHours: number;
-    };
-    achievements: string[];
-    reviews: {
-      id: string;
-      rating: number | null;
-      text: string | null;
-      createdAt: string;
-      authorName: string | null;
-    }[];
-  };
-};
-
-const DAY_LABELS = ["Вс", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"];
 
 const CLIENT_SECTION_IDS = {
   quickSearch: "client-quick-search",
@@ -139,295 +103,6 @@ const CLIENT_SECTION_IDS = {
 function scrollToClientSection(id: string) {
   document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
 }
-function firstNonEmptyGalleryUrl(urls: string[] | undefined | null): string | null {
-  const hit = urls?.find((u) => typeof u === "string" && u.trim().length > 0);
-  return hit?.trim() ?? null;
-}
-
-function instructorListAvatar(row: { photoUrl?: string | null; image?: string | null }): string | null {
-  const p = row.photoUrl?.trim();
-  const img = row.image?.trim();
-  return (p && p.length > 0 ? p : null) ?? (img && img.length > 0 ? img : null);
-}
-
-function instructorExpandedAvatar(ins: InstructorProfileResponse["instructor"]): string | null {
-  /** Совпадает с API: обложка (или объединённое превью), затем галерея, затем image аккаунта. */
-  return (
-    (ins.profile.photoUrl?.trim() || null) ??
-    firstNonEmptyGalleryUrl(ins.profile.photoGallery) ??
-    (ins.image?.trim() || null)
-  );
-}
-
-/** Раскрытый профиль: порядок секций и подписи как в анкете инструктора («Профиль для клиентов»). */
-function InstructorSearchExpandedBody({
-  instructor,
-  listItemId,
-  showAllReviewsFor,
-  setShowAllReviewsFor,
-  setPreviewUrl,
-  setSelectedId,
-  onStartCheckout,
-}: {
-  instructor: InstructorProfileResponse["instructor"];
-  listItemId: string;
-  showAllReviewsFor: string | null;
-  setShowAllReviewsFor: Dispatch<SetStateAction<string | null>>;
-  setPreviewUrl: Dispatch<SetStateAction<string | null>>;
-  setSelectedId: Dispatch<SetStateAction<string | null>>;
-  onStartCheckout: (instructorId: string) => void;
-}) {
-  const ins = instructor;
-  const p = ins.profile;
-  const avatarUrl = instructorExpandedAvatar(ins);
-  const bioTrim = p.bio?.trim() ?? "";
-  const showBioSection =
-    Boolean(bioTrim) && !isSyntheticInstructorBioLine(p.bio, p.specializations);
-
-  return (
-    <>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div className="h-12 w-12 overflow-hidden rounded-full border border-border bg-muted">
-            {avatarUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={avatarUrl} alt={ins.name ?? "Инструктор"} className="h-full w-full object-cover" />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center text-xs text-muted-foreground">
-                Фото
-              </div>
-            )}
-          </div>
-          <div>
-            <p className="text-base font-semibold">{ins.name}</p>
-            <p className="text-xs text-muted-foreground">
-              {p.certificationLevel?.trim() ? (
-                <>
-                  <span className="font-medium text-foreground">Сертификация · </span>
-                  {p.certificationLevel}
-                </>
-              ) : (
-                "Сертификация не указана"
-              )}
-            </p>
-          </div>
-        </div>
-        <div className="rounded-md bg-accent px-3 py-1 text-sm font-semibold text-accent-foreground">
-          {p.hourlyRate} ₽/час
-        </div>
-      </div>
-
-      <div className="rounded-md bg-muted/60 p-2 text-xs">
-        <p className="font-medium">Опыт</p>
-        <p className="mt-1">
-          <span className="text-muted-foreground">Возраст · </span>
-          {p.age ?? "—"}
-          <span className="mx-1.5 text-muted-foreground">·</span>
-          <span className="text-muted-foreground">Стаж инструктора · </span>
-          {p.experienceYears ?? "—"}
-          <span className="mx-1.5 text-muted-foreground">·</span>
-          <span className="text-muted-foreground">Стаж в спорте · </span>
-          {p.sportsExperienceYears ?? "—"}
-          <span className="mx-1.5 text-muted-foreground">·</span>
-          <span className="text-muted-foreground">Занятий по направлению · </span>
-          {p.totalLessons ?? "—"}
-        </p>
-        <p className="mt-1 text-[11px] text-muted-foreground">
-          На платформе: завершено {ins.stats.completedLessons}, часов по завершённым заказам{" "}
-          {ins.stats.taughtHours}
-        </p>
-      </div>
-
-      <div className="grid gap-2 md:grid-cols-2">
-        <div className="rounded-md bg-muted/60 p-2 text-xs">
-          <p className="inline-flex items-center gap-1 font-medium">
-            <ShieldCheck className="h-3.5 w-3.5" />
-            Ключевые сертификаты
-          </p>
-          <p className="mt-1">
-            {p.certifications.length
-              ? p.certifications.join(", ")
-              : p.certificationLevel?.trim() || "Не указано"}
-          </p>
-        </div>
-        <div className="rounded-md bg-muted/60 p-2 text-xs">
-          <p className="inline-flex items-center gap-1 font-medium">
-            <Award className="h-3.5 w-3.5" />
-            Уровни подготовки
-          </p>
-          <p className="mt-1">{p.skillLevels.length ? p.skillLevels.join(", ") : "Не указано"}</p>
-        </div>
-      </div>
-
-      <div className="rounded-md bg-muted/60 p-2 text-xs">
-        <p className="inline-flex items-center gap-1 font-medium">
-          <Languages className="h-3.5 w-3.5" />
-          Языки
-        </p>
-        <p className="mt-1">{p.languages.length ? p.languages.join(", ") : "Не указано"}</p>
-      </div>
-
-      <div className="rounded-md bg-muted/60 p-2 text-xs">
-        <p className="font-medium">Специализации</p>
-        <p className="mt-1">{p.specializations.length ? p.specializations.join(", ") : "Не указано"}</p>
-      </div>
-
-      {(() => {
-        const autoOffer = p.specializationOffers?.find((o) => isAutoInstructorLabel(o.label));
-        if (!autoOffer?.drivingDetails) return null;
-        return (
-          <div className="rounded-md border border-border bg-muted/40 p-2 text-xs">
-            <p className="font-medium">Автоинструктор</p>
-            <p className="mt-1 text-muted-foreground">
-              {formatDrivingSchoolDetailsSummary(autoOffer.drivingDetails)}
-            </p>
-            <p className="mt-1">
-              Ставка: <strong className="text-foreground">{autoOffer.hourlyRate} ₽/ч</strong>
-            </p>
-          </div>
-        );
-      })()}
-
-      <div className="grid gap-2 md:grid-cols-2">
-        <div className="rounded-md bg-muted/60 p-2 text-xs">
-          <p className="font-medium">Дополнительные услуги</p>
-          <p className="mt-1">
-            {p.additionalServices.length ? p.additionalServices.join(", ") : "Не указано"}
-          </p>
-        </div>
-        <div className="rounded-md bg-muted/60 p-2 text-xs">
-          <p className="font-medium">Длительности занятия</p>
-          <p className="mt-1">{p.offeredDurations.length ? p.offeredDurations.join(", ") : "Не указано"}</p>
-        </div>
-      </div>
-
-      <div className="space-y-1">
-        <p className="text-xs font-medium">Лучшие достижения</p>
-        {ins.achievements.length ? (
-          <ul className="space-y-1 text-xs text-muted-foreground">
-            {ins.achievements.map((a) => (
-              <li key={a}>• {a}</li>
-            ))}
-          </ul>
-        ) : (
-          <p className="text-xs text-muted-foreground">Не указано</p>
-        )}
-      </div>
-
-      {p.photoGallery.some((ph) => ph?.trim()) ? (
-        <div className="space-y-1">
-          <p className="text-xs font-medium">Фотографии инструктора</p>
-          <div className="flex flex-wrap gap-2">
-            {p.photoGallery
-              .filter((ph) => ph?.trim())
-              .map((ph, ix) => (
-                <button
-                  type="button"
-                  key={`${ph}-${ix}`}
-                  className="h-20 w-20 overflow-hidden rounded-md border border-border"
-                  onClick={() => setPreviewUrl(ph)}
-                  aria-label={`Открыть фото ${ix + 1}`}
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={ph} alt={`Фото инструктора ${ix + 1}`} className="h-full w-full object-cover" />
-                </button>
-              ))}
-          </div>
-        </div>
-      ) : null}
-
-      {showBioSection ? (
-        <div className="space-y-1">
-          <p className="text-xs font-medium">Биография и достижения</p>
-          <p className="text-sm text-muted-foreground">{bioTrim}</p>
-        </div>
-      ) : null}
-
-      <div className="space-y-2">
-        <p className="inline-flex items-center gap-1 text-xs font-medium">
-          <CalendarDays className="h-3.5 w-3.5" />
-          Календарь доступности
-        </p>
-        <div className="grid gap-1 rounded-md border border-border p-2 text-[11px] md:grid-cols-7">
-          {DAY_LABELS.map((d, idx) => {
-            const slots = p.availabilitySlots.filter((s) => s.day === idx);
-            return (
-              <div key={d} className="rounded border border-border p-1">
-                <div className="font-medium">{d}</div>
-                {!slots.length ? (
-                  <div className="mt-1 text-muted-foreground">—</div>
-                ) : (
-                  <div className="mt-1 space-y-1">
-                    {slots.slice(0, 3).map((s, ix) => (
-                      <div
-                        key={`${d}-${ix}`}
-                        className={`rounded px-1 py-0.5 ${
-                          s.busy ? "bg-muted text-muted-foreground" : "bg-sky-100 text-sky-900"
-                        }`}
-                      >
-                        {s.from}-{s.to}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      <div className="space-y-1">
-        <p className="text-xs font-medium">Последние отзывы</p>
-        {!ins.reviews.length ? (
-          <p className="text-xs text-muted-foreground">Пока нет отзывов от учеников.</p>
-        ) : (
-          <ul className="space-y-1">
-            {(showAllReviewsFor === listItemId ? ins.reviews : ins.reviews.slice(0, 3)).map((r) => (
-              <li key={r.id} className="rounded-md border border-border bg-muted/30 p-2 text-xs">
-                <p className="font-medium">
-                  ★ {r.rating ?? "—"} · {r.authorName ?? "Ученик"}
-                </p>
-                <p className="text-muted-foreground">{r.text || "Отзыв без текста"}</p>
-              </li>
-            ))}
-          </ul>
-        )}
-        {ins.reviews.length > 3 ? (
-          <div className="flex gap-2">
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={() =>
-                setShowAllReviewsFor((prev) => (prev === listItemId ? null : listItemId))
-              }
-            >
-              {showAllReviewsFor === listItemId ? "Скрыть отзывы" : "Показать все в карточке"}
-            </Button>
-            <Button type="button" size="sm" variant="outline" asChild>
-              <Link href={`/instructors/${listItemId}/reviews?sort=date_desc`}>Все отзывы (страница)</Link>
-            </Button>
-          </div>
-        ) : null}
-      </div>
-
-      <Button
-        type="button"
-        size="sm"
-        variant="outline"
-        className="w-full sm:w-auto"
-        onClick={() => {
-          setSelectedId(listItemId);
-          onStartCheckout(listItemId);
-        }}
-      >
-        Выбрать инструктора для заказа
-      </Button>
-
-    </>
-  );
-}
-
 /** После входа с /login?checkout=1 — снова открыть оформление с сохранённым инструктором. */
 function ResumeCheckoutFromQuery({
   data,
@@ -874,7 +549,7 @@ export default function ClientHomePage() {
         { cache: "no-store" },
       );
       if (!r.ok) throw new Error("profile");
-      return r.json() as Promise<InstructorProfileResponse>;
+      return r.json() as Promise<ClientInstructorProfileResponse>;
     },
     staleTime: 0,
     gcTime: 5 * 60_000,
@@ -1093,7 +768,7 @@ export default function ClientHomePage() {
       <div className="space-y-3">
         <MeetAddressSearch />
         <SectionErrorBoundary title="Карта временно недоступна">
-          <BookingMapLazy
+          <BookingMapViewport
             interactive
             center={center}
             meetLat={meetLat}
@@ -1122,9 +797,14 @@ export default function ClientHomePage() {
       </div>
 
       <div id={CLIENT_SECTION_IDS.events} className="scroll-mt-24">
-        <SectionErrorBoundary title="Мероприятия временно недоступны">
-          <ClientEventsFeed layout="carousel" onInstructorPick={focusInstructorFromEvent} />
-        </SectionErrorBoundary>
+        <WhenInViewport
+          fallback={<Skeleton className="h-48 w-full rounded-lg" aria-hidden />}
+          rootMargin="400px"
+        >
+          <SectionErrorBoundary title="Мероприятия временно недоступны">
+            <ClientEventsFeed layout="carousel" onInstructorPick={focusInstructorFromEvent} />
+          </SectionErrorBoundary>
+        </WhenInViewport>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
@@ -1453,133 +1133,20 @@ export default function ClientHomePage() {
                   : " На сегодня показываются только инструкторы «на линии» (до ~100 км). Выберите дату позже или включите «Запись на дату» — тогда появятся и офлайн."}
               </p>
             ) : (
-              <ul className="space-y-2" aria-label="Список инструкторов">
-                {instructorsForList.map((i) => {
-                  const rowAvatar = instructorListAvatar(i);
-                  const expandedIns =
-                    expandedId === i.id &&
-                    expandedProfile &&
-                    expandedProfile.instructor.id === expandedId &&
-                    expandedProfile.instructor.id === i.id
-                      ? expandedProfile.instructor
-                      : null;
-                  return (
-                  <li key={i.id}>
-                    <div
-                      className={`rounded-lg border bg-gradient-to-br from-sky-50/70 to-background p-3 text-sm transition-colors dark:from-slate-900 ${
-                        selectedId === i.id ? "border-accent ring-1 ring-accent" : "border-border"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <button
-                          type="button"
-                          className="flex flex-1 items-center justify-between gap-3 text-left"
-                          onClick={() => setSelectedId(i.id)}
-                        >
-                          <span className="flex items-center gap-3">
-                            <span className="h-10 w-10 overflow-hidden rounded-full border border-border bg-muted">
-                              {rowAvatar ? (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img
-                                  src={rowAvatar}
-                                  alt={i.name ?? "Инструктор"}
-                                  className="h-full w-full object-cover"
-                                />
-                              ) : (
-                                <span className="flex h-full w-full items-center justify-center text-[10px] text-muted-foreground">
-                                  Фото
-                                </span>
-                              )}
-                            </span>
-                            <span>
-                              <span className="block font-medium">
-                                {i.name || "Имя Фамилия не указаны"}
-                              </span>
-                              <span className="block text-xs text-muted-foreground">
-                                Возраст: {i.age ?? "—"}
-                                {i.isOnline === false ? (
-                                  <span className="ml-2 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-                                    офлайн
-                                  </span>
-                                ) : null}
-                                {i.distanceKm >= 9000 ? (
-                                  <span className="ml-2 text-[10px] text-muted-foreground">нет координат</span>
-                                ) : null}
-                              </span>
-                            </span>
-                          </span>
-                          <span className="text-muted-foreground">
-                            {i.distanceKm >= 9000 ? "—" : `${i.distanceKm} км`}
-                          </span>
-                        </button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          aria-label="Показать полный профиль"
-                          onClick={() =>
-                            setExpandedId((prev) => {
-                              const next = prev === i.id ? null : i.id;
-                              if (next) setSelectedId(next);
-                              if (next !== i.id) setShowAllReviewsFor(null);
-                              return next;
-                            })
-                          }
-                        >
-                          <ChevronDown
-                            className={`h-4 w-4 transition-transform ${
-                              expandedId === i.id ? "rotate-180" : ""
-                            }`}
-                          />
-                        </Button>
-                      </div>
-                      <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-                        <span>{i.hourlyRate} ₽/час</span>
-                        {i.lessonsForDiscipline != null ? (
-                          <span>· {i.lessonsForDiscipline} занятий по направлению</span>
-                        ) : null}
-                        <span className="inline-flex items-center gap-1">
-                          <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
-                          {i.ratingAvg.toFixed(1)} ({i.reviewCount})
-                        </span>
-                        <span>
-                          <span className="font-medium text-foreground">Языки · </span>
-                          {i.languages.length ? i.languages.join(", ") : "—"}
-                        </span>
-                      </div>
-                      {i.specializations.length ? (
-                        <div className="mt-1 text-[11px] text-muted-foreground">
-                          <span className="font-medium text-foreground">Специализации · </span>
-                          {i.specializations.join(", ")}
-                        </div>
-                      ) : null}
-
-                      {expandedId === i.id ? (
-                        <div className="mt-3 space-y-3 rounded-md border border-border bg-background/90 p-3">
-                          {isExpandedProfileError ? (
-                            <p className="text-sm text-destructive">
-                              Не удалось загрузить профиль. Нажмите «Обновить» выше или разверните карточку ещё раз.
-                            </p>
-                          ) : isExpandedProfileLoading || !expandedIns ? (
-                            <Skeleton className="h-28 w-full" />
-                          ) : (
-                            <InstructorSearchExpandedBody
-                              instructor={expandedIns}
-                              listItemId={i.id}
-                              showAllReviewsFor={showAllReviewsFor}
-                              setShowAllReviewsFor={setShowAllReviewsFor}
-                              setPreviewUrl={setPreviewUrl}
-                              setSelectedId={setSelectedId}
-                              onStartCheckout={openCheckoutForSelected}
-                            />
-                          )}
-                                </div>
-                              ) : null}
-                                </div>
-                  </li>
-                                    );
-                                  })}
-              </ul>
+              <InstructorNearbyVirtualList
+                items={instructorsForList}
+                selectedId={selectedId}
+                expandedId={expandedId}
+                expandedProfile={expandedProfile}
+                isExpandedProfileLoading={isExpandedProfileLoading}
+                isExpandedProfileError={isExpandedProfileError}
+                showAllReviewsFor={showAllReviewsFor}
+                setSelectedId={setSelectedId}
+                setExpandedId={setExpandedId}
+                setShowAllReviewsFor={setShowAllReviewsFor}
+                setPreviewUrl={setPreviewUrl}
+                onStartCheckout={openCheckoutForSelected}
+              />
             )}
 
             <Button

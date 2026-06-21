@@ -75,7 +75,7 @@ export function buildInstructorBalloonHtml(
 
   if (mode === "inline") {
     const avatar = photoUrl
-      ? `<img src="${escapeHtml(photoUrl)}" alt="" style="width:100%;height:100%;object-fit:cover;" loading="lazy" />`
+      ? `<img src="${escapeHtml(photoUrl)}" alt="${escapeHtml(displayName)}" width="40" height="40" style="width:100%;height:100%;object-fit:cover;" loading="lazy" />`
       : `<span style="font-size:13px;font-weight:700;color:#475569;">${escapeHtml(instructorInitials(pin.name))}</span>`;
 
     return `<div style="min-width:180px;max-width:240px;font-family:system-ui,-apple-system,sans-serif;">
@@ -95,7 +95,7 @@ export function buildInstructorBalloonHtml(
   }
 
   const avatar = photoUrl
-    ? `<img src="${escapeHtml(photoUrl)}" alt="" class="instructor-map-balloon__photo" loading="lazy" />`
+    ? `<img src="${escapeHtml(photoUrl)}" alt="${escapeHtml(displayName)}" width="40" height="40" class="instructor-map-balloon__photo" loading="lazy" />`
     : `<span class="instructor-map-balloon__initials">${escapeHtml(instructorInitials(pin.name))}</span>`;
 
   return `<div class="instructor-map-balloon">
@@ -123,7 +123,7 @@ export function buildInstructorMarkerHtml(
   const selectedClass = selected ? " instructor-map-marker--selected" : "";
 
   const photoInner = photoUrl
-    ? `<img src="${escapeHtml(photoUrl)}" alt="" class="instructor-map-marker__photo-img" loading="lazy" />`
+    ? `<img src="${escapeHtml(photoUrl)}" alt="${escapeHtml(displayName)}" width="48" height="48" class="instructor-map-marker__photo-img" loading="lazy" />`
     : `<span class="instructor-map-marker__photo-fallback">${escapeHtml(instructorInitials(pin.name))}</span>`;
 
   return `<div class="instructor-map-marker${selectedClass}">
@@ -176,7 +176,7 @@ const INSTRUCTOR_YANDEX_LAYOUT_TEMPLATE = [
   '<div style="font-size:9px;line-height:1;color:#334155;text-shadow:0 0 2px #fff;letter-spacing:-0.5px;">{{ properties.markerStarsLine }}</div>',
   '<div style="display:flex;height:48px;width:48px;align-items:center;justify-content:center;overflow:hidden;border-radius:9999px;border:2px solid {{ properties.markerBorderColor }};background:#e2e8f0;box-shadow:0 2px 8px rgba(15,23,42,.22);">',
   "{% if properties.markerPhotoUrl %}",
-  '<img src="{{ properties.markerPhotoUrl }}" alt="" style="width:100%;height:100%;object-fit:cover;" />',
+  '<img src="{{ properties.markerPhotoUrl }}" alt="{{ properties.markerName }}" width="48" height="48" style="width:100%;height:100%;object-fit:cover;" />',
   "{% else %}",
   '<span style="font-size:14px;font-weight:700;color:#475569;">{{ properties.markerInitials }}</span>',
   "{% endif %}",

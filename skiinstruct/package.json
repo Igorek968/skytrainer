@@ -40,6 +40,7 @@
     "@radix-ui/react-toast": "^1.2.4",
     "@stripe/stripe-js": "^5.4.0",
     "@tanstack/react-query": "^5.62.8",
+    "@tanstack/react-virtual": "^3.13.12",
     "bcryptjs": "^2.4.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

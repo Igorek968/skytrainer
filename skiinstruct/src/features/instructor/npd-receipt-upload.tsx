@@ -24,7 +24,7 @@ export function NpdReceiptUpload({
     return (
       <p className="text-sm text-muted-foreground">
         Чек загружен:{" "}
-        <a className="text-accent underline" href={href} target="_blank" rel="noreferrer">
+        <a className="text-accent underline" href={href} target="_blank" rel="noopener noreferrer">
           открыть
         </a>
       </p>

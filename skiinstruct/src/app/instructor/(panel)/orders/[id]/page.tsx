@@ -140,7 +140,7 @@ function InstructorOrderDetailContent({
           <h1 className="text-2xl font-semibold tracking-tight">{orderStatusLabel(safeStatus)}</h1>
         </div>
         <Button asChild variant="outline">
-          <a href={mapsHref} target="_blank" rel="noreferrer">
+          <a href={mapsHref} target="_blank" rel="noopener noreferrer">
             Маршрут (OSM)
           </a>
         </Button>

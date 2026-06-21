@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { InstructorPhoto } from "@/shared/ui/instructor-photo";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
@@ -176,8 +177,7 @@ export function PersonalDataDialog({
             <div className="flex items-start gap-4">
               <div className="h-20 w-20 shrink-0 overflow-hidden rounded-full border border-border bg-muted">
                 {previewSrc ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={previewSrc} alt="" className="h-full w-full object-cover" />
+                  <InstructorPhoto src={previewSrc} alt="Фото профиля" size={80} className="h-full w-full" />
                 ) : (
                   <div className="flex h-full w-full items-center justify-center text-[10px] text-muted-foreground">
                     Нет фото
