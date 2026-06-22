@@ -1,0 +1,64 @@
+{
+  "packageId": "ru.utrainer.app",
+  "host": "utrainer.ru",
+  "name": "Utrainer",
+  "launcherName": "Utrainer",
+  "display": "standalone",
+  "themeColor": "#0f172a",
+  "themeColorDark": "#0f172a",
+  "navigationColor": "#0f172a",
+  "navigationColorDark": "#0f172a",
+  "navigationDividerColor": "#0f172a",
+  "navigationDividerColorDark": "#0f172a",
+  "backgroundColor": "#0f172a",
+  "enableNotifications": true,
+  "startUrl": "/client",
+  "iconUrl": "https://utrainer.ru/icon-512.png",
+  "maskableIconUrl": "https://utrainer.ru/icon-maskable-512.png",
+  "monochromeIconUrl": "https://utrainer.ru/icon-512.png",
+  "splashScreenFadeOutDuration": 300,
+  "signingKey": {
+    "path": "./android.keystore",
+    "alias": "utrainer"
+  },
+  "appVersionName": "1.0.0",
+  "appVersionCode": 1,
+  "shortcuts": [
+    {
+      "name": "Найти инструктора",
+      "shortName": "Карта",
+      "url": "https://utrainer.ru/client",
+      "chosenIconUrl": "https://utrainer.ru/icon-192.png"
+    },
+    {
+      "name": "Мои заказы",
+      "shortName": "Заказы",
+      "url": "https://utrainer.ru/client/orders",
+      "chosenIconUrl": "https://utrainer.ru/icon-192.png"
+    }
+  ],
+  "generatorApp": "bubblewrap-cli",
+  "webManifestUrl": "https://utrainer.ru/manifest.webmanifest",
+  "fallbackType": "customtabs",
+  "features": {
+    "playBilling": {
+      "enabled": false
+    },
+    "locationDelegation": {
+      "enabled": true
+    }
+  },
+  "alphaDependencies": {
+    "enabled": false
+  },
+  "isChromeOSOnly": false,
+  "isMetaQuest": false,
+  "minSdkVersion": 21,
+  "orientation": "portrait-primary",
+  "fingerprints": [],
+  "additionalTrustedOrigins": [],
+  "retainedBundles": [],
+  "fileHandlers": [],
+  "launchHandlerClientMode": "",
+  "displayOverride": ["standalone", "minimal-ui"]
+}

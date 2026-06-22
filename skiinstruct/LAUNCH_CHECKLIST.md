@@ -35,6 +35,7 @@
 - [ ] Секреты только в `.env` на сервере, не в git
 - [ ] Перевыпустить токены, если светились в чате (BotFather, ЮKassa, AUTH_SECRET)
 - [ ] Домен, почта для уведомлений, FCM при push
+- [ ] **Google Play (TWA)** — см. `PLAY_STORE.md`: `ANDROID_SHA256_FINGERPRINTS` на проде, AAB из `android-twa/`
 
 ## После запуска (первая неделя)
 

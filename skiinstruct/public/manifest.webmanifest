@@ -1,17 +1,56 @@
 {
+  "id": "/",
   "name": "Utrainer",
   "short_name": "Utrainer",
-  "start_url": "/",
+  "description": "Маркетплейс персональных тренировок: найдите инструктора на карте, забронируйте и оплатите занятие онлайн.",
+  "start_url": "/client",
+  "scope": "/",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "portrait-primary",
   "background_color": "#0f172a",
   "theme_color": "#0f172a",
   "lang": "ru",
+  "dir": "ltr",
+  "categories": ["sports", "health", "lifestyle"],
   "icons": [
     {
       "src": "/icon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any"
+    },
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Найти инструктора",
+      "short_name": "Карта",
+      "url": "/client",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Мои заказы",
+      "short_name": "Заказы",
+      "url": "/client/orders",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" }]
     }
   ]
 }

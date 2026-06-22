@@ -8,6 +8,7 @@ import { useState } from "react";
 import { Toaster } from "sonner";
 
 import { LessonPushRegistrar } from "@/features/push/lesson-push-registrar";
+import { PwaServiceWorkerRegister } from "@/features/share/pwa-service-worker-register";
 import { SupportProvider } from "@/features/support/support-provider";
 
 export function AppProviders({
@@ -37,6 +38,7 @@ export function AppProviders({
       <QueryClientProvider client={client}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <SupportProvider>
+            <PwaServiceWorkerRegister />
             {children}
             <LessonPushRegistrar />
             <Toaster richColors closeButton position="top-center" />
