@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 
 import { signOutCallbackForRole } from "@/lib/auth-routes";
 import { markOpenPersonalDataOnNextClientVisit } from "@/lib/client-personal-data-storage";
+import { PwaInstallMenuItem } from "@/features/share/pwa-install-hint";
 import { SupportLauncher } from "@/features/support/support-launcher";
 import { HeaderAccountHint } from "@/shared/layout/header-account-hint";
 
@@ -88,18 +89,30 @@ export function SiteHeader() {
           {showAuthenticatedNav ? (
             isClientUser ? (
               <>
-                <Button
-                  variant="outline"
-                  onClick={() => signOutAndClearCache(queryClient, role)}
+                <Link
+                  href="/client/orders"
+                  className="inline-flex h-10 items-center justify-center whitespace-nowrap rounded-md px-4 py-2 text-sm font-medium transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 >
-                  Выйти
-                </Button>
+                  Мои заказы
+                </Link>
+                <Link
+                  href="/client/referral"
+                  className="inline-flex h-10 items-center justify-center whitespace-nowrap rounded-md px-4 py-2 text-sm font-medium transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                >
+                  Пригласить друга
+                </Link>
                 <Button
                   type="button"
                   variant="accent"
                   onClick={() => openClientPersonalData(pathname, router)}
                 >
                   Личные данные
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => signOutAndClearCache(queryClient, role)}
+                >
+                  Выйти
                 </Button>
               </>
             ) : (
@@ -201,13 +214,12 @@ export function SiteHeader() {
           {showAuthenticatedNav ? (
             isClientUser ? (
               <>
-                <button
-                  type="button"
-                  className="rounded-md px-3 py-2 text-left hover:bg-muted"
-                  onClick={() => signOutAndClearCache(queryClient, role)}
-                >
-                  Выйти
-                </button>
+                <Link className="rounded-md px-3 py-2 hover:bg-muted" href="/client/orders" onClick={() => setOpen(false)}>
+                  Мои заказы
+                </Link>
+                <Link className="rounded-md px-3 py-2 hover:bg-muted" href="/client/referral" onClick={() => setOpen(false)}>
+                  Пригласить друга
+                </Link>
                 <button
                   type="button"
                   className="rounded-md px-3 py-2 text-left hover:bg-muted"
@@ -218,9 +230,14 @@ export function SiteHeader() {
                 >
                   Личные данные
                 </button>
-                <Link className="rounded-md px-3 py-2 hover:bg-muted" href="/client/orders" onClick={() => setOpen(false)}>
-                  Мои заказы
-                </Link>
+                <PwaInstallMenuItem onNavigate={() => setOpen(false)} />
+                <button
+                  type="button"
+                  className="rounded-md px-3 py-2 text-left hover:bg-muted"
+                  onClick={() => signOutAndClearCache(queryClient, role)}
+                >
+                  Выйти
+                </button>
               </>
             ) : (
               <>
@@ -252,6 +269,7 @@ export function SiteHeader() {
                 <Link className="rounded-md px-3 py-2 hover:bg-muted" href={ordersHref} onClick={() => setOpen(false)}>
                   {ordersLabel}
                 </Link>
+                <PwaInstallMenuItem onNavigate={() => setOpen(false)} />
                 <button
                   type="button"
                   className="rounded-md px-3 py-2 text-left hover:bg-muted"
@@ -266,6 +284,7 @@ export function SiteHeader() {
               <div className="px-3 py-1">
                 <SupportLauncher className="w-full justify-center" />
               </div>
+              <PwaInstallMenuItem onNavigate={() => setOpen(false)} />
               <Link
                 className="rounded-md px-3 py-2 hover:bg-muted"
                 href="/login?callbackUrl=%2Fclient"

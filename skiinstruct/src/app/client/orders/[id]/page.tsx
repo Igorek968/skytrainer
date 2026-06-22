@@ -7,6 +7,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { OrderChat } from "@/features/chat/order-chat";
+import { ReferralInviteCta } from "@/features/share/referral-invite-cta";
 import { CancelOrderButton, ClaimLateRefundButton } from "@/features/orders/cancel-order-button";
 import { QualityRefundClaim } from "@/features/orders/quality-refund-claim";
 import { canClaimQualityRefund } from "@/lib/refund-policy";
@@ -309,6 +310,12 @@ function ClientOrderDetailContent({
   });
 
   const refreshOrder = () => void queryClient.invalidateQueries({ queryKey: ["order", id] });
+
+  const showReferralInvite =
+    o.paymentStatus === "PAID" &&
+    status !== "CANCELLED" &&
+    status !== "EXPIRED" &&
+    status !== "DRAFT";
 
   const instrPos =
     o.instructor?.instructorProfile?.lat != null &&
@@ -740,6 +747,8 @@ function ClientOrderDetailContent({
           ) : null}
         </CardContent>
       </Card>
+
+      {showReferralInvite ? <ReferralInviteCta /> : null}
 
       <div className="flex flex-wrap gap-2">
         {(status === "DRAFT" ||

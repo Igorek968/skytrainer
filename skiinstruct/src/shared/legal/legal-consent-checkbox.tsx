@@ -23,6 +23,7 @@ function stopBubble(e: React.SyntheticEvent) {
 /** Обязательное согласие с офертой, ПДн и (опционально) правилами возврата. */
 export function LegalConsentCheckbox({
   id,
+  name,
   checked,
   onChange,
   required = true,
@@ -37,6 +38,7 @@ export function LegalConsentCheckbox({
       onPointerDown={stopBubble}
       onClick={stopBubble}
     >
+      {name && checked ? <input type="hidden" name={name} value="on" /> : null}
       <button
         type="button"
         id={id}

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { referralCookieHelpText } from "@/lib/referral-cookie";
+import { ShareReferralButton } from "@/features/share/share-referral-button";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
@@ -67,16 +68,6 @@ export function ReferralProgramPanel({
     void load();
   }, [load]);
 
-  async function copyLink() {
-    if (!data?.referralLink) return;
-    try {
-      await navigator.clipboard.writeText(data.referralLink);
-      toast.success("Ссылка скопирована");
-    } catch {
-      toast.error("Не удалось скопировать");
-    }
-  }
-
   async function savePayoutHint() {
     setPending(true);
     try {
@@ -135,11 +126,9 @@ export function ReferralProgramPanel({
 
       <div className="space-y-2">
         <Label htmlFor="referral-link">Ваша ссылка</Label>
-        <div className="flex flex-col gap-2 sm:flex-row">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <Input id="referral-link" readOnly value={data.referralLink} className="font-mono text-xs" />
-          <Button type="button" variant="outline" onClick={() => void copyLink()}>
-            Копировать
-          </Button>
+          <ShareReferralButton referralLink={data.referralLink} showCopyButton />
         </div>
         <p className="text-xs text-muted-foreground">Код: {data.referralCode}</p>
       </div>

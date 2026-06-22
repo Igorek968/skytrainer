@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSession } from "next-auth/react";
 import { useEffect, useMemo, useState } from "react";
@@ -262,6 +263,18 @@ export function PersonalDataDialog({
                   onClick={() => setupCard.mutate()}
                 >
                   {cardQuery.data?.hasCard ? "Обновить карту" : "Привязать карту"}
+                </Button>
+              </div>
+            </div>
+
+            <div className="rounded-md border border-border bg-muted/30 p-3 text-xs">
+              <p className="font-medium text-foreground">Реферальная программа</p>
+              <p className="mt-1 text-muted-foreground">
+                Приглашайте друзей — получайте бонус за их заказы. Ссылку можно скопировать или отправить в мессенджер.
+              </p>
+              <div className="mt-2">
+                <Button type="button" variant="outline" size="sm" asChild>
+                  <Link href="/client/referral">Пригласить друга</Link>
                 </Button>
               </div>
             </div>

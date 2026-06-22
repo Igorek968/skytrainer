@@ -154,14 +154,15 @@ function RegisterForm() {
               />
             </div>
 
-            {state.error ? <p className="text-sm text-destructive">{state.error}</p> : null}
-
             <LegalConsentCheckbox
               id="reg-accept-legal"
+              name="acceptLegal"
               checked={values.acceptLegal}
               onChange={(checked) => setField("acceptLegal", checked)}
               includeReturns
             />
+
+            {state.error ? <p className="text-sm text-destructive">{state.error}</p> : null}
 
             <SubmitButton acceptLegal={values.acceptLegal} />
           </form>
