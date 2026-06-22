@@ -791,6 +791,8 @@ export default function ClientHomePage() {
                 distanceKm: i.distanceKm,
                 photoUrl: i.photoUrl,
                 image: i.image,
+                specializations: i.specializations,
+                sportLabel: specializationPref,
               }))}
             onMeetChange={(lat, lng) => setMeet(lat, lng)}
             onLocateMe={locateUserMeetPoint}

@@ -375,6 +375,8 @@ function ClientOrderDetailContent({
                   hourlyRate: Number(o.instructor!.instructorProfile?.hourlyRate ?? 0),
                   ratingAvg: 0,
                   distanceKm: 0,
+                  specializations: o.instructor!.instructorProfile?.specializations ?? [],
+                  sportLabel: discipline,
                 },
               ]}
               onMeetChange={() => {

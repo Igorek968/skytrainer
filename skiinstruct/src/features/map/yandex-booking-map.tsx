@@ -42,7 +42,7 @@ function buildInstructorsSignature(list: InstructorMapPin[]): string {
   return list
     .map(
       (i) =>
-        `${i.id}|${i.lat}|${i.lng}|${i.hourlyRate}|${i.ratingAvg}|${i.distanceKm}|${i.name}|${i.photoUrl ?? ""}|${i.image ?? ""}`,
+        `${i.id}|${i.lat}|${i.lng}|${i.hourlyRate}|${i.ratingAvg}|${i.distanceKm}|${i.name}|${i.photoUrl ?? ""}|${i.image ?? ""}|${i.specializations?.join(",") ?? ""}|${i.sportLabel ?? ""}`,
     )
     .join("\n");
 }

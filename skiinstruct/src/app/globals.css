@@ -235,6 +235,16 @@
   text-shadow: none;
 }
 
+.instructor-map-balloon__sport {
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  line-height: 1.25;
+  color: #64748b;
+}
+
 .instructor-map-balloon__meta {
   display: flex;
   align-items: center;

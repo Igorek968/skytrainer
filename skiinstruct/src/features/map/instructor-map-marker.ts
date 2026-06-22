@@ -12,7 +12,25 @@ export type InstructorMapPin = {
   distanceKm: number;
   photoUrl?: string | null;
   image?: string | null;
+  specializations?: string[];
+  /** Выбранное направление поиска или дисциплина заказа — приоритет в подписи. */
+  sportLabel?: string | null;
 };
+
+export function resolveInstructorSportLabel(
+  pin: Pick<InstructorMapPin, "specializations" | "sportLabel">,
+): string | null {
+  const list = pin.specializations?.map((s) => s.trim()).filter(Boolean) ?? [];
+  const preferred = pin.sportLabel?.trim();
+  if (preferred && list.length > 0) {
+    const match = list.find((s) => s === preferred);
+    if (match) return match;
+    return list.join(", ");
+  }
+  if (preferred) return preferred;
+  if (list.length) return list.join(", ");
+  return null;
+}
 
 export const INSTRUCTOR_MARKER_WIDTH = 76;
 export const INSTRUCTOR_MARKER_HEIGHT = 96;
@@ -67,11 +85,20 @@ function buildStarRatingInlineHtml(rating: number): string {
 
 /** Компактная карточка для балуна/попапа (выбор — клик по маркеру, без кнопок). */
 export function buildInstructorBalloonHtml(
-  pin: Pick<InstructorMapPin, "name" | "ratingAvg" | "hourlyRate" | "distanceKm" | "photoUrl" | "image">,
+  pin: Pick<
+    InstructorMapPin,
+    "name" | "ratingAvg" | "hourlyRate" | "distanceKm" | "photoUrl" | "image" | "specializations" | "sportLabel"
+  >,
   mode: "class" | "inline" = "class",
 ): string {
   const displayName = pin.name?.trim() || "Инструктор";
   const photoUrl = resolveInstructorMarkerPhoto(pin);
+  const sportLabel = resolveInstructorSportLabel(pin);
+  const sportHtml = sportLabel
+    ? mode === "inline"
+      ? `<div style="margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;line-height:1.25;color:#64748b;">${escapeHtml(sportLabel)}</div>`
+      : `<div class="instructor-map-balloon__sport">${escapeHtml(sportLabel)}</div>`
+    : "";
 
   if (mode === "inline") {
     const avatar = photoUrl
@@ -84,6 +111,7 @@ export function buildInstructorBalloonHtml(
         <div style="min-width:0;flex:1;">
           <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px;font-weight:600;line-height:1.25;color:#0f172a;">${escapeHtml(displayName)}</div>
           <div style="display:flex;align-items:center;margin-top:2px;">${buildStarRatingInlineHtml(pin.ratingAvg)}</div>
+          ${sportHtml}
         </div>
       </div>
       <div style="display:flex;align-items:center;gap:6px;margin-top:8px;padding-top:8px;border-top:1px solid #e2e8f0;font-size:12px;color:#64748b;">
@@ -104,6 +132,7 @@ export function buildInstructorBalloonHtml(
       <div class="instructor-map-balloon__info">
         <div class="instructor-map-balloon__name">${escapeHtml(displayName)}</div>
         <div class="instructor-map-balloon__rating">${buildStarRatingHtml(pin.ratingAvg)}</div>
+        ${sportHtml}
       </div>
     </div>
     <div class="instructor-map-balloon__meta">
