@@ -2,9 +2,9 @@ import { NextResponse } from "next/server";
 
 import { isApiErrorResponse, requireInstructorSession } from "@/lib/api-session";
 import { canEditInstructorEvent, serializeInstructorEvent } from "@/lib/instructor-events";
+import { duplicatePublicUploadForEvent } from "@/lib/public-uploads";
 import { prisma } from "@/lib/prisma";
 import {
-  findLatestEventByTitle,
   listInstructorEventTitles,
   upsertInstructorEventTitle,
 } from "@/lib/services/instructor-event-titles";
@@ -262,7 +262,27 @@ export async function POST(req: Request) {
     include: { slots: { orderBy: [{ sortOrder: "asc" }, { startsAt: "asc" }] } },
   });
 
+  let resultRow = refreshed ?? row;
+
+  const copyPhotoFrom = parsed.data.copyPhotoFromEventId?.trim();
+  if (copyPhotoFrom && !existingId) {
+    const source = await prisma.instructorEvent.findFirst({
+      where: { id: copyPhotoFrom, instructorId: userId },
+      select: { photoUrl: true },
+    });
+    if (source?.photoUrl) {
+      const photoUrl = await duplicatePublicUploadForEvent(source.photoUrl, resultRow.id);
+      if (photoUrl) {
+        resultRow = await prisma.instructorEvent.update({
+          where: { id: resultRow.id },
+          data: { photoUrl },
+          include: { slots: { orderBy: [{ sortOrder: "asc" }, { startsAt: "asc" }] } },
+        });
+      }
+    }
+  }
+
   return NextResponse.json({
-    event: await serializeEventWithSlots(refreshed ?? row),
+    event: await serializeEventWithSlots(resultRow),
   });
 }

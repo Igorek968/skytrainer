@@ -114,6 +114,8 @@ export function InstructorEventsEditor({
   const [maxRegistrations, setMaxRegistrations] = useState("");
   const [photoUrl, setPhotoUrl] = useState("");
   const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [templatePhotoSourceId, setTemplatePhotoSourceId] = useState<string | null>(null);
+  const [useSimilarTemplate, setUseSimilarTemplate] = useState(false);
   const [canEdit, setCanEdit] = useState(true);
   const [loadedStatus, setLoadedStatus] = useState<InstructorEventDTO["moderationStatus"] | null>(null);
   const titleLoadTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -154,6 +156,37 @@ export function InstructorEventsEditor({
     },
   });
 
+  const fillTemplateFromEvent = useCallback((ev: InstructorEventApi, opts?: { keepTitle?: boolean }) => {
+    const api = ev as InstructorEventApi;
+    setEditingId(null);
+    if (opts?.keepTitle !== false) setTitle(ev.title);
+    setBody(ev.body);
+    setEventAt("");
+    setEventDay("");
+    const slotList = api.slots ?? [];
+    const hasSlotRows = Boolean(api.hasSlots && slotList.length > 0);
+    setUseSlots(hasSlotRows || !ev.eventAt);
+    if (hasSlotRows && slotList.length) {
+      setSlotRows(
+        slotList.map((s) => ({
+          time: s.time ?? (s.startsAt ? formatSlotTimeRu(s.startsAt) : "10:00"),
+          maxSeats: s.maxSeats != null ? String(s.maxSeats) : "",
+          priceRub: s.priceRub != null && s.priceRub > 0 ? String(s.priceRub) : "",
+        })),
+      );
+    } else if (!ev.eventAt) {
+      setSlotRows(DEFAULT_SLOTS);
+    }
+    setOrderId(ev.orderId ?? "");
+    setPriceRub(ev.priceRub != null && ev.priceRub > 0 ? String(ev.priceRub) : "");
+    setMaxRegistrations(ev.maxRegistrations != null ? String(ev.maxRegistrations) : "");
+    setPhotoUrl(ev.photoUrl ?? "");
+    setPhotoFile(null);
+    setTemplatePhotoSourceId(ev.photoUrl ? ev.id : null);
+    setCanEdit(true);
+    setLoadedStatus(null);
+  }, []);
+
   const loadFormFromEvent = useCallback((ev: InstructorEventApi | InstructorEventDTO) => {
     const api = ev as InstructorEventApi;
     setEditingId(ev.id);
@@ -183,6 +216,7 @@ export function InstructorEventsEditor({
     );
     setPhotoUrl(ev.photoUrl ?? "");
     setPhotoFile(null);
+    setTemplatePhotoSourceId(null);
     setCanEdit(ev.canEdit);
     setLoadedStatus(ev.moderationStatus);
   }, []);
@@ -200,11 +234,13 @@ export function InstructorEventsEditor({
     setMaxRegistrations("");
     setPhotoUrl("");
     setPhotoFile(null);
+    setTemplatePhotoSourceId(null);
+    setUseSimilarTemplate(false);
     setCanEdit(true);
     setLoadedStatus(null);
   }, []);
 
-  const loadByTitle = useCallback(
+  const fillTemplateByTitle = useCallback(
     async (titleValue: string) => {
       const t = titleValue.trim();
       if (!t) return;
@@ -212,34 +248,22 @@ export function InstructorEventsEditor({
       if (!r.ok) return;
       const j = (await r.json()) as { event: InstructorEventApi | null };
       if (j.event) {
-        loadFormFromEvent(j.event);
-        toast.message("Подгружено мероприятие с этим названием");
-      } else {
-        setEditingId(null);
-        setBody("");
-        setEventAt("");
-        setEventDay("");
-        setSlotRows(DEFAULT_SLOTS);
-        setOrderId("");
-        setPriceRub("");
-        setMaxRegistrations("");
-        setPhotoUrl("");
-        setPhotoFile(null);
-        setCanEdit(true);
-        setLoadedStatus(null);
+        fillTemplateFromEvent(j.event);
+        toast.message("Подставлены текст, цена и фото с прошлого раза — укажите новую дату");
       }
     },
-    [loadFormFromEvent],
+    [fillTemplateFromEvent],
   );
 
   const onTitleChange = (value: string) => {
     setTitle(value);
     if (titleLoadTimer.current) clearTimeout(titleLoadTimer.current);
+    if (!useSimilarTemplate) return;
     const trimmed = value.trim();
     if (!trimmed) return;
     const known = data?.titles.some((t) => t.title.toLowerCase() === trimmed.toLowerCase());
     if (known) {
-      titleLoadTimer.current = setTimeout(() => void loadByTitle(trimmed), 400);
+      titleLoadTimer.current = setTimeout(() => void fillTemplateByTitle(trimmed), 400);
     }
   };
 
@@ -258,6 +282,10 @@ export function InstructorEventsEditor({
         orderId: orderId.trim() || null,
         eventId: editingId,
       };
+
+      if (!editingId && templatePhotoSourceId && !photoFile) {
+        payload.copyPhotoFromEventId = templatePhotoSourceId;
+      }
 
       if (useSlots) {
         if (!eventDay.trim()) throw new Error("Укажите день мероприятия");
@@ -308,6 +336,7 @@ export function InstructorEventsEditor({
     onSuccess: async (j) => {
       loadFormFromEvent(j.event);
       setPhotoFile(null);
+      setTemplatePhotoSourceId(null);
       toast.success(j.event.photoUrl ? "Черновик и фото сохранены" : "Черновик сохранён");
       await qc.invalidateQueries({ queryKey: ["instructor-events"] });
     },
@@ -417,6 +446,30 @@ export function InstructorEventsEditor({
       toast.error(e.message === "remove-photo" ? "Не удалось удалить фото" : e.message),
   });
 
+  const setRepeatDaily = useMutation({
+    mutationFn: async ({ id, repeatDaily }: { id: string; repeatDaily: boolean }) => {
+      const r = await instructorFetch(`/api/instructor/events/${id}/repeat-daily`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ repeatDaily }),
+      });
+      const j = (await r.json().catch(() => ({}))) as { error?: string; event?: InstructorEventApi };
+      if (!r.ok) throw new Error(typeof j.error === "string" ? j.error : "repeat-daily");
+      return j;
+    },
+    onSuccess: async (j, { repeatDaily }) => {
+      toast.success(
+        repeatDaily
+          ? "Каждый день: после окончания создаётся копия на следующий день"
+          : "Ежедневное размещение отключено",
+      );
+      if (j.event && editingId === j.event.id) loadFormFromEvent(j.event);
+      await qc.invalidateQueries({ queryKey: ["instructor-events"] });
+    },
+    onError: (e: Error) =>
+      toast.error(e.message === "repeat-daily" ? "Не удалось изменить настройку" : e.message),
+  });
+
   const remove = useMutation({
     mutationFn: async (id: string) => {
       const r = await instructorFetch(`/api/instructor/events/${id}`, { method: "DELETE" });
@@ -440,6 +493,14 @@ export function InstructorEventsEditor({
       }
     },
   });
+
+  const handleDuplicate = useCallback(
+    (ev: InstructorEventApi) => {
+      fillTemplateFromEvent(ev);
+      toast.message("Новое мероприятие по образцу — укажите дату и сохраните черновик");
+    },
+    [fillTemplateFromEvent],
+  );
 
   const handleCardEdit = useCallback(
     (ev: InstructorEventApi) => {
@@ -504,6 +565,7 @@ export function InstructorEventsEditor({
       eventAt: effectiveEventAt,
       moderationStatus: loadedStatus!,
     });
+  const canPickPhoto = !formLocked && (!editingId || photoEditable);
   const displayPhotoSrc =
     photoPreview ?? (photoUrl ? (publicUploadDisplaySrc(photoUrl) ?? photoUrl) : null);
   const formIsCompleted =
@@ -564,15 +626,33 @@ export function InstructorEventsEditor({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="event-title">Заголовок</Label>
+            <div className="flex flex-wrap items-center gap-2">
+              <Label htmlFor="event-title" className="mb-0">
+                Заголовок
+              </Label>
+              {title.trim() &&
+              data?.titles.some((t) => t.title.toLowerCase() === title.trim().toLowerCase()) ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs"
+                  disabled={formLocked}
+                  onClick={() => void fillTemplateByTitle(title)}
+                >
+                  Как у прошлого
+                </Button>
+              ) : null}
+            </div>
             <Input
               id="event-title"
               list="instructor-event-titles"
               value={title}
               onChange={(e) => onTitleChange(e.target.value)}
               onBlur={() => {
+                if (!useSimilarTemplate) return;
                 const t = title.trim();
-                if (t && data?.titles.some((x) => x.title === t)) void loadByTitle(t);
+                if (t && data?.titles.some((x) => x.title === t)) void fillTemplateByTitle(t);
               }}
               placeholder="Новое название или выберите из списка"
               maxLength={120}
@@ -584,79 +664,97 @@ export function InstructorEventsEditor({
                 <option key={t.id} value={t.title} />
               ))}
             </datalist>
+            <label className="flex items-center gap-2 text-xs text-muted-foreground">
+              <input
+                type="checkbox"
+                checked={useSimilarTemplate}
+                disabled={formLocked}
+                onChange={(e) => setUseSimilarTemplate(e.target.checked)}
+              />
+              При выборе знакомого названия подставлять текст, цену и фото с прошлого раза
+            </label>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="event-body">Текст</Label>
-            <textarea
-              id="event-body"
-              className="flex min-h-[88px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm disabled:opacity-60"
-              value={body}
-              onChange={(e) => setBody(e.target.value)}
-              disabled={formLocked}
-              maxLength={200}
-              required
-            />
-          </div>
+          <div className="space-y-2 sm:grid sm:grid-cols-[minmax(0,1fr)_auto] sm:gap-4 sm:space-y-0">
+            <div className="space-y-2">
+              <Label htmlFor="event-body">Текст</Label>
+              <textarea
+                id="event-body"
+                className="flex min-h-[72px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm disabled:opacity-60"
+                value={body}
+                onChange={(e) => setBody(e.target.value)}
+                disabled={formLocked}
+                maxLength={200}
+                required
+              />
+            </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="event-photo">Фото мероприятия</Label>
-            {displayPhotoSrc ? (
-              <div className="max-w-sm space-y-2">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={displayPhotoSrc}
-                  alt="Фото мероприятия"
-                  className="aspect-[16/9] w-full rounded-md border border-border object-cover"
-                />
-                {photoPreview ? (
-                  <p className="text-xs text-amber-700 dark:text-amber-400">
-                    Предпросмотр — нажмите «Сохранить черновик» или «Загрузить фото»
+            <div className="space-y-2 sm:w-52">
+              <Label htmlFor="event-photo">Фото</Label>
+              {displayPhotoSrc ? (
+                <div className="space-y-2">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={displayPhotoSrc}
+                    alt="Фото мероприятия"
+                    className="aspect-[16/9] w-full rounded-md border border-border object-cover"
+                  />
+                  {photoPreview ? (
+                    <p className="text-[11px] text-amber-700 dark:text-amber-400">
+                      Предпросмотр — сохраните черновик
+                    </p>
+                  ) : templatePhotoSourceId && !editingId ? (
+                    <p className="text-[11px] text-muted-foreground">С прошлого раза — скопируется при сохранении</p>
+                  ) : null}
+                  {photoEditable && photoUrl && !photoPreview ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-8 w-full text-xs"
+                      disabled={removePhoto.isPending || uploadPhoto.isPending || Boolean(photoPreview)}
+                      onClick={() => removePhoto.mutate()}
+                    >
+                      Удалить фото
+                    </Button>
+                  ) : null}
+                </div>
+              ) : null}
+              {canPickPhoto ? (
+                <div className="space-y-2">
+                  <Input
+                    id="event-photo"
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="text-xs"
+                    disabled={uploadPhoto.isPending || saveDraft.isPending}
+                    onChange={(e) => {
+                      setPhotoFile(e.target.files?.[0] ?? null);
+                      setTemplatePhotoSourceId(null);
+                    }}
+                  />
+                  {editingId ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 w-full text-xs"
+                      disabled={!photoFile || uploadPhoto.isPending || saveDraft.isPending}
+                      onClick={() => uploadPhoto.mutate()}
+                    >
+                      {uploadPhoto.isPending ? "Загрузка…" : "Загрузить фото"}
+                    </Button>
+                  ) : null}
+                  <p className="text-[11px] text-muted-foreground">
+                    JPG, PNG, WEBP до 5 MB. {!editingId ? "Можно выбрать до сохранения черновика." : null}
                   </p>
-                ) : null}
-                {photoEditable ? (
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    disabled={removePhoto.isPending || uploadPhoto.isPending || Boolean(photoPreview)}
-                    onClick={() => removePhoto.mutate()}
-                  >
-                    Удалить фото
-                  </Button>
-                ) : null}
-              </div>
-            ) : null}
-            {photoEditable ? (
-              <div className="flex flex-wrap items-end gap-2">
-                <Input
-                  id="event-photo"
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  className="max-w-xs"
-                  disabled={uploadPhoto.isPending || saveDraft.isPending}
-                  onChange={(e) => setPhotoFile(e.target.files?.[0] ?? null)}
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={!editingId || !photoFile || uploadPhoto.isPending || saveDraft.isPending}
-                  onClick={() => uploadPhoto.mutate()}
-                >
-                  {uploadPhoto.isPending ? "Загрузка…" : "Загрузить фото"}
-                </Button>
-              </div>
-            ) : formLocked && loadedStatus === "PUBLISHED" && !photoUrl ? (
-              <p className="text-xs text-muted-foreground">
-                Фото не загружено. Откройте мероприятие из списка «Опубликованные» → «Добавить фото».
-              </p>
-            ) : null}
-            {photoEditable ? (
-              <p className="text-xs text-muted-foreground">
-                JPG, PNG или WEBP до 5 MB. Фото сохраняется при «Сохранить черновик», «Загрузить фото» или «На модерацию».
-              </p>
-            ) : null}
+                </div>
+              ) : formLocked && loadedStatus === "PUBLISHED" && !photoUrl ? (
+                <p className="text-xs text-muted-foreground">
+                  Фото не загружено. В списке — «Добавить фото».
+                </p>
+              ) : null}
+            </div>
           </div>
 
           <div className="space-y-3 rounded-md border border-border/80 bg-background p-3">
@@ -927,6 +1025,7 @@ export function InstructorEventsEditor({
           events={groups.draft}
           isLoading={isLoading}
           onEdit={handleCardEdit}
+          onDuplicate={handleDuplicate}
           onSubmitModeration={(id) => submitModeration.mutate(id)}
           submitModerationPending={submitModeration.isPending}
           onDelete={handleCardDelete}
@@ -942,21 +1041,26 @@ export function InstructorEventsEditor({
           title="На модерации"
           events={groups.pending}
           onEdit={handleCardEdit}
+          onDuplicate={handleDuplicate}
           hint="Ожидает решения администратора — после одобрения появится в ленте клиентов."
         />
         <EventList
           title="Опубликованные"
           events={groups.published}
           onEdit={handleCardEdit}
+          onDuplicate={handleDuplicate}
           onDelete={handleCardDelete}
           onCancelEvent={handleCancelEvent}
-          actionsPending={remove.isPending || cancelEvent.isPending}
+          onRepeatDaily={(id, repeatDaily) => setRepeatDaily.mutate({ id, repeatDaily })}
+          repeatDailyPending={setRepeatDaily.isPending}
+          actionsPending={remove.isPending || cancelEvent.isPending || setRepeatDaily.isPending}
         />
         {groups.rejected.length > 0 ? (
           <EventList
             title="Отклонённые"
             events={groups.rejected}
             onEdit={handleCardEdit}
+            onDuplicate={handleDuplicate}
             onSubmitModeration={(id) => submitModeration.mutate(id)}
             submitModerationPending={submitModeration.isPending}
             onDelete={handleCardDelete}
@@ -983,6 +1087,7 @@ export function InstructorEventsEditor({
             title="Скрытые"
             events={groups.archived}
             onEdit={handleCardEdit}
+            onDuplicate={handleDuplicate}
             onSubmitModeration={(id) => submitModeration.mutate(id)}
             submitModerationPending={submitModeration.isPending}
             onDelete={handleCardDelete}
@@ -1007,10 +1112,13 @@ function EventList({
   isLoading,
   hint,
   onEdit,
+  onDuplicate,
   onSubmitModeration,
   submitModerationPending,
   onDelete,
   onCancelEvent,
+  onRepeatDaily,
+  repeatDailyPending,
   actionsPending,
 }: {
   title: string;
@@ -1018,10 +1126,13 @@ function EventList({
   isLoading?: boolean;
   hint?: string;
   onEdit?: (ev: InstructorEventApi) => void;
+  onDuplicate?: (ev: InstructorEventApi) => void;
   onSubmitModeration?: (id: string) => void;
   submitModerationPending?: boolean;
   onDelete?: (ev: InstructorEventApi) => void;
   onCancelEvent?: (ev: InstructorEventApi) => void;
+  onRepeatDaily?: (id: string, repeatDaily: boolean) => void;
+  repeatDailyPending?: boolean;
   actionsPending?: boolean;
 }) {
   if (isLoading) return null;
@@ -1042,6 +1153,11 @@ function EventList({
               <Badge variant="outline" className="text-[10px]">
                 {moderationStatusLabel(ev.moderationStatus)}
               </Badge>
+              {ev.repeatDaily ? (
+                <Badge variant="secondary" className="text-[10px]">
+                  Каждый день
+                </Badge>
+              ) : null}
             </div>
             {ev.eventAt ? (
               <div className="mt-0.5 text-xs text-muted-foreground">{formatEventDateRu(ev.eventAt)}</div>
@@ -1073,12 +1189,41 @@ function EventList({
             {ev.rejectNote ? (
               <p className="mt-1 text-xs text-destructive">Отклонено: {ev.rejectNote}</p>
             ) : null}
+            {onRepeatDaily && ev.moderationStatus === "PUBLISHED" && !ev.isCompleted ? (
+              <label className="mt-2 flex cursor-pointer items-start gap-2 rounded-md border border-border/70 bg-muted/20 px-2.5 py-2 text-xs">
+                <input
+                  type="checkbox"
+                  className="mt-0.5"
+                  checked={Boolean(ev.repeatDaily)}
+                  disabled={repeatDailyPending || actionsPending}
+                  onChange={(e) => onRepeatDaily(ev.id, e.target.checked)}
+                />
+                <span>
+                  <span className="font-medium">Размещать каждый день</span>
+                  <span className="mt-0.5 block text-muted-foreground">
+                    После окончания автоматически создаётся копия на следующий день (то же время, текст и
+                    фото).
+                  </span>
+                </span>
+              </label>
+            ) : null}
             {ev.moderationStatus === "PUBLISHED" ||
             ev.moderationStatus === "ARCHIVED" ||
             (ev.paidRegistrationCount ?? 0) > 0 ? (
               <EventRegistrantsPanel eventId={ev.id} />
             ) : null}
             <div className="mt-2 flex flex-wrap gap-2">
+              {onDuplicate ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={actionsPending}
+                  onClick={() => onDuplicate(ev)}
+                >
+                  Похожее
+                </Button>
+              ) : null}
               {onEdit && showEventCardEdit(asEventCard(ev)) ? (
                 <Button
                   type="button"

@@ -21,6 +21,14 @@ import {
 } from "@/lib/legal-config";
 import { getLessonStartAt, hoursUntilLesson } from "@/lib/lesson-schedule";
 import { durationHours } from "@/lib/pricing";
+import { parseOrderTimestampMs } from "@/shared/lib/order-instructor-eta";
+
+/** Дата из Prisma или ISO-строка из JSON API. */
+type DateInput = Date | string | null | undefined;
+
+function toDateMs(raw: DateInput): number | null {
+  return parseOrderTimestampMs(raw);
+}
 
 export type RefundQuote = {
   percent: number;
@@ -112,9 +120,9 @@ export function computeCancelRefundQuote(params: {
 export function canClaimInstructorLateRefund(params: {
   status: OrderStatus;
   paymentStatus: PaymentStatus;
-  instructorEtaAt: Date | null;
-  lessonStartedAt: Date | null;
-  lateRefundClaimedAt: Date | null;
+  instructorEtaAt: DateInput;
+  lessonStartedAt: DateInput;
+  lateRefundClaimedAt: DateInput;
   now?: Date;
 }): boolean {
   const now = params.now ?? new Date();
@@ -122,8 +130,9 @@ export function canClaimInstructorLateRefund(params: {
   if (params.lateRefundClaimedAt) return false;
   if (params.lessonStartedAt) return false;
   if (params.status !== "ACCEPTED" && params.status !== "INSTRUCTOR_EN_ROUTE") return false;
-  if (!params.instructorEtaAt) return false;
-  const deadline = params.instructorEtaAt.getTime() + INSTRUCTOR_LATE_GRACE_MINUTES * 60_000;
+  const etaMs = toDateMs(params.instructorEtaAt);
+  if (etaMs == null) return false;
+  const deadline = etaMs + INSTRUCTOR_LATE_GRACE_MINUTES * 60_000;
   return now.getTime() >= deadline;
 }
 
@@ -151,17 +160,19 @@ export const qualityClaimCategoryLabels: Record<QualityClaimCategory, string> = 
   WRONG_SERVICE: "Несоответствие заказанным условиям",
 };
 
-function lessonActualMinutes(lessonStartedAt: Date | null, lessonEndedAt: Date | null): number | null {
-  if (!lessonStartedAt || !lessonEndedAt) return null;
-  const ms = lessonEndedAt.getTime() - lessonStartedAt.getTime();
+function lessonActualMinutes(lessonStartedAt: DateInput, lessonEndedAt: DateInput): number | null {
+  const startMs = toDateMs(lessonStartedAt);
+  const endMs = toDateMs(lessonEndedAt);
+  if (startMs == null || endMs == null) return null;
+  const ms = endMs - startMs;
   if (ms < 0) return null;
   return Math.round(ms / 60_000);
 }
 
 function computeShortLessonRefundPercent(
   duration: LessonDuration,
-  lessonStartedAt: Date | null,
-  lessonEndedAt: Date | null,
+  lessonStartedAt: DateInput,
+  lessonEndedAt: DateInput,
 ): number | null {
   const actual = lessonActualMinutes(lessonStartedAt, lessonEndedAt);
   if (actual == null) return null;
@@ -181,9 +192,9 @@ export function canClaimQualityRefund(params: {
   paymentStatus: PaymentStatus;
   refundStatus: RefundStatus;
   refundPercent: number | null;
-  qualityClaimedAt: Date | null;
-  lessonEndedAt: Date | null;
-  instructorPayoutPaidAt: Date | null;
+  qualityClaimedAt: DateInput;
+  lessonEndedAt: DateInput;
+  instructorPayoutPaidAt: DateInput;
   now?: Date;
 }): boolean {
   const now = params.now ?? new Date();
@@ -193,8 +204,9 @@ export function canClaimQualityRefund(params: {
   if (params.instructorPayoutPaidAt) return false;
   if (params.refundStatus === "COMPLETED" || params.refundStatus === "PENDING") return false;
   if ((params.refundPercent ?? 0) > 0) return false;
-  if (!params.lessonEndedAt) return false;
-  const deadline = params.lessonEndedAt.getTime() + QUALITY_CLAIM_WINDOW_HOURS * 3600 * 1000;
+  const endedMs = toDateMs(params.lessonEndedAt);
+  if (endedMs == null) return false;
+  const deadline = endedMs + QUALITY_CLAIM_WINDOW_HOURS * 3600 * 1000;
   return now.getTime() <= deadline;
 }
 
@@ -203,8 +215,8 @@ export function computeQualityRefundQuote(params: {
   category: QualityClaimCategory;
   description: string;
   duration: LessonDuration;
-  lessonStartedAt: Date | null;
-  lessonEndedAt: Date | null;
+  lessonStartedAt: DateInput;
+  lessonEndedAt: DateInput;
   clientRating: number | null;
 }): RefundQuote {
   const description = params.description.trim();

@@ -493,6 +493,9 @@ model InstructorEvent {
   /// Лимит оплаченных мест; null — без лимита (legacy, если нет слотов).
   maxRegistrations Int?
 
+  /// Автоматически создавать копию на следующий день после окончания (опубликованные).
+  repeatDaily Boolean @default(false)
+
   slots         EventSlot[]
   registrations EventRegistration[]
 

@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import { access, mkdir, readFile, stat, unlink, writeFile } from "fs/promises";
 import path from "path";
 
@@ -74,6 +75,21 @@ export function resolveLegacyPublicUploadPath(segments: string[]): string | null
     return null;
   }
   return resolved;
+}
+
+/** Копия файла обложки для нового мероприятия (отдельный файл в storage). */
+export async function duplicatePublicUploadForEvent(
+  sourceUrl: string,
+  eventId: string,
+): Promise<string | null> {
+  if (!sourceUrl.startsWith("/uploads/")) return null;
+  const segments = sourceUrl.replace(/^\/uploads\//, "").split("/");
+  if (segments[0] !== "events" || segments.length < 2) return null;
+  const buffer = await readPublicUpload(segments);
+  if (!buffer) return null;
+  const ext = path.extname(segments[segments.length - 1]) || ".jpg";
+  const filename = `${eventId}-${randomUUID()}${ext}`;
+  return writePublicUpload("events", filename, buffer);
 }
 
 export async function readPublicUpload(segments: string[]): Promise<Buffer | null> {

@@ -21,15 +21,17 @@ export async function listInstructorEventTitles(instructorId: string) {
   return rows;
 }
 
-/** Черновик / отклонённое / на модерации — для подгрузки в форму (не опубликованные и не скрытые). */
-export async function findLatestEventByTitle(instructorId: string, title: string) {
+/** Последнее мероприятие с этим названием — шаблон для нового (текст, цена, фото). */
+export async function findLatestEventByTitleForTemplate(instructorId: string, title: string) {
   const normalized = title.trim();
   return prisma.instructorEvent.findFirst({
     where: {
       instructorId,
       title: normalized,
-      moderationStatus: { in: ["DRAFT", "REJECTED", "PENDING_REVIEW"] },
     },
-    orderBy: { updatedAt: "desc" },
+    orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }],
+    include: {
+      slots: { orderBy: [{ sortOrder: "asc" }, { startsAt: "asc" }] },
+    },
   });
 }

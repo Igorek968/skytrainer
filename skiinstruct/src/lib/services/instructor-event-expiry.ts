@@ -2,6 +2,7 @@ import type { Prisma } from "@prisma/client";
 
 import { isInstructorEventCompleted, type ClientInstructorEventDTO } from "@/lib/instructor-events";
 import { prisma } from "@/lib/prisma";
+import { spawnDailyRepeatsForExpiringEvents, isSlotEventPast } from "@/lib/services/instructor-event-daily-repeat";
 
 /** Опубликованные мероприятия с датой в будущем или без даты — для ленты клиента. */
 export function activePublishedEventWhere(now: Date = new Date()): Prisma.InstructorEventWhereInput {
@@ -28,8 +29,10 @@ export function isVisibleInClientEventFeed(
 export async function archivePastPublishedInstructorEvents(options?: {
   instructorId?: string;
   now?: Date;
-}): Promise<number> {
+}): Promise<{ archived: number; spawned: number }> {
   const now = options?.now ?? new Date();
+
+  const spawned = await spawnDailyRepeatsForExpiringEvents(options);
 
   const result = await prisma.instructorEvent.updateMany({
     where: {
@@ -40,5 +43,25 @@ export async function archivePastPublishedInstructorEvents(options?: {
     data: { moderationStatus: "ARCHIVED" },
   });
 
-  return result.count;
+  const slotCandidates = await prisma.instructorEvent.findMany({
+    where: {
+      moderationStatus: "PUBLISHED",
+      eventAt: null,
+      slots: { some: { startsAt: { lte: now } } },
+      ...(options?.instructorId ? { instructorId: options.instructorId } : {}),
+    },
+    include: { slots: true },
+  });
+
+  let slotArchived = 0;
+  for (const ev of slotCandidates) {
+    if (!isSlotEventPast(ev, now)) continue;
+    await prisma.instructorEvent.update({
+      where: { id: ev.id },
+      data: { moderationStatus: "ARCHIVED" },
+    });
+    slotArchived += 1;
+  }
+
+  return { archived: result.count + slotArchived, spawned };
 }

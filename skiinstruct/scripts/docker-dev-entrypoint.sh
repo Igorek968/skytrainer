@@ -66,7 +66,12 @@ fi
 if ! node -e "require.resolve('nodemailer')" >/dev/null 2>&1; then
   echo "[entry] npm install nodemailer (образ без пакета из package.json)..."
   # NODE_ENV=production иначе npm prune снимает devDependencies (autoprefixer и т.д.)
-  NODE_ENV=development npm install nodemailer@^7.0.7 --no-audit --no-fund
+  NODE_ENV=development npm install nodemailer@^7.0.7 --no-save --no-package-lock --no-audit --no-fund
+fi
+
+if ! node -e "require.resolve('@tanstack/react-virtual')" >/dev/null 2>&1; then
+  echo "[entry] npm install @tanstack/react-virtual..."
+  NODE_ENV=development npm install @tanstack/react-virtual@^3.13.12 --no-save --no-package-lock --no-audit --no-fund
 fi
 
 if [ "${SKIINSTRUCT_FORCE_REBUILD:-0}" = "1" ]; then

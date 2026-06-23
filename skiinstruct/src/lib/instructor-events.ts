@@ -42,6 +42,8 @@ export type InstructorEventDTO = {
   paidRegistrationCount?: number;
   registrationRevenueRub?: number;
   unconfirmedAttendanceCount?: number;
+  /** Автоматически создавать копию на следующий день */
+  repeatDaily?: boolean;
   slots?: EventSlotDTO[];
   hasSlots?: boolean;
   eventDay?: string | null;
@@ -206,6 +208,7 @@ export function serializeInstructorEvent(
     registrationRevenueRub: extra?.registrationRevenueRub,
     unconfirmedAttendanceCount: extra?.unconfirmedAttendanceCount,
     hasSlots: slots ? eventUsesSlots(slots) : undefined,
+    repeatDaily: row.repeatDaily,
   };
 }
 

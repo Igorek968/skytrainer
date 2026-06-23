@@ -8,14 +8,14 @@ export async function GET(req: Request) {
   if (!authorizeCronRequest(req)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  const archived = await archivePastPublishedInstructorEvents();
-  return NextResponse.json({ archived });
+  const { archived, spawned } = await archivePastPublishedInstructorEvents();
+  return NextResponse.json({ archived, spawned });
 }
 
 export async function POST(req: Request) {
   if (!authorizeCronRequest(req)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  const archived = await archivePastPublishedInstructorEvents();
-  return NextResponse.json({ archived });
+  const { archived, spawned } = await archivePastPublishedInstructorEvents();
+  return NextResponse.json({ archived, spawned });
 }

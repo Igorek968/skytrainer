@@ -31,6 +31,8 @@ export const createInstructorEventSchema = z.object({
   eventAt: z.string().max(40).optional().nullable(),
   orderId: z.string().cuid().optional().nullable(),
   eventId: z.string().cuid().optional().nullable(),
+  /** Скопировать обложку с другого своего мероприятия при создании нового. */
+  copyPhotoFromEventId: z.string().cuid().optional().nullable(),
   priceRub: priceRubField,
   maxRegistrations: maxRegistrationsField,
   slots: z.array(eventSlotInputSchema).optional(),
