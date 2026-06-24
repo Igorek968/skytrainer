@@ -46,7 +46,7 @@ export async function processLessonPushReminders(): Promise<{
       : "";
     const payload = {
       title: "Скоро начало урока",
-      body: `Через ~1 час начало занятия (${startLabel}). Откройте заказ.`,
+      body: `Через ~1 час начало занятия (${startLabel}). Откройте заказ на utrainer.ru.`,
       tag: `lesson-1h-${o.id}`,
       kind: "lesson-reminder" as const,
       sound: "reminder" as const,
@@ -92,7 +92,7 @@ export async function processLessonPushReminders(): Promise<{
       : "";
     const payload = {
       title: "Пора начать тренировку",
-      body: `Наступило время занятия (${startLabel}). Откройте заказ и нажмите «Начать урок».`,
+      body: `Наступило время занятия (${startLabel}). Откройте заказ на utrainer.ru и нажмите «Начать урок».`,
       tag: `lesson-start-${o.id}`,
       kind: "lesson-reminder" as const,
       sound: "reminder" as const,
@@ -138,7 +138,7 @@ export async function processLessonPushReminders(): Promise<{
     const ins = o.instructorId!;
     const payload = {
       title: "Завершите сделку",
-      body: "Урок по расписанию окончен. Нажмите «Завершить урок» в заказе — так фиксируется оплата и статус.",
+      body: "Урок по расписанию окончен. Нажмите «Завершить урок» на utrainer.ru — так фиксируется оплата и статус.",
       tag: `lesson-end-${o.id}`,
       kind: "lesson-reminder" as const,
       sound: "reminder" as const,

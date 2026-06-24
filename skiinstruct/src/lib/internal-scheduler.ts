@@ -1,4 +1,5 @@
 import { processScheduledPushReminders } from "@/lib/services/scheduled-reminders";
+import { retryPendingInstructorOrderPush } from "@/lib/services/instructor-order-notify-retry";
 
 const TICK_MS = 60_000;
 const globalStartedKey = Symbol.for("skiinstruct.internalSchedulerStarted");
@@ -23,6 +24,7 @@ export function startInternalScheduler(): void {
 
   const tick = async () => {
     try {
+      await retryPendingInstructorOrderPush();
       const r = await processScheduledPushReminders();
       const total =
         r.lessons.startReminders +

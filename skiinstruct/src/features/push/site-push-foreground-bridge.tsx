@@ -39,8 +39,11 @@ export function SitePushForegroundBridge() {
         sound,
         tag: data.tag,
         url: data.url,
-        skipNotification: true,
-        requireInteraction: data.tag?.startsWith("instructor-order"),
+        requireInteraction: Boolean(
+          data.tag?.startsWith("instructor-order") ||
+            data.tag?.startsWith("lesson-") ||
+            data.tag?.startsWith("instructor-chat"),
+        ),
         toastAction: data.url
           ? {
               label: "Открыть",

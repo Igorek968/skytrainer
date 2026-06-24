@@ -155,20 +155,9 @@ ${p.orderUrl}
 
 /**
  * Email + Web Push инструктору при переходе заказа в PENDING_INSTRUCTOR (сайт может быть закрыт).
- * Идемпотентно: повторный вызов для того же заказа пропускается.
+ * Помечаем отправленным только после успешного push или email — иначе повтор при следующем вызове.
  */
 export async function notifyInstructorOfPendingOrder(orderId: string): Promise<boolean> {
-  const claimed = await prisma.order.updateMany({
-    where: {
-      id: orderId,
-      status: "PENDING_INSTRUCTOR",
-      instructorId: { not: null },
-      instructorPendingNotifiedAt: null,
-    },
-    data: { instructorPendingNotifiedAt: new Date() },
-  });
-  if (claimed.count === 0) return false;
-
   const order = await prisma.order.findUnique({
     where: { id: orderId },
     include: {
@@ -176,9 +165,17 @@ export async function notifyInstructorOfPendingOrder(orderId: string): Promise<b
       client: { select: { name: true } },
     },
   });
-  if (!order?.instructor) return false;
+  if (!order?.instructor || order.status !== "PENDING_INSTRUCTOR" || !order.instructorId) return false;
+  if (order.instructorPendingNotifiedAt) return false;
 
   const origin = process.env.NEXT_PUBLIC_APP_URL?.trim() || "http://localhost:3001";
+  const siteHost = (() => {
+    try {
+      return new URL(origin).host;
+    } catch {
+      return "utrainer.ru";
+    }
+  })();
   const orderUrl = `${origin}/instructor/orders/${orderId}`;
   const appName = getPublicProductName();
   const clientName = order.client?.name?.trim() || "Клиент";
@@ -186,75 +183,88 @@ export async function notifyInstructorOfPendingOrder(orderId: string): Promise<b
   const urgent = orderIsUrgent(order);
   const durationLabel = lessonDurationLabelRu(order.duration);
 
-  const pushTitle = urgent ? "⚡ Срочная заявка" : "Новая заявка на урок";
-  const pushBody = `${clientName} · ${durationLabel}${amountRub != null ? ` · ${formatRub(amountRub)}` : ""}`;
+  const pushTitle = urgent ? `⚡ Срочная заявка — ${appName}` : `Новая заявка — ${appName}`;
+  const pushBody = `${clientName} · ${durationLabel}${amountRub != null ? ` · ${formatRub(amountRub)}` : ""}. Перейдите на ${siteHost}.`;
   const actionToken = createOrderPushActionToken(orderId, order.instructor.id);
 
-  void sendWebPushToUser(order.instructor.id, {
-    title: pushTitle,
-    body: pushBody,
-    url: orderUrl,
-    tag: `instructor-order-${orderId}`,
-    kind: "instructor-order",
-    sound: "order",
-    orderId,
-    actionToken: actionToken ?? undefined,
-  }).catch((e) => {
-    console.error("[instructor-order-notify] push", e instanceof Error ? e.message : e);
-  });
-
-  if (!order.instructor.email) {
-    console.info("[instructor-order-notify] instructor has no email, push only");
-    return true;
-  }
-
-  const cfg = smtpConfigFromEnv();
-  if (!cfg) {
-    console.info("[instructor-order-notify] SMTP not configured, skip email");
-    return true;
-  }
-
-  const { subject, text, html } = buildPendingOrderEmailContent({
-    instructorName: order.instructor.name,
-    clientName,
-    duration: order.duration,
-    skillLevel: order.skillLevel,
-    disciplineLabel: order.disciplineLabel,
-    amountRub,
-    urgent,
-    pendingExpiresAt: order.pendingExpiresAt,
-    requestedStartDate: order.requestedStartDate,
-    requestedEndDate: order.requestedEndDate,
-    requestedDays: order.requestedDays,
-    flexibleInstructorInvite: order.flexibleInstructorInvite,
-    orderUrl,
-    appName,
-  });
-
-  const from =
-    process.env.SMTP_FROM?.trim() ||
-    process.env.SKIINSTRUCT_SMTP_FROM?.trim() ||
-    process.env.PASSWORD_RESET_EMAIL_FROM?.trim() ||
-    `${appName} <noreply@localhost>`;
-
+  let pushSent = 0;
   try {
-    const transport = nodemailer.createTransport({
-      host: cfg.host,
-      port: cfg.port,
-      secure: cfg.secure,
-      requireTLS: cfg.requireTLS,
-      auth: { user: cfg.user, pass: cfg.pass },
+    const pushResult = await sendWebPushToUser(order.instructor.id, {
+      title: pushTitle,
+      body: pushBody,
+      url: orderUrl,
+      tag: `instructor-order-${orderId}`,
+      kind: "instructor-order",
+      sound: "order",
+      orderId,
+      actionToken: actionToken ?? undefined,
     });
-    await transport.sendMail({
-      from,
-      to: order.instructor.email,
-      subject,
-      text,
-      html,
+    pushSent = pushResult.sent;
+    if (pushResult.sent === 0 && pushResult.errors === 0) {
+      console.info("[instructor-order-notify] no push subscriptions for instructor", order.instructor.id);
+    }
+  } catch (e) {
+    console.error("[instructor-order-notify] push", e instanceof Error ? e.message : e);
+  }
+
+  let emailSent = false;
+  if (order.instructor.email) {
+    const cfg = smtpConfigFromEnv();
+    if (cfg) {
+      const { subject, text, html } = buildPendingOrderEmailContent({
+        instructorName: order.instructor.name,
+        clientName,
+        duration: order.duration,
+        skillLevel: order.skillLevel,
+        disciplineLabel: order.disciplineLabel,
+        amountRub,
+        urgent,
+        pendingExpiresAt: order.pendingExpiresAt,
+        requestedStartDate: order.requestedStartDate,
+        requestedEndDate: order.requestedEndDate,
+        requestedDays: order.requestedDays,
+        flexibleInstructorInvite: order.flexibleInstructorInvite,
+        orderUrl,
+        appName,
+      });
+
+      const from =
+        process.env.SMTP_FROM?.trim() ||
+        process.env.SKIINSTRUCT_SMTP_FROM?.trim() ||
+        process.env.PASSWORD_RESET_EMAIL_FROM?.trim() ||
+        `${appName} <noreply@localhost>`;
+
+      try {
+        const transport = nodemailer.createTransport({
+          host: cfg.host,
+          port: cfg.port,
+          secure: cfg.secure,
+          requireTLS: cfg.requireTLS,
+          auth: { user: cfg.user, pass: cfg.pass },
+        });
+        await transport.sendMail({
+          from,
+          to: order.instructor.email,
+          subject,
+          text,
+          html,
+        });
+        emailSent = true;
+      } catch (e) {
+        console.error("[instructor-order-notify] email", e instanceof Error ? e.message : e);
+      }
+    } else {
+      console.info("[instructor-order-notify] SMTP not configured, skip email");
+    }
+  }
+
+  if (pushSent > 0 || emailSent) {
+    await prisma.order.updateMany({
+      where: { id: orderId, instructorPendingNotifiedAt: null },
+      data: { instructorPendingNotifiedAt: new Date() },
     });
     return true;
-  } catch (e) {
-    console.error("[instructor-order-notify]", e instanceof Error ? e.message : e);
-    return false;
   }
+
+  return false;
 }

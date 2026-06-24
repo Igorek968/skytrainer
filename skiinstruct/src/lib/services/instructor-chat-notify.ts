@@ -23,7 +23,7 @@ export async function notifyInstructorClientChatMessage(params: {
   try {
     await sendWebPushToUser(params.instructorId, {
       title: `${appName}: сообщение от клиента`,
-      body: `${clientLabel}: ${preview}`,
+      body: `${clientLabel}: ${preview}. Откройте utrainer.ru.`,
       url,
       tag: `instructor-chat-${params.messageId}`,
       sound: "chat",
