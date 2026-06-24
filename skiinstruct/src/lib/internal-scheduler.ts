@@ -26,6 +26,7 @@ export function startInternalScheduler(): void {
       const r = await processScheduledPushReminders();
       const total =
         r.lessons.startReminders +
+        r.lessons.atStartReminders +
         r.lessons.endReminders +
         r.events.clientReminders +
         r.events.instructorReminders;

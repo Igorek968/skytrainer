@@ -26,6 +26,8 @@ export async function notifyInstructorClientChatMessage(params: {
       body: `${clientLabel}: ${preview}`,
       url,
       tag: `instructor-chat-${params.messageId}`,
+      sound: "chat",
+      kind: "instructor-chat",
     });
   } catch (e) {
     console.error("[instructor-chat-notify] push", e instanceof Error ? e.message : e);

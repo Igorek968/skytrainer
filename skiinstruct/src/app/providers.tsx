@@ -8,6 +8,8 @@ import { useState } from "react";
 import { Toaster } from "sonner";
 
 import { LessonPushRegistrar } from "@/features/push/lesson-push-registrar";
+import { SitePushForegroundBridge } from "@/features/push/site-push-foreground-bridge";
+import { ClientRemindersRoot } from "@/features/client/client-reminders-root";
 import { PwaServiceWorkerRegister } from "@/features/share/pwa-service-worker-register";
 import { SupportProvider } from "@/features/support/support-provider";
 
@@ -39,7 +41,9 @@ export function AppProviders({
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <SupportProvider>
             <PwaServiceWorkerRegister />
+            <SitePushForegroundBridge />
             {children}
+            <ClientRemindersRoot />
             <LessonPushRegistrar />
             <Toaster richColors closeButton position="top-center" />
           </SupportProvider>

@@ -1,14 +1,23 @@
 "use client";
 
+import { InstructorChatMessagePrompt } from "@/features/instructor/instructor-chat-message-prompt";
 import { InstructorLessonSoonPrompt } from "@/features/instructor/instructor-lesson-soon-prompt";
 import { InstructorPendingOrderPrompt } from "@/features/instructor/instructor-pending-order-prompt";
 import { InstructorPushAlertsBanner } from "@/features/instructor/instructor-push-alerts-banner";
-import { InstructorChatMessagePrompt } from "@/features/instructor/instructor-chat-message-prompt";
+import { OrderLessonRemindersPrompt } from "@/features/orders/order-lesson-reminders-prompt";
+import { useAutoWebPushSubscribe } from "@/features/push/use-auto-web-push-subscribe";
+import { useVisibilityInvalidate } from "@/features/push/use-visibility-invalidate";
 import { unlockSiteAlertSound } from "@/lib/site-alert";
 import { isWebPushAvailable, subscribeWebPush, syncWebPushSubscription } from "@/features/push/web-push-client";
 import { useEffect } from "react";
 
 export function InstructorPanelShell({ children }: { children: React.ReactNode }) {
+  useAutoWebPushSubscribe(true);
+  useVisibilityInvalidate([
+    ["instructor-order-alerts"],
+    ["instructor-chat-alerts"],
+  ]);
+
   useEffect(() => {
     const unlock = () => unlockSiteAlertSound();
     window.addEventListener("pointerdown", unlock, { once: true });
@@ -35,6 +44,7 @@ export function InstructorPanelShell({ children }: { children: React.ReactNode }
       <InstructorPendingOrderPrompt />
       <InstructorChatMessagePrompt />
       <InstructorLessonSoonPrompt />
+      <OrderLessonRemindersPrompt role="instructor" />
     </>
   );
 }

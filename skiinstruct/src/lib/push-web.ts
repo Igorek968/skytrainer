@@ -26,10 +26,11 @@ export type PushPayload = {
   body: string;
   url: string;
   tag: string;
-  /** Заявка инструктору — кнопки «Принять/Отклонить» в push. */
-  kind?: "instructor-order";
+  /** Тип push для service worker (кнопки, приоритет). */
+  kind?: "instructor-order" | "lesson-reminder" | "instructor-chat";
   orderId?: string;
   actionToken?: string;
+  sound?: "order" | "chat" | "reminder";
 };
 
 export async function sendWebPushToUser(userId: string, payload: PushPayload): Promise<{ sent: number; errors: number }> {

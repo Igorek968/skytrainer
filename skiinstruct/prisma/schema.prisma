@@ -380,6 +380,8 @@ model Order {
 
   /// Web Push: напоминание «за ~1 ч до начала» (по requestedStartDate) уже отправлено.
   lessonStartReminderSentAt DateTime?
+  /// Web Push: напоминание «пора начать урок» в момент старта уже отправлено.
+  lessonAtStartReminderSentAt DateTime?
   /// Web Push: напоминание завершить урок по плановому окончанию уже отправлено.
   lessonEndReminderSentAt DateTime?
 

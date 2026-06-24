@@ -196,6 +196,7 @@ export async function notifyInstructorOfPendingOrder(orderId: string): Promise<b
     url: orderUrl,
     tag: `instructor-order-${orderId}`,
     kind: "instructor-order",
+    sound: "order",
     orderId,
     actionToken: actionToken ?? undefined,
   }).catch((e) => {

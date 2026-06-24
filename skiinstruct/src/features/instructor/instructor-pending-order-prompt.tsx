@@ -9,6 +9,7 @@ import type { OrderStatus } from "@prisma/client";
 import { playInstructorOrderBeep, startInstructorOrderBeepRepeat, stopInstructorOrderBeepRepeat } from "@/features/instructor/instructor-order-beep";
 import { instructorAlertPollInterval } from "@/lib/query-poll";
 import { fireSiteAlert, siteAlertTitle } from "@/lib/site-alert";
+import { useVisibilityInvalidate } from "@/features/push/use-visibility-invalidate";
 import {
   dismissPendingPrompt,
   readDismissedPendingPromptIds,
@@ -120,6 +121,7 @@ function pickNewPendingOrder(
 export function InstructorPendingOrderPrompt() {
   const router = useRouter();
   const qc = useQueryClient();
+  useVisibilityInvalidate([["instructor-order-alerts"]]);
   const [pendingPromptOrderId, setPendingPromptOrderId] = useState<string | null>(null);
   const [etaMinutes, setEtaMinutes] = useState(20);
   const [pendingPromptSecondsLeft, setPendingPromptSecondsLeft] = useState<number | null>(null);
