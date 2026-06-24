@@ -1,6 +1,20 @@
 /** Минут на принятие срочной заявки инструктором. */
 export const URGENT_INSTRUCTOR_DEADLINE_MIN = 15;
 
+/** После дедлайна ответа — ещё столько можно принять заявку явным действием (push / кнопка). */
+export const INSTRUCTOR_ACCEPT_AFTER_DEADLINE_GRACE_MS = 60 * 60 * 1000;
+
+export function instructorCanAcceptAfterDeadline(
+  pendingExpiresAt: Date | string | null | undefined,
+  nowMs = Date.now(),
+): boolean {
+  if (pendingExpiresAt == null) return true;
+  const exp = new Date(pendingExpiresAt).getTime();
+  if (!Number.isFinite(exp)) return true;
+  if (exp >= nowMs) return true;
+  return nowMs - exp <= INSTRUCTOR_ACCEPT_AFTER_DEADLINE_GRACE_MS;
+}
+
 /**
  * «Мягкий» ответ инструктора: без дедлайна и без срочного ETA.
  * Запись на дату, будущие даты, несколько дней, урок сегодня (не срочно).

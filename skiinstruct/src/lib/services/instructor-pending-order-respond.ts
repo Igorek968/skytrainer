@@ -6,6 +6,7 @@ import { isMockCheckoutEnabled } from "@/lib/checkout-config";
 import { assignInstructorByQueue } from "@/lib/services/instructor-routing";
 import { transitionOrderStatus } from "@/lib/services/order-service";
 import { orderHasMeetAddress } from "@/shared/lib/order-meet-address";
+import { instructorCanAcceptAfterDeadline } from "@/shared/lib/order-flex";
 
 export type InstructorPendingRespondResult =
   | { ok: true; order: Order }
@@ -23,7 +24,16 @@ export async function instructorRespondToPendingOrder(
     return { ok: false, error: "Forbidden", status: 403 };
   }
   if (order.status !== "PENDING_INSTRUCTOR") {
-    return { ok: false, error: "Заявка уже обработана", status: 409 };
+    return {
+      ok: false,
+      error:
+        order.status === "EXPIRED"
+          ? "Заявка уже закрыта — время ответа истекло."
+          : order.status === "ACCEPTED"
+            ? "Заявка уже принята."
+            : "Заявка уже обработана",
+      status: 409,
+    };
   }
 
   if (action === "reject") {
@@ -49,16 +59,12 @@ export async function instructorRespondToPendingOrder(
       status: 400,
     };
   }
-  if (order.pendingExpiresAt && order.pendingExpiresAt < new Date()) {
-    const routed = await assignInstructorByQueue(orderId, "timeout");
-    if (!routed || routed.status === "EXPIRED") {
-      return {
-        ok: false,
-        error: "Время ответа истекло. Заявка закрыта.",
-        status: 400,
-      };
-    }
-    return { ok: true, order: routed.order };
+  if (!instructorCanAcceptAfterDeadline(order.pendingExpiresAt)) {
+    return {
+      ok: false,
+      error: "Время ответа истекло. Заявка закрыта.",
+      status: 400,
+    };
   }
 
   const updated = await transitionOrderStatus({

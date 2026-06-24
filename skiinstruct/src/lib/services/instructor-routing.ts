@@ -5,13 +5,17 @@ import {
   parseSpecializationOffers,
   resolveHourlyRateForDiscipline,
 } from "@/lib/instructor-specialization-offers";
+import {
+  computePendingExpiresAt,
+  INSTRUCTOR_ACCEPT_AFTER_DEADLINE_GRACE_MS,
+  instructorCanAcceptAfterDeadline,
+} from "@/shared/lib/order-flex";
 import { prisma } from "@/lib/prisma";
 import { computeTotals } from "@/lib/pricing";
 import { autoAcceptOrderIfScheduled } from "@/lib/services/instructor-order-auto-accept";
 import { notifyInstructorOfPendingOrder } from "@/lib/services/instructor-order-notify";
 import { applyRefundForExpiredOrder } from "@/lib/services/order-refund";
 import { resolveBillableHours } from "@/shared/lib/order-billing-hours";
-import { computePendingExpiresAt } from "@/shared/lib/order-flex";
 
 /** Prisma Decimal(10,2): числа JS с плавающей точкой и NaN ломали запись. */
 function orderMoneyDecimal(value: number): Prisma.Decimal {
@@ -238,11 +242,11 @@ export async function prepareInstructorQueue(orderId: string): Promise<PrepareQu
 
 /** Cron / фон: просроченные ожидания ответа → EXPIRED и возврат при оплате. */
 export async function processExpiredPendingOrders(): Promise<number> {
-  const now = new Date();
+  const cutoff = new Date(Date.now() - INSTRUCTOR_ACCEPT_AFTER_DEADLINE_GRACE_MS);
   const overdue = await prisma.order.findMany({
     where: {
       status: "PENDING_INSTRUCTOR",
-      pendingExpiresAt: { not: null, lt: now },
+      pendingExpiresAt: { not: null, lt: cutoff },
     },
     select: { id: true },
   });
@@ -257,13 +261,16 @@ export async function processExpiredPendingOrders(): Promise<number> {
   return count;
 }
 
-/** Перед выдачей заказа — если дедлайн прошёл, закрыть заявку (без передачи другим). */
+/** Перед выдачей заказа — если дедлайн и льготное окно прошли, закрыть заявку. */
 export async function rerouteOrderIfDeadlinePassed(orderId: string): Promise<void> {
   const order = await prisma.order.findUnique({ where: { id: orderId } });
   if (!order || order.status !== "PENDING_INSTRUCTOR") {
     return;
   }
-  if (order.pendingExpiresAt != null && order.pendingExpiresAt < new Date()) {
+  if (
+    order.pendingExpiresAt != null &&
+    !instructorCanAcceptAfterDeadline(order.pendingExpiresAt)
+  ) {
     await assignInstructorByQueue(orderId, "timeout");
   }
 }

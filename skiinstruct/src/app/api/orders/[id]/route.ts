@@ -34,6 +34,7 @@ import {
 import { clientCanRemoveOrderFromHistory } from "@/shared/lib/order-status";
 import { isMockCheckoutEnabled } from "@/lib/checkout-config";
 import { assertInstructorCanAcceptPaidOrders } from "@/lib/instructor-compliance";
+import { instructorCanAcceptAfterDeadline } from "@/shared/lib/order-flex";
 import { orderHasMeetAddress } from "@/shared/lib/order-meet-address";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -380,15 +381,11 @@ export async function PATCH(req: Request, ctx: Ctx) {
           { status: 400 },
         );
       }
-      if (order.pendingExpiresAt && order.pendingExpiresAt < new Date()) {
-        const routed = await assignInstructorByQueue(id, "timeout");
-        if (!routed || routed.status === "EXPIRED") {
-          return NextResponse.json(
-            { error: "Время ответа инструктора истекло. Заявка закрыта; при оплате оформляется возврат." },
-            { status: 400 },
-          );
-        }
-        return NextResponse.json({ order: routed.order });
+      if (!instructorCanAcceptAfterDeadline(order.pendingExpiresAt)) {
+        return NextResponse.json(
+          { error: "Время ответа инструктора истекло. Заявка закрыта; при оплате оформляется возврат." },
+          { status: 400 },
+        );
       }
       const timingInput = {
         flexibleInstructorInvite: Boolean(order.flexibleInstructorInvite),

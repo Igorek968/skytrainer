@@ -23,6 +23,7 @@ import {
   orderSkipsInstructorEta,
   formatUrgentCountdown,
   urgentDeadlineLabel,
+  instructorCanAcceptAfterDeadline,
 } from "@/shared/lib/order-flex";
 import { isLongInstructorEtaMinutes, LONG_INSTRUCTOR_ETA_MINUTES } from "@/shared/lib/order-long-eta";
 import { OrderLessonTimeBlock } from "@/shared/ui/order-lesson-time-block";
@@ -284,13 +285,15 @@ export function InstructorPendingOrderPrompt() {
 
   useEffect(() => {
     if (!activeOrder || relaxedTiming || longEtaPending) return;
-    if (pendingPromptSecondsLeft == null || pendingPromptSecondsLeft > 0) return;
+    if (!isUrgent) return;
+    const expRaw = activeOrder.pendingExpiresAt;
+    if (!expRaw || instructorCanAcceptAfterDeadline(expRaw)) return;
     setPendingPromptOrderId(null);
     setPendingPromptSecondsLeft(null);
     toast.info("Время ответа истекло. Заявка закрыта для клиента.");
     void qc.invalidateQueries({ queryKey: ["instructor-order-alerts"] });
     void qc.invalidateQueries({ queryKey: ["orders"] });
-  }, [activeOrder, pendingPromptSecondsLeft, relaxedTiming, longEtaPending, qc]);
+  }, [activeOrder, relaxedTiming, longEtaPending, isUrgent, qc]);
 
   const respond = useMutation({
     mutationFn: async (payload: { orderId: string; action: "accept" | "reject"; etaMinutes?: number }) => {
@@ -473,8 +476,7 @@ export function InstructorPendingOrderPrompt() {
                   !hasMeetPlace ||
                   (!relaxedTiming &&
                     !longEtaPending &&
-                    pendingPromptSecondsLeft !== null &&
-                    pendingPromptSecondsLeft <= 0)
+                    !instructorCanAcceptAfterDeadline(activeOrder.pendingExpiresAt))
                 }
               >
                 Подтвердить и открыть заказ

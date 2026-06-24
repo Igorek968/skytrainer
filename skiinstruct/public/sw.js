@@ -37,10 +37,7 @@ function notificationOptions(data) {
     },
   };
   if (isInstructorOrder) {
-    options.actions = [
-      { action: "accept", title: "Принять" },
-      { action: "reject", title: "Отклонить" },
-    ];
+    options.actions = [{ action: "accept", title: "Принять" }];
   }
   return { title, options };
 }
@@ -138,7 +135,13 @@ self.addEventListener("notificationclick", (event) => {
   const orderId = nd.orderId;
   const actionToken = nd.actionToken;
 
-  if (orderId && (action === "accept" || action === "reject")) {
+  if (orderId && action === "reject") {
+    // Старые уведомления с кнопкой «Отклонить» — только открываем заказ, без авто-отклонения.
+    event.waitUntil(focusOrOpen(`/instructor/orders/${orderId}`));
+    return;
+  }
+
+  if (orderId && action === "accept") {
     event.waitUntil(
       (async () => {
         const result = await respondToOrder(orderId, actionToken, action);
@@ -152,7 +155,7 @@ self.addEventListener("notificationclick", (event) => {
             msg,
             `/instructor/orders/${orderId}`,
           );
-          await focusOrOpen(`/instructor/orders/${orderId}`);
+          await focusOrOpen(`/instructor/orders/${orderId}?accepted=1`);
           return;
         }
         const errMsg =
@@ -165,5 +168,7 @@ self.addEventListener("notificationclick", (event) => {
     return;
   }
 
-  event.waitUntil(focusOrOpen(url));
+  event.waitUntil(
+    focusOrOpen(orderId ? `/instructor/orders/${orderId}?fromPush=1` : url),
+  );
 });
