@@ -496,6 +496,11 @@ model InstructorEvent {
   /// Автоматически создавать копию на следующий день после окончания (опубликованные).
   repeatDaily Boolean @default(false)
 
+  /// Место проведения мероприятия (для карты у клиентов).
+  venueAddress String?
+  venueLat     Float?
+  venueLng     Float?
+
   slots         EventSlot[]
   registrations EventRegistration[]
 

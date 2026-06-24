@@ -23,15 +23,23 @@ export function instructorEventDistanceKm(
   clientLng: number,
   instructorLat: number | null | undefined,
   instructorLng: number | null | undefined,
+  venueLat?: number | null,
+  venueLng?: number | null,
 ): number {
+  const eventLat =
+    venueLat != null && Number.isFinite(venueLat) ? venueLat : null;
+  const eventLng =
+    venueLng != null && Number.isFinite(venueLng) ? venueLng : null;
   const pinLat =
-    instructorLat != null && Number.isFinite(instructorLat)
+    eventLat ??
+    (instructorLat != null && Number.isFinite(instructorLat)
       ? instructorLat
-      : DEFAULT_SKI_RESORT_CENTER.lat;
+      : DEFAULT_SKI_RESORT_CENTER.lat);
   const pinLng =
-    instructorLng != null && Number.isFinite(instructorLng)
+    eventLng ??
+    (instructorLng != null && Number.isFinite(instructorLng)
       ? instructorLng
-      : DEFAULT_SKI_RESORT_CENTER.lng;
+      : DEFAULT_SKI_RESORT_CENTER.lng);
   return haversineKm(clientLat, clientLng, pinLat, pinLng);
 }
 

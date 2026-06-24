@@ -20,3 +20,12 @@ export const BookingMapLazy = dynamic(
     loading: () => <Skeleton className="h-[320px] w-full rounded-lg md:h-[420px]" />,
   },
 );
+
+/** Компактная карта места мероприятия (редактор / лента). */
+export const EventVenueMapLazy = dynamic(
+  () => import("./event-venue-map").then((m) => m.EventVenueMap),
+  {
+    ssr: false,
+    loading: () => <Skeleton className="h-[200px] w-full rounded-lg sm:h-[220px]" />,
+  },
+);

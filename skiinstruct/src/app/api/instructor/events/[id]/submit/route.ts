@@ -8,6 +8,7 @@ import {
 } from "@/lib/instructor-events";
 import { isInstructorEventAutoApproveEnabled } from "@/lib/instructor-event-moderation-config";
 import { prisma } from "@/lib/prisma";
+import { ensureUpcomingDailyCopy } from "@/lib/services/instructor-event-daily-repeat";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -72,7 +73,12 @@ export async function POST(_req: Request, ctx: Ctx) {
       publishedAt: autoApprove ? new Date() : null,
       rejectNote: null,
     },
+    include: { slots: { orderBy: [{ sortOrder: "asc" }, { startsAt: "asc" }] } },
   });
+
+  if (autoApprove && row.repeatDaily) {
+    await ensureUpcomingDailyCopy(row);
+  }
 
   return NextResponse.json({
     event: serializeInstructorEvent(row),

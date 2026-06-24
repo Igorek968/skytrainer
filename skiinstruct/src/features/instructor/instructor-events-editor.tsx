@@ -26,6 +26,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/sha
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
 import { EventRegistrantsPanel } from "@/features/instructor/event-registrants-panel";
+import { EventVenuePicker, type EventVenueValue } from "@/features/instructor/event-venue-picker";
 import { cn } from "@/lib/utils";
 
 type ActiveOrderOption = { id: string; label: string };
@@ -41,6 +42,9 @@ type SlotFormRow = {
 type InstructorEventApi = Omit<InstructorEventDTO, "slots" | "hasSlots"> & {
   hasSlots?: boolean;
   eventDay?: string | null;
+  venueAddress?: string | null;
+  venueLat?: number | null;
+  venueLng?: number | null;
   slots?: {
     id?: string;
     time: string;
@@ -56,6 +60,16 @@ const DEFAULT_SLOTS: SlotFormRow[] = [
   { time: "14:00", maxSeats: "4", priceRub: "5000" },
   { time: "18:00", maxSeats: "6", priceRub: "6000" },
 ];
+
+const EMPTY_VENUE: EventVenueValue = { address: "", lat: null, lng: null };
+
+function venueFromEvent(ev: InstructorEventApi | InstructorEventDTO): EventVenueValue {
+  return {
+    address: ev.venueAddress ?? "",
+    lat: ev.venueLat ?? null,
+    lng: ev.venueLng ?? null,
+  };
+}
 
 function eventDayFromEventAt(iso: string | null | undefined): string {
   if (!iso) return "";
@@ -98,8 +112,11 @@ function CompletionBadge({ event }: { event: Pick<InstructorEventDTO, "isComplet
 
 export function InstructorEventsEditor({
   activeOrders = [],
+  embedded = false,
 }: {
   activeOrders?: ActiveOrderOption[];
+  /** Внутри карточки «Профиль инструктора» — без отдельной обёртки Card. */
+  embedded?: boolean;
 }) {
   const qc = useQueryClient();
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -116,6 +133,8 @@ export function InstructorEventsEditor({
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [templatePhotoSourceId, setTemplatePhotoSourceId] = useState<string | null>(null);
   const [useSimilarTemplate, setUseSimilarTemplate] = useState(false);
+  const [repeatDaily, setRepeatDaily] = useState(false);
+  const [venue, setVenue] = useState<EventVenueValue>(EMPTY_VENUE);
   const [canEdit, setCanEdit] = useState(true);
   const [loadedStatus, setLoadedStatus] = useState<InstructorEventDTO["moderationStatus"] | null>(null);
   const titleLoadTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -183,6 +202,8 @@ export function InstructorEventsEditor({
     setPhotoUrl(ev.photoUrl ?? "");
     setPhotoFile(null);
     setTemplatePhotoSourceId(ev.photoUrl ? ev.id : null);
+    setVenue(venueFromEvent(ev));
+    setRepeatDaily(Boolean(ev.repeatDaily));
     setCanEdit(true);
     setLoadedStatus(null);
   }, []);
@@ -217,6 +238,8 @@ export function InstructorEventsEditor({
     setPhotoUrl(ev.photoUrl ?? "");
     setPhotoFile(null);
     setTemplatePhotoSourceId(null);
+    setVenue(venueFromEvent(ev));
+    setRepeatDaily(Boolean(ev.repeatDaily));
     setCanEdit(ev.canEdit);
     setLoadedStatus(ev.moderationStatus);
   }, []);
@@ -236,6 +259,8 @@ export function InstructorEventsEditor({
     setPhotoFile(null);
     setTemplatePhotoSourceId(null);
     setUseSimilarTemplate(false);
+    setRepeatDaily(false);
+    setVenue(EMPTY_VENUE);
     setCanEdit(true);
     setLoadedStatus(null);
   }, []);
@@ -281,7 +306,22 @@ export function InstructorEventsEditor({
         body: body.trim(),
         orderId: orderId.trim() || null,
         eventId: editingId,
+        repeatDaily,
       };
+
+      const venueAddress = venue.address.trim();
+      if (venueAddress) {
+        if (venue.lat == null || venue.lng == null) {
+          throw new Error("Укажите адрес на карте — нажмите «Найти» или выберите точку кликом");
+        }
+        payload.venueAddress = venueAddress;
+        payload.venueLat = venue.lat;
+        payload.venueLng = venue.lng;
+      } else {
+        payload.venueAddress = null;
+        payload.venueLat = null;
+        payload.venueLng = null;
+      }
 
       if (!editingId && templatePhotoSourceId && !photoFile) {
         payload.copyPhotoFromEventId = templatePhotoSourceId;
@@ -446,20 +486,20 @@ export function InstructorEventsEditor({
       toast.error(e.message === "remove-photo" ? "Не удалось удалить фото" : e.message),
   });
 
-  const setRepeatDaily = useMutation({
-    mutationFn: async ({ id, repeatDaily }: { id: string; repeatDaily: boolean }) => {
+  const setRepeatDailyMutation = useMutation({
+    mutationFn: async ({ id, repeatDaily: next }: { id: string; repeatDaily: boolean }) => {
       const r = await instructorFetch(`/api/instructor/events/${id}/repeat-daily`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ repeatDaily }),
+        body: JSON.stringify({ repeatDaily: next }),
       });
       const j = (await r.json().catch(() => ({}))) as { error?: string; event?: InstructorEventApi };
       if (!r.ok) throw new Error(typeof j.error === "string" ? j.error : "repeat-daily");
       return j;
     },
-    onSuccess: async (j, { repeatDaily }) => {
+    onSuccess: async (j, { repeatDaily: next }) => {
       toast.success(
-        repeatDaily
+        next
           ? "Каждый день: после окончания создаётся копия на следующий день"
           : "Ежедневное размещение отключено",
       );
@@ -580,17 +620,9 @@ export function InstructorEventsEditor({
     archived: events.filter((e) => e.moderationStatus === "ARCHIVED" && !e.isCompleted),
   };
 
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Мероприятия</CardTitle>
-        <CardDescription>
-          Создайте мероприятие с несколькими выходами в день (например, катание на яхте в 10:00, 14:00 и 18:00).
-          Для каждого выхода — своё время, цена и лимит мест. Клиент записывается на конкретное время; вы
-          получаете email о каждой новой записи. Оплата после мероприятия (комиссия 15%).
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
+  const editorContent = (
+    <div className={embedded ? "space-y-6" : undefined}>
+      <CardContent className={embedded ? "p-0" : "space-y-6"}>
         <form
           className="space-y-3 rounded-lg border border-border bg-muted/20 p-4"
           onSubmit={(e) => {
@@ -755,6 +787,10 @@ export function InstructorEventsEditor({
                 </p>
               ) : null}
             </div>
+          </div>
+
+          <div className="rounded-md border border-border/80 bg-background p-3">
+            <EventVenuePicker value={venue} onChange={setVenue} disabled={formLocked} />
           </div>
 
           <div className="space-y-3 rounded-md border border-border/80 bg-background p-3">
@@ -960,6 +996,28 @@ export function InstructorEventsEditor({
             )}
           </div>
 
+          {!formLocked ? (
+            <label className="flex cursor-pointer items-start gap-2 rounded-md border border-border/70 bg-muted/20 px-3 py-2.5 text-sm">
+              <input
+                type="checkbox"
+                className="mt-0.5"
+                checked={repeatDaily}
+                onChange={(e) => setRepeatDaily(e.target.checked)}
+              />
+              <span>
+                <span className="font-medium">Размещать каждый день</span>
+                <span className="mt-0.5 block text-xs text-muted-foreground">
+                  После окончания мероприятия автоматически создаётся копия на следующий день (то же время,
+                  текст, фото и адрес). Настройка применится после публикации.
+                </span>
+              </span>
+            </label>
+          ) : repeatDaily ? (
+            <p className="text-xs text-muted-foreground">
+              Включено ежедневное размещение — после окончания создаётся копия на следующий день.
+            </p>
+          ) : null}
+
           <div className="flex flex-wrap gap-2">
             {!formLocked ? (
               <>
@@ -1051,9 +1109,9 @@ export function InstructorEventsEditor({
           onDuplicate={handleDuplicate}
           onDelete={handleCardDelete}
           onCancelEvent={handleCancelEvent}
-          onRepeatDaily={(id, repeatDaily) => setRepeatDaily.mutate({ id, repeatDaily })}
-          repeatDailyPending={setRepeatDaily.isPending}
-          actionsPending={remove.isPending || cancelEvent.isPending || setRepeatDaily.isPending}
+          onRepeatDaily={(id, next) => setRepeatDailyMutation.mutate({ id, repeatDaily: next })}
+          repeatDailyPending={setRepeatDailyMutation.isPending}
+          actionsPending={remove.isPending || cancelEvent.isPending || setRepeatDailyMutation.isPending}
         />
         {groups.rejected.length > 0 ? (
           <EventList
@@ -1102,6 +1160,33 @@ export function InstructorEventsEditor({
           />
         ) : null}
       </CardContent>
+    </div>
+  );
+
+  if (embedded) {
+    return (
+      <div className="space-y-4">
+        <p className="text-sm text-muted-foreground">
+          Создайте мероприятие с несколькими выходами в день (например, катание на яхте в 10:00, 14:00 и 18:00).
+          Для каждого выхода — своё время, цена и лимит мест. Клиент записывается на конкретное время; вы
+          получаете email о каждой новой записи. Оплата после мероприятия (комиссия 15%).
+        </p>
+        {editorContent}
+      </div>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Мероприятия</CardTitle>
+        <CardDescription>
+          Создайте мероприятие с несколькими выходами в день (например, катание на яхте в 10:00, 14:00 и 18:00).
+          Для каждого выхода — своё время, цена и лимит мест. Клиент записывается на конкретное время; вы
+          получаете email о каждой новой записи. Оплата после мероприятия (комиссия 15%).
+        </CardDescription>
+      </CardHeader>
+      {editorContent}
     </Card>
   );
 }

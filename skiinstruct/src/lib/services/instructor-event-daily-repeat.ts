@@ -126,6 +126,9 @@ export async function spawnNextDailyEventIfMissing(source: EventWithSlots): Prom
       moderationStatus: "PUBLISHED",
       publishedAt: now,
       repeatDaily: true,
+      venueAddress: source.venueAddress,
+      venueLat: source.venueLat,
+      venueLng: source.venueLng,
     },
   });
 

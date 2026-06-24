@@ -121,7 +121,7 @@ export default function InstructorOrdersPage() {
             </Button>
           ) : null}
           <Button asChild variant="outline">
-            <Link href="/instructor">Профиль и мероприятия</Link>
+            <Link href="/instructor#events">Мероприятия</Link>
           </Button>
         </div>
       </div>

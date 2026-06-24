@@ -4,6 +4,7 @@ import { isApiErrorResponse, requireAdminSession } from "@/lib/api-session";
 import { resolveRouteParams } from "@/lib/api-route-params";
 import { serializeInstructorEvent } from "@/lib/instructor-events";
 import { prisma } from "@/lib/prisma";
+import { ensureUpcomingDailyCopy } from "@/lib/services/instructor-event-daily-repeat";
 import { adminEventReviewSchema } from "@/lib/validations/instructor-event";
 
 type Ctx = { params: { eventId: string } | Promise<{ eventId: string }> };
@@ -62,7 +63,12 @@ export async function POST(req: Request, ctx: Ctx) {
       publishedAt: new Date(),
       rejectNote: null,
     },
+    include: { slots: { orderBy: [{ sortOrder: "asc" }, { startsAt: "asc" }] } },
   });
+
+  if (row.repeatDaily) {
+    await ensureUpcomingDailyCopy(row);
+  }
 
   return NextResponse.json({
     event: serializeInstructorEvent(row),

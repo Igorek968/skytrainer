@@ -23,6 +23,8 @@ const eventSlotInputSchema = z.object({
   priceRub: priceRubField,
 });
 
+const venueCoordField = z.number().optional().nullable();
+
 export const createInstructorEventSchema = z.object({
   title: z.string().trim().min(1).max(120),
   body: z.string().trim().min(1).max(200),
@@ -36,6 +38,11 @@ export const createInstructorEventSchema = z.object({
   priceRub: priceRubField,
   maxRegistrations: maxRegistrationsField,
   slots: z.array(eventSlotInputSchema).optional(),
+  venueAddress: z.string().trim().max(500).optional().nullable(),
+  venueLat: venueCoordField,
+  venueLng: venueCoordField,
+  /** Авторазмещение на каждый день (применяется после публикации). */
+  repeatDaily: z.boolean().optional(),
 });
 
 export const updateInstructorEventSchema = z.object({

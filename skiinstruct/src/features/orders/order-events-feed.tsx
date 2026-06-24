@@ -6,6 +6,7 @@ import type { ClientInstructorEventDTO } from "@/lib/instructor-events";
 import { formatEventDateRu } from "@/lib/instructor-events";
 import { EventRegistrationButton } from "@/features/orders/event-registration-button";
 import { EventFeedPhoto } from "@/features/orders/event-feed-photo";
+import { EventVenueDisplay } from "@/features/orders/event-venue-display";
 import { devPollInterval } from "@/lib/query-poll";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Skeleton } from "@/shared/ui/skeleton";
@@ -23,6 +24,7 @@ function EventFeedItem({
       <time className="text-xs text-muted-foreground">{when}</time>
       <h3 className="mt-1 text-sm font-semibold text-foreground">{event.title}</h3>
       <EventFeedPhoto event={event} />
+      <EventVenueDisplay address={event.venueAddress} lat={event.venueLat} lng={event.venueLng} />
       <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
         {event.body}
       </p>

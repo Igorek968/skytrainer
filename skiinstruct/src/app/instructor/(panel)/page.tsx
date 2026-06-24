@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Star, X } from "lucide-react";
 import type { OrderStatus } from "@prisma/client";
@@ -101,9 +101,7 @@ const INSTRUCTOR_PANEL_SECTIONS = [
   { id: "reviews", label: "Отзывы о клиентах" },
 ] as const;
 
-function scrollToInstructorSection(sectionId: string) {
-  document.getElementById(sectionId)?.scrollIntoView({ behavior: "smooth", block: "start" });
-}
+type PanelSectionId = (typeof INSTRUCTOR_PANEL_SECTIONS)[number]["id"];
 
 type ProfileField =
   | "certificationLevel"
@@ -390,7 +388,23 @@ export default function InstructorHomePage() {
   const [inited, setInited] = useState(false);
   /** Иначе Chrome подставляет «чужие» имя/фамилию из профиля браузера в поля с id вроде first-name. */
   const [publicNameFieldsUnlocked, setPublicNameFieldsUnlocked] = useState(false);
+  const [activePanelSection, setActivePanelSection] = useState<PanelSectionId>("lesson-schedule");
   const displayNameDuplicate = useDisplayNameDuplicateCheck(firstName, lastName, inited);
+
+  const navigatePanelSection = useCallback((sectionId: PanelSectionId) => {
+    setActivePanelSection(sectionId);
+    if (typeof window !== "undefined") {
+      window.history.replaceState(null, "", `/instructor#${sectionId}`);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const hash = window.location.hash.replace(/^#/, "");
+    const known = INSTRUCTOR_PANEL_SECTIONS.find((s) => s.id === hash);
+    if (known) setActivePanelSection(known.id);
+  }, []);
 
   useEffect(() => {
     if (searchParams.get("applied") === "1") {
@@ -904,31 +918,34 @@ export default function InstructorHomePage() {
           <Button
             key={id}
             type="button"
-            variant="outline"
+            variant={activePanelSection === id ? "accent" : "outline"}
             size="sm"
-            onClick={() => scrollToInstructorSection(id)}
+            onClick={() => navigatePanelSection(id)}
           >
             {label}
           </Button>
         ))}
       </nav>
 
-      <InstructorWeekScheduleCalendar
-        availabilitySlots={availabilitySlots}
-        availabilityError={fieldErrors.availabilityRaw}
-        onAvailabilityChange={setAvailabilitySlots}
-        onAddSlotForDay={addSlotForDay}
-        onUpdateSlot={updateSlot}
-        onRemoveSlot={removeSlot}
-        onFillWeekdays={fillWeekdays}
-        onClearSlots={() => setAvailabilitySlots([])}
-        effectiveOnline={effectiveOnline}
-        toggleOnlinePending={toggle.isPending}
-        onToggleOnline={() => toggle.mutate(!effectiveOnline)}
-        verificationStatus={data?.verificationStatus}
-        loadingOnlineState={isLoading && data == null && online == null}
-      />
+      {activePanelSection === "lesson-schedule" ? (
+        <InstructorWeekScheduleCalendar
+          availabilitySlots={availabilitySlots}
+          availabilityError={fieldErrors.availabilityRaw}
+          onAvailabilityChange={setAvailabilitySlots}
+          onAddSlotForDay={addSlotForDay}
+          onUpdateSlot={updateSlot}
+          onRemoveSlot={removeSlot}
+          onFillWeekdays={fillWeekdays}
+          onClearSlots={() => setAvailabilitySlots([])}
+          effectiveOnline={effectiveOnline}
+          toggleOnlinePending={toggle.isPending}
+          onToggleOnline={() => toggle.mutate(!effectiveOnline)}
+          verificationStatus={data?.verificationStatus}
+          loadingOnlineState={isLoading && data == null && online == null}
+        />
+      ) : null}
 
+      {activePanelSection === "profile" ? (
       <Card id="profile" className="scroll-mt-24 bg-gradient-to-br from-sky-50/70 to-background dark:from-slate-900">
         <CardHeader>
           <CardTitle>Профиль инструктора (для клиентов)</CardTitle>
@@ -1247,15 +1264,21 @@ export default function InstructorHomePage() {
           )}
         </CardContent>
       </Card>
+      ) : null}
 
-      <div id="events" className="scroll-mt-24">
-        <InstructorEventsEditor activeOrders={activeOrderOptions} />
-      </div>
+      {activePanelSection === "events" ? (
+        <div id="events" className="scroll-mt-24">
+          <InstructorEventsEditor activeOrders={activeOrderOptions} />
+        </div>
+      ) : null}
 
+      {activePanelSection === "compliance" ? (
       <div id="compliance" className="scroll-mt-24">
         <InstructorComplianceCard />
       </div>
+      ) : null}
 
+      {activePanelSection === "referral" ? (
       <Card id="referral" className="scroll-mt-24">
         <CardHeader>
           <CardTitle>Реферальная программа</CardTitle>
@@ -1267,7 +1290,9 @@ export default function InstructorHomePage() {
           <ReferralProgramPanel />
         </CardContent>
       </Card>
+      ) : null}
 
+      {activePanelSection === "finance" ? (
       <Card id="finance" className="scroll-mt-24">
         <CardHeader>
           <CardTitle>Финансы (выплаченные заказы)</CardTitle>
@@ -1303,7 +1328,9 @@ export default function InstructorHomePage() {
           />
         </CardContent>
       </Card>
+      ) : null}
 
+      {activePanelSection === "reviews" ? (
       <Card id="reviews" className="scroll-mt-24">
         <CardHeader>
           <CardTitle>Ваши отзывы о клиентах</CardTitle>
@@ -1322,6 +1349,7 @@ export default function InstructorHomePage() {
           )}
         </CardContent>
       </Card>
+      ) : null}
 
       {previewUrl ? (
         <div

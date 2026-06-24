@@ -173,6 +173,28 @@ export async function POST(req: Request) {
   let eventAt = parseEventAt(parsed.data.eventAt ?? null);
   const eventDay = parseEventDay(parsed.data.eventDay ?? null);
 
+  const venueAddress = parsed.data.venueAddress?.trim() || null;
+  const venueLat =
+    parsed.data.venueLat != null && Number.isFinite(parsed.data.venueLat)
+      ? parsed.data.venueLat
+      : null;
+  const venueLng =
+    parsed.data.venueLng != null && Number.isFinite(parsed.data.venueLng)
+      ? parsed.data.venueLng
+      : null;
+  if (venueAddress && (venueLat == null || venueLng == null)) {
+    return NextResponse.json(
+      { error: "Укажите адрес на карте — нажмите «Найти» или выберите точку кликом" },
+      { status: 400 },
+    );
+  }
+  const venueData = {
+    venueAddress,
+    venueLat: venueAddress ? venueLat : null,
+    venueLng: venueAddress ? venueLng : null,
+  };
+  const repeatDaily = parsed.data.repeatDaily ?? false;
+
   if (hasSlots) {
     if (!eventDay) {
       return NextResponse.json({ error: "Укажите день мероприятия для расписания выходов" }, { status: 400 });
@@ -223,6 +245,8 @@ export async function POST(req: Request) {
         maxRegistrations: hasSlots ? null : (parsed.data.maxRegistrations ?? null),
         moderationStatus: "DRAFT",
         rejectNote: null,
+        repeatDaily,
+        ...venueData,
       },
       include: { slots: { orderBy: [{ sortOrder: "asc" }, { startsAt: "asc" }] } },
     });
@@ -249,6 +273,8 @@ export async function POST(req: Request) {
       priceRub: hasSlots ? null : (parsed.data.priceRub ?? null),
       maxRegistrations: hasSlots ? null : (parsed.data.maxRegistrations ?? null),
       moderationStatus: "DRAFT",
+      repeatDaily,
+      ...venueData,
     },
     include: { slots: true },
   });

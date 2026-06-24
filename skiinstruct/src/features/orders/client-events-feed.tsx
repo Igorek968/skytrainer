@@ -15,6 +15,7 @@ import {
 } from "@/lib/client-events-geo";
 import { EventRegistrationButton } from "@/features/orders/event-registration-button";
 import { EventFeedPhoto } from "@/features/orders/event-feed-photo";
+import { EventVenueDisplay } from "@/features/orders/event-venue-display";
 import { publicUploadDisplaySrc } from "@/lib/public-uploads-display";
 import { devPollInterval } from "@/lib/query-poll";
 import { Button } from "@/shared/ui/button";
@@ -77,6 +78,12 @@ function EventFeedDetails({
         {event.title}
       </h3>
       {!compact ? <EventFeedPhoto event={event} /> : null}
+      <EventVenueDisplay
+        address={event.venueAddress}
+        lat={event.venueLat}
+        lng={event.venueLng}
+        compact={compact}
+      />
       <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">{event.body}</p>
       {isClient ? (
         <EventRegistrationButton event={event} queryKey={queryKey} />

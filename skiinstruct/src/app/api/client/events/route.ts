@@ -69,6 +69,8 @@ export async function GET(req: Request) {
         origin.lng,
         profile?.lat ?? null,
         profile?.lng ?? null,
+        row.venueLat,
+        row.venueLng,
       );
       const event = await enrichClientEvent(
         row,

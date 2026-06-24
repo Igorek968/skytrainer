@@ -44,6 +44,10 @@ export type InstructorEventDTO = {
   unconfirmedAttendanceCount?: number;
   /** Автоматически создавать копию на следующий день */
   repeatDaily?: boolean;
+  /** Место проведения */
+  venueAddress?: string | null;
+  venueLat?: number | null;
+  venueLng?: number | null;
   slots?: EventSlotDTO[];
   hasSlots?: boolean;
   eventDay?: string | null;
@@ -209,6 +213,9 @@ export function serializeInstructorEvent(
     unconfirmedAttendanceCount: extra?.unconfirmedAttendanceCount,
     hasSlots: slots ? eventUsesSlots(slots) : undefined,
     repeatDaily: row.repeatDaily,
+    venueAddress: row.venueAddress,
+    venueLat: row.venueLat,
+    venueLng: row.venueLng,
   };
 }
 
