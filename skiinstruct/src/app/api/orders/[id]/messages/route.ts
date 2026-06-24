@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { resolveUserRole } from "@/lib/api-session";
 import { prisma } from "@/lib/prisma";
+import { notifyInstructorClientChatMessage } from "@/lib/services/instructor-chat-notify";
 import { messageSchema } from "@/lib/validations/order";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -69,8 +70,28 @@ export async function POST(req: Request, ctx: Ctx) {
       senderId: session.user.id,
       body: parsed.data.body,
     },
-    include: { sender: { select: { id: true, name: true, image: true } } },
+    include: {
+      sender: { select: { id: true, name: true, image: true } },
+      order: {
+        select: {
+          instructorId: true,
+          clientId: true,
+          client: { select: { name: true } },
+        },
+      },
+    },
   });
 
-  return NextResponse.json({ message: msg });
+  if (msg.order.instructorId && msg.senderId === msg.order.clientId) {
+    void notifyInstructorClientChatMessage({
+      orderId: id,
+      messageId: msg.id,
+      instructorId: msg.order.instructorId,
+      clientName: msg.order.client?.name ?? msg.sender.name,
+      body: msg.body,
+    });
+  }
+
+  const { order: _order, ...message } = msg;
+  return NextResponse.json({ message });
 }

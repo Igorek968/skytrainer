@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
-import { playInstructorOrderBeep } from "@/features/instructor/instructor-order-beep";
 import { instructorAlertPollInterval } from "@/lib/query-poll";
+import { fireSiteAlert, siteAlertTitle } from "@/lib/site-alert";
 import { isInLessonStartPopupWindow } from "@/shared/lib/order-lesson-start";
 import { OrderLessonTimeBlock } from "@/shared/ui/order-lesson-time-block";
 import { orderRelaxedInstructorTiming } from "@/shared/lib/order-flex";
@@ -77,7 +77,26 @@ export function InstructorLessonSoonPrompt() {
     const target = soonOrders[0]!;
     if (!beepedIdsRef.current.has(target.id)) {
       beepedIdsRef.current.add(target.id);
-      playInstructorOrderBeep();
+      const startLabel = target.requestedStartDate
+        ? new Date(target.requestedStartDate).toLocaleString("ru-RU", {
+            dateStyle: "short",
+            timeStyle: "short",
+          })
+        : "—";
+      const orderUrl = `/instructor/orders/${target.id}`;
+      fireSiteAlert({
+        title: siteAlertTitle("скоро встреча"),
+        body: `Клиент: ${target.client?.name || "Без имени"}. Начало ${startLabel}.`,
+        sound: "reminder",
+        tag: `instructor-lesson-soon-${target.id}`,
+        url: orderUrl,
+        toastAction: {
+          label: "Открыть заказ",
+          onClick: () => {
+            window.location.href = orderUrl;
+          },
+        },
+      });
     }
     setPromptOrderId((prev) => prev ?? target.id);
     setEtaMinutes(extractEtaFromNotes(target.notes));

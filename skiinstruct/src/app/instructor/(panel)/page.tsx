@@ -16,6 +16,7 @@ import { InstructorPayoutPanel } from "@/features/instructor/instructor-payout-p
 import { ReferralProgramPanel } from "@/features/referral/referral-program-panel";
 import { InstructorEventsEditor } from "@/features/instructor/instructor-events-editor";
 import { enableInstructorOfflineAlerts } from "@/features/instructor/instructor-panel-shell";
+import { fireSiteAlert, siteAlertTitle } from "@/lib/site-alert";
 import { InstructorWeekScheduleCalendar } from "@/features/instructor/instructor-week-schedule-calendar";
 import {
   normalizeAvailabilitySlots,
@@ -36,7 +37,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/sha
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
 import { cn } from "@/lib/utils";
-import { getPublicProductName } from "@/shared/lib/product";
 import { instructorActivityLabelsAlphabetical } from "@/lib/services/instructor-match";
 import { INSTRUCTOR_NO_SHOW_PENALTY_PERCENT } from "@/lib/legal-config";
 import { useDisplayNameDuplicateCheck } from "@/shared/hooks/use-display-name-duplicate-check";
@@ -501,8 +501,11 @@ export default function InstructorHomePage() {
           ? "Уведомления включены — заявки придут push и на почту, даже если сайт закрыт"
           : "Браузерные уведомления включены",
       );
-      new Notification(getPublicProductName(), {
-        body: "Тест: уведомления работают.",
+      fireSiteAlert({
+        title: siteAlertTitle("уведомления включены"),
+        body: "Тест: звук, вибрация и оповещения работают.",
+        sound: "chat",
+        tag: "instructor-notifications-test",
       });
     } else if (perm === "denied") {
       toast.error("Браузер заблокировал уведомления. Разрешите их в настройках сайта.");

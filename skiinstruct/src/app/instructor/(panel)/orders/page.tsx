@@ -7,7 +7,6 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { enableInstructorOfflineAlerts } from "@/features/instructor/instructor-panel-shell";
-import { useInstructorPendingOrderAlerts } from "@/features/instructor/use-instructor-pending-order-alerts";
 import {
   instructorRegistrationStatusLabel,
   type InstructorRegistrationListItem,
@@ -79,8 +78,6 @@ export default function InstructorOrdersPage() {
     },
     refetchInterval: devPollInterval(15_000),
   });
-
-  useInstructorPendingOrderAlerts(ordersQuery.data?.orders);
 
   const entries = useMemo(() => {
     const items: ListEntry[] = [];

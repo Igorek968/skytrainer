@@ -8,6 +8,7 @@ import type { OrderStatus } from "@prisma/client";
 
 import { playInstructorOrderBeep, startInstructorOrderBeepRepeat, stopInstructorOrderBeepRepeat } from "@/features/instructor/instructor-order-beep";
 import { instructorAlertPollInterval } from "@/lib/query-poll";
+import { fireSiteAlert, siteAlertTitle } from "@/lib/site-alert";
 import {
   dismissPendingPrompt,
   readDismissedPendingPromptIds,
@@ -61,24 +62,25 @@ function orderTimingInput(o: PendingOrderRow) {
 }
 
 function notifyInstructorNewOrder(order: PendingOrderRow) {
-  if (typeof window === "undefined" || !("Notification" in window)) return;
-  if (Notification.permission !== "granted") return;
-  try {
-    const n = new Notification("Новая заявка от клиента", {
-      body: order.client?.name
-        ? `Клиент: ${order.client.name}. Откройте кабинет инструктора.`
-        : "Поступила новая заявка. Откройте кабинет инструктора.",
-      tag: `instructor-order-${order.id}`,
-      requireInteraction: true,
-    });
-    n.onclick = () => {
-      window.focus();
-      window.location.href = `/instructor/orders/${order.id}`;
-      n.close();
-    };
-  } catch {
-    /* ignore */
-  }
+  const clientName = order.client?.name?.trim();
+  const orderUrl = `/instructor/orders/${order.id}`;
+  fireSiteAlert({
+    title: siteAlertTitle("новая заявка"),
+    body: clientName
+      ? `Клиент: ${clientName}. Откройте кабинет инструктора.`
+      : "Поступила новая заявка. Откройте кабинет инструктора.",
+    sound: "order",
+    skipSound: true,
+    tag: `instructor-order-${order.id}`,
+    url: orderUrl,
+    requireInteraction: true,
+    toastAction: {
+      label: "Открыть",
+      onClick: () => {
+        window.location.href = orderUrl;
+      },
+    },
+  });
 }
 
 function orderNeedsInstructorAlert(o: PendingOrderRow): boolean {
