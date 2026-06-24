@@ -31,6 +31,8 @@ export type PushPayload = {
   orderId?: string;
   actionToken?: string;
   replyToken?: string;
+  /** start | end — кнопки в push для инструктора. */
+  lessonPhase?: "start" | "end";
   sound?: "order" | "chat" | "reminder";
 };
 

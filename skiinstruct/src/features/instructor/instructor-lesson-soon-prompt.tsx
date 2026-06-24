@@ -9,7 +9,6 @@ import { instructorAlertPollInterval } from "@/lib/query-poll";
 import { fireSiteAlert, siteAlertTitle } from "@/lib/site-alert";
 import { isInLessonStartPopupWindow } from "@/shared/lib/order-lesson-start";
 import { OrderLessonTimeBlock } from "@/shared/ui/order-lesson-time-block";
-import { orderRelaxedInstructorTiming } from "@/shared/lib/order-flex";
 import { resolveMeetAddress } from "@/shared/lib/order-meet-address";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
@@ -60,15 +59,7 @@ export function InstructorLessonSoonPrompt() {
     orderAlerts?.orders.filter((o) => {
       if (o.status !== "ACCEPTED" && o.status !== "INSTRUCTOR_EN_ROUTE") return false;
       if (dismissedIdsRef.current.has(o.id)) return false;
-      if (
-        orderRelaxedInstructorTiming({
-          flexibleInstructorInvite: Boolean(o.flexibleInstructorInvite),
-          requestedDays: o.requestedDays,
-          requestedStartDate: o.requestedStartDate,
-        })
-      ) {
-        return false;
-      }
+      if (!o.requestedStartDate) return false;
       return isInLessonStartPopupWindow(o.requestedStartDate);
     }) ?? [];
 

@@ -1,19 +1,21 @@
 "use client";
 
 import type { LessonDuration } from "@prisma/client";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 
 import { instructorAlertPollInterval } from "@/lib/query-poll";
 import {
   isInLessonEndReminderWindow,
   isInLessonStartNowWindow,
   isInOneHourReminderWindow,
+  isInScheduledLessonEndWindow,
 } from "@/lib/order-lesson-reminder-windows";
 import { markReminderShown, wasReminderShown } from "@/lib/reminder-seen-storage";
 import { fireSiteAlert, siteAlertTitle } from "@/lib/site-alert";
-import { orderRelaxedInstructorTiming } from "@/shared/lib/order-flex";
+import { resolveLessonStartMs } from "@/shared/lib/order-lesson-start";
 import { Button } from "@/shared/ui/button";
 
 type OrderReminderRow = {
@@ -22,8 +24,6 @@ type OrderReminderRow = {
   requestedStartDate: string | null;
   lessonStartedAt: string | null;
   duration: string;
-  flexibleInstructorInvite?: boolean;
-  requestedDays?: number | null;
   client?: { name: string | null } | null;
   instructor?: { name: string | null } | null;
 };
@@ -47,12 +47,8 @@ function formatStartLabel(requestedStartDate: string | null): string {
   });
 }
 
-function isRelaxedLesson(o: OrderReminderRow): boolean {
-  return orderRelaxedInstructorTiming({
-    flexibleInstructorInvite: Boolean(o.flexibleInstructorInvite),
-    requestedDays: o.requestedDays ?? null,
-    requestedStartDate: o.requestedStartDate,
-  });
+function hasScheduledStart(order: OrderReminderRow): boolean {
+  return resolveLessonStartMs(order.requestedStartDate) != null;
 }
 
 function alertReminder(
@@ -84,7 +80,7 @@ function alertReminder(
       title: siteAlertTitle("пора начать тренировку"),
       body:
         role === "instructor"
-          ? `Время занятия с ${counterparty} (${startLabel}). Откройте заказ и нажмите «Начать урок».`
+          ? `Время занятия с ${counterparty} (${startLabel}). Нажмите «Начать урок».`
           : `Наступило время занятия с ${counterparty} (${startLabel}).`,
       sound: "reminder",
       tag: `lesson-start-${order.id}`,
@@ -100,7 +96,7 @@ function alertReminder(
     body:
       role === "instructor"
         ? "Урок по расписанию окончен. Нажмите «Завершить урок» — так фиксируется оплата и статус."
-        : "Урок по расписанию окончен. Попросите инструктора завершить урок в приложении или дождитесь подтверждения.",
+        : "Урок по расписанию окончен. Попросите инструктора завершить урок в приложении.",
     sound: "reminder",
     tag: `lesson-end-${order.id}`,
     url,
@@ -114,6 +110,7 @@ function alertReminder(
  */
 export function OrderLessonRemindersPrompt({ role }: { role: "instructor" | "client" }) {
   const router = useRouter();
+  const qc = useQueryClient();
   const [active, setActive] = useState<ActiveReminder | null>(null);
 
   const { data } = useQuery({
@@ -128,6 +125,27 @@ export function OrderLessonRemindersPrompt({ role }: { role: "instructor" | "cli
     refetchOnWindowFocus: true,
   });
 
+  const patchOrder = useMutation({
+    mutationFn: async (payload: { orderId: string; action: "start_lesson" | "complete_lesson" }) => {
+      const r = await fetch(`/api/orders/${payload.orderId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ action: payload.action }),
+      });
+      const j = (await r.json().catch(() => ({}))) as { error?: unknown };
+      if (!r.ok) throw new Error(typeof j.error === "string" ? j.error : "Не удалось обновить заказ");
+    },
+    onSuccess: async (_, { action }) => {
+      toast.success(action === "start_lesson" ? "Урок начат" : "Урок завершён");
+      setActive(null);
+      await qc.invalidateQueries({ queryKey: ["instructor-order-alerts"] });
+      await qc.invalidateQueries({ queryKey: ["client-order-reminders"] });
+      await qc.invalidateQueries({ queryKey: ["orders"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   useEffect(() => {
     const orders = data?.orders;
     if (!orders?.length) return;
@@ -136,7 +154,7 @@ export function OrderLessonRemindersPrompt({ role }: { role: "instructor" | "cli
     let hit: { kind: ReminderKind; order: OrderReminderRow; tag: string } | null = null;
 
     for (const order of orders) {
-      if (isRelaxedLesson(order)) continue;
+      if (!hasScheduledStart(order)) continue;
 
       if (
         (order.status === "PENDING_INSTRUCTOR" ||
@@ -164,11 +182,16 @@ export function OrderLessonRemindersPrompt({ role }: { role: "instructor" | "cli
         }
       }
 
-      if (
-        order.status === "LESSON_STARTED" &&
-        order.lessonStartedAt &&
-        isInLessonEndReminderWindow(order.lessonStartedAt, order.duration as LessonDuration, now)
-      ) {
+      const duration = order.duration as LessonDuration;
+      const endWindow =
+        order.status === "LESSON_STARTED" && order.lessonStartedAt
+          ? isInLessonEndReminderWindow(order.lessonStartedAt, duration, now)
+          : (order.status === "ACCEPTED" || order.status === "INSTRUCTOR_EN_ROUTE") &&
+              order.requestedStartDate
+            ? isInScheduledLessonEndWindow(order.requestedStartDate, duration, now)
+            : false;
+
+      if (endWindow) {
         const tag = `lesson-end-${order.id}`;
         if (!wasReminderShown(tag)) {
           hit = { kind: "end_lesson", order, tag };
@@ -206,10 +229,10 @@ export function OrderLessonRemindersPrompt({ role }: { role: "instructor" | "cli
       ? `Через ~1 час занятие с ${counterparty} (${startLabel}).`
       : kind === "start_now"
         ? role === "instructor"
-          ? `Время занятия с ${counterparty}. Нажмите «Начать урок» в заказе.`
+          ? `Время занятия с ${counterparty}. Нажмите «Начать урок».`
           : `Наступило время занятия с ${counterparty} (${startLabel}).`
         : role === "instructor"
-          ? "Урок по расписанию окончен. Нажмите «Завершить урок» в заказе."
+          ? "Урок по расписанию окончен. Нажмите «Завершить урок»."
           : "Урок по расписанию окончен. Дождитесь завершения сделки инструктором.";
 
   return (
@@ -228,9 +251,29 @@ export function OrderLessonRemindersPrompt({ role }: { role: "instructor" | "cli
           <Button type="button" variant="outline" onClick={() => setActive(null)}>
             Позже
           </Button>
+          {role === "instructor" && kind === "start_now" ? (
+            <Button
+              type="button"
+              variant="accent"
+              disabled={patchOrder.isPending}
+              onClick={() => patchOrder.mutate({ orderId: order.id, action: "start_lesson" })}
+            >
+              Начать урок
+            </Button>
+          ) : null}
+          {role === "instructor" && kind === "end_lesson" ? (
+            <Button
+              type="button"
+              variant="accent"
+              disabled={patchOrder.isPending}
+              onClick={() => patchOrder.mutate({ orderId: order.id, action: "complete_lesson" })}
+            >
+              Завершить урок
+            </Button>
+          ) : null}
           <Button
             type="button"
-            variant="accent"
+            variant={kind === "one_hour" ? "accent" : "outline"}
             onClick={() => {
               setActive(null);
               router.push(url);

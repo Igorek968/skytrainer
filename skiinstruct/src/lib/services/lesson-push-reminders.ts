@@ -3,12 +3,14 @@ import type { LessonDuration } from "@prisma/client";
 import {
   isInLessonEndReminderWindow,
   isInLessonStartNowWindow,
+  isInScheduledLessonEndWindow,
+  isLessonEndWindowClosing,
+  isLessonStartWindowClosing,
+  isScheduledLessonEndWindowClosing,
 } from "@/lib/order-lesson-reminder-windows";
 import { prisma } from "@/lib/prisma";
 import { startReminderWindow } from "@/lib/reminder-timing";
 import { sendWebPushToUser } from "@/lib/push-web";
-
-const MS = 1_000;
 
 /**
  * Web Push: за ~1 ч до начала; в момент старта; после планового конца — «завершить урок».
@@ -44,19 +46,22 @@ export async function processLessonPushReminders(): Promise<{
     const startLabel = o.requestedStartDate
       ? new Date(o.requestedStartDate).toLocaleString("ru-RU", { dateStyle: "short", timeStyle: "short" })
       : "";
-    const payload = {
-      title: "Скоро начало урока",
-      body: `Через ~1 час начало занятия (${startLabel}). Откройте заказ на utrainer.ru.`,
+    const base = {
       tag: `lesson-1h-${o.id}`,
       kind: "lesson-reminder" as const,
       sound: "reminder" as const,
+      orderId: o.id,
     };
     const r1 = await sendWebPushToUser(o.clientId, {
-      ...payload,
+      ...base,
+      title: "Скоро начало урока",
+      body: `Через ~1 час начало занятия (${startLabel}). Откройте utrainer.ru.`,
       url: `/client/orders/${o.id}`,
     });
     const r2 = await sendWebPushToUser(ins, {
-      ...payload,
+      ...base,
+      title: "Скоро начало урока",
+      body: `Через ~1 час начало занятия (${startLabel}). Откройте utrainer.ru.`,
       url: `/instructor/orders/${o.id}`,
     });
     if (r1.sent + r2.sent > 0) {
@@ -90,73 +95,98 @@ export async function processLessonPushReminders(): Promise<{
     const startLabel = o.requestedStartDate
       ? new Date(o.requestedStartDate).toLocaleString("ru-RU", { dateStyle: "short", timeStyle: "short" })
       : "";
-    const payload = {
-      title: "Пора начать тренировку",
-      body: `Наступило время занятия (${startLabel}). Откройте заказ на utrainer.ru и нажмите «Начать урок».`,
+    const base = {
       tag: `lesson-start-${o.id}`,
       kind: "lesson-reminder" as const,
       sound: "reminder" as const,
+      orderId: o.id,
+      lessonPhase: "start" as const,
     };
     const r1 = await sendWebPushToUser(o.clientId, {
-      ...payload,
+      ...base,
+      title: "Пора начать тренировку",
+      body: `Наступило время занятия (${startLabel}). Откройте utrainer.ru.`,
       url: `/client/orders/${o.id}`,
     });
     const r2 = await sendWebPushToUser(ins, {
-      ...payload,
-      url: `/instructor/orders/${o.id}`,
+      ...base,
+      title: "Пора начать тренировку",
+      body: `Наступило время (${startLabel}). Откройте заказ и нажмите «Начать урок».`,
+      url: `/instructor/orders/${o.id}?lessonAction=start`,
     });
-    if (r1.sent + r2.sent > 0) {
+    const sent = r1.sent + r2.sent > 0;
+    const closing = isLessonStartWindowClosing(o.requestedStartDate, now);
+    if (sent || closing) {
       await prisma.order.update({
         where: { id: o.id },
         data: { lessonAtStartReminderSentAt: nowDate },
       });
-      atStartReminders += 1;
+      if (sent) atStartReminders += 1;
     }
   }
 
-  const active = await prisma.order.findMany({
+  const forEnd = await prisma.order.findMany({
     where: {
-      status: "LESSON_STARTED",
-      lessonStartedAt: { not: null },
+      status: { in: ["ACCEPTED", "INSTRUCTOR_EN_ROUTE", "LESSON_STARTED"] },
       lessonEndReminderSentAt: null,
       instructorId: { not: null },
+      OR: [{ lessonStartedAt: { not: null } }, { requestedStartDate: { not: null } }],
     },
     select: {
       id: true,
       clientId: true,
       instructorId: true,
+      status: true,
       lessonStartedAt: true,
+      requestedStartDate: true,
       duration: true,
     },
   });
 
   let endReminders = 0;
-  for (const o of active) {
-    if (!o.lessonStartedAt) continue;
-    if (!isInLessonEndReminderWindow(o.lessonStartedAt, o.duration as LessonDuration, now)) continue;
+  for (const o of forEnd) {
+    const duration = o.duration as LessonDuration;
+    const inWindow =
+      o.status === "LESSON_STARTED" && o.lessonStartedAt
+        ? isInLessonEndReminderWindow(o.lessonStartedAt, duration, now)
+        : o.requestedStartDate
+          ? isInScheduledLessonEndWindow(o.requestedStartDate, duration, now)
+          : false;
+    if (!inWindow) continue;
 
     const ins = o.instructorId!;
-    const payload = {
-      title: "Завершите сделку",
-      body: "Урок по расписанию окончен. Нажмите «Завершить урок» на utrainer.ru — так фиксируется оплата и статус.",
+    const base = {
       tag: `lesson-end-${o.id}`,
       kind: "lesson-reminder" as const,
       sound: "reminder" as const,
+      orderId: o.id,
+      lessonPhase: "end" as const,
     };
     const r1 = await sendWebPushToUser(ins, {
-      ...payload,
-      url: `/instructor/orders/${o.id}`,
+      ...base,
+      title: "Завершите сделку",
+      body: "Урок по расписанию окончен. Нажмите «Завершить урок» на utrainer.ru.",
+      url: `/instructor/orders/${o.id}?lessonAction=complete`,
     });
     const r2 = await sendWebPushToUser(o.clientId, {
-      ...payload,
+      ...base,
+      title: "Урок окончен",
+      body: "Занятие по расписанию завершено. Попросите инструктора нажать «Завершить урок» на utrainer.ru.",
       url: `/client/orders/${o.id}`,
     });
-    if (r1.sent + r2.sent > 0) {
+    const sent = r1.sent + r2.sent > 0;
+    const closing =
+      o.status === "LESSON_STARTED" && o.lessonStartedAt
+        ? isLessonEndWindowClosing(o.lessonStartedAt, duration, now)
+        : o.requestedStartDate
+          ? isScheduledLessonEndWindowClosing(o.requestedStartDate, duration, now)
+          : false;
+    if (sent || closing) {
       await prisma.order.update({
         where: { id: o.id },
         data: { lessonEndReminderSentAt: nowDate },
       });
-      endReminders += 1;
+      if (sent) endReminders += 1;
     }
   }
 

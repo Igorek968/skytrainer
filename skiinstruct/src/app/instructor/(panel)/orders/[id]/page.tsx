@@ -434,6 +434,27 @@ export default function InstructorOrderPage() {
   const id = params.id;
   const qc = useQueryClient();
   const pushAcceptStartedRef = useRef(false);
+  const lessonActionStartedRef = useRef(false);
+
+  const patch = useMutation({
+    mutationFn: async (body: Record<string, unknown>) => {
+      const r = await fetch(`/api/orders/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(body),
+      });
+      if (!r.ok) {
+        const j = (await r.json().catch(() => ({}))) as { error?: unknown };
+        throw new Error(typeof j.error === "string" ? j.error : "patch");
+      }
+      return r.json();
+    },
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ["order", id] });
+      await qc.invalidateQueries({ queryKey: ["orders"] });
+    },
+  });
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["order", id],
@@ -490,24 +511,27 @@ export default function InstructorOrderPage() {
     })();
   }, [data?.order, id, isLoading, qc]);
 
-  const patch = useMutation({
-    mutationFn: async (body: Record<string, unknown>) => {
-      const r = await fetch(`/api/orders/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      if (!r.ok) {
-        const j = (await r.json().catch(() => ({}))) as { error?: unknown };
-        throw new Error(typeof j.error === "string" ? j.error : "patch");
-      }
-      return r.json();
-    },
-    onSuccess: async () => {
-      await qc.invalidateQueries({ queryKey: ["order", id] });
-      await qc.invalidateQueries({ queryKey: ["orders"] });
-    },
-  });
+  useEffect(() => {
+    if (typeof window === "undefined" || lessonActionStartedRef.current || !id) return;
+    const sp = new URLSearchParams(window.location.search);
+    const lessonAction = sp.get("lessonAction");
+    if (lessonAction !== "start" && lessonAction !== "complete") return;
+    if (isLoading || !data?.order) return;
+
+    lessonActionStartedRef.current = true;
+    const action = lessonAction === "start" ? "start_lesson" : "complete_lesson";
+    window.history.replaceState(null, "", `/instructor/orders/${id}`);
+
+    patch.mutate(
+      { action },
+      {
+        onSuccess: () => {
+          toast.success(lessonAction === "start" ? "Урок начат" : "Урок завершён");
+        },
+        onError: (e: Error) => toast.error(e.message),
+      },
+    );
+  }, [data?.order, id, isLoading, patch]);
 
   if (isLoading) {
     return (

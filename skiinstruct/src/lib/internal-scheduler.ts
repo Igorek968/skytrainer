@@ -1,7 +1,7 @@
 import { processScheduledPushReminders } from "@/lib/services/scheduled-reminders";
 import { retryPendingInstructorOrderPush } from "@/lib/services/instructor-order-notify-retry";
 
-const TICK_MS = 60_000;
+const TICK_MS = 30_000;
 const globalStartedKey = Symbol.for("skiinstruct.internalSchedulerStarted");
 
 /** Встроенный планировщик (без внешнего cron). По умолчанию включён в production. */
@@ -42,5 +42,5 @@ export function startInternalScheduler(): void {
 
   void tick();
   setInterval(() => void tick(), TICK_MS);
-  console.log("[scheduler] internal push reminders started (every 60s)");
+  console.log("[scheduler] internal push reminders started (every 30s)");
 }
