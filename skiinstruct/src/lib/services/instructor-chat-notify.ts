@@ -28,6 +28,7 @@ export async function notifyInstructorClientChatMessage(params: {
       tag: `instructor-chat-${params.messageId}`,
       sound: "chat",
       kind: "instructor-chat",
+      orderId: params.orderId,
     });
   } catch (e) {
     console.error("[instructor-chat-notify] push", e instanceof Error ? e.message : e);

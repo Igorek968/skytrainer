@@ -913,6 +913,13 @@ export default function ClientOrderPage() {
     refetchInterval: devPollInterval(5000),
   });
 
+  useEffect(() => {
+    if (typeof window === "undefined" || isLoading || !data) return;
+    if (window.location.hash !== "#order-chat") return;
+    const el = document.getElementById("order-chat");
+    el?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [isLoading, data]);
+
   const { data: cardStatus } = useQuery({
     queryKey: ["me-card-status", id],
     queryFn: async () => {

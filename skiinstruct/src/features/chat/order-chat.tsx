@@ -49,7 +49,7 @@ export function OrderChat({ orderId }: { orderId: string }) {
   });
 
   return (
-    <div className="space-y-3 rounded-lg border border-border p-4">
+    <div id="order-chat" className="space-y-3 rounded-lg border border-border p-4">
       <div className="text-sm font-medium">Чат</div>
       <div
         className="max-h-72 space-y-2 overflow-y-auto rounded-md bg-muted/40 p-3"

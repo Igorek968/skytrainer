@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { resolveUserRole } from "@/lib/api-session";
 import { prisma } from "@/lib/prisma";
 import { notifyInstructorClientChatMessage } from "@/lib/services/instructor-chat-notify";
+import { notifyClientInstructorChatMessage } from "@/lib/services/client-chat-notify";
 import { messageSchema } from "@/lib/validations/order";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -77,6 +78,7 @@ export async function POST(req: Request, ctx: Ctx) {
           instructorId: true,
           clientId: true,
           client: { select: { name: true } },
+          instructor: { select: { name: true } },
         },
       },
     },
@@ -88,6 +90,16 @@ export async function POST(req: Request, ctx: Ctx) {
       messageId: msg.id,
       instructorId: msg.order.instructorId,
       clientName: msg.order.client?.name ?? msg.sender.name,
+      body: msg.body,
+    });
+  }
+
+  if (msg.order.clientId && msg.order.instructorId && msg.senderId === msg.order.instructorId) {
+    void notifyClientInstructorChatMessage({
+      orderId: id,
+      messageId: msg.id,
+      clientId: msg.order.clientId,
+      instructorName: msg.order.instructor?.name ?? msg.sender.name,
       body: msg.body,
     });
   }
