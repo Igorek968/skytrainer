@@ -7,7 +7,7 @@ import { isApiErrorResponse, requireAuthSession, requireClientSession } from "@/
 import { prisma } from "@/lib/prisma";
 import { assertClientHasNoOtherActiveOrder } from "@/lib/services/client-active-order";
 import { findInstructorScheduleConflict } from "@/lib/services/instructor-schedule";
-import { prepareInstructorQueue, processExpiredPendingOrders } from "@/lib/services/instructor-routing";
+import { prepareInstructorQueue } from "@/lib/services/instructor-routing";
 import { canonicalizeActivityLabel } from "@/lib/services/instructor-match";
 import { createOrderSchema } from "@/lib/validations/order";
 import { mergeMeetAddressToNotes } from "@/shared/lib/order-meet-address";
@@ -45,8 +45,6 @@ function safeCoord(n: unknown, min: number, max: number): number | null {
 export async function GET() {
   const resolved = await requireAuthSession();
   if (isApiErrorResponse(resolved)) return resolved;
-
-  await processExpiredPendingOrders();
 
   const uid = resolved.userId;
   const role = resolved.role;

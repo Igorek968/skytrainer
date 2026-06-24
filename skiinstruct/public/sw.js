@@ -1,4 +1,5 @@
 /* eslint-disable no-restricted-globals */
+/* build: 20260624-push-accept-v2 */
 
 const NOTIFICATION_ICON = "/icon-192.png";
 
@@ -57,30 +58,10 @@ async function notifyOpenClients(title, options) {
   return clients;
 }
 
-async function respondToOrder(orderId, actionToken, action) {
-  const res = await fetch(`/api/orders/${orderId}/push-respond`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",
-    body: JSON.stringify({ action, token: actionToken || undefined }),
-  });
-  let payload = {};
-  try {
-    payload = await res.json();
-  } catch {
-    payload = {};
-  }
-  return { ok: res.ok, payload, status: res.status };
-}
-
-async function showResultNotification(title, body, url) {
-  await self.registration.showNotification(title, {
-    body,
-    icon: NOTIFICATION_ICON,
-    tag: "skiinstruct-action-result",
-    data: { url: url || "/" },
-    vibrate: [100, 50, 100],
-  });
+async function notifyOpenClients(title, options) {
+  const qs = new URLSearchParams({ pushAccept: "1" });
+  if (actionToken) qs.set("pushToken", actionToken);
+  return `/instructor/orders/${orderId}?${qs}`;
 }
 
 async function focusOrOpen(url) {
@@ -94,10 +75,10 @@ async function focusOrOpen(url) {
           await c.navigate(abs);
           return;
         } catch {
-          /* fall through */
+          /* openWindow fallback below */
         }
       }
-      return;
+      break;
     }
   }
   if (self.clients.openWindow) await self.clients.openWindow(abs);
@@ -105,6 +86,12 @@ async function focusOrOpen(url) {
 
 self.addEventListener("install", (event) => {
   event.waitUntil(self.skipWaiting());
+});
+
+self.addEventListener("message", (event) => {
+  if (event.data?.type === "SKIP_WAITING") {
+    void self.skipWaiting();
+  }
 });
 
 self.addEventListener("activate", (event) => {
@@ -142,29 +129,8 @@ self.addEventListener("notificationclick", (event) => {
   }
 
   if (orderId && action === "accept") {
-    event.waitUntil(
-      (async () => {
-        const result = await respondToOrder(orderId, actionToken, action);
-        if (result.ok) {
-          const msg =
-            action === "accept"
-              ? "Заявка принята. Откройте заказ для деталей."
-              : "Заявка отклонена.";
-          await showResultNotification(
-            action === "accept" ? "Заявка принята" : "Заявка отклонена",
-            msg,
-            `/instructor/orders/${orderId}`,
-          );
-          await focusOrOpen(`/instructor/orders/${orderId}?accepted=1`);
-          return;
-        }
-        const errMsg =
-          (result.payload && result.payload.error) ||
-          (action === "accept" ? "Не удалось принять заявку" : "Не удалось отклонить");
-        await showResultNotification("Utrainer", `${errMsg}. Откройте сайт.`, url);
-        await focusOrOpen(url);
-      })(),
-    );
+    // Принятие на странице заказа (есть cookies сессии). SW fetch на Android часто без авторизации.
+    event.waitUntil(focusOrOpen(orderAcceptUrl(orderId, actionToken)));
     return;
   }
 

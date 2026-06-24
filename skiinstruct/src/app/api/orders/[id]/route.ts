@@ -8,7 +8,6 @@ import {
   assignInstructorByQueue,
   loadRoutingQueueLabels,
   prepareInstructorQueue,
-  rerouteOrderIfDeadlinePassed,
 } from "@/lib/services/instructor-routing";
 import type { OrderCancelledBy } from "@prisma/client";
 
@@ -46,8 +45,6 @@ export async function GET(_req: Request, ctx: Ctx) {
   }
 
   const { id } = await ctx.params;
-
-  await rerouteOrderIfDeadlinePassed(id);
 
   const order = await prisma.order.findUnique({
     where: { id },

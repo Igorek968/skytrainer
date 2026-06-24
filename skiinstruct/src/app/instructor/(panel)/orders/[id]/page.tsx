@@ -3,7 +3,7 @@
 import { type UseMutationResult, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { OrderChat } from "@/features/chat/order-chat";
@@ -433,16 +433,62 @@ export default function InstructorOrderPage() {
   const params = useParams<{ id: string }>();
   const id = params.id;
   const qc = useQueryClient();
+  const pushAcceptStartedRef = useRef(false);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["order", id],
     queryFn: async () => {
-      const r = await fetch(`/api/orders/${id}`);
+      const r = await fetch(`/api/orders/${id}`, { credentials: "include" });
       if (!r.ok) throw new Error("order");
       return r.json() as Promise<{ order: OrderDTO }>;
     },
     refetchInterval: devPollInterval(4000),
   });
+
+  useEffect(() => {
+    if (typeof window === "undefined" || pushAcceptStartedRef.current || !id) return;
+    const sp = new URLSearchParams(window.location.search);
+    if (sp.get("pushAccept") !== "1") return;
+    if (isLoading || !data?.order) return;
+
+    const status = data.order.status;
+    if (status !== "PENDING_INSTRUCTOR") {
+      if (status === "ACCEPTED") {
+        toast.success("Заявка уже принята");
+      } else if (status === "EXPIRED") {
+        toast.error("Заявка уже закрыта — время ответа истекло");
+      }
+      const clean = `/instructor/orders/${id}`;
+      if (window.location.pathname + window.location.search !== clean) {
+        window.history.replaceState(null, "", clean);
+      }
+      return;
+    }
+
+    pushAcceptStartedRef.current = true;
+    const pushToken = sp.get("pushToken");
+
+    void (async () => {
+      const r = await fetch(`/api/orders/${id}/push-respond`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ action: "accept", token: pushToken || undefined }),
+      });
+      const j = (await r.json().catch(() => ({}))) as { error?: unknown };
+      window.history.replaceState(null, "", `/instructor/orders/${id}`);
+      if (r.ok) {
+        toast.success("Заявка принята");
+        await qc.invalidateQueries({ queryKey: ["order", id] });
+        await qc.invalidateQueries({ queryKey: ["orders"] });
+        await qc.invalidateQueries({ queryKey: ["instructor-order-alerts"] });
+        return;
+      }
+      const msg = typeof j.error === "string" ? j.error : "Не удалось принять заявку";
+      toast.error(msg);
+      await qc.invalidateQueries({ queryKey: ["order", id] });
+    })();
+  }, [data?.order, id, isLoading, qc]);
 
   const patch = useMutation({
     mutationFn: async (body: Record<string, unknown>) => {
