@@ -64,6 +64,8 @@ services:
       context: ./skiinstruct
       dockerfile: Dockerfile
     container_name: skiinstruct-web
+    ports:
+      - "3001:3000"
     expose:
       - "3000"
     env_file:

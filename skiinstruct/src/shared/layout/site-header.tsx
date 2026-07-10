@@ -82,7 +82,7 @@ export function SiteHeader() {
             }
           >
             <SiteLogo className="sm:hidden" compact />
-            <SiteLogo className="hidden sm:block" />
+            <SiteLogo className="hidden sm:inline-flex" />
           </Link>
           <HeaderAccountHint />
         </div>

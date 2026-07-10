@@ -163,7 +163,7 @@ export function siteJsonLd(): Record<string, unknown>[] {
       "@type": "Organization",
       name: productName,
       url: origin,
-      logo: `${origin}/brand/logo-mark.svg`,
+      logo: `${origin}/brand/logo-mark.png`,
       email: "berezka23igor@yandex.ru",
     },
     {

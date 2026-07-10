@@ -1,6 +1,6 @@
 # Utrainer localhost:3001 — рабочая сборка (snapshot)
 
-Зафиксировано: **2026-06-05**, ветка `yandex-experement` (коммит: `git rev-parse --short HEAD`). Использовать эти настройки для локального :3001.
+Зафиксировано: **2026-07-07**, ветка `yandex-experement` (коммит: `a5b66f6`). Использовать эти настройки для локального :3001.
 
 ## Проверенная конфигурация
 
@@ -13,7 +13,7 @@
 | NODE_ENV | `production` |
 | Next.js | 14.2.21 |
 | Polling | `SKIINSTRUCT_USE_POLLING=false` |
-| BUILD_ID | `GfKsQ71RyfGihLAvvBVFv` |
+| BUILD_ID | `7qpknzRlJZtTuyueggg-1` |
 
 ## Как поднять / восстановить
 
