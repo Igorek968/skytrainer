@@ -50,12 +50,14 @@ function userSearchTokenClause(t: string): Prisma.UserWhereInput {
     OR: [
       { email: { contains: t, mode: "insensitive" } },
       { name: { contains: t, mode: "insensitive" } },
+      { phone: { contains: t.replace(/\D/g, "") || t } },
       {
         instructorProfile: {
           OR: [
             { bio: { contains: t, mode: "insensitive" } },
             { certificationLevel: { contains: t, mode: "insensitive" } },
             { supportContact: { contains: t, mode: "insensitive" } },
+            { inn: { contains: t } },
           ],
         },
       },
@@ -117,6 +119,7 @@ const userMatchSelect = {
   id: true,
   email: true,
   name: true,
+  phone: true,
   role: true,
   createdAt: true,
   instructorProfile: { select: { specializations: true, inn: true } },
@@ -159,7 +162,7 @@ async function buildFocusParticipantInsights(
 ): Promise<AdminParticipantInsights | null> {
   const user = await prisma.user.findUnique({
     where: { id: uid },
-    select: { id: true, email: true, name: true, role: true },
+    select: { id: true, email: true, name: true, phone: true, role: true },
   });
   if (!user) return null;
 
@@ -481,7 +484,7 @@ export async function GET(req: Request) {
     },
     take: 40,
     orderBy: [{ profileDraftSubmittedAt: "desc" }, { updatedAt: "desc" }],
-    include: { user: { select: { email: true, name: true } } },
+    include: { user: { select: { email: true, name: true, phone: true } } },
   });
 
   const recentUsersBase = await prisma.user.findMany({
@@ -635,6 +638,7 @@ export async function GET(req: Request) {
             id: u.id,
             email: u.email,
             name: u.name,
+            phone: u.phone,
             role: u.role,
             instructorSpecializations: u.instructorProfile?.specializations ?? null,
             instructorInn: u.instructorProfile?.inn ?? null,
@@ -662,6 +666,8 @@ export async function GET(req: Request) {
             userId: p.userId,
             email: p.user.email,
             name: p.user.name,
+            phone: p.user.phone,
+            inn: p.inn,
             certificationLevel: p.certificationLevel,
             moderationKind,
             profileDraftSubmittedAt: p.profileDraftSubmittedAt?.toISOString() ?? null,

@@ -2,11 +2,12 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { LEGAL_ROUTES } from "@/lib/legal";
 import { NPD_RECEIPT_DEADLINE_HOURS, PAYOUT_MIN_WITHDRAWAL_RUB } from "@/lib/legal-config";
+import { formatRussianPhoneDisplay } from "@/lib/phone";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Input } from "@/shared/ui/input";
@@ -25,8 +26,17 @@ type ComplianceStatus = {
   taxDocumentApproved: boolean;
   insuranceApproved: boolean;
   canAcceptPaidOrders: boolean;
+  taxStatus: "SELF_EMPLOYED" | "IP" | null;
+  inn: string | null;
+  payoutAccountHint: string | null;
+  phone: string | null;
   documents: ComplianceDoc[];
 };
+
+function phoneForInput(digits: string | null | undefined): string {
+  if (!digits) return "";
+  return formatRussianPhoneDisplay(digits);
+}
 
 export function InstructorComplianceCard() {
   const qc = useQueryClient();
@@ -34,7 +44,9 @@ export function InstructorComplianceCard() {
   const insInput = useRef<HTMLInputElement>(null);
   const [taxStatus, setTaxStatus] = useState<"SELF_EMPLOYED" | "IP">("SELF_EMPLOYED");
   const [inn, setInn] = useState("");
+  const [phone, setPhone] = useState("");
   const [payoutHint, setPayoutHint] = useState("");
+  const [hydrated, setHydrated] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ["instructor-compliance"],
@@ -45,24 +57,50 @@ export function InstructorComplianceCard() {
     },
   });
 
+  useEffect(() => {
+    if (!data || hydrated) return;
+    if (data.taxStatus === "IP" || data.taxStatus === "SELF_EMPLOYED") {
+      setTaxStatus(data.taxStatus);
+    }
+    setInn(data.inn ?? "");
+    setPhone(phoneForInput(data.phone));
+    setPayoutHint(data.payoutAccountHint ?? "");
+    setHydrated(true);
+  }, [data, hydrated]);
+
   const saveProfile = useMutation({
     mutationFn: async () => {
+      const innDigits = inn.replace(/\D/g, "");
+      if (!/^\d{10,12}$/.test(innDigits)) {
+        throw new Error("Укажите ИНН (10 или 12 цифр)");
+      }
+      if (!phone.trim()) {
+        throw new Error("Укажите номер телефона");
+      }
       const res = await fetch("/api/instructor/compliance", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           taxStatus,
-          inn: inn.replace(/\D/g, ""),
+          inn: innDigits,
+          phone: phone.trim(),
           payoutAccountHint: payoutHint || undefined,
         }),
       });
       if (!res.ok) {
-        const j = await res.json();
+        const j = (await res.json()) as { error?: string };
         throw new Error(j.error ?? "save");
       }
+      return res.json() as Promise<ComplianceStatus>;
     },
-    onSuccess: () => {
+    onSuccess: (next) => {
       toast.success("Сохранено");
+      setPhone(phoneForInput(next.phone));
+      setInn(next.inn ?? "");
+      setPayoutHint(next.payoutAccountHint ?? "");
+      if (next.taxStatus === "IP" || next.taxStatus === "SELF_EMPLOYED") {
+        setTaxStatus(next.taxStatus);
+      }
       void qc.invalidateQueries({ queryKey: ["instructor-compliance"] });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -75,7 +113,7 @@ export function InstructorComplianceCard() {
       fd.set("type", type);
       const res = await fetch("/api/instructor/compliance", { method: "POST", body: fd });
       if (!res.ok) {
-        const j = await res.json();
+        const j = (await res.json()) as { error?: string };
         throw new Error(j.error ?? "upload");
       }
     },
@@ -144,8 +182,29 @@ export function InstructorComplianceCard() {
           </div>
           <div className="space-y-2">
             <Label htmlFor="inn">ИНН</Label>
-            <Input id="inn" value={inn} onChange={(e) => setInn(e.target.value)} placeholder="10–12 цифр" />
+            <Input
+              id="inn"
+              value={inn}
+              onChange={(e) => setInn(e.target.value.replace(/\D/g, "").slice(0, 12))}
+              placeholder="10–12 цифр"
+              inputMode="numeric"
+            />
           </div>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="phone">Номер телефона</Label>
+          <Input
+            id="phone"
+            type="tel"
+            inputMode="tel"
+            autoComplete="tel"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            placeholder="+7 900 000-00-00"
+          />
+          <p className="text-xs text-muted-foreground">
+            Виден только администрации. Клиентам и в публичном профиле не показывается.
+          </p>
         </div>
         <div className="space-y-2">
           <Label htmlFor="payout">Реквизиты для выплат (маска)</Label>

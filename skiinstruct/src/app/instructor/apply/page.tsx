@@ -22,6 +22,7 @@ const initialState: InstructorApplyState = { error: null, success: false };
 type InstructorApplyDraft = {
   name: string;
   email: string;
+  phone: string;
   password: string;
   passwordConfirm: string;
   primarySpecialization: string;
@@ -37,6 +38,7 @@ type InstructorApplyDraft = {
 const defaultDraft: InstructorApplyDraft = {
   name: "",
   email: "",
+  phone: "",
   password: "",
   passwordConfirm: "",
   primarySpecialization: "",
@@ -81,8 +83,9 @@ export default function InstructorApplyPage() {
         <CardHeader>
           <CardTitle as="h1">Стать инструктором</CardTitle>
           <CardDescription>
-            Заполните анкету. После проверки администратором вы сможете войти, включить статус «онлайн» и принимать
-            заявки клиентов по всей России (поиск рядом — в радиусе 5 км от точки встречи).
+            Заполните анкету полностью (включая ИНН и телефон). Без ИНН заявка на модерацию не отправляется. После
+            проверки администратором вы сможете включить статус «онлайн» и принимать заявки клиентов по всей России
+            (поиск рядом — в радиусе 5 км от точки встречи).
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -123,6 +126,24 @@ export default function InstructorApplyPage() {
                 value={values.email}
                 onChange={(e) => setField("email", e.target.value)}
               />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="phone">Номер телефона</Label>
+              <Input
+                id="phone"
+                name="phone"
+                type="tel"
+                autoComplete="tel"
+                required
+                inputMode="tel"
+                placeholder="+7 900 000-00-00"
+                aria-invalid={Boolean(state.error)}
+                value={values.phone}
+                onChange={(e) => setField("phone", e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Виден только администрации платформы, клиентам не показывается.
+              </p>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
@@ -213,16 +234,21 @@ export default function InstructorApplyPage() {
                 </select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="inn">ИНН</Label>
+                <Label htmlFor="inn">ИНН (обязательно)</Label>
                 <Input
                   id="inn"
                   name="inn"
                   required
+                  inputMode="numeric"
                   pattern="\d{10,12}"
+                  minLength={10}
+                  maxLength={12}
                   placeholder="10 или 12 цифр"
+                  aria-invalid={Boolean(state.error)}
                   value={values.inn}
-                  onChange={(e) => setField("inn", e.target.value)}
+                  onChange={(e) => setField("inn", e.target.value.replace(/\D/g, "").slice(0, 12))}
                 />
+                <p className="text-xs text-muted-foreground">Без ИНН заявка на модерацию не будет отправлена.</p>
               </div>
             </div>
             <div className="space-y-2">

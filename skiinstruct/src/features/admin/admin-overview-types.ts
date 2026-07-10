@@ -35,6 +35,7 @@ export type AdminParticipantInsights = {
     id: string;
     email: string;
     name: string | null;
+    phone: string | null;
     role: UserRole;
   };
   ordersTotal: number;
@@ -69,6 +70,7 @@ export type AdminOverview = {
       id: string;
       email: string;
       name: string | null;
+      phone: string | null;
       role: UserRole;
       instructorSpecializations: string[] | null;
       instructorInn: string | null;
@@ -91,6 +93,8 @@ export type AdminOverview = {
     userId: string;
     email: string;
     name: string | null;
+    phone: string | null;
+    inn: string | null;
     certificationLevel: string | null;
     moderationKind: "NEW_ACCOUNT" | "PROFILE_UPDATE";
     profileDraftSubmittedAt: string | null;

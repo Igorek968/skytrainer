@@ -10,6 +10,7 @@ import {
   adminOrderFlowLabel,
 } from "@/features/admin/admin-overview-types";
 import { adminOverviewHref } from "@/features/admin/admin-search-params";
+import { formatRussianPhoneDisplay } from "@/lib/phone";
 import { Button } from "@/shared/ui/button";
 
 function roleRu(role: string): string {
@@ -23,6 +24,11 @@ function roleRu(role: string): string {
     default:
       return role;
   }
+}
+
+function formatAdminPhone(phone: string | null | undefined): string {
+  if (!phone?.trim()) return "не указан";
+  return formatRussianPhoneDisplay(phone);
 }
 
 type Props = {
@@ -75,6 +81,7 @@ export function AdminParticipantSheet({ data, participantId, preserveSearch }: P
             </p>
             <p className="truncate text-sm font-semibold text-foreground">{u.name?.trim() || "ФИО не указано"}</p>
             <p className="truncate text-xs text-muted-foreground">{u.email}</p>
+            <p className="truncate text-xs text-muted-foreground">Телефон: {formatAdminPhone(u.phone)}</p>
             <p className="text-[11px] text-muted-foreground">{roleRu(u.role)}</p>
           </div>
           <Button variant="outline" size="sm" className="shrink-0" asChild>

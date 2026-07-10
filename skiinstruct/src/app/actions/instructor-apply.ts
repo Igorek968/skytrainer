@@ -36,6 +36,7 @@ export async function instructorApplyAction(
     acceptPrivacy: formData.get("acceptPrivacy") === "on",
     taxStatus,
     inn: String(formData.get("inn") ?? ""),
+    phone: String(formData.get("phone") ?? ""),
   });
 
   if (!created.ok) {

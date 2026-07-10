@@ -9,6 +9,7 @@ import type { AdminOverview } from "@/features/admin/admin-overview-types";
 import { AdminParticipantSheet } from "@/features/admin/admin-participant-sheet";
 import { adminOverviewHref } from "@/features/admin/admin-search-params";
 import { useAdminOverview } from "@/features/admin/use-admin-overview";
+import { formatRussianPhoneDisplay } from "@/lib/phone";
 import { cn } from "@/lib/utils";
 import { Button } from "@/shared/ui/button";
 import { Skeleton } from "@/shared/ui/skeleton";
@@ -24,6 +25,11 @@ function adminRoleRu(role: string): string {
     default:
       return role;
   }
+}
+
+function formatAdminPhone(phone: string | null | undefined): string | null {
+  if (!phone?.trim()) return null;
+  return formatRussianPhoneDisplay(phone);
 }
 
 type Props = {
@@ -191,6 +197,12 @@ function AdminWorkspaceInner({ title, subtitle, children }: Props) {
                           <div className="font-medium text-foreground">{u.name?.trim() || "ФИО не указано"}</div>
                           <div className="truncate text-muted-foreground">
                             {u.email}
+                            {formatAdminPhone(u.phone) ? (
+                              <>
+                                <span aria-hidden> · </span>
+                                <span>{formatAdminPhone(u.phone)}</span>
+                              </>
+                            ) : null}
                             {u.role === "INSTRUCTOR" ? (
                               <>
                                 <span aria-hidden> · </span>

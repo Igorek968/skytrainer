@@ -8,6 +8,7 @@ import {
   useAdminProfileReviewMutation,
   useAdminVerifyInstructorMutation,
 } from "@/features/admin/use-admin-overview";
+import { formatRussianPhoneDisplay } from "@/lib/phone";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Label } from "@/shared/ui/label";
@@ -22,6 +23,11 @@ type RejectTarget = {
   name: string | null;
   email: string;
 };
+
+function formatAdminPhone(phone: string | null | undefined): string {
+  if (!phone?.trim()) return "не указан";
+  return formatRussianPhoneDisplay(phone);
+}
 
 function profileChangeKindLabel(kind: ProfileChange["kind"]): string {
   switch (kind) {
@@ -208,6 +214,15 @@ export function AdminModerationSection({ data }: { data: AdminOverview }) {
                   <div className="min-w-0 flex-1">
                     <div className="font-medium">{p.name ?? "—"}</div>
                     <div className="text-xs text-muted-foreground">{p.email}</div>
+                    <div className="text-xs text-muted-foreground">
+                      Телефон: {formatAdminPhone(p.phone)}
+                      {p.moderationKind === "NEW_ACCOUNT" ? (
+                        <>
+                          <span aria-hidden> · </span>
+                          ИНН: {p.inn?.trim() || "не указан"}
+                        </>
+                      ) : null}
+                    </div>
                     <p className="text-xs text-muted-foreground">
                       {p.moderationKind === "NEW_ACCOUNT"
                         ? "Новая регистрация — первая проверка"

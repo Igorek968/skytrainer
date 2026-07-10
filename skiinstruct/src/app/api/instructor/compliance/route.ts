@@ -1,10 +1,12 @@
 import { randomUUID } from "crypto";
 
+import { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { isApiErrorResponse, requireInstructorSession } from "@/lib/api-session";
 import { getInstructorComplianceStatus } from "@/lib/instructor-compliance";
+import { normalizeRussianPhone } from "@/lib/phone";
 import { writePrivateUpload } from "@/lib/private-uploads";
 import { prisma } from "@/lib/prisma";
 import { validateUploadedBytes } from "@/lib/upload-validation";
@@ -14,8 +16,25 @@ const ALLOWED = new Set(["image/jpeg", "image/png", "image/webp", "application/p
 
 const patchSchema = z.object({
   taxStatus: z.enum(["SELF_EMPLOYED", "IP"]).optional(),
-  inn: z.string().regex(/^\d{10,12}$/).optional(),
+  inn: z.string().regex(/^\d{10,12}$/, "Укажите ИНН (10 или 12 цифр)").optional(),
   payoutAccountHint: z.string().min(4).max(64).optional(),
+  phone: z
+    .string()
+    .trim()
+    .min(1)
+    .max(32)
+    .transform((raw, ctx) => {
+      const normalized = normalizeRussianPhone(raw);
+      if (!normalized) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Укажите российский мобильный: +7XXXXXXXXXX",
+        });
+        return z.NEVER;
+      }
+      return normalized;
+    })
+    .optional(),
 });
 
 export async function GET() {
@@ -37,13 +56,39 @@ export async function PATCH(req: Request) {
   }
   const parsed = patchSchema.safeParse(json);
   if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+    const flat = parsed.error.flatten();
+    const msg =
+      flat.fieldErrors.inn?.[0] ??
+      flat.fieldErrors.phone?.[0] ??
+      flat.fieldErrors.payoutAccountHint?.[0] ??
+      flat.fieldErrors.taxStatus?.[0] ??
+      "Проверьте поля";
+    return NextResponse.json({ error: msg }, { status: 400 });
   }
 
-  await prisma.instructorProfile.update({
-    where: { userId: auth.userId },
-    data: parsed.data,
-  });
+  const { phone, ...profileData } = parsed.data;
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      if (Object.keys(profileData).length > 0) {
+        await tx.instructorProfile.update({
+          where: { userId: auth.userId },
+          data: profileData,
+        });
+      }
+      if (phone !== undefined) {
+        await tx.user.update({
+          where: { id: auth.userId },
+          data: { phone },
+        });
+      }
+    });
+  } catch (e) {
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
+      return NextResponse.json({ error: "Этот номер телефона уже используется" }, { status: 409 });
+    }
+    throw e;
+  }
 
   return NextResponse.json(await getInstructorComplianceStatus(auth.userId));
 }

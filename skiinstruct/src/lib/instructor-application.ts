@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { buildInstructorProfileCreateData } from "@/lib/instructor-profile-defaults";
 import { AGENCY_OFFER_VERSION } from "@/lib/legal-config";
+import { normalizeRussianPhone } from "@/lib/phone";
 import { prisma } from "@/lib/prisma";
 import { canonicalizeActivityLabel, canonicalizeActivityLabels } from "@/lib/services/instructor-match";
 import { findDuplicateParticipantByDisplayName } from "@/lib/services/user-display-name-uniqueness";
@@ -17,6 +18,29 @@ const applySchema = z.object({
   hourlyRate: z.coerce.number().min(500, "Минимальная ставка 500 ₽/ч").max(500_000),
   primarySpecialization: z.string().trim().min(1, "Выберите направление"),
   achievementsRaw: z.string().trim().max(2000).optional(),
+  taxStatus: z.enum(["SELF_EMPLOYED", "IP"], {
+    errorMap: () => ({ message: "Укажите налоговый статус" }),
+  }),
+  inn: z
+    .string()
+    .trim()
+    .regex(/^\d{10,12}$/, "Укажите ИНН (10 или 12 цифр) — без него заявка на модерацию не отправляется"),
+  phone: z
+    .string()
+    .trim()
+    .min(1, "Укажите номер телефона")
+    .max(32)
+    .transform((raw, ctx) => {
+      const normalized = normalizeRussianPhone(raw);
+      if (!normalized) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Укажите российский мобильный: +7XXXXXXXXXX",
+        });
+        return z.NEVER;
+      }
+      return normalized;
+    }),
 });
 
 export type CreateInstructorApplicationResult =
@@ -37,6 +61,7 @@ export async function createInstructorApplication(input: {
   acceptPrivacy?: boolean;
   taxStatus?: "SELF_EMPLOYED" | "IP";
   inn?: string;
+  phone?: string;
 }): Promise<CreateInstructorApplicationResult> {
   if (!input.acceptAgencyOffer || !input.acceptPrivacy) {
     return {
@@ -58,6 +83,9 @@ export async function createInstructorApplication(input: {
     hourlyRate: input.hourlyRate,
     primarySpecialization: input.primarySpecialization,
     achievementsRaw: input.achievementsRaw,
+    taxStatus: input.taxStatus,
+    inn: input.inn?.replace(/\D/g, "") ?? "",
+    phone: input.phone ?? "",
   });
   if (!parsed.success) {
     const flat = parsed.error.flatten();
@@ -68,7 +96,10 @@ export async function createInstructorApplication(input: {
       flat.fieldErrors.bio?.[0] ??
       flat.fieldErrors.hourlyRate?.[0] ??
       flat.fieldErrors.primarySpecialization?.[0] ??
-      "Проверьте поля формы";
+      flat.fieldErrors.taxStatus?.[0] ??
+      flat.fieldErrors.inn?.[0] ??
+      flat.fieldErrors.phone?.[0] ??
+      "Заполните все обязательные поля анкеты";
     return { ok: false, error: msg, status: 400 };
   }
 
@@ -86,7 +117,7 @@ export async function createInstructorApplication(input: {
     .filter((s) => s.length > 0)
     .slice(0, 20);
 
-  const { email, password, name, bio, hourlyRate } = parsed.data;
+  const { email, password, name, bio, hourlyRate, taxStatus, inn, phone } = parsed.data;
 
   const { firstName, lastName } = parseFullNameToParts(name);
   if (firstName && lastName) {
@@ -107,6 +138,14 @@ export async function createInstructorApplication(input: {
     return { ok: false, error: "Этот email уже используется. Войдите или укажите другой email.", status: 409 };
   }
 
+  const phoneTaken = await prisma.user.findFirst({
+    where: { phone },
+    select: { id: true },
+  });
+  if (phoneTaken) {
+    return { ok: false, error: "Этот номер телефона уже используется", status: 409 };
+  }
+
   const passwordHash = await hash(password, 12);
 
   try {
@@ -115,6 +154,7 @@ export async function createInstructorApplication(input: {
         email,
         passwordHash,
         name,
+        phone,
         role: "INSTRUCTOR",
         instructorProfile: {
           create: buildInstructorProfileCreateData({
@@ -124,14 +164,19 @@ export async function createInstructorApplication(input: {
             achievements,
             agencyOfferAcceptedAt: new Date(),
             agencyOfferVersion: AGENCY_OFFER_VERSION,
-            taxStatus: input.taxStatus ?? null,
-            inn: input.inn?.trim() || null,
+            taxStatus,
+            inn,
           }),
         },
       },
     });
   } catch (e) {
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
+      const target = e.meta?.target;
+      const fields = Array.isArray(target) ? target.map(String) : [String(target ?? "")];
+      if (fields.some((f) => f.includes("phone"))) {
+        return { ok: false, error: "Этот номер телефона уже используется", status: 409 };
+      }
       return { ok: false, error: "Этот email уже зарегистрирован", status: 409 };
     }
     throw e;

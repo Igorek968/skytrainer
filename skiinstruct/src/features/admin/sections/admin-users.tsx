@@ -12,6 +12,7 @@ import {
   parseAdminUserRoleFilter,
   type AdminUserRoleFilter,
 } from "@/lib/admin-list-filters";
+import { formatRussianPhoneDisplay } from "@/lib/phone";
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
@@ -20,6 +21,11 @@ import { Skeleton } from "@/shared/ui/skeleton";
 
 function roleLabel(role: string): string {
   return ADMIN_USER_ROLE_LABELS[role as AdminUserRoleFilter] ?? role;
+}
+
+function formatPhone(phone: string | null | undefined): string {
+  if (!phone) return "—";
+  return formatRussianPhoneDisplay(phone);
 }
 
 function FilterChip({
@@ -135,11 +141,12 @@ export function AdminUsersSection() {
           ) : !data?.users.length ? (
             <p className="text-sm text-muted-foreground">Нет пользователей в этой выборке.</p>
           ) : (
-            <table className="w-full min-w-[640px] border-collapse text-left text-sm">
+            <table className="w-full min-w-[720px] border-collapse text-left text-sm">
               <thead>
                 <tr className="border-b border-border text-xs text-muted-foreground">
                   <th className="py-2 pr-3 font-medium">Имя</th>
                   <th className="py-2 pr-3 font-medium">Email</th>
+                  <th className="py-2 pr-3 font-medium">Телефон</th>
                   <th className="py-2 pr-3 font-medium">Роль</th>
                   <th className="py-2 pr-3 font-medium">Статус</th>
                   <th className="py-2 font-medium">Действия</th>
@@ -150,6 +157,7 @@ export function AdminUsersSection() {
                   <tr key={u.id} className="border-b border-border/80">
                     <td className="py-2 pr-3 font-medium">{u.name?.trim() || "—"}</td>
                     <td className="py-2 pr-3 text-muted-foreground">{u.email}</td>
+                    <td className="py-2 pr-3 tabular-nums text-muted-foreground">{formatPhone(u.phone)}</td>
                     <td className="py-2 pr-3">{roleLabel(u.role)}</td>
                     <td className="py-2 pr-3">
                       {u.role === "INSTRUCTOR" ? (

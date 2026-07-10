@@ -32,14 +32,25 @@ export function computeComplianceFlags(input: {
 
 /** Для ИП вместо NPD допускается TAX_STATUS_IP. */
 export async function getInstructorComplianceStatus(userId: string) {
-  const profile = await prisma.instructorProfile.findUnique({
-    where: { userId },
-    select: { taxStatus: true, agencyOfferAcceptedAt: true, inn: true },
-  });
-  const docs = await prisma.instructorComplianceDocument.findMany({
-    where: { userId },
-    orderBy: { createdAt: "desc" },
-  });
+  const [profile, user, docs] = await Promise.all([
+    prisma.instructorProfile.findUnique({
+      where: { userId },
+      select: {
+        taxStatus: true,
+        agencyOfferAcceptedAt: true,
+        inn: true,
+        payoutAccountHint: true,
+      },
+    }),
+    prisma.user.findUnique({
+      where: { id: userId },
+      select: { phone: true },
+    }),
+    prisma.instructorComplianceDocument.findMany({
+      where: { userId },
+      orderBy: { createdAt: "desc" },
+    }),
+  ]);
 
   const approved = new Set(
     docs.filter((d) => d.status === "APPROVED").map((d) => d.type),
@@ -53,6 +64,10 @@ export async function getInstructorComplianceStatus(userId: string) {
 
   return {
     ...flags,
+    taxStatus: profile?.taxStatus ?? null,
+    inn: profile?.inn ?? null,
+    payoutAccountHint: profile?.payoutAccountHint ?? null,
+    phone: user?.phone ?? null,
     documents: docs,
   };
 }

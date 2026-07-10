@@ -10,6 +10,7 @@ export type AdminUserListRow = {
   id: string;
   email: string;
   name: string | null;
+  phone: string | null;
   role: UserRole;
   createdAt: string;
   updatedAt: string;
