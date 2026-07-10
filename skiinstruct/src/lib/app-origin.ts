@@ -52,6 +52,19 @@ export function absoluteAppUrl(path: string, req?: Request): URL {
     }
   }
 
-  const fallback = configured || "https://utrainer.ru";
+  const fallback = configured || "http://твойтренер.рф";
   return new URL(normalizedPath, `${fallback}/`);
+}
+
+/** Хост сайта для push-уведомлений и подсказок (без схемы). */
+export function publicSiteHostLabel(): string {
+  const origin = configuredAppOrigin();
+  if (origin) {
+    try {
+      return new URL(origin).host;
+    } catch {
+      /* ignore */
+    }
+  }
+  return "твойтренер.рф";
 }

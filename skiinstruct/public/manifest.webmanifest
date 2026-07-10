@@ -1,7 +1,7 @@
 {
   "id": "/",
-  "name": "Utrainer",
-  "short_name": "Utrainer",
+  "name": "ТвойТренер.рф",
+  "short_name": "ТвойТренер.рф",
   "description": "Маркетплейс персональных тренировок: найдите инструктора на карте, забронируйте и оплатите занятие онлайн.",
   "start_url": "/client",
   "scope": "/",
@@ -15,7 +15,7 @@
   "categories": ["sports", "health", "lifestyle"],
   "icons": [
     {
-      "src": "/icon.svg",
+      "src": "/brand/logo-mark.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any"

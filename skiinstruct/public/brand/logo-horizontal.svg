@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 72" role="img" aria-label="Tvoy Trener">
+  <title>Tvoy Trener</title>
+  <g transform="translate(4 6) scale(0.6)">
+    <circle cx="58.5" cy="26.5" r="8.2" fill="#1e293b"/>
+    <path
+      d="M48.5 36.5c3.2-1.8 9.8-1.4 13.8 1.8 2.2 1.8 3.4 4.6 3.6 7.6l1.2 24.2c.3 4.8-3.8 8.6-8.6 8.2-4.2-.4-7.4-3.8-7.8-8l-1.4-22.8c-.2-3.2 1.2-6.2 3.2-8.2z"
+      fill="#1e293b"
+    />
+    <circle cx="34" cy="22.5" r="10.2" fill="#0f766e"/>
+    <path
+      d="M20.5 36.5c1.8-6.2 7.8-9.2 15.2-6.2 5.2 2.2 9.2 5.8 11.2 10.8l-2.2 31.8c-1.2 7.8-9.8 12.2-18.2 9.2-6.8-2.5-10.2-9.2-9.2-16.8 1-6.2 2.2-12.2 3.2-18.8z"
+      fill="#0f766e"
+    />
+    <path
+      d="M27 48.5c6.5-4.5 13.5-3.5 19.5 1.5 2.8 2.2 2.2 6.2-1.2 7.5-3.2 1.2-6.8.8-9.8 2.5-3.5 2-3.2 6.8.5 8.5 3.2 1.5 7.2.2 9.5-2.5"
+      fill="none"
+      stroke="#ffffff"
+      stroke-width="5.2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+  </g>
+  <text
+    x="78"
+    y="46"
+    font-family="Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif"
+    font-size="28"
+    font-weight="400"
+    fill="#64748b"
+  >&#1058;&#1074;&#1086;&#1081;</text>
+  <text
+    x="148"
+    y="46"
+    font-family="Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif"
+    font-size="28"
+    font-weight="700"
+    fill="#0f172a"
+  >&#1058;&#1088;&#1077;&#1085;&#1077;&#1088;</text>
+</svg>

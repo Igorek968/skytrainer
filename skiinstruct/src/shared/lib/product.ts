@@ -1,5 +1,5 @@
-/** Продукт: веб-приложение Utrainer (Next.js). Админка читает только его БД. */
-export const UTRAINER_PRODUCT_NAME = "Utrainer" as const;
+/** Продукт: веб-приложение «ТвойТренер.рф» (Next.js). Админка читает только его БД. */
+export const UTRAINER_PRODUCT_NAME = "ТвойТренер.рф" as const;
 
 /** @deprecated используйте UTRAINER_PRODUCT_NAME */
 export const SKIINSTRUCT_PRODUCT_NAME = UTRAINER_PRODUCT_NAME;

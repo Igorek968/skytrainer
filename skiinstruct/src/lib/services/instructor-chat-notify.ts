@@ -1,3 +1,4 @@
+import { publicSiteHostLabel } from "@/lib/app-origin";
 import { sendWebPushToUser } from "@/lib/push-web";
 import { getPublicProductName } from "@/shared/lib/product";
 
@@ -18,12 +19,12 @@ export async function notifyInstructorClientChatMessage(params: {
   const preview = previewBody(params.body);
   const clientLabel = params.clientName?.trim() || "Клиент";
   const url = `/instructor/orders/${params.orderId}`;
-  const appName = getPublicProductName();
+  const siteLabel = publicSiteHostLabel();
 
   try {
     await sendWebPushToUser(params.instructorId, {
-      title: `${appName}: сообщение от клиента`,
-      body: `${clientLabel}: ${preview}. Откройте utrainer.ru.`,
+      title: `${getPublicProductName()}: сообщение от клиента`,
+      body: `${clientLabel}: ${preview}. Откройте ${siteLabel}.`,
       url,
       tag: `instructor-chat-${params.messageId}`,
       sound: "chat",

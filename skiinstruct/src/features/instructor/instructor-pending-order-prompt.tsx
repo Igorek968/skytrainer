@@ -26,6 +26,7 @@ import {
   instructorCanAcceptAfterDeadline,
 } from "@/shared/lib/order-flex";
 import { isLongInstructorEtaMinutes, LONG_INSTRUCTOR_ETA_MINUTES } from "@/shared/lib/order-long-eta";
+import { getPublicProductName } from "@/shared/lib/product";
 import { OrderLessonTimeBlock } from "@/shared/ui/order-lesson-time-block";
 import { orderHasMeetAddress, resolveMeetAddress } from "@/shared/lib/order-meet-address";
 import { orderStatusLabel } from "@/shared/lib/order-status";
@@ -216,7 +217,7 @@ export function InstructorPendingOrderPrompt() {
     let on = false;
     const id = window.setInterval(() => {
       on = !on;
-      document.title = on ? "⚡ Новая заявка! — Utrainer" : baseTitle;
+      document.title = on ? `⚡ Новая заявка! — ${getPublicProductName()}` : baseTitle;
     }, 900);
     return () => {
       window.clearInterval(id);

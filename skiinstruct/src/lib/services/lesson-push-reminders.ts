@@ -8,6 +8,7 @@ import {
   isLessonStartWindowClosing,
   isScheduledLessonEndWindowClosing,
 } from "@/lib/order-lesson-reminder-windows";
+import { publicSiteHostLabel } from "@/lib/app-origin";
 import { prisma } from "@/lib/prisma";
 import { startReminderWindow } from "@/lib/reminder-timing";
 import { sendWebPushToUser } from "@/lib/push-web";
@@ -21,6 +22,7 @@ export async function processLessonPushReminders(): Promise<{
   endReminders: number;
 }> {
   const now = Date.now();
+  const siteLabel = publicSiteHostLabel();
   const nowDate = new Date(now);
 
   const { min: startMin, max: startMax } = startReminderWindow(now);
@@ -55,13 +57,13 @@ export async function processLessonPushReminders(): Promise<{
     const r1 = await sendWebPushToUser(o.clientId, {
       ...base,
       title: "Скоро начало урока",
-      body: `Через ~1 час начало занятия (${startLabel}). Откройте utrainer.ru.`,
+      body: `Через ~1 час начало занятия (${startLabel}). Откройте ${siteLabel}.`,
       url: `/client/orders/${o.id}`,
     });
     const r2 = await sendWebPushToUser(ins, {
       ...base,
       title: "Скоро начало урока",
-      body: `Через ~1 час начало занятия (${startLabel}). Откройте utrainer.ru.`,
+      body: `Через ~1 час начало занятия (${startLabel}). Откройте ${siteLabel}.`,
       url: `/instructor/orders/${o.id}`,
     });
     if (r1.sent + r2.sent > 0) {
@@ -105,7 +107,7 @@ export async function processLessonPushReminders(): Promise<{
     const r1 = await sendWebPushToUser(o.clientId, {
       ...base,
       title: "Пора начать тренировку",
-      body: `Наступило время занятия (${startLabel}). Откройте utrainer.ru.`,
+      body: `Наступило время занятия (${startLabel}). Откройте ${siteLabel}.`,
       url: `/client/orders/${o.id}`,
     });
     const r2 = await sendWebPushToUser(ins, {
@@ -165,13 +167,13 @@ export async function processLessonPushReminders(): Promise<{
     const r1 = await sendWebPushToUser(ins, {
       ...base,
       title: "Завершите сделку",
-      body: "Урок по расписанию окончен. Нажмите «Завершить урок» на utrainer.ru.",
+      body: `Урок по расписанию окончен. Нажмите «Завершить урок» на ${siteLabel}.`,
       url: `/instructor/orders/${o.id}?lessonAction=complete`,
     });
     const r2 = await sendWebPushToUser(o.clientId, {
       ...base,
       title: "Урок окончен",
-      body: "Занятие по расписанию завершено. Попросите инструктора нажать «Завершить урок» на utrainer.ru.",
+      body: `Занятие по расписанию завершено. Попросите инструктора нажать «Завершить урок» на ${siteLabel}.`,
       url: `/client/orders/${o.id}`,
     });
     const sent = r1.sent + r2.sent > 0;

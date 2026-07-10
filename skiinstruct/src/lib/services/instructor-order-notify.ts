@@ -5,8 +5,9 @@ import { prisma } from "@/lib/prisma";
 import { createOrderPushActionToken } from "@/lib/order-push-action-token";
 import { sendWebPushToUser } from "@/lib/push-web";
 import { lessonDurationLabelRu, skillLevelLabelRu } from "@/shared/lib/order-booking-labels";
-import { getPublicProductName } from "@/shared/lib/product";
+import { publicSiteHostLabel } from "@/lib/app-origin";
 import { orderIsUrgent, URGENT_INSTRUCTOR_DEADLINE_MIN } from "@/shared/lib/order-flex";
+import { getPublicProductName } from "@/shared/lib/product";
 
 function envSecret(value: string | undefined): string {
   const v = value?.trim() ?? "";
@@ -168,14 +169,8 @@ export async function notifyInstructorOfPendingOrder(orderId: string): Promise<b
   if (!order?.instructor || order.status !== "PENDING_INSTRUCTOR" || !order.instructorId) return false;
   if (order.instructorPendingNotifiedAt) return false;
 
-  const origin = process.env.NEXT_PUBLIC_APP_URL?.trim() || "http://localhost:3001";
-  const siteHost = (() => {
-    try {
-      return new URL(origin).host;
-    } catch {
-      return "utrainer.ru";
-    }
-  })();
+  const origin = process.env.NEXT_PUBLIC_APP_URL?.trim() || "http://твойтренер.рф";
+  const siteHost = publicSiteHostLabel();
   const orderUrl = `${origin}/instructor/orders/${orderId}`;
   const appName = getPublicProductName();
   const clientName = order.client?.name?.trim() || "Клиент";

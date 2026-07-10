@@ -35,7 +35,7 @@ if ($hasCerts) {
   }
 }
 
-ssh $SshHost "set -e; mkdir -p $RemoteDir/deploy/caddy-data $RemoteDir/deploy/caddy-config; rm -rf $RemoteDir/skiinstruct/src; tar xzf /tmp/skytrainer-deploy.tar.gz -C $RemoteDir; cd $RemoteDir; docker compose --env-file .env.qa -f docker-compose.qa.yml up -d --build; docker compose --env-file .env.qa -f docker-compose.qa.yml exec -T skiinstruct npx prisma db push; docker compose --env-file .env.qa -f docker-compose.qa.yml ps"
+ssh $SshHost "set -e; mkdir -p $RemoteDir/deploy/caddy-data $RemoteDir/deploy/caddy-config; rm -rf $RemoteDir/skiinstruct/src; tar xzf /tmp/skytrainer-deploy.tar.gz -C $RemoteDir; cd $RemoteDir; sudo docker compose --env-file .env.qa -f docker-compose.qa.yml up -d --build; sudo docker compose --env-file .env.qa -f docker-compose.qa.yml exec -T skiinstruct npx prisma db push; sudo docker compose --env-file .env.qa -f docker-compose.qa.yml ps"
 
 $domain = $null
 Get-Content -LiteralPath $EnvFile | ForEach-Object {

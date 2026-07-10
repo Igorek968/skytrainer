@@ -5,7 +5,16 @@
  * формы логина могут «молча» не отправляться без этого списка.
  */
 function serverActionsAllowedOrigins() {
-  const origins = new Set(["localhost:3001", "127.0.0.1:3001", "localhost:3000", "127.0.0.1:3000"]);
+  const origins = new Set([
+    "localhost:3001",
+    "127.0.0.1:3001",
+    "localhost:3000",
+    "127.0.0.1:3000",
+    "твойтренер.рф",
+    "www.твойтренер.рф",
+    "xn--b1agaovdpdkd.xn--p1ai",
+    "www.xn--b1agaovdpdkd.xn--p1ai",
+  ]);
   const extra = process.env.NEXT_SERVER_ACTIONS_ALLOWED_ORIGINS ?? "";
   for (const part of extra.split(",").map((s) => s.trim()).filter(Boolean)) {
     origins.add(part);
@@ -47,7 +56,21 @@ function resolvedVapidPublicKeyForClient() {
   return process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY?.trim() || "";
 }
 
+function configuredSiteUsesHttps() {
+  const raw =
+    process.env.NEXT_PUBLIC_APP_URL?.trim() ||
+    process.env.AUTH_URL?.trim() ||
+    process.env.NEXTAUTH_URL?.trim();
+  if (!raw) return false;
+  try {
+    return new URL(raw).protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
 const isProd = process.env.NODE_ENV === "production";
+const siteUsesHttps = configuredSiteUsesHttps();
 
 const cspDirectives = [
   "default-src 'self'",
@@ -61,7 +84,7 @@ const cspDirectives = [
   "base-uri 'self'",
   "form-action 'self'",
 ];
-if (isProd) {
+if (isProd && siteUsesHttps) {
   cspDirectives.push("upgrade-insecure-requests");
 }
 
@@ -76,7 +99,7 @@ const securityHeaders = [
   },
 ];
 
-if (isProd) {
+if (isProd && siteUsesHttps) {
   securityHeaders.push({
     key: "Strict-Transport-Security",
     value: "max-age=31536000; includeSubDomains",

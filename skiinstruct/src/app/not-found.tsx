@@ -1,12 +1,15 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { getPublicProductName } from "@/shared/lib/product";
 import { Button } from "@/shared/ui/button";
 
+const appName = getPublicProductName();
+
 export const metadata: Metadata = {
-  title: { absolute: "Страница не найдена | Utrainer" },
+  title: { absolute: `Страница не найдена | ${appName}` },
   description:
-    "Запрошенная страница на Utrainer не существует. Перейдите на главную или воспользуйтесь поиском инструктора.",
+    `Запрошенная страница на ${appName} не существует. Перейдите на главную или воспользуйтесь поиском инструктора.`,
   robots: { index: false, follow: true },
 };
 
@@ -16,7 +19,7 @@ export default function NotFound() {
       <p className="text-sm font-medium text-muted-foreground">Ошибка 404</p>
       <h1 className="text-2xl font-semibold tracking-tight">Страница не найдена</h1>
       <p className="text-sm text-muted-foreground">
-        Такой страницы на Utrainer нет. Проверьте адрес или перейдите к поиску инструктора на главной.
+        Такой страницы на {appName} нет. Проверьте адрес или перейдите к поиску инструктора на главной.
       </p>
       <div className="flex flex-wrap justify-center gap-2">
         <Button type="button" variant="accent" asChild>

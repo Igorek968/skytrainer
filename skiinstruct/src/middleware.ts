@@ -17,8 +17,22 @@ import type { UserRole } from "@prisma/client";
  * Проверка «вошёл / не вошёл» и разделение кабинетов по роли из JWT.
  * Роль в JWT обновляется из БД в callbacks.jwt (auth.ts) при каждом запросе.
  */
+function configuredSiteUsesHttps(): boolean {
+  const raw =
+    process.env.NEXT_PUBLIC_APP_URL?.trim() ||
+    process.env.AUTH_URL?.trim() ||
+    process.env.NEXTAUTH_URL?.trim();
+  if (!raw) return false;
+  try {
+    return new URL(raw).protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
 function httpsRedirect(req: NextRequest): NextResponse | null {
   if (process.env.NODE_ENV !== "production") return null;
+  if (!configuredSiteUsesHttps()) return null;
   const host = req.headers.get("x-forwarded-host") ?? req.headers.get("host");
   if (!host || host.includes("localhost") || host.startsWith("127.0.0.1")) return null;
   const proto = req.headers.get("x-forwarded-proto");

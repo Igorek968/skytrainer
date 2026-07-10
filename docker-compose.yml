@@ -48,7 +48,7 @@ services:
       REDIS_URL: redis://redis:6379
       JWT_SECRET: ${JWT_SECRET:-change-me-min-32-chars-docker-compose-skytrainer}
       PUBLIC_API_URL: ${PUBLIC_API_URL:-http://localhost:3000}
-      APP_RETURN_URL: ${APP_RETURN_URL:-http://localhost:3001/client/orders}
+      APP_RETURN_URL: ${APP_RETURN_URL:-http://твойтренер.рф/client/orders}
       YOOKASSA_SHOP_ID: ${YOOKASSA_SHOP_ID:-}
       YOOKASSA_SECRET_KEY: ${YOOKASSA_SECRET_KEY:-}
       FCM_SERVER_KEY: ${FCM_SERVER_KEY:-}
@@ -64,12 +64,12 @@ services:
       context: ./skiinstruct
       dockerfile: Dockerfile
     container_name: skiinstruct-web
-    ports:
-      - "3001:3000"
+    expose:
+      - "3000"
     env_file:
       - .env
     environment:
-      # prod = next start (быстро на :3001). dev = hot-reload, медленно в Docker на Windows.
+      # prod = next start (быстро на :8000). dev = hot-reload, медленно в Docker на Windows.
       SKIINSTRUCT_NEXT_MODE: ${SKIINSTRUCT_NEXT_MODE:-prod}
       SKIINSTRUCT_FORCE_REBUILD: ${SKIINSTRUCT_FORCE_REBUILD:-0}
       # В dev-режиме entrypoint сам ставит NODE_ENV=development (next dev + production ломает Tailwind).
@@ -87,11 +87,11 @@ services:
       SKIINSTRUCT_PASSWORD_RESET_DEBUG: ${SKIINSTRUCT_PASSWORD_RESET_DEBUG:-0}
       DATABASE_URL: ${SKIINSTRUCT_DATABASE_URL:-postgres://sky:sky@postgres:5432/skytrainer_new?schema=skiinstruct}
       AUTH_SECRET: ${SKIINSTRUCT_AUTH_SECRET:-replace-with-long-random-secret}
-      AUTH_URL: ${SKIINSTRUCT_AUTH_URL:-http://localhost:3001}
+      AUTH_URL: ${SKIINSTRUCT_AUTH_URL:-http://твойтренер.рф}
       NEXTAUTH_SECRET: ${SKIINSTRUCT_AUTH_SECRET:-replace-with-long-random-secret}
-      NEXTAUTH_URL: ${SKIINSTRUCT_AUTH_URL:-http://localhost:3001}
-      NEXT_PUBLIC_APP_URL: ${SKIINSTRUCT_PUBLIC_APP_URL:-http://localhost:3001}
-      # Доп. хосты для Server Actions (CSRF), через запятую: 192.168.1.10:3001,myhost.local:3001
+      NEXTAUTH_URL: ${SKIINSTRUCT_AUTH_URL:-http://твойтренер.рф}
+      NEXT_PUBLIC_APP_URL: ${SKIINSTRUCT_PUBLIC_APP_URL:-http://твойтренер.рф}
+      # Доп. хосты для Server Actions (CSRF), через запятую
       NEXT_SERVER_ACTIONS_ALLOWED_ORIGINS: ${SKIINSTRUCT_SERVER_ACTIONS_ALLOWED_ORIGINS:-}
       CRON_SECRET: ${SKIINSTRUCT_CRON_SECRET:-replace-with-long-random-secret}
       # 1 — встроенный планировщик push-напоминаний (уроки + мероприятия), без внешнего cron
@@ -109,8 +109,8 @@ services:
       ALLOW_MOCK_CHECKOUT: ${ALLOW_MOCK_CHECKOUT:-0}
       REQUIRE_EMAIL_VERIFICATION: ${REQUIRE_EMAIL_VERIFICATION:-0}
       YOOKASSA_WEBHOOK_VERIFY_IP: ${YOOKASSA_WEBHOOK_VERIFY_IP:-0}
-      # За reverse proxy на VPS: TRUSTED_PROXY_COUNT=1
-      TRUSTED_PROXY_COUNT: ${TRUSTED_PROXY_COUNT:-}
+      # За Caddy reverse proxy
+      TRUSTED_PROXY_COUNT: ${TRUSTED_PROXY_COUNT:-1}
       NEXT_PUBLIC_VAPID_PUBLIC_KEY: ${SKIINSTRUCT_VAPID_PUBLIC_KEY:-}
       VAPID_PRIVATE_KEY: ${SKIINSTRUCT_VAPID_PRIVATE_KEY:-}
       VAPID_SUBJECT: ${SKIINSTRUCT_VAPID_SUBJECT:-mailto:you@example.com}
@@ -150,6 +150,56 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: skytrainer-caddy
+    restart: unless-stopped
+    depends_on:
+      skiinstruct:
+        condition: service_started
+    ports:
+      - "80:80"
+    volumes:
+      - ./${CADDYFILE:-Caddyfile.domain}:/etc/caddy/Caddyfile:ro
+      - ./deploy/caddy-data:/data
+      - ./deploy/caddy-config:/config
+
+  # Быстрый публичный HTTPS без VPS/DNS: docker compose --profile tunnel up -d cloudflared-quick
+  cloudflared-quick:
+    image: cloudflare/cloudflared:latest
+    container_name: skytrainer-tunnel-quick
+    restart: unless-stopped
+    profiles:
+      - tunnel
+    depends_on:
+      skiinstruct:
+        condition: service_started
+    command: tunnel --no-autoupdate --protocol http2 --url http://skiinstruct:3000
+    logging:
+      driver: json-file
+      options:
+        max-size: 5m
+        max-file: "3"
+
+  # Постоянный домен твойтренер.рф: CLOUDFLARE_TUNNEL_TOKEN в .env → profile tunnel-named
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: skytrainer-tunnel
+    restart: unless-stopped
+    profiles:
+      - tunnel-named
+    depends_on:
+      skiinstruct:
+        condition: service_started
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
+    command: tunnel --no-autoupdate run
+    logging:
+      driver: json-file
+      options:
+        max-size: 5m
+        max-file: "3"
 
 volumes:
   skytrainer_pg:

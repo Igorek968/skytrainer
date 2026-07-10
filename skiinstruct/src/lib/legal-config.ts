@@ -79,7 +79,7 @@ export function roskomnadzorRegistryNumber(): string | null {
 }
 
 export const LEGAL_PLATFORM_NAME =
-  process.env.NEXT_PUBLIC_APP_NAME?.trim() || "Инструктор для тебя";
+  process.env.NEXT_PUBLIC_APP_NAME?.trim() || "ТвойТренер.рф";
 
 export const LEGAL_PLATFORM_URL =
-  process.env.NEXT_PUBLIC_APP_URL?.trim() || "https://utrainer.ru";
+  process.env.NEXT_PUBLIC_APP_URL?.trim() || "http://твойтренер.рф";

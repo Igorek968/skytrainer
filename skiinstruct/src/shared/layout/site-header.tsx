@@ -16,6 +16,7 @@ import { signOutCallbackForRole } from "@/lib/auth-routes";
 import { markOpenPersonalDataOnNextClientVisit } from "@/lib/client-personal-data-storage";
 import { PwaInstallMenuItem } from "@/features/share/pwa-install-hint";
 import { SupportLauncher } from "@/features/support/support-launcher";
+import { SiteLogo } from "@/shared/brand/site-logo";
 import { HeaderAccountHint } from "@/shared/layout/header-account-hint";
 
 function signOutAndClearCache(
@@ -73,14 +74,15 @@ export function SiteHeader() {
         <div className="min-w-0 flex-shrink">
           <Link
             href={brandingHref}
-            className="block text-sm font-semibold leading-snug tracking-tight text-foreground hover:text-accent sm:text-base"
+            className="block hover:opacity-90"
             title={
               onInstructorCabinet || role === "INSTRUCTOR" || role === "ADMIN"
                 ? "Поиск инструктора и заказ занятия как клиент"
                 : "На главную — поиск инструктора"
             }
           >
-            Инструктор <span className="text-accent">для тебя</span>
+            <SiteLogo className="sm:hidden" compact />
+            <SiteLogo className="hidden sm:block" />
           </Link>
           <HeaderAccountHint />
         </div>

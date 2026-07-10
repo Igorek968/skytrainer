@@ -15,10 +15,11 @@ import {
   requestUserGeolocation,
 } from "@/features/map/request-user-geolocation";
 import { useMeetPoint } from "@/features/map/use-client-meet-point";
+import { publicSiteHostLabel } from "@/lib/app-origin";
 import { Button } from "@/shared/ui/button";
 import { Dialog, DialogContent } from "@/shared/ui/dialog";
 
-const SITE_LABEL = "utrainer.ru";
+const SITE_LABEL = publicSiteHostLabel();
 
 /**
  * Диалог «Включить / Отмена» — по «Включить» вызывается системный запрос браузера

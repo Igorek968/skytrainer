@@ -23,6 +23,7 @@ import {
   appendAdminOverviewSearchParams,
 } from "@/features/admin/admin-search-params";
 import { cn } from "@/lib/utils";
+import { SiteLogo } from "@/shared/brand/site-logo";
 import { getPublicProductName } from "@/shared/lib/product";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
@@ -95,8 +96,8 @@ function AdminSidebarNav() {
     <div className="space-y-3 lg:sticky lg:top-20">
       <div className="flex items-center justify-between lg:block">
         <div>
-          <Link href="/" className="inline-block text-lg font-semibold tracking-tight text-foreground hover:opacity-90">
-            Ski<span className="text-accent">Instruct</span>
+          <Link href="/" className="inline-block hover:opacity-90">
+            <SiteLogo />
           </Link>
           <p className="mt-0.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
             {product} · админка

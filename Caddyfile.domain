@@ -1,0 +1,11 @@
+# HTTP only (no auto-TLS). Local: hosts -> 127.0.0.1. VPS: DNS A -> server IP.
+# Catch-all :80 — также для Cloudflare quick tunnel (любой Host).
+:80 {
+	encode zstd gzip
+	reverse_proxy skiinstruct:3000
+	header {
+		X-Frame-Options "DENY"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+	}
+}

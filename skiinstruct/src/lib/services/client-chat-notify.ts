@@ -1,3 +1,4 @@
+import { publicSiteHostLabel } from "@/lib/app-origin";
 import { createChatPushReplyToken } from "@/lib/chat-push-reply-token";
 import { sendWebPushToUser } from "@/lib/push-web";
 import { getPublicProductName } from "@/shared/lib/product";
@@ -18,7 +19,7 @@ export async function notifyClientInstructorChatMessage(params: {
 }): Promise<void> {
   const preview = previewBody(params.body);
   const instructorLabel = params.instructorName?.trim() || "Инструктор";
-  const origin = process.env.NEXT_PUBLIC_APP_URL?.trim() || "https://utrainer.ru";
+  const origin = process.env.NEXT_PUBLIC_APP_URL?.trim() || "http://твойтренер.рф";
   const url = `${origin}/client/orders/${params.orderId}#order-chat`;
   const appName = getPublicProductName();
   const replyToken = createChatPushReplyToken(params.orderId, params.clientId);

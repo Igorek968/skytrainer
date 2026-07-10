@@ -4,6 +4,7 @@ import { Inter } from "next/font/google";
 import { auth } from "@/auth";
 import { AppProviders } from "@/app/providers";
 import { SEO_PAGES, absoluteUrl, siteJsonLd } from "@/lib/seo";
+import { getPublicProductName } from "@/shared/lib/product";
 import { SiteAnalytics } from "@/shared/analytics/site-analytics";
 import { YandexMetrikaNoscript } from "@/shared/analytics/yandex-metrika-noscript";
 import { CookieConsentBanner } from "@/shared/legal/cookie-consent-banner";
@@ -14,11 +15,11 @@ import "./globals.css";
 
 const metadataBaseUrl = (() => {
   const raw =
-    process.env.NEXT_PUBLIC_APP_URL ?? process.env.AUTH_URL ?? process.env.NEXTAUTH_URL ?? "http://localhost:3001";
+    process.env.NEXT_PUBLIC_APP_URL ?? process.env.AUTH_URL ?? process.env.NEXTAUTH_URL ?? "http://твойтренер.рф";
   try {
     return new URL(raw);
   } catch {
-    return new URL("http://localhost:3001");
+    return new URL("http://твойтренер.рф");
   }
 })();
 
@@ -28,23 +29,25 @@ const inter = Inter({
   display: "swap",
 });
 
+const appName = getPublicProductName();
+
 export const metadata: Metadata = {
   metadataBase: metadataBaseUrl,
   title: {
     default: SEO_PAGES.home.title,
-    template: "%s | Utrainer",
+    template: `%s | ${appName}`,
   },
   description: SEO_PAGES.home.description,
   manifest: "/manifest.webmanifest",
-  applicationName: "Utrainer",
+  applicationName: appName,
   appleWebApp: {
     capable: true,
-    title: "Utrainer",
+    title: appName,
     statusBarStyle: "black-translucent",
   },
   icons: {
     icon: [
-      { url: "/icon.svg", type: "image/svg+xml" },
+      { url: "/brand/logo-mark.svg", type: "image/svg+xml" },
       { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
       { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
     ],
@@ -53,7 +56,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     locale: "ru_RU",
-    siteName: "Utrainer",
+    siteName: appName,
     title: SEO_PAGES.home.title,
     description: SEO_PAGES.home.description,
     url: absoluteUrl(SEO_PAGES.home.path),
