@@ -100,6 +100,7 @@ export function YandexBookingMap({
           {
             center: [meetLat, meetLng],
             zoom: 13,
+            type: "yandex#map",
             controls: ["zoomControl"],
           },
           { suppressMapOpenBlock: true },

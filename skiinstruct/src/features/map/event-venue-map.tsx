@@ -6,6 +6,8 @@ import "leaflet/dist/leaflet.css";
 import { useEffect } from "react";
 import { MapContainer, Marker, Popup, TileLayer, useMap, useMapEvents } from "react-leaflet";
 
+import { hasYandexMapsKey } from "@/features/map/yandex-maps-api";
+import { YandexEventVenueMap } from "@/features/map/yandex-event-venue-map";
 import { MapLegalStrip } from "@/shared/legal/map-legal-strip";
 import { cn } from "@/lib/utils";
 
@@ -70,21 +72,31 @@ function MapClick({ onClick }: { onClick: (lat: number, lng: number) => void }) 
   return null;
 }
 
-export function EventVenueMap({
-  lat,
-  lng,
-  interactive = true,
-  className,
-  markerLabel = "Место мероприятия",
-  onPositionChange,
-}: {
+export type EventVenueMapProps = {
   lat: number;
   lng: number;
   interactive?: boolean;
   className?: string;
   markerLabel?: string;
   onPositionChange?: (lat: number, lng: number) => void;
-}) {
+};
+
+/** Место мероприятия: Яндекс.Карты при ключе, иначе OSM/CARTO. */
+export function EventVenueMap(props: EventVenueMapProps) {
+  if (hasYandexMapsKey()) {
+    return <YandexEventVenueMap {...props} />;
+  }
+  return <LeafletEventVenueMap {...props} />;
+}
+
+function LeafletEventVenueMap({
+  lat,
+  lng,
+  interactive = true,
+  className,
+  markerLabel = "Место мероприятия",
+  onPositionChange,
+}: EventVenueMapProps) {
   const center: LatLngExpression = [lat, lng];
 
   return (

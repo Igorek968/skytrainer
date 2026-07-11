@@ -7,7 +7,13 @@ export type YmapsNamespace = {
   ready: (cb: () => void) => void;
   Map: new (
     element: HTMLElement | string,
-    state: { center: number[]; zoom: number; controls?: string[] },
+    state: {
+      center: number[];
+      zoom: number;
+      controls?: string[];
+      /** Схема Яндекс.Карт (как на yandex.ru/maps). */
+      type?: "yandex#map" | "yandex#satellite" | "yandex#hybrid";
+    },
     options?: Record<string, unknown>,
   ) => YmapsMap;
   Placemark: new (

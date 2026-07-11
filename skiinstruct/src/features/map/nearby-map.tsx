@@ -13,9 +13,37 @@ import {
   createInstructorLeafletIcon,
   type InstructorMapPin,
 } from "@/features/map/instructor-map-marker";
+import { hasYandexMapsKey } from "@/features/map/yandex-maps-api";
+import { YandexBookingMap } from "@/features/map/yandex-booking-map";
 import { cn } from "@/lib/utils";
 
 type InstructorPin = InstructorMapPin;
+
+export type NearbyMapProps = {
+  center: LatLngExpression;
+  meetLat: number;
+  meetLng: number;
+  instructors: InstructorPin[];
+  radiusKm: number;
+  onMeetChange: (lat: number, lng: number) => void;
+  onLocateMe?: () => Promise<void>;
+  onInstructorSelect?: (id: string) => void;
+  onInstructorFocus?: (id: string) => void;
+  selectedInstructorId?: string | null;
+  className?: string;
+  interactive: boolean;
+};
+
+/** Карта: Яндекс.Карты (схема как на yandex.ru/maps) при ключе, иначе OSM/CARTO. */
+export function NearbyMap(props: NearbyMapProps) {
+  if (hasYandexMapsKey()) {
+    const center: [number, number] = Array.isArray(props.center)
+      ? [props.center[0], props.center[1]]
+      : [props.meetLat, props.meetLng];
+    return <YandexBookingMap {...props} center={center} />;
+  }
+  return <LeafletNearbyMap {...props} />;
+}
 
 function pinIcon(fill: string) {
   return L.divIcon({
@@ -78,7 +106,7 @@ function MapClick({ onClick }: { onClick: (lat: number, lng: number) => void }) 
   return null;
 }
 
-export function NearbyMap({
+function LeafletNearbyMap({
   center,
   meetLat,
   meetLng,
@@ -91,22 +119,7 @@ export function NearbyMap({
   selectedInstructorId,
   className,
   interactive,
-}: {
-  center: LatLngExpression;
-  meetLat: number;
-  meetLng: number;
-  instructors: InstructorPin[];
-  radiusKm: number;
-  onMeetChange: (lat: number, lng: number) => void;
-  onLocateMe?: () => Promise<void>;
-  /** Выбор инструктора по клику на маркер (иначе кнопка заказа остаётся неактивной). */
-  onInstructorSelect?: (id: string) => void;
-  /** Двойной клик — открыть анкету и поднять инструктора в списке. */
-  onInstructorFocus?: (id: string) => void;
-  selectedInstructorId?: string | null;
-  className?: string;
-  interactive: boolean;
-}) {
+}: NearbyMapProps) {
   return (
     <div className={cn("w-full overflow-hidden rounded-lg border border-border", className)}>
       <div className="relative z-0 h-[320px] w-full md:h-[420px]">
