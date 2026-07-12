@@ -1,4 +1,3 @@
-import { INSTRUCTOR_ACTIVITY_LABELS } from "@/lib/services/instructor-match";
 import { getPublicProductName } from "@/shared/lib/product";
 
 /** Радиус «кто онлайн рядом» по умолчанию (км). */
@@ -11,7 +10,27 @@ export function getMarketplaceName(): string {
   return getPublicProductName();
 }
 
-export const MARKETPLACE_SPORT_CATEGORIES = INSTRUCTOR_ACTIVITY_LABELS;
+/** Короткая витрина на лендинге; полный каталог — в поиске и анкете (`INSTRUCTOR_ACTIVITY_LABELS`). */
+export const MARKETPLACE_SPORT_CATEGORIES = [
+  "🎿 Горные лыжи",
+  "⛷ Сноуборд",
+  "🏒 Хоккей с шайбой",
+  "⛸️ Фигурное катание",
+  "🏊 Плавание",
+  "🏄 Серфинг",
+  "🛶 Сапсёрфинг",
+  "🚵 Маунтибайк",
+  "⚽ Футбол",
+  "🏐 Волейбол",
+  "🏀 Баскетбол",
+  "🎾 Большой теннис",
+  "🥊 Бокс",
+  "🥋 MMA (смешанные единоборства)",
+  "🧘 Йога",
+  "🧗 Скалолазание",
+  "👨‍🦽 Адаптивный спорт",
+  "🚗 Автоинструктор",
+] as const;
 
 export const MARKETPLACE_FLOW = [
   {

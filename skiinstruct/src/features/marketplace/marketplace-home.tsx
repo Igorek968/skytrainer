@@ -87,7 +87,7 @@ export function MarketplaceHome() {
       <section>
         <h2 className="text-center text-xl font-semibold tracking-tight">Направления</h2>
         <p className="mx-auto mt-2 max-w-xl text-center text-sm text-muted-foreground">
-          Один каталог для горных лыж, тенниса, походов, SUP и других видов — фильтр в поиске совпадает с анкетой
+          Зимние, водные, игровые, единоборства и адаптивный спорт — полный каталог в поиске совпадает с анкетой
           инструктора.
         </p>
         <ul className="mt-6 flex flex-wrap justify-center gap-2">
