@@ -145,11 +145,13 @@ export function pageMetadata(page: SeoPage): Metadata {
       siteName: getPublicProductName(),
       title: page.title,
       description: page.description,
+      images: [{ url: "/icon-512.png", width: 512, height: 512, alt: getPublicProductName() }],
     },
     twitter: {
       card: "summary",
       title: page.title,
       description: page.description,
+      images: ["/icon-512.png"],
     },
   };
 }
@@ -157,13 +159,20 @@ export function pageMetadata(page: SeoPage): Metadata {
 export function siteJsonLd(): Record<string, unknown>[] {
   const origin = siteOrigin();
   const productName = getPublicProductName();
+  const organizationId = `${origin}/#organization`;
   return [
     {
       "@context": "https://schema.org",
       "@type": "Organization",
+      "@id": organizationId,
       name: productName,
       url: origin,
-      logo: `${origin}/brand/logo-mark.png`,
+      logo: {
+        "@type": "ImageObject",
+        url: `${origin}/icon-512.png`,
+        width: 512,
+        height: 512,
+      },
       email: "berezka23igor@yandex.ru",
     },
     {
@@ -173,6 +182,7 @@ export function siteJsonLd(): Record<string, unknown>[] {
       url: origin,
       description: SEO_PAGES.home.description,
       inLanguage: "ru-RU",
+      publisher: { "@id": organizationId },
       potentialAction: {
         "@type": "SearchAction",
         target: {

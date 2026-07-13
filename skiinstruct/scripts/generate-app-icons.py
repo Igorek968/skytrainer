@@ -49,6 +49,18 @@ def main() -> None:
     # Android adaptive / maskable: keep logo inside safe zone
     make_icon(512, 0.22, out=ROOT / "icon-maskable-512.png")
     make_icon(48, 0.12, out=ROOT / "favicon-48.png")
+    make_icon(32, 0.1, out=ROOT / "favicon-32.png")
+
+    # Multi-size ICO for crawlers that request /favicon.ico by default
+    # Pillow builds sizes by resampling from the largest source image.
+    ico_source = make_icon(48, 0.1)
+    ico_path = ROOT / "favicon.ico"
+    ico_source.save(ico_path, format="ICO", sizes=[(16, 16), (32, 32), (48, 48)])
+    print(f"wrote {ico_path.name} sizes=[16, 32, 48] bytes={ico_path.stat().st_size}")
+
+    # Next.js App Router auto-favicon (replaces stale app/icon.svg)
+    app_icon = Path(__file__).resolve().parents[1] / "src" / "app" / "icon.png"
+    make_icon(32, 0.1, out=app_icon)
     print("done")
 
 
