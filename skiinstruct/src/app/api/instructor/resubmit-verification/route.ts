@@ -5,11 +5,12 @@ import { prisma } from "@/lib/prisma";
 
 /** После отказа — снова поставить заявку в очередь модерации. */
 export async function POST() {
-  const session = await requireInstructorSession();
-  if (isApiErrorResponse(session)) return session;
+  const authResult = await requireInstructorSession();
+  if (isApiErrorResponse(authResult)) return authResult;
+  const { userId } = authResult;
 
   const profile = await prisma.instructorProfile.findUnique({
-    where: { userId: session.user.id },
+    where: { userId },
     select: { verificationStatus: true },
   });
 
@@ -27,7 +28,7 @@ export async function POST() {
   }
 
   await prisma.instructorProfile.update({
-    where: { userId: session.user.id },
+    where: { userId },
     data: {
       verificationStatus: "PENDING",
       profileDraftRejectNote: null,
