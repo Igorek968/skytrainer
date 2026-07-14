@@ -3,11 +3,16 @@
 import { useEffect } from "react";
 
 import { syncWebPushSubscription } from "@/features/push/web-push-client";
+import { capturePwaInstallPrompt } from "@/features/share/pwa-install";
 
 /** Регистрирует SW при первом визите — нужно для PWA, push и TWA в Google Play. */
 export function PwaServiceWorkerRegister() {
   useEffect(() => {
-    if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
+    const stopCapture = capturePwaInstallPrompt();
+
+    if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) {
+      return stopCapture;
+    }
 
     const register = async () => {
       try {
@@ -28,7 +33,10 @@ export function PwaServiceWorkerRegister() {
     };
 
     navigator.serviceWorker.addEventListener("controllerchange", onControllerChange);
-    return () => navigator.serviceWorker.removeEventListener("controllerchange", onControllerChange);
+    return () => {
+      stopCapture();
+      navigator.serviceWorker.removeEventListener("controllerchange", onControllerChange);
+    };
   }, []);
 
   return null;
