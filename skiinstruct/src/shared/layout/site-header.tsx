@@ -69,7 +69,7 @@ export function SiteHeader() {
   const onInstructorCabinet = pathname?.startsWith("/instructor");
 
   return (
-    <header className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur">
+    <header className="sticky top-0 z-40 border-b border-border bg-background/80 pt-[env(safe-area-inset-top,0px)] backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">
         <div className="min-w-0 flex-shrink">
           <Link

@@ -12,6 +12,8 @@ import {
 import {
   applyGeolocationToMeetPoint,
   geolocationErrorCode,
+  probeUserGeolocation,
+  queryGeolocationPermission,
   requestUserGeolocation,
 } from "@/features/map/request-user-geolocation";
 import { useMeetPoint } from "@/features/map/use-client-meet-point";
@@ -22,8 +24,8 @@ import { Dialog, DialogContent } from "@/shared/ui/dialog";
 const SITE_LABEL = publicSiteHostLabel();
 
 /**
- * Диалог «Включить / Отмена» — по «Включить» вызывается системный запрос браузера
- * (navigator.geolocation.getCurrentPosition в обработчике клика).
+ * Диалог «Включить / Отмена» — показывается только если система ещё не дала доступ.
+ * Сначала опрашиваем Permissions API и тихо пробуем GPS (Safari часто врёт «prompt»).
  */
 export function GeolocationPermissionDialog() {
   const coordSource = useMeetPoint((s) => s.coordSource);
@@ -33,20 +35,33 @@ export function GeolocationPermissionDialog() {
   useEffect(() => {
     if (coordSource !== "default" || isGeolocationPromptDismissed()) return;
 
-    if (typeof navigator === "undefined" || !navigator.permissions?.query) {
-      showPrompt();
-      return;
-    }
+    let cancelled = false;
 
-    void navigator.permissions.query({ name: "geolocation" }).then((status) => {
-      if (status.state === "granted") {
-        void requestUserGeolocation()
-          .then(applyGeolocationToMeetPoint)
-          .catch(() => {});
+    void (async () => {
+      const permission = await queryGeolocationPermission();
+      if (cancelled) return;
+
+      // Явный запрет — не показываем «Включить» (бесполезно).
+      if (permission === "denied") return;
+
+      // Тихий опрос: на Safari «prompt» часто врёт при уже выданном доступе.
+      try {
+        const position = await probeUserGeolocation();
+        if (cancelled) return;
+        applyGeolocationToMeetPoint(position);
         return;
+      } catch {
+        if (cancelled) return;
+        // Разрешение уже есть, но GPS временно недоступен — не достаём окно про доступ.
+        if (permission === "granted") return;
       }
-      showPrompt();
-    });
+
+      if (!cancelled) showPrompt();
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [coordSource, showPrompt]);
 
   function enableLocation() {
