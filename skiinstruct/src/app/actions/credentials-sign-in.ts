@@ -10,6 +10,10 @@ import {
   resolvePostLoginRedirect,
 } from "@/lib/auth-routes";
 import { credentialsSignInNoRedirect } from "@/lib/credentials-sign-in-core";
+import {
+  getInstructorVerificationStatus,
+  instructorEntryPath,
+} from "@/lib/instructor-verification-gate";
 import { prisma } from "@/lib/prisma";
 import { sanitizeRedirectPath } from "@/lib/sanitize-auth-redirect";
 
@@ -141,11 +145,6 @@ export async function signInInstructorCredentialsAction(
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
   const rawRedirect = String(formData.get("redirectTo") ?? "");
-  const redirectTo = resolvePostLoginRedirect(
-    "INSTRUCTOR",
-    sanitizeRedirectPath(rawRedirect, "/instructor"),
-    "/instructor",
-  );
 
   if (!email.includes("@")) {
     return { error: "Введите email инструктора" };
@@ -153,11 +152,28 @@ export async function signInInstructorCredentialsAction(
 
   const instructorUser = await prisma.user.findFirst({
     where: { email: { equals: email, mode: "insensitive" } },
-    select: { role: true },
+    select: { id: true, role: true },
   });
   if (!instructorUser || instructorUser.role !== "INSTRUCTOR") {
     return { error: "Этот аккаунт не зарегистрирован как инструктор" };
   }
+
+  const verificationStatus = await getInstructorVerificationStatus(instructorUser.id);
+  const entry = instructorEntryPath(verificationStatus);
+  const redirectTo = resolvePostLoginRedirect(
+    "INSTRUCTOR",
+    sanitizeRedirectPath(rawRedirect, entry),
+    entry,
+  );
+  const bare = redirectTo.split("?")[0]?.replace(/\/+$/, "") || "/";
+  const safeRedirect =
+    verificationStatus !== "APPROVED" &&
+    bare.startsWith("/instructor") &&
+    bare !== "/instructor/pending" &&
+    bare !== "/instructor/login" &&
+    bare !== "/instructor/apply"
+      ? entry
+      : redirectTo;
 
   await signOut({ redirect: false });
   const signedIn = await credentialsSignInNoRedirect(email, password);
@@ -165,5 +181,5 @@ export async function signInInstructorCredentialsAction(
     return { error: signedIn.error };
   }
 
-  redirect(redirectTo);
+  redirect(safeRedirect);
 }

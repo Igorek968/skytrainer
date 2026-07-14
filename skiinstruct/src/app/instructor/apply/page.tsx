@@ -1,14 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 
 import { instructorApplyAction, type InstructorApplyState } from "@/app/actions/instructor-apply";
 import { FORM_DRAFT_KEYS } from "@/lib/form-draft-storage";
 import { LEGAL_ROUTES } from "@/lib/legal";
 import { instructorActivityLabelsAlphabetical } from "@/lib/services/instructor-match";
-import { parseFullNameToParts } from "@/lib/user-display-name";
 import { useFormDraft } from "@/shared/hooks/use-form-draft";
 import { useDisplayNameDuplicateCheck } from "@/shared/hooks/use-display-name-duplicate-check";
 import { Button } from "@/shared/ui/button";
@@ -20,7 +18,10 @@ import { Label } from "@/shared/ui/label";
 const initialState: InstructorApplyState = { error: null, success: false };
 
 type InstructorApplyDraft = {
-  name: string;
+  lastName: string;
+  firstName: string;
+  middleName: string;
+  nickname: string;
   email: string;
   phone: string;
   password: string;
@@ -36,7 +37,10 @@ type InstructorApplyDraft = {
 };
 
 const defaultDraft: InstructorApplyDraft = {
-  name: "",
+  lastName: "",
+  firstName: "",
+  middleName: "",
+  nickname: "",
   email: "",
   phone: "",
   password: "",
@@ -71,11 +75,7 @@ export default function InstructorApplyPage() {
     FORM_DRAFT_KEYS.instructorApply,
     defaultDraft,
   );
-  const { firstName, lastName } = useMemo(
-    () => parseFullNameToParts(values.name),
-    [values.name],
-  );
-  const displayNameDuplicate = useDisplayNameDuplicateCheck(firstName, lastName);
+  const displayNameDuplicate = useDisplayNameDuplicateCheck(values.firstName, values.lastName);
 
   return (
     <div className="mx-auto max-w-lg space-y-6 py-4">
@@ -95,22 +95,60 @@ export default function InstructorApplyPage() {
             noValidate
           >
             <div className="space-y-2">
-              <Label htmlFor="name">Имя / как к вам обращаться</Label>
+              <Label htmlFor="lastName">Фамилия</Label>
               <Input
-                id="name"
-                name="name"
+                id="lastName"
+                name="lastName"
+                autoComplete="family-name"
                 required
-                maxLength={120}
+                maxLength={80}
                 aria-invalid={Boolean(state.error)}
-                value={values.name}
-                onChange={(e) => setField("name", e.target.value)}
+                value={values.lastName}
+                onChange={(e) => setField("lastName", e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="firstName">Имя</Label>
+              <Input
+                id="firstName"
+                name="firstName"
+                autoComplete="given-name"
+                required
+                maxLength={80}
+                aria-invalid={Boolean(state.error)}
+                value={values.firstName}
+                onChange={(e) => setField("firstName", e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="middleName">Отчество (при наличии)</Label>
+              <Input
+                id="middleName"
+                name="middleName"
+                autoComplete="additional-name"
+                maxLength={80}
+                value={values.middleName}
+                onChange={(e) => setField("middleName", e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="nickname">Никнейм</Label>
+              <Input
+                id="nickname"
+                name="nickname"
+                autoComplete="nickname"
+                required
+                maxLength={80}
+                aria-invalid={Boolean(state.error)}
+                value={values.nickname}
+                onChange={(e) => setField("nickname", e.target.value)}
               />
               <p className="text-xs text-muted-foreground">
-                Укажите имя и фамилию через пробел — по ним клиенты найдут вас на сайте.
+                Как вас будут видеть клиенты на сайте. Имя и фамилия нужны для проверки уникальности и модерации.
               </p>
               {displayNameDuplicate.duplicate ? (
                 <p className="text-xs text-destructive">{displayNameDuplicate.message}</p>
-              ) : displayNameDuplicate.checking && firstName && lastName ? (
+              ) : displayNameDuplicate.checking && values.firstName.trim() && values.lastName.trim() ? (
                 <p className="text-xs text-muted-foreground">Проверка имени…</p>
               ) : null}
             </div>
@@ -145,31 +183,29 @@ export default function InstructorApplyPage() {
                 Виден только администрации платформы, клиентам не показывается.
               </p>
             </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="password">Пароль</Label>
-                <PasswordInput
-                  id="password"
-                  name="password"
-                  autoComplete="new-password"
-                  required
-                  minLength={8}
-                  value={values.password}
-                  onChange={(e) => setField("password", e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="passwordConfirm">Пароль ещё раз</Label>
-                <PasswordInput
-                  id="passwordConfirm"
-                  name="passwordConfirm"
-                  autoComplete="new-password"
-                  required
-                  minLength={8}
-                  value={values.passwordConfirm}
-                  onChange={(e) => setField("passwordConfirm", e.target.value)}
-                />
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="password">Пароль</Label>
+              <PasswordInput
+                id="password"
+                name="password"
+                autoComplete="new-password"
+                required
+                minLength={8}
+                value={values.password}
+                onChange={(e) => setField("password", e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="passwordConfirm">Пароль ещё раз</Label>
+              <PasswordInput
+                id="passwordConfirm"
+                name="passwordConfirm"
+                autoComplete="new-password"
+                required
+                minLength={8}
+                value={values.passwordConfirm}
+                onChange={(e) => setField("passwordConfirm", e.target.value)}
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="primarySpecialization">Основное направление</Label>
@@ -218,38 +254,36 @@ export default function InstructorApplyPage() {
                 onChange={(e) => setField("bio", e.target.value)}
               />
             </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="taxStatus">Налоговый статус</Label>
-                <select
-                  id="taxStatus"
-                  name="taxStatus"
-                  required
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  value={values.taxStatus}
-                  onChange={(e) => setField("taxStatus", e.target.value)}
-                >
-                  <option value="SELF_EMPLOYED">Самозанятый (НПД)</option>
-                  <option value="IP">Индивидуальный предприниматель</option>
-                </select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="inn">ИНН (обязательно)</Label>
-                <Input
-                  id="inn"
-                  name="inn"
-                  required
-                  inputMode="numeric"
-                  pattern="\d{10,12}"
-                  minLength={10}
-                  maxLength={12}
-                  placeholder="10 или 12 цифр"
-                  aria-invalid={Boolean(state.error)}
-                  value={values.inn}
-                  onChange={(e) => setField("inn", e.target.value.replace(/\D/g, "").slice(0, 12))}
-                />
-                <p className="text-xs text-muted-foreground">Без ИНН заявка на модерацию не будет отправлена.</p>
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="taxStatus">Налоговый статус</Label>
+              <select
+                id="taxStatus"
+                name="taxStatus"
+                required
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                value={values.taxStatus}
+                onChange={(e) => setField("taxStatus", e.target.value)}
+              >
+                <option value="SELF_EMPLOYED">Самозанятый (НПД)</option>
+                <option value="IP">Индивидуальный предприниматель</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="inn">ИНН (обязательно)</Label>
+              <Input
+                id="inn"
+                name="inn"
+                required
+                inputMode="numeric"
+                pattern="\d{10,12}"
+                minLength={10}
+                maxLength={12}
+                placeholder="10 или 12 цифр"
+                aria-invalid={Boolean(state.error)}
+                value={values.inn}
+                onChange={(e) => setField("inn", e.target.value.replace(/\D/g, "").slice(0, 12))}
+              />
+              <p className="text-xs text-muted-foreground">Без ИНН заявка на модерацию не будет отправлена.</p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="achievements">Достижения (по одному на строку, необязательно)</Label>
@@ -257,20 +291,20 @@ export default function InstructorApplyPage() {
                 id="achievements"
                 name="achievements"
                 rows={3}
-                className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="flex min-h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 placeholder="Победы, звания, курсы…"
                 value={values.achievements}
                 onChange={(e) => setField("achievements", e.target.value)}
               />
             </div>
 
-            <div className="space-y-2 rounded-md border border-border p-3 text-sm">
-              <label className="flex gap-2">
+            <div className="space-y-2">
+              <label className="flex min-h-10 w-full cursor-pointer items-start gap-3 rounded-md border border-input bg-background px-3 py-2.5 text-sm">
                 <input
                   name="acceptAgencyOffer"
                   type="checkbox"
                   required
-                  className="mt-1"
+                  className="mt-0.5 h-4 w-4 shrink-0"
                   checked={values.acceptAgencyOffer}
                   onChange={(e) => setField("acceptAgencyOffer", e.target.checked)}
                 />
@@ -282,12 +316,14 @@ export default function InstructorApplyPage() {
                   и подтверждаю статус самозанятого/ИП
                 </span>
               </label>
-              <label className="flex gap-2">
+            </div>
+            <div className="space-y-2">
+              <label className="flex min-h-10 w-full cursor-pointer items-start gap-3 rounded-md border border-input bg-background px-3 py-2.5 text-sm">
                 <input
                   name="acceptPrivacy"
                   type="checkbox"
                   required
-                  className="mt-1"
+                  className="mt-0.5 h-4 w-4 shrink-0"
                   checked={values.acceptPrivacy}
                   onChange={(e) => setField("acceptPrivacy", e.target.checked)}
                 />

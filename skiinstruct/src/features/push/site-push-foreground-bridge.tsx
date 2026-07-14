@@ -29,11 +29,14 @@ export function SitePushForegroundBridge() {
         data.sound ??
         (data.tag?.startsWith("instructor-order")
           ? "order"
-          : data.tag?.startsWith("instructor-chat") ||
-              data.tag?.startsWith("client-chat") ||
-              data.tag?.startsWith("lesson-")
-            ? "chat"
-            : "reminder");
+          : data.tag?.startsWith("instructor-verification-approved")
+            ? "order"
+            : data.tag?.startsWith("instructor-chat") ||
+                data.tag?.startsWith("client-chat") ||
+                data.tag?.startsWith("lesson-") ||
+                data.tag?.startsWith("instructor-verification")
+              ? "chat"
+              : "reminder");
 
       fireSiteAlert({
         title: data.title,
@@ -45,7 +48,8 @@ export function SitePushForegroundBridge() {
           data.tag?.startsWith("instructor-order") ||
             data.tag?.startsWith("lesson-") ||
             data.tag?.startsWith("instructor-chat") ||
-            data.tag?.startsWith("client-chat"),
+            data.tag?.startsWith("client-chat") ||
+            data.tag?.startsWith("instructor-verification"),
         ),
         toastAction: data.url
           ? {

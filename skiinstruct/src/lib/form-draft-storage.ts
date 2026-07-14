@@ -30,6 +30,6 @@ export function clearFormDraft(key: string): void {
 }
 
 export const FORM_DRAFT_KEYS = {
-  instructorApply: "skiinstruct_form_draft:instructor_apply",
+  instructorApply: "skiinstruct_form_draft:instructor_apply_v2",
   clientRegister: "skiinstruct_form_draft:client_register",
 } as const;

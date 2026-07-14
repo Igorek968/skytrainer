@@ -484,7 +484,7 @@ export async function GET(req: Request) {
     },
     take: 40,
     orderBy: [{ profileDraftSubmittedAt: "desc" }, { updatedAt: "desc" }],
-    include: { user: { select: { email: true, name: true, phone: true } } },
+    include: { user: { select: { email: true, name: true, phone: true, nickname: true, middleName: true } } },
   });
 
   const recentUsersBase = await prisma.user.findMany({
@@ -662,10 +662,18 @@ export async function GET(req: Request) {
             moderationKind === "PROFILE_UPDATE" && draft
               ? computeProfileDraftChanges(snapshotProfileToDraft(p, p.user.name), draft)
               : undefined;
+          const legalName =
+            [draft?.lastName, draft?.firstName, draft?.middleName ?? p.user.middleName]
+              .map((s) => s?.trim())
+              .filter(Boolean)
+              .join(" ") || null;
+          const nickname = (draft?.nickname ?? p.user.nickname)?.trim() || null;
           return {
             userId: p.userId,
             email: p.user.email,
-            name: p.user.name,
+            name: nickname || p.user.name,
+            legalName,
+            nickname,
             phone: p.user.phone,
             inn: p.inn,
             certificationLevel: p.certificationLevel,

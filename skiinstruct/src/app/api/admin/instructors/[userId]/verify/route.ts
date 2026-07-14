@@ -5,6 +5,7 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { draftToProfileUpdate, parseProfileDraft } from "@/lib/instructor-profile-draft";
 import { prisma } from "@/lib/prisma";
+import { notifyInstructorVerificationResult } from "@/lib/services/instructor-verification-notify";
 import { findDuplicateParticipantByDisplayName } from "@/lib/services/user-display-name-uniqueness";
 import { DISPLAY_NAME_DUPLICATE_MESSAGE } from "@/lib/user-display-name";
 
@@ -64,6 +65,11 @@ export async function POST(req: Request, ctx: Ctx) {
         profileDraftRejectedAt: new Date(),
       },
     });
+    void notifyInstructorVerificationResult({
+      userId,
+      status: "REJECTED",
+      rejectMessage: parsed.data.rejectMessage!.trim(),
+    });
     return NextResponse.json({ ok: true });
   }
 
@@ -119,5 +125,6 @@ export async function POST(req: Request, ctx: Ctx) {
     });
   });
 
+  void notifyInstructorVerificationResult({ userId, status: "APPROVED" });
   return NextResponse.json({ ok: true });
 }

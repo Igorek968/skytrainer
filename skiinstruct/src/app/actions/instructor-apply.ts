@@ -26,7 +26,10 @@ export async function instructorApplyAction(
     email: String(formData.get("email") ?? ""),
     password,
     passwordConfirm: String(formData.get("passwordConfirm") ?? ""),
-    name: String(formData.get("name") ?? ""),
+    lastName: String(formData.get("lastName") ?? ""),
+    firstName: String(formData.get("firstName") ?? ""),
+    middleName: String(formData.get("middleName") ?? ""),
+    nickname: String(formData.get("nickname") ?? ""),
     bio: String(formData.get("bio") ?? ""),
     hourlyRate: Number(formData.get("hourlyRate") ?? 0),
     primarySpecialization: String(formData.get("primarySpecialization") ?? ""),
@@ -43,7 +46,7 @@ export async function instructorApplyAction(
     return { error: created.error, success: false };
   }
 
-  const afterApplyUrl = `/instructor?applied=1`;
+  const afterApplyUrl = `/instructor/pending?applied=1`;
 
   await signOut({ redirect: false });
   const signedIn = await credentialsSignInNoRedirect(created.email, password);

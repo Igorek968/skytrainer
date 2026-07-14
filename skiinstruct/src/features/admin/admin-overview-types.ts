@@ -93,6 +93,8 @@ export type AdminOverview = {
     userId: string;
     email: string;
     name: string | null;
+    legalName?: string | null;
+    nickname?: string | null;
     phone: string | null;
     inn: string | null;
     certificationLevel: string | null;

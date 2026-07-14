@@ -120,6 +120,10 @@ enum PayoutRequestStatus {
 model User {
   id            String    @id @default(cuid())
   name          String?
+  /// Отчество (при наличии)
+  middleName    String?
+  /// Публичный никнейм (как отображаться клиентам)
+  nickname      String?
   email         String    @unique
   /// Нормализованный российский мобильный, 11 цифр с ведущей 7 (уникален для клиентов с телефоном)
   phone         String?   @unique

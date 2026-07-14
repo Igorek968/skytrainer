@@ -212,7 +212,10 @@ export function AdminModerationSection({ data }: { data: AdminOverview }) {
                   className="flex flex-col gap-3 rounded-lg border border-border p-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between"
                 >
                   <div className="min-w-0 flex-1">
-                    <div className="font-medium">{p.name ?? "—"}</div>
+                    <div className="font-medium">{p.nickname || p.name || "—"}</div>
+                    {p.legalName ? (
+                      <div className="text-xs text-muted-foreground">ФИО: {p.legalName}</div>
+                    ) : null}
                     <div className="text-xs text-muted-foreground">{p.email}</div>
                     <div className="text-xs text-muted-foreground">
                       Телефон: {formatAdminPhone(p.phone)}

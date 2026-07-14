@@ -3,6 +3,10 @@ import type { UserRole } from "@prisma/client";
 
 import { auth } from "@/auth";
 import { cabinetPathForRole, resolvePostLoginRedirect } from "@/lib/auth-routes";
+import {
+  getInstructorVerificationStatus,
+  instructorEntryPath,
+} from "@/lib/instructor-verification-gate";
 import { prisma } from "@/lib/prisma";
 import { sanitizeRedirectPath } from "@/lib/sanitize-auth-redirect";
 
@@ -27,6 +31,7 @@ export async function getDbRoleForSession(): Promise<{
 /**
  * Если пользователь уже вошёл с нужной ролью — сразу в кабинет (не показывать форму входа).
  * Другие роли не редиректим: на странице входа можно сменить аккаунт.
+ * Инструктор без одобрения модерации → /instructor/pending.
  */
 export async function redirectWhenAlreadyLoggedIn(
   expectedRole: UserRole,
@@ -35,7 +40,12 @@ export async function redirectWhenAlreadyLoggedIn(
   const row = await getDbRoleForSession();
   if (!row || row.role !== expectedRole) return;
 
-  const fallback = cabinetPathForRole(expectedRole) ?? "/";
+  let fallback = cabinetPathForRole(expectedRole) ?? "/";
+  if (expectedRole === "INSTRUCTOR") {
+    const status = await getInstructorVerificationStatus(row.userId);
+    fallback = instructorEntryPath(status);
+  }
+
   const target = requestedReturn?.trim()
     ? resolvePostLoginRedirect(
         expectedRole,
@@ -43,6 +53,13 @@ export async function redirectWhenAlreadyLoggedIn(
         fallback,
       )
     : fallback;
+
+  if (expectedRole === "INSTRUCTOR" && fallback === "/instructor/pending") {
+    const bare = target.split("?")[0]?.replace(/\/+$/, "") || "/";
+    if (bare.startsWith("/instructor") && bare !== "/instructor/pending" && bare !== "/instructor/login") {
+      redirect("/instructor/pending");
+    }
+  }
 
   redirect(target);
 }
@@ -58,5 +75,15 @@ export async function redirectToRoleCabinetUnless(
   }
   if (row.role !== allowedRole) {
     redirect(cabinetPathForRole(row.role) ?? loginHref);
+  }
+}
+
+/** Кабинет инструктора только после APPROVED. */
+export async function redirectInstructorUnlessVerified(): Promise<void> {
+  const row = await getDbRoleForSession();
+  if (!row || row.role !== "INSTRUCTOR") return;
+  const status = await getInstructorVerificationStatus(row.userId);
+  if (status !== "APPROVED") {
+    redirect(instructorEntryPath(status));
   }
 }

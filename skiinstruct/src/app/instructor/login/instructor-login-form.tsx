@@ -30,7 +30,7 @@ export function InstructorLoginForm({
   applied = false,
   prefilledEmail = "",
   signInRequired = false,
-  callbackUrl = "/instructor",
+  callbackUrl = "/instructor/pending",
 }: {
   applied?: boolean;
   prefilledEmail?: string;
@@ -40,7 +40,7 @@ export function InstructorLoginForm({
   const { data: session } = useSession();
   const [state, formAction] = useFormState(signInInstructorCredentialsAction, initialState);
   const signedInAsOther = Boolean(session?.user?.role && session.user.role !== "INSTRUCTOR");
-  const safeCallback = useMemo(() => callbackUrl.trim() || "/instructor", [callbackUrl]);
+  const safeCallback = useMemo(() => callbackUrl.trim() || "/instructor/pending", [callbackUrl]);
 
   return (
     <div className="mx-auto max-w-md space-y-6">
@@ -63,8 +63,8 @@ export function InstructorLoginForm({
           {applied ? (
             <p className="rounded-md border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
               {signInRequired
-                ? "Заявка создана. Войдите с email и паролем, которые указали в анкете — откроется кабинет инструктора."
-                : "Заявка отправлена. Дождитесь одобрения в админке, затем войдите. Пока статус «на модерации» — поиск для клиентов недоступен."}
+                ? "Заявка создана. Войдите с email и паролем из анкеты — откроется экран ожидания модерации."
+                : "Заявка отправлена. Дождитесь одобрения администратором — кабинет откроется после модерации."}
             </p>
           ) : null}
 

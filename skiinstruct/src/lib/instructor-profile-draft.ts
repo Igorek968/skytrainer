@@ -11,6 +11,8 @@ import { canonicalizeActivityLabels } from "@/lib/services/instructor-match";
 export type InstructorProfileDraftPayload = {
   firstName?: string;
   lastName?: string;
+  middleName?: string;
+  nickname?: string;
   bio?: string | null;
   certificationLevel?: string | null;
   certifications?: string[];
@@ -287,6 +289,8 @@ export type ProfileDraftChange = {
 const PROFILE_DRAFT_FIELD_LABELS: Record<keyof InstructorProfileDraftPayload, string> = {
   firstName: "Имя",
   lastName: "Фамилия",
+  middleName: "Отчество",
+  nickname: "Никнейм",
   bio: "Биография",
   certificationLevel: "Уровень сертификации",
   certifications: "Сертификаты",
@@ -312,8 +316,10 @@ const PROFILE_DRAFT_FIELD_LABELS: Record<keyof InstructorProfileDraftPayload, st
 };
 
 const PROFILE_DRAFT_FIELD_ORDER: (keyof InstructorProfileDraftPayload)[] = [
-  "firstName",
   "lastName",
+  "firstName",
+  "middleName",
+  "nickname",
   "bio",
   "certificationLevel",
   "certifications",
@@ -400,6 +406,8 @@ function formatDraftFieldValue(
   switch (key) {
     case "firstName":
     case "lastName":
+    case "middleName":
+    case "nickname":
     case "bio":
     case "certificationLevel":
     case "cancellationPolicy":
