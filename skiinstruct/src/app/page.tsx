@@ -3,6 +3,7 @@ import { Suspense } from "react";
 
 import ClientHomePage from "@/app/client/client-home";
 import { pageMetadata, SEO_PAGES } from "@/lib/seo";
+import { HomeSeoContent } from "@/shared/seo/home-seo-content";
 import { Skeleton } from "@/shared/ui/skeleton";
 
 function ClientHomeFallback() {
@@ -20,11 +21,14 @@ function ClientHomeFallback() {
 
 export const metadata: Metadata = pageMetadata(SEO_PAGES.home);
 
-/** Главная = поиск и заказ на карте; кабинеты — по ссылкам в шапке. */
+/** Главная = поиск на карте + SSR-блок для поисковиков. */
 export default function HomePage() {
   return (
-    <Suspense fallback={<ClientHomeFallback />}>
-      <ClientHomePage />
-    </Suspense>
+    <>
+      <Suspense fallback={<ClientHomeFallback />}>
+        <ClientHomePage />
+      </Suspense>
+      <HomeSeoContent />
+    </>
   );
 }

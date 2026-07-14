@@ -15,11 +15,19 @@ import "./globals.css";
 
 const metadataBaseUrl = (() => {
   const raw =
-    process.env.NEXT_PUBLIC_APP_URL ?? process.env.AUTH_URL ?? process.env.NEXTAUTH_URL ?? "http://твойтренер.рф";
+    process.env.APP_PUBLIC_URL ??
+    process.env.NEXT_PUBLIC_APP_URL ??
+    process.env.AUTH_URL ??
+    process.env.NEXTAUTH_URL ??
+    "https://твойтренер.рф";
   try {
-    return new URL(raw);
+    const url = new URL(raw);
+    if (url.hostname !== "localhost" && url.hostname !== "127.0.0.1") {
+      url.protocol = "https:";
+    }
+    return url;
   } catch {
-    return new URL("http://твойтренер.рф");
+    return new URL("https://твойтренер.рф");
   }
 })();
 
@@ -46,7 +54,10 @@ export const metadata: Metadata = {
     statusBarStyle: "black-translucent",
   },
   icons: {
+    // SVG + 120px first — Яндекс рекомендует их для логотипа в выдаче
     icon: [
+      { url: "/favicon.svg", type: "image/svg+xml", sizes: "any" },
+      { url: "/favicon-120.png", sizes: "120x120", type: "image/png" },
       { url: "/favicon.ico", sizes: "any" },
       { url: "/favicon-32.png", sizes: "32x32", type: "image/png" },
       { url: "/favicon-48.png", sizes: "48x48", type: "image/png" },
@@ -90,6 +101,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="ru" suppressHydrationWarning>
       <head>
+        {/* Относительные пути: робот Яндекса берёт их с того же https-хоста */}
+        <link rel="icon" href="/favicon.svg" type="image/svg+xml" sizes="any" />
+        <link rel="icon" href="/favicon-120.png" type="image/png" sizes="120x120" />
+        <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon" />
         <link rel="preconnect" href="https://api-maps.yandex.ru" />
         <link rel="preconnect" href="https://yastatic.net" crossOrigin="" />
         <link rel="dns-prefetch" href="https://mc.yandex.ru" />

@@ -7,7 +7,7 @@ export default function robots(): MetadataRoute.Robots {
     rules: [
       {
         userAgent: "*",
-        allow: ["/instructor/login", "/instructor/apply"],
+        allow: ["/", "/gorod/", "/sport/", "/instructors/", "/instructor/login", "/instructor/apply"],
         disallow: [
           "/admin/",
           "/api/",
@@ -19,11 +19,16 @@ export default function robots(): MetadataRoute.Robots {
           "/client/referral",
           "/instructor/orders",
           "/instructor/registrations",
+          "/instructor/profile",
+          "/instructor/availability",
           "/verify-email",
+          "/login",
+          "/register",
+          "/reset-password",
         ],
       },
     ],
     sitemap: absoluteUrl("/sitemap.xml"),
-    host: absoluteUrl("/"),
+    host: absoluteUrl("/").replace(/\/$/, ""),
   };
 }

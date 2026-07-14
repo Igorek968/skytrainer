@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { LEGAL_ROUTES } from "@/lib/legal";
+import { SEO_CITIES, SEO_SPORTS, cityPath, citySportPath, sportPath } from "@/lib/seo-landings";
 import { getPublicProductName } from "@/shared/lib/product";
 
 export type SeoPage = {
@@ -21,7 +22,7 @@ export const SEO_PAGES = {
     title: "Поиск инструктора рядом — заказ тренировки | ТвойТренер.рф",
     description:
       "Карта и фильтры ТвойТренер.рф: выберите тренера по виду спорта, цене и рейтингу рядом с вами, оформите заказ на занятие и оплатите бронирование в личном кабинете.",
-    path: "/client",
+    path: "/",
   },
   clientLogin: {
     title: "Вход в личный кабинет клиента | ТвойТренер.рф",
@@ -97,14 +98,10 @@ export const SEO_PAGES = {
   },
 } as const satisfies Record<string, SeoPage>;
 
-/** Публичные URL для sitemap (без закрытых кабинетов и API). */
+/** Публичные URL для sitemap (без утилит входа и закрытых кабинетов). */
 export const PUBLIC_SITEMAP_PAGES: SeoPage[] = [
   SEO_PAGES.home,
-  SEO_PAGES.clientSearch,
-  SEO_PAGES.clientLogin,
-  SEO_PAGES.clientRegister,
-  SEO_PAGES.resetPassword,
-  SEO_PAGES.instructorLogin,
+  SEO_PAGES.instructorApply,
   SEO_PAGES.support,
   SEO_PAGES.oferta,
   SEO_PAGES.ofertaInstructor,
@@ -113,20 +110,59 @@ export const PUBLIC_SITEMAP_PAGES: SeoPage[] = [
   SEO_PAGES.requisites,
 ];
 
+export function landingSitemapPages(): SeoPage[] {
+  const pages: SeoPage[] = [];
+  for (const city of SEO_CITIES) {
+    const c = cityLandingMeta(city.slug);
+    if (c) pages.push(c);
+    for (const sport of SEO_SPORTS) {
+      pages.push({
+        title: `${sport.name} ${city.prepositional}`,
+        description: "",
+        path: citySportPath(city, sport),
+      });
+    }
+  }
+  for (const sport of SEO_SPORTS) {
+    pages.push({
+      title: sport.name,
+      description: "",
+      path: sportPath(sport),
+    });
+  }
+  return pages;
+}
+
+function cityLandingMeta(slug: string): SeoPage | null {
+  const city = SEO_CITIES.find((c) => c.slug === slug);
+  if (!city) return null;
+  return {
+    title: `Инструкторы ${city.prepositional}`,
+    description: "",
+    path: cityPath(city),
+  };
+}
+
 export function siteOrigin(): string {
   const raw =
+    process.env.APP_PUBLIC_URL?.trim() ||
     process.env.NEXT_PUBLIC_APP_URL?.trim() ||
     process.env.AUTH_URL?.trim() ||
     process.env.NEXTAUTH_URL?.trim() ||
-    "http://твойтренер.рф";
+    "https://твойтренер.рф";
   try {
-    return new URL(raw).origin;
+    const url = new URL(raw);
+    if (url.hostname !== "localhost" && url.hostname !== "127.0.0.1") {
+      url.protocol = "https:";
+    }
+    return url.origin;
   } catch {
     return "http://localhost:3001";
   }
 }
 
 export function absoluteUrl(path: string): string {
+  if (/^https?:\/\//i.test(path)) return path;
   const normalized = path.startsWith("/") ? path : `/${path}`;
   return `${siteOrigin()}${normalized}`;
 }
@@ -134,6 +170,7 @@ export function absoluteUrl(path: string): string {
 /** Абсолютный title, Open Graph, Twitter Card и canonical. */
 export function pageMetadata(page: SeoPage): Metadata {
   const url = absoluteUrl(page.path);
+  const productName = getPublicProductName();
   return {
     title: { absolute: page.title },
     description: page.description,
@@ -142,13 +179,13 @@ export function pageMetadata(page: SeoPage): Metadata {
       type: "website",
       locale: "ru_RU",
       url,
-      siteName: getPublicProductName(),
+      siteName: productName,
       title: page.title,
       description: page.description,
-      images: [{ url: "/icon-512.png", width: 512, height: 512, alt: getPublicProductName() }],
+      images: [{ url: "/icon-512.png", width: 512, height: 512, alt: productName }],
     },
     twitter: {
-      card: "summary",
+      card: "summary_large_image",
       title: page.title,
       description: page.description,
       images: ["/icon-512.png"],
@@ -173,7 +210,9 @@ export function siteJsonLd(): Record<string, unknown>[] {
         width: 512,
         height: 512,
       },
+      image: `${origin}/favicon-120.png`,
       email: "berezka23igor@yandex.ru",
+      sameAs: [],
     },
     {
       "@context": "https://schema.org",
@@ -183,14 +222,6 @@ export function siteJsonLd(): Record<string, unknown>[] {
       description: SEO_PAGES.home.description,
       inLanguage: "ru-RU",
       publisher: { "@id": organizationId },
-      potentialAction: {
-        "@type": "SearchAction",
-        target: {
-          "@type": "EntryPoint",
-          urlTemplate: `${origin}/client`,
-        },
-        "query-input": "required name=search_term_string",
-      },
     },
   ];
 }

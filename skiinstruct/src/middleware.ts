@@ -19,14 +19,17 @@ import type { UserRole } from "@prisma/client";
  */
 function configuredSiteUsesHttps(): boolean {
   const raw =
+    process.env.APP_PUBLIC_URL?.trim() ||
     process.env.NEXT_PUBLIC_APP_URL?.trim() ||
     process.env.AUTH_URL?.trim() ||
     process.env.NEXTAUTH_URL?.trim();
-  if (!raw) return false;
+  if (!raw) return true; // прод по умолчанию https
   try {
-    return new URL(raw).protocol === "https:";
+    const host = new URL(raw).hostname;
+    if (host === "localhost" || host === "127.0.0.1") return false;
+    return true;
   } catch {
-    return false;
+    return true;
   }
 }
 
@@ -76,7 +79,8 @@ export default NextAuth(authConfig).auth((req) => {
 
   /** Карта и заказ — для гостей и для инструкторов/админов «как клиент». */
   const isClientBookingHome = pathname === "/client" || pathname === "/client/";
-  const isPublicInstructorReviewsBrowse = pathname.startsWith("/instructors/");
+  const isPublicInstructorBrowse = pathname.startsWith("/instructors/");
+  const isPublicSeoLandings = pathname.startsWith("/gorod/") || pathname.startsWith("/sport/");
   const isPublicLegal =
     pathname === "/oferta" ||
     pathname.startsWith("/oferta/") ||
@@ -94,7 +98,8 @@ export default NextAuth(authConfig).auth((req) => {
   if (
     publicPaths.includes(pathname) ||
     isClientBookingHome ||
-    isPublicInstructorReviewsBrowse ||
+    isPublicInstructorBrowse ||
+    isPublicSeoLandings ||
     isPublicLegal
   ) {
     return withRefCookie(req, NextResponse.next());

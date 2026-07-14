@@ -1,6 +1,6 @@
 /** Реквизиты агента (клиентская оферта, политика ПДн, возвраты). */
 export const LEGAL_SITE_URL =
-  process.env.NEXT_PUBLIC_APP_URL?.trim() || "http://твойтренер.рф";
+  process.env.NEXT_PUBLIC_APP_URL?.trim() || "https://твойтренер.рф";
 
 export const LEGAL_AGENT = {
   fullName: "Индивидуальный предприниматель Ершов Андрей Валерьевич",
