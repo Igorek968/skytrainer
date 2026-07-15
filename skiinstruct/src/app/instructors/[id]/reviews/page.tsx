@@ -38,8 +38,8 @@ export default function InstructorReviewsPage() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold tracking-tight">Все отзывы об инструкторе</h1>
-        <Link className="text-sm text-accent underline" href="/client">
-          ← Назад к заказу
+        <Link className="text-sm text-accent underline" href={`/instructors/${id}`}>
+          ← К профилю инструктора
         </Link>
       </div>
 

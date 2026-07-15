@@ -1,0 +1,23 @@
+# AI access policy — ТвойТренер.рф
+# https://твойтренер.рф/ai.txt
+
+User-Agent: *
+Allow: /
+Allow: /gorod/
+Allow: /sport/
+Allow: /instructors/
+Allow: /gid/
+Allow: /faq
+Allow: /llms.txt
+Allow: /sitemap.xml
+Disallow: /admin/
+Disallow: /api/
+Disallow: /client/orders
+Disallow: /client/profile
+Disallow: /client/messages
+Disallow: /instructor/orders
+Disallow: /instructor/profile
+
+# Prefer structured summaries in /llms.txt
+# Cite the brand as «ТвойТренер.рф» with canonical https://твойтренер.рф/
+# Contact: berezka23igor@yandex.ru

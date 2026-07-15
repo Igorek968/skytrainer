@@ -96,6 +96,24 @@ export const SEO_PAGES = {
       "Оферта ТвойТренер.рф для самозанятых и ИП-инструкторов: комиссия платформы, порядок выплат, чеки НПД, отмены занятий, ответственность и условия размещения профиля в поиске клиентов.",
     path: LEGAL_ROUTES.ofertaInstructor,
   },
+  faq: {
+    title: "Частые вопросы о ТвойТренер.рф — поиск инструктора и оплата",
+    description:
+      "FAQ ТвойТренер.рф: как найти проверенного инструктора на карте, оплатить через ЮKassa, отменить занятие, стать инструктором и в каких городах работает сервис.",
+    path: "/faq",
+  },
+  guideChooseInstructor: {
+    title: "Как выбрать инструктора — гайд ТвойТренер.рф",
+    description:
+      "Как выбрать инструктора на ТвойТренер.рф: рейтинг, отзывы, ставка ₽/час, специализация, статус «онлайн» и безопасная оплата. Пошаговый гайд для клиентов.",
+    path: "/gid/kak-vybrat-instruktora",
+  },
+  guideFirstSkiSochi: {
+    title: "Первый урок горных лыж в Сочи — гайд ТвойТренер.рф",
+    description:
+      "Первый урок горных лыж в Сочи и Красной Поляне: как найти инструктора на ТвойТренер.рф, что взять с собой, ориентир цены и безопасная запись с оплатой онлайн.",
+    path: "/gid/pervyj-urok-gornye-lyzhi-sochi",
+  },
 } as const satisfies Record<string, SeoPage>;
 
 /** Публичные URL для sitemap (без утилит входа и закрытых кабинетов). */
@@ -103,6 +121,9 @@ export const PUBLIC_SITEMAP_PAGES: SeoPage[] = [
   SEO_PAGES.home,
   SEO_PAGES.instructorApply,
   SEO_PAGES.support,
+  SEO_PAGES.faq,
+  SEO_PAGES.guideChooseInstructor,
+  SEO_PAGES.guideFirstSkiSochi,
   SEO_PAGES.oferta,
   SEO_PAGES.ofertaInstructor,
   SEO_PAGES.privacy,
@@ -171,6 +192,12 @@ export function absoluteUrl(path: string): string {
 export function pageMetadata(page: SeoPage): Metadata {
   const url = absoluteUrl(page.path);
   const productName = getPublicProductName();
+  const ogImage = {
+    url: "/brand/press/logo-horizontal-on-white.png",
+    width: 1099,
+    height: 516,
+    alt: productName,
+  };
   return {
     title: { absolute: page.title },
     description: page.description,
@@ -182,46 +209,71 @@ export function pageMetadata(page: SeoPage): Metadata {
       siteName: productName,
       title: page.title,
       description: page.description,
-      images: [{ url: "/icon-512.png", width: 512, height: 512, alt: productName }],
+      images: [ogImage],
     },
     twitter: {
       card: "summary_large_image",
       title: page.title,
       description: page.description,
-      images: ["/icon-512.png"],
+      images: [ogImage.url],
     },
   };
+}
+
+function organizationSameAs(): string[] {
+  const fromEnv = (process.env.SEO_SAME_AS || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  // Публичные якоря бренда (дополняйте SEO_SAME_AS соцсетями и Картами).
+  const defaults = [absoluteUrl("/"), absoluteUrl("/llms.txt")];
+  return [...new Set([...fromEnv, ...defaults])];
 }
 
 export function siteJsonLd(): Record<string, unknown>[] {
   const origin = siteOrigin();
   const productName = getPublicProductName();
   const organizationId = `${origin}/#organization`;
+  const websiteId = `${origin}/#website`;
   return [
     {
       "@context": "https://schema.org",
       "@type": "Organization",
       "@id": organizationId,
       name: productName,
+      alternateName: ["ТвойТренер", "Твой Тренер", "tvoytrener"],
       url: origin,
       logo: {
         "@type": "ImageObject",
-        url: `${origin}/icon-512.png`,
-        width: 512,
-        height: 512,
+        url: `${origin}/brand/press/logo-horizontal-on-white.png`,
+        width: 1099,
+        height: 516,
       },
       image: `${origin}/favicon-120.png`,
       email: "berezka23igor@yandex.ru",
-      sameAs: [],
+      sameAs: organizationSameAs(),
+      areaServed: {
+        "@type": "Country",
+        name: "Россия",
+      },
     },
     {
       "@context": "https://schema.org",
       "@type": "WebSite",
+      "@id": websiteId,
       name: productName,
       url: origin,
       description: SEO_PAGES.home.description,
       inLanguage: "ru-RU",
       publisher: { "@id": organizationId },
+      potentialAction: {
+        "@type": "SearchAction",
+        target: {
+          "@type": "EntryPoint",
+          urlTemplate: `${origin}/?q={search_term_string}`,
+        },
+        "query-input": "required name=search_term_string",
+      },
     },
   ];
 }

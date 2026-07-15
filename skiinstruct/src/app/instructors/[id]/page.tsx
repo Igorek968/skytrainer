@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 
 import { prisma } from "@/lib/prisma";
 import { absoluteUrl, pageMetadata } from "@/lib/seo";
+import { breadcrumbJsonLd, reviewJsonLd } from "@/lib/seo-schema";
 import { effectivePhotoGallery } from "@/lib/instructor-profile-photo-draft";
 import {
   canonicalizeActivityLabels,
@@ -41,7 +42,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const name = instructor.name || "Инструктор";
   return pageMetadata({
     title: `${name} — инструктор (${sports}) | ТвойТренер.рф`,
-    description: `Профиль инструктора ${name} на ТвойТренер.рф: ${sports}. Рейтинг ${instructor.instructorProfile.ratingAvg.toFixed(1)}, отзывов ${instructor.instructorProfile.reviewCount}. Запись и оплата онлайн.`,
+    description: `Профиль инструктора ${name} на ТвойТренер.рф: ${sports}. Рейтинг ${instructor.instructorProfile.ratingAvg.toFixed(1)}, отзывов ${instructor.instructorProfile.reviewCount}. Ставка от ${Number(instructor.instructorProfile.hourlyRate).toLocaleString("ru-RU")} ₽/час. Запись и оплата онлайн.`,
     path: `/instructors/${id}`,
   });
 }
@@ -63,7 +64,24 @@ export default async function InstructorProfilePage({ params }: Props) {
   const name = instructor.name || "Инструктор";
   const origin = absoluteUrl(`/instructors/${id}`);
 
-  const jsonLd = {
+  const recentReviews = await prisma.order.findMany({
+    where: {
+      instructorId: id,
+      status: "COMPLETED",
+      clientRating: { not: null },
+    },
+    select: {
+      id: true,
+      createdAt: true,
+      clientRating: true,
+      clientReview: true,
+      client: { select: { name: true } },
+    },
+    orderBy: { createdAt: "desc" },
+    take: 5,
+  });
+
+  const personLd = {
     "@context": "https://schema.org",
     "@type": "Person",
     name,
@@ -84,16 +102,43 @@ export default async function InstructorProfilePage({ params }: Props) {
         : undefined,
   };
 
+  const schemas: Record<string, unknown>[] = [
+    breadcrumbJsonLd([
+      { name: "ТвойТренер.рф", path: "/" },
+      { name: name, path: `/instructors/${id}` },
+    ]),
+    personLd,
+    ...recentReviews
+      .filter((r) => r.clientRating != null)
+      .map((r) =>
+        reviewJsonLd({
+          itemName: name,
+          itemUrl: `/instructors/${id}`,
+          ratingValue: r.clientRating!,
+          reviewBody: r.clientReview,
+          authorName: r.client.name,
+          datePublished: r.createdAt,
+        }),
+      ),
+  ];
+
   return (
     <article className="mx-auto max-w-3xl space-y-6 py-2">
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
-      <p className="text-sm text-muted-foreground">
+      {schemas.map((schema, i) => (
+        <script
+          // eslint-disable-next-line react/no-array-index-key
+          key={i}
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
+        />
+      ))}
+      <nav aria-label="Хлебные крошки" className="text-sm text-muted-foreground">
         <Link href="/" className="underline-offset-2 hover:underline">
           ТвойТренер.рф
         </Link>
         {" · "}
         Инструктор
-      </p>
+      </nav>
       <header className="flex flex-col gap-4 sm:flex-row sm:items-start">
         {photoUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -139,6 +184,29 @@ export default async function InstructorProfilePage({ params }: Props) {
         <section className="space-y-2">
           <h2 className="text-xl font-semibold">О себе</h2>
           <p className="whitespace-pre-wrap leading-relaxed text-muted-foreground">{bio}</p>
+        </section>
+      ) : null}
+      {recentReviews.length > 0 ? (
+        <section className="space-y-3">
+          <h2 className="text-xl font-semibold">Недавние отзывы</h2>
+          <ul className="space-y-3">
+            {recentReviews.map((r) => (
+              <li key={r.id} className="rounded-lg border border-border/60 p-3 text-sm">
+                <p className="font-medium">
+                  ★ {r.clientRating ?? "—"} · {r.client.name || "Ученик"}
+                </p>
+                {r.clientReview ? (
+                  <p className="mt-1 text-muted-foreground">{r.clientReview}</p>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+          <Link
+            href={`/instructors/${id}/reviews`}
+            className="text-sm text-primary underline-offset-2 hover:underline"
+          >
+            Смотреть все отзывы
+          </Link>
         </section>
       ) : null}
     </article>

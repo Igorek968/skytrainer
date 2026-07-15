@@ -1,3 +1,4 @@
+import { prisma } from "@/lib/prisma";
 import { absoluteUrl, landingSitemapPages, PUBLIC_SITEMAP_PAGES, siteOrigin } from "@/lib/seo";
 
 /** Публичный ключ IndexNow (файл `public/{key}.txt` должен совпадать). */
@@ -14,17 +15,41 @@ export function indexNowKeyLocation(): string {
   return absoluteUrl(`/${key}.txt`);
 }
 
-/** Публичные URL для уведомления поисковиков (без кабинетов и API). */
-export function indexNowPublicUrls(): string[] {
+/** Статические и лендинговые URL (без БД). */
+export function indexNowStaticUrls(): string[] {
   const paths = [
     ...PUBLIC_SITEMAP_PAGES.map((p) => p.path),
     ...landingSitemapPages().map((p) => p.path),
     "/robots.txt",
     "/sitemap.xml",
+    "/llms.txt",
+    "/ai.txt",
     "/favicon.svg",
     "/favicon-120.png",
   ];
   return [...new Set(paths.map((path) => absoluteUrl(path)))];
+}
+
+/** Публичные URL для уведомления поисковиков, включая профили инструкторов. */
+export async function indexNowPublicUrls(): Promise<string[]> {
+  const urls = indexNowStaticUrls();
+  try {
+    const instructors = await prisma.user.findMany({
+      where: {
+        role: "INSTRUCTOR",
+        instructorProfile: { is: { verificationStatus: "APPROVED" } },
+      },
+      select: { id: true },
+      take: 5000,
+    });
+    for (const row of instructors) {
+      urls.push(absoluteUrl(`/instructors/${row.id}`));
+      urls.push(absoluteUrl(`/instructors/${row.id}/reviews`));
+    }
+  } catch {
+    // БД недоступна при сборке/cron — отправляем хотя бы статику.
+  }
+  return [...new Set(urls)];
 }
 
 export type IndexNowResult = {

@@ -38,6 +38,14 @@ export function SiteFooter() {
           <Link className="underline underline-offset-2 hover:text-foreground" href={LEGAL_ROUTES.support}>
             Поддержка
           </Link>{" "}
+          |{" "}
+          <Link className="underline underline-offset-2 hover:text-foreground" href="/faq">
+            FAQ
+          </Link>{" "}
+          |{" "}
+          <Link className="underline underline-offset-2 hover:text-foreground" href="/gid/kak-vybrat-instruktora">
+            Как выбрать инструктора
+          </Link>{" "}
           | Email:{" "}
           <a className="underline underline-offset-2 hover:text-foreground" href={`mailto:${LEGAL_AGENT.email}`}>
             {LEGAL_AGENT.email}

@@ -56,12 +56,28 @@ export default async function CitySportLandingPage({ params }: Props) {
     areaServed: city.name,
     provider: { "@type": "Organization", name: "ТвойТренер.рф", url: absoluteUrl("/") },
     serviceType: sport.name,
+    offers: city.priceFromRub
+      ? {
+          "@type": "Offer",
+          priceCurrency: "RUB",
+          price: String(city.priceFromRub),
+          description: `Ориентир «от ${city.priceFromRub} ₽/час»; точная ставка в профиле инструктора`,
+        }
+      : undefined,
   };
 
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
-      <SeoLandingShell title={copy.h1} lead={copy.lead} city={city} sport={sport} mapHref="/" />
+      <SeoLandingShell
+        title={copy.h1}
+        lead={copy.lead}
+        city={city}
+        sport={sport}
+        facts={copy.facts}
+        faqs={copy.faqs}
+        mapHref="/"
+      />
     </>
   );
 }

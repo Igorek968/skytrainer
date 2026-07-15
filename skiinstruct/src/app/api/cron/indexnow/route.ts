@@ -4,7 +4,7 @@ import { authorizeCronRequest } from "@/lib/cron-auth";
 import { indexNowPublicUrls, submitIndexNow } from "@/lib/indexnow";
 
 async function runIndexNow() {
-  const urls = indexNowPublicUrls();
+  const urls = await indexNowPublicUrls();
   const result = await submitIndexNow(urls);
   return NextResponse.json(result, { status: result.ok ? 200 : 502 });
 }

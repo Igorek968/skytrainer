@@ -19,6 +19,11 @@ $urls = @(
   "$origin/",
   "$origin/robots.txt",
   "$origin/sitemap.xml",
+  "$origin/llms.txt",
+  "$origin/ai.txt",
+  "$origin/faq",
+  "$origin/gid/kak-vybrat-instruktora",
+  "$origin/gid/pervyj-urok-gornye-lyzhi-sochi",
   "$origin/favicon.svg",
   "$origin/favicon-120.png",
   "$origin/favicon.ico",
@@ -29,7 +34,8 @@ $urls = @(
   "$origin/gorod/sochi",
   "$origin/gorod/moskva",
   "$origin/sport/gornye-lyzhi",
-  "$origin/gorod/sochi/gornye-lyzhi"
+  "$origin/gorod/sochi/gornye-lyzhi",
+  "$origin/gorod/krasnaya-polyana/gornye-lyzhi"
 )
 
 $body = @{

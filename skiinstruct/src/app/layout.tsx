@@ -74,13 +74,20 @@ export const metadata: Metadata = {
     title: SEO_PAGES.home.title,
     description: SEO_PAGES.home.description,
     url: absoluteUrl(SEO_PAGES.home.path),
-    images: [{ url: "/icon-512.png", width: 512, height: 512, alt: appName }],
+    images: [
+      {
+        url: "/brand/press/logo-horizontal-on-white.png",
+        width: 1099,
+        height: 516,
+        alt: appName,
+      },
+    ],
   },
   twitter: {
-    card: "summary",
+    card: "summary_large_image",
     title: SEO_PAGES.home.title,
     description: SEO_PAGES.home.description,
-    images: ["/icon-512.png"],
+    images: ["/brand/press/logo-horizontal-on-white.png"],
   },
 };
 

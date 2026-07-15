@@ -1,18 +1,28 @@
 import Link from "next/link";
 
 import { SEO_CITIES, SEO_SPORTS, cityPath, sportPath } from "@/lib/seo-landings";
+import { SITE_FAQS, faqPageJsonLd } from "@/lib/seo-schema";
 
 /** SSR-блок для роботов на главной (карта ниже — клиентская). */
 export function HomeSeoContent() {
+  const faqLd = faqPageJsonLd(SITE_FAQS);
+
   return (
     <section className="mt-10 space-y-8 border-t border-border/50 pt-8" aria-label="О сервисе">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqLd) }} />
+
       <div className="max-w-3xl space-y-3">
         <h2 className="text-2xl font-semibold tracking-tight">Персональные тренировки по всей России</h2>
         <p className="text-muted-foreground leading-relaxed">
           ТвойТренер.рф — маркетплейс инструкторов и тренеров: горные лыжи, сноуборд, теннис, плавание, йога и десятки
-          других направлений. Найдите специалиста на карте, сравните цены и отзывы, забронируйте занятие и оплатите
-          онлайн через ЮKassa.
+          других направлений. Найдите проверенного специалиста на карте, сравните цены и отзывы, забронируйте занятие и
+          оплатите онлайн через ЮKassa.
         </p>
+        <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+          <li>В поиске только инструкторы после модерации</li>
+          <li>Рейтинг и отзывы после завершённых занятий</li>
+          <li>Оплата ЮKassa, правила возврата опубликованы на сайте</li>
+        </ul>
       </div>
 
       <div className="grid gap-8 md:grid-cols-2">
@@ -42,19 +52,24 @@ export function HomeSeoContent() {
         </div>
       </div>
 
-      <div className="max-w-3xl space-y-2 text-sm text-muted-foreground">
+      <div className="max-w-3xl space-y-4 text-sm text-muted-foreground">
         <h3 className="text-base font-semibold text-foreground">Частые вопросы</h3>
+        {SITE_FAQS.map((f) => (
+          <div key={f.question} className="space-y-1">
+            <p>
+              <strong className="text-foreground">{f.question}</strong>
+            </p>
+            <p className="leading-relaxed">{f.answer}</p>
+          </div>
+        ))}
         <p>
-          <strong className="text-foreground">Как найти инструктора?</strong> Откройте карту на главной, выберите вид
-          спорта и точку встречи — в выдаче появятся одобренные инструкторы рядом.
-        </p>
-        <p>
-          <strong className="text-foreground">Как оплатить?</strong> После подтверждения заявки оплата проходит онлайн
-          через ЮKassa в личном кабинете.
-        </p>
-        <p>
-          <strong className="text-foreground">Можно ли стать инструктором?</strong> Да — подайте заявку в разделе для
-          инструкторов; после модерации профиль появится в поиске.
+          <Link href="/faq" className="text-primary underline-offset-2 hover:underline">
+            Все вопросы и ответы
+          </Link>
+          {" · "}
+          <Link href="/gid/kak-vybrat-instruktora" className="text-primary underline-offset-2 hover:underline">
+            Как выбрать инструктора
+          </Link>
         </p>
       </div>
     </section>

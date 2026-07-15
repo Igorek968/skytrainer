@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { prisma } from "@/lib/prisma";
 import { pageMetadata } from "@/lib/seo";
+import { breadcrumbJsonLd, reviewJsonLd } from "@/lib/seo-schema";
 import { canonicalizeActivityLabels } from "@/lib/services/instructor-match";
 
 type LayoutProps = {
@@ -38,7 +39,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   });
 }
 
-/** Несуществующий или неодобренный инструктор — HTTP 404. */
+/** Несуществующий или неодобренный инструктор — HTTP 404. SSR JSON-LD отзывов для поиска и ИИ. */
 export default async function InstructorReviewsLayout({ children, params }: LayoutProps) {
   const { id } = await params;
 
@@ -48,12 +49,61 @@ export default async function InstructorReviewsLayout({ children, params }: Layo
       role: "INSTRUCTOR",
       instructorProfile: { is: { verificationStatus: "APPROVED" } },
     },
-    select: { id: true },
+    select: { id: true, name: true },
   });
 
   if (!instructor) {
     notFound();
   }
 
-  return children;
+  const name = instructor.name || "Инструктор";
+  const reviews = await prisma.order.findMany({
+    where: {
+      instructorId: id,
+      status: "COMPLETED",
+      clientRating: { not: null },
+    },
+    select: {
+      createdAt: true,
+      clientRating: true,
+      clientReview: true,
+      client: { select: { name: true } },
+    },
+    orderBy: { createdAt: "desc" },
+    take: 20,
+  });
+
+  const schemas: Record<string, unknown>[] = [
+    breadcrumbJsonLd([
+      { name: "ТвойТренер.рф", path: "/" },
+      { name, path: `/instructors/${id}` },
+      { name: "Отзывы", path: `/instructors/${id}/reviews` },
+    ]),
+    ...reviews
+      .filter((r) => r.clientRating != null)
+      .map((r) =>
+        reviewJsonLd({
+          itemName: name,
+          itemUrl: `/instructors/${id}`,
+          ratingValue: r.clientRating!,
+          reviewBody: r.clientReview,
+          authorName: r.client.name,
+          datePublished: r.createdAt,
+        }),
+      ),
+  ];
+
+  return (
+    <>
+      {schemas.map((schema, i) => (
+        <script
+          // eslint-disable-next-line react/no-array-index-key
+          key={i}
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
+        />
+      ))}
+      {children}
+    </>
+  );
 }

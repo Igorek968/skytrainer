@@ -30,12 +30,20 @@ export default async function SportLandingPage({ params }: Props) {
     name: copy.h1,
     description: copy.description,
     url: absoluteUrl(sportPath(sport)),
+    about: { "@type": "Thing", name: sport.name },
   };
 
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
-      <SeoLandingShell title={copy.h1} lead={copy.lead} sport={sport} mapHref="/" />
+      <SeoLandingShell
+        title={copy.h1}
+        lead={copy.lead}
+        sport={sport}
+        facts={copy.facts}
+        faqs={copy.faqs}
+        mapHref="/"
+      />
     </>
   );
 }
