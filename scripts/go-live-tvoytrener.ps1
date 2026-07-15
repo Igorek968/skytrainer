@@ -7,7 +7,7 @@ param(
 $ErrorActionPreference = "Stop"
 Set-Location $PSScriptRoot\..
 
-$vpsIp = "93.77.189.9"
+$vpsIp = "93.77.189.27"
 $domain = "xn--b1agaovdpdkd.xn--p1ai"
 
 Write-Host "=== Go live: tvoytrener.rf ==="

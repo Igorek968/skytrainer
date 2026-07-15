@@ -31,15 +31,19 @@ foreach ($h in $hosts.hosts) {
   Write-Host ("host {0} verified={1}" -f $h.host_id, $h.verified)
 }
 
-# Prefer http host already verified (API host_id format)
+# Prefer verified HTTPS host; fall back to HTTP (recrawl URLs must match host scheme).
+$httpsHost = $hosts.hosts | Where-Object { $_.host_id -like "https:xn--b1agaovdpdkd*" -and $_.verified } | Select-Object -First 1
 $httpHost = $hosts.hosts | Where-Object { $_.host_id -like "http:xn--b1agaovdpdkd*" } | Select-Object -First 1
-if (-not $httpHost) { $httpHost = $hosts.hosts | Select-Object -First 1 }
-if (-not $httpHost) { throw "No hosts in Webmaster" }
+$primary = if ($httpsHost) { $httpsHost } else { $httpHost }
+if (-not $primary) { $primary = $hosts.hosts | Select-Object -First 1 }
+if (-not $primary) { throw "No hosts in Webmaster" }
 
-$hostId = $httpHost.host_id
+$hostId = $primary.host_id
+$useHttps = $hostId -like "https:*"
+$scheme = if ($useHttps) { "https" } else { "http" }
+$origin = "${scheme}://xn--b1agaovdpdkd.xn--p1ai"
 Write-Host "using host_id=$hostId"
 
-# Add / update sitemap (https preferred; http host still accepts if redirects)
 $sitemapUrl = "https://xn--b1agaovdpdkd.xn--p1ai/sitemap.xml"
 try {
   $body = (@{ url = $sitemapUrl } | ConvertTo-Json)
@@ -50,15 +54,16 @@ try {
 }
 
 $urls = @(
-  "http://xn--b1agaovdpdkd.xn--p1ai/",
-  "http://xn--b1agaovdpdkd.xn--p1ai/favicon-120.png",
-  "http://xn--b1agaovdpdkd.xn--p1ai/favicon.ico",
-  "http://xn--b1agaovdpdkd.xn--p1ai/favicon.svg",
-  "http://xn--b1agaovdpdkd.xn--p1ai/sitemap.xml",
-  "http://xn--b1agaovdpdkd.xn--p1ai/gorod/sochi",
-  "http://xn--b1agaovdpdkd.xn--p1ai/gorod/sochi/gornye-lyzhi",
-  "http://xn--b1agaovdpdkd.xn--p1ai/gorod/moskva",
-  "http://xn--b1agaovdpdkd.xn--p1ai/sport/gornye-lyzhi"
+  "$origin/",
+  "$origin/robots.txt",
+  "$origin/favicon-120.png",
+  "$origin/favicon.ico",
+  "$origin/favicon.svg",
+  "$origin/sitemap.xml",
+  "$origin/gorod/sochi",
+  "$origin/gorod/sochi/gornye-lyzhi",
+  "$origin/gorod/moskva",
+  "$origin/sport/gornye-lyzhi"
 )
 
 foreach ($u in $urls) {
@@ -71,4 +76,12 @@ foreach ($u in $urls) {
   }
 }
 
-Write-Host "Done. In Webmaster UI also add https host as main mirror when available."
+if (-not $httpsHost) {
+  Write-Host "HTTPS host missing - run: .\scripts\ensure-yandex-https-mirror.ps1 -OpenBrowser"
+} else {
+  Write-Host "HTTPS host verified. If MAIN_MIRROR_IS_NOT_HTTPS remains on HTTP host, open:"
+  Write-Host "  https://webmaster.yandex.ru/site/http:xn--b1agaovdpdkd.xn--p1ai:80/indexing/mirrors/"
+  Write-Host "  then enable Add HTTPS and Save"
+}
+
+Write-Host "Done."

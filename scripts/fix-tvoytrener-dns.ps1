@@ -1,8 +1,8 @@
-# Fix tvoytrener.rf DNS at reg.ru: remove wrong A (93.77.189.9), point to VPS.
+# Fix tvoytrener.rf DNS at reg.ru: point A records to current VPS IP.
 # Requires in .env:
 #   REG_RU_USERNAME=your_login
 #   REG_RU_PASSWORD=API_password_from_reg.ru_settings
-#   TVOYTRENER_VPS_IP=159.194.210.141
+#   TVOYTRENER_VPS_IP=93.77.189.27
 param(
   [string]$VpsIp = "",
   [string]$RegRuUser = "",
@@ -15,7 +15,7 @@ Set-Location $PSScriptRoot\..
 $envFile = Join-Path (Get-Location) ".env"
 $domainPuny = "xn--b1agaovdpdkd.xn--p1ai"
 $wrongIp = "93.77.189.9"
-$defaultVpsIp = "93.77.189.9"
+$defaultVpsIp = "93.77.189.27"
 
 function Read-DotEnvValue([string]$path, [string]$key) {
   if (-not (Test-Path $path)) { return $null }
