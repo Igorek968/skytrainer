@@ -1,5 +1,5 @@
 # Point tvoytrener.rf to current VPS IP (bypass stale ISP DNS cache).
-# Run from repo root (admin): .\scripts\point-tvoytrener-hosts-to-vps.ps1
+# Run from repo root (admin UAC prompt): .\scripts\point-tvoytrener-hosts-to-vps.ps1
 param(
   [string]$VpsIp = "93.77.189.27"
 )
@@ -20,8 +20,7 @@ if (-not $isAdmin) {
   exit $LASTEXITCODE
 }
 
-$lines = Get-Content $hostsPath -ErrorAction SilentlyContinue
-if (-not $lines) { $lines = @() }
+$lines = @(Get-Content $hostsPath -ErrorAction SilentlyContinue)
 $out = New-Object System.Collections.Generic.List[string]
 $skipMarkerBlock = $false
 foreach ($line in $lines) {
@@ -44,4 +43,4 @@ $out.Add("$VpsIp www.$puny")
 Set-Content -Path $hostsPath -Value $out -Encoding ASCII
 ipconfig /flushdns | Out-Null
 Write-Host "hosts: $puny -> $VpsIp"
-Write-Host "Open: https://твойтренер.рф"
+Write-Host "Open: https://$puny"
