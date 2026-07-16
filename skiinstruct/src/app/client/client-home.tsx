@@ -218,7 +218,8 @@ export default function ClientHomePage() {
   const [skillLevel, setSkillLevel] = useState("INTERMEDIATE");
   const [duration, setDuration] = useState("TWO_HOURS");
   const [languagePref, setLanguagePref] = useState("Русский");
-  const [specializationPref, setSpecializationPref] = useState("🎿 Горные лыжи");
+  /** Пустая строка = «Все» направления — без фильтра по дисциплине. */
+  const [specializationPref, setSpecializationPref] = useState("");
   const [lessonDate, setLessonDate] = useState(todayIso);
   const [lessonEndDate, setLessonEndDate] = useState(todayIso);
   const [notes, setNotes] = useState("");
@@ -405,8 +406,11 @@ export default function ClientHomePage() {
     queryFn: async () => {
       const offline = nearbyRelaxed ? "&includeOffline=1" : "";
       const timeParams = `&lessonStartTime=${encodeURIComponent(nearbyLessonStartTime)}&lessonEndTime=${encodeURIComponent(nearbyLessonEndTime)}&lessonTimeZoneOffsetMinutes=${nearbyTzOffset}`;
+      const specializationParam = specializationPref.trim()
+        ? `&specialization=${encodeURIComponent(specializationPref.trim())}`
+        : "";
       const r = await fetch(
-        `/api/instructors/nearby?lat=${meetLat}&lng=${meetLng}&skillLevel=${skillLevel}&languagePref=${encodeURIComponent(languagePref)}&specialization=${encodeURIComponent(specializationPref)}&duration=${duration}&lessonDate=${nearbyLessonDate}&lessonEndDate=${nearbyLessonEndDate}&lessonDays=${nearbyLessonDays}${timeParams}${offline}`,
+        `/api/instructors/nearby?lat=${meetLat}&lng=${meetLng}&skillLevel=${skillLevel}&languagePref=${encodeURIComponent(languagePref)}${specializationParam}&duration=${duration}&lessonDate=${nearbyLessonDate}&lessonEndDate=${nearbyLessonEndDate}&lessonDays=${nearbyLessonDays}${timeParams}${offline}`,
         { cache: "no-store" },
       );
       if (!r.ok) throw new Error("nearby");
@@ -436,8 +440,8 @@ export default function ClientHomePage() {
         q: instructorNameSearchQ,
         lat: String(meetLat),
         lng: String(meetLng),
-        specialization: specializationPref,
       });
+      if (specializationPref.trim()) qs.set("specialization", specializationPref.trim());
       const r = await fetch(`/api/instructors/search?${qs}`, { cache: "no-store" });
       if (!r.ok) throw new Error("search");
       return r.json() as Promise<NearbyResponse>;
@@ -453,8 +457,8 @@ export default function ClientHomePage() {
         id: listPriorityId!,
         lat: String(meetLat),
         lng: String(meetLng),
-        specialization: specializationPref,
       });
+      if (specializationPref.trim()) qs.set("specialization", specializationPref.trim());
       const r = await fetch(`/api/instructors/search?${qs}`, { cache: "no-store" });
       if (!r.ok) throw new Error("search-by-id");
       return r.json() as Promise<NearbyResponse>;
@@ -544,11 +548,10 @@ export default function ClientHomePage() {
     queryKey: ["instructor-profile", expandedId, specializationPref],
     enabled: Boolean(expandedId),
     queryFn: async () => {
-      const disciplineQ = encodeURIComponent(specializationPref);
-      const r = await fetch(
-        `/api/instructors/${expandedId}?discipline=${disciplineQ}`,
-        { cache: "no-store" },
-      );
+      const disciplineQ = specializationPref.trim()
+        ? `?discipline=${encodeURIComponent(specializationPref.trim())}`
+        : "";
+      const r = await fetch(`/api/instructors/${expandedId}${disciplineQ}`, { cache: "no-store" });
       if (!r.ok) throw new Error("profile");
       return r.json() as Promise<ClientInstructorProfileResponse>;
     },
@@ -561,7 +564,8 @@ export default function ClientHomePage() {
   });
 
   async function postOrder(instructorId: string): Promise<string | null> {
-    const disciplineLine = `Дисциплина: ${specializationPref}`;
+    const selectedDiscipline = specializationPref.trim();
+    const disciplineLine = selectedDiscipline ? `Дисциплина: ${selectedDiscipline}` : "";
     const notesLine = notes.trim();
     const mergedNotes = [disciplineLine, notesLine].filter(Boolean).join("\n");
     const address = meetAddress.trim();
@@ -578,7 +582,7 @@ export default function ClientHomePage() {
       languagePref,
       duration,
       notes: mergedNotes || undefined,
-      disciplineLabel: specializationPref,
+      disciplineLabel: selectedDiscipline || undefined,
       lessonDate: showAdvancedParams ? lessonDate : todayIso,
       lessonEndDate: showAdvancedParams ? lessonEndDate : todayIso,
       lessonDays: showAdvancedParams ? lessonDays : 1,
@@ -792,7 +796,7 @@ export default function ClientHomePage() {
                 photoUrl: i.photoUrl,
                 image: i.image,
                 specializations: i.specializations,
-                sportLabel: specializationPref,
+                sportLabel: specializationPref.trim() || null,
               }))}
             onMeetChange={(lat, lng) => setMeet(lat, lng)}
             onLocateMe={locateUserMeetPoint}
@@ -826,6 +830,7 @@ export default function ClientHomePage() {
                 value={specializationPref}
                 onChange={(e) => setSpecializationPref(e.target.value)}
               >
+                <option value="">Все</option>
                 {specializationOptions.map((opt) => (
                   <option key={opt} value={opt}>
                     {opt}
