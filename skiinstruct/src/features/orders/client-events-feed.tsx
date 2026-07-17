@@ -16,12 +16,25 @@ import {
 import { EventRegistrationButton } from "@/features/orders/event-registration-button";
 import { EventFeedPhoto } from "@/features/orders/event-feed-photo";
 import { EventVenueDisplay } from "@/features/orders/event-venue-display";
+import { EventViewerOverlay } from "@/features/orders/event-viewer-overlay";
 import { publicUploadDisplaySrc } from "@/lib/public-uploads-display";
 import { devPollInterval } from "@/lib/query-poll";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Skeleton } from "@/shared/ui/skeleton";
 import { cn } from "@/lib/utils";
+
+/** Задержка, чтобы отличить одиночный клик (раскрыть) от двойного (окно просмотра). */
+const CLICK_VS_DBLCLICK_MS = 280;
+
+/** Телефон / тач: первый тап сразу открывает полноэкранный просмотр. */
+function shouldOpenViewerOnFirstTap(): boolean {
+  if (typeof window === "undefined") return false;
+  return (
+    window.matchMedia("(pointer: coarse)").matches ||
+    window.matchMedia("(max-width: 640px)").matches
+  );
+}
 
 const UNLIMITED_STORAGE_KEY = "skiinstruct_client_events_unlimited";
 
@@ -105,15 +118,27 @@ function EventFeedItem({
   showDistance,
   isClient,
   onInstructorPick,
+  onOpenViewer,
 }: {
   event: ClientInstructorEventDTO;
   queryKey: string[];
   showDistance: boolean;
   isClient: boolean;
   onInstructorPick?: (instructor: { id: string; name: string | null }) => void;
+  onOpenViewer?: (id: string) => void;
 }) {
   return (
-    <article className="border-b border-border pb-4 last:border-0 last:pb-0">
+    <article
+      className="cursor-pointer border-b border-border pb-4 last:border-0 last:pb-0"
+      onClick={(e) => {
+        if (!onOpenViewer || !shouldOpenViewerOnFirstTap()) return;
+        const t = e.target as HTMLElement | null;
+        if (t?.closest("a, button, input, textarea, select, [role='button']")) return;
+        onOpenViewer(event.id);
+      }}
+      onDoubleClick={() => onOpenViewer?.(event.id)}
+      title={onOpenViewer ? "Нажмите, чтобы открыть на весь экран" : undefined}
+    >
       <EventFeedDetails
         event={event}
         queryKey={queryKey}
@@ -129,6 +154,7 @@ function EventPosterCard({
   event,
   selected,
   onSelect,
+  onOpenViewer,
   queryKey,
   showDistance,
   isClient,
@@ -137,6 +163,7 @@ function EventPosterCard({
   event: ClientInstructorEventDTO;
   selected: boolean;
   onSelect: (id: string | null) => void;
+  onOpenViewer: (id: string) => void;
   queryKey: string[];
   showDistance: boolean;
   isClient: boolean;
@@ -145,8 +172,43 @@ function EventPosterCard({
   const badge = eventPosterBadgeValue(event);
   const distanceTitle =
     event.distanceKm != null ? `${formatDistanceKm(event.distanceKm)} от вас` : undefined;
+  const clickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (clickTimerRef.current) clearTimeout(clickTimerRef.current);
+    };
+  }, []);
 
   const toggleSelected = () => onSelect(selected ? null : event.id);
+
+  const handleClick = () => {
+    if (shouldOpenViewerOnFirstTap()) {
+      if (clickTimerRef.current) {
+        clearTimeout(clickTimerRef.current);
+        clickTimerRef.current = null;
+      }
+      onOpenViewer(event.id);
+      return;
+    }
+    if (clickTimerRef.current) {
+      clearTimeout(clickTimerRef.current);
+      clickTimerRef.current = null;
+      return;
+    }
+    clickTimerRef.current = setTimeout(() => {
+      clickTimerRef.current = null;
+      toggleSelected();
+    }, CLICK_VS_DBLCLICK_MS);
+  };
+
+  const handleDoubleClick = () => {
+    if (clickTimerRef.current) {
+      clearTimeout(clickTimerRef.current);
+      clickTimerRef.current = null;
+    }
+    onOpenViewer(event.id);
+  };
 
   return (
     <div
@@ -166,10 +228,12 @@ function EventPosterCard({
       >
         <button
           type="button"
-          onClick={toggleSelected}
+          onClick={handleClick}
+          onDoubleClick={handleDoubleClick}
           className="block w-full text-left"
           aria-expanded={selected}
-          aria-label={`${event.title}${distanceTitle ? `, ${distanceTitle}` : ""}`}
+          aria-label={`${event.title}${distanceTitle ? `, ${distanceTitle}` : ""}. Нажмите, чтобы открыть`}
+          title="Нажмите, чтобы открыть на весь экран"
         >
           <div className={cn("relative overflow-hidden bg-muted", selected ? "aspect-[16/10]" : "aspect-[2/3]")}>
             {publicUploadDisplaySrc(event.photoUrl) ? (
@@ -242,16 +306,31 @@ function EventsCarousel({
 }) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [viewerIndex, setViewerIndex] = useState<number | null>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
 
   useEffect(() => {
     if (!events.length) {
       setSelectedId(null);
+      setViewerIndex(null);
       return;
     }
     setSelectedId((prev) => (prev && events.some((e) => e.id === prev) ? prev : null));
+    setViewerIndex((prev) => {
+      if (prev == null) return null;
+      if (prev >= events.length) return events.length - 1;
+      return prev;
+    });
   }, [events]);
+
+  const openViewer = useCallback(
+    (id: string) => {
+      const idx = events.findIndex((e) => e.id === id);
+      if (idx >= 0) setViewerIndex(idx);
+    },
+    [events],
+  );
 
   const updateScrollEdges = useCallback(() => {
     const el = scrollerRef.current;
@@ -302,6 +381,7 @@ function EventsCarousel({
                 event={ev}
                 selected={selectedId === ev.id}
                 onSelect={setSelectedId}
+                onOpenViewer={openViewer}
                 queryKey={queryKey}
                 showDistance={showDistance}
                 isClient={isClient}
@@ -335,7 +415,85 @@ function EventsCarousel({
           </Button>
         ) : null}
       </div>
+      {viewerIndex != null ? (
+        <EventViewerOverlay
+          events={events}
+          index={viewerIndex}
+          onIndexChange={setViewerIndex}
+          onClose={() => setViewerIndex(null)}
+          queryKey={queryKey}
+          showDistance={showDistance}
+          isClient={isClient}
+          onInstructorPick={onInstructorPick}
+        />
+      ) : null}
     </div>
+  );
+}
+
+function EventsList({
+  events,
+  queryKey,
+  showDistance,
+  isClient,
+  onInstructorPick,
+}: {
+  events: ClientInstructorEventDTO[];
+  queryKey: string[];
+  showDistance: boolean;
+  isClient: boolean;
+  onInstructorPick?: (instructor: { id: string; name: string | null }) => void;
+}) {
+  const [viewerIndex, setViewerIndex] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!events.length) {
+      setViewerIndex(null);
+      return;
+    }
+    setViewerIndex((prev) => {
+      if (prev == null) return null;
+      if (prev >= events.length) return events.length - 1;
+      return prev;
+    });
+  }, [events]);
+
+  const openViewer = useCallback(
+    (id: string) => {
+      const idx = events.findIndex((e) => e.id === id);
+      if (idx >= 0) setViewerIndex(idx);
+    },
+    [events],
+  );
+
+  return (
+    <>
+      <div className="max-h-80 space-y-4 overflow-y-auto pr-1" role="feed" aria-label="Мероприятия">
+        {events.map((ev) => (
+          <EventFeedItem
+            key={ev.id}
+            event={ev}
+            queryKey={queryKey}
+            showDistance={showDistance}
+            isClient={isClient}
+            onInstructorPick={onInstructorPick}
+            onOpenViewer={openViewer}
+          />
+        ))}
+      </div>
+      {viewerIndex != null ? (
+        <EventViewerOverlay
+          events={events}
+          index={viewerIndex}
+          onIndexChange={setViewerIndex}
+          onClose={() => setViewerIndex(null)}
+          queryKey={queryKey}
+          showDistance={showDistance}
+          isClient={isClient}
+          onInstructorPick={onInstructorPick}
+        />
+      ) : null}
+    </>
   );
 }
 
@@ -422,8 +580,8 @@ export function ClientEventsFeed({
 
   const badgeHint =
     layout === "carousel"
-      ? "Зелёная метка: расстояние до инструктора (км) или цена (тыс. ₽)."
-      : undefined;
+      ? "Зелёная метка: расстояние (км) или цена (тыс. ₽). На телефоне — нажмите карточку, чтобы открыть на весь экран."
+      : "Нажмите мероприятие, чтобы открыть на весь экран.";
 
   return (
     <Card>
@@ -476,18 +634,13 @@ export function ClientEventsFeed({
             onInstructorPick={onInstructorPick}
           />
         ) : (
-          <div className="max-h-80 space-y-4 overflow-y-auto pr-1" role="feed" aria-label="Мероприятия">
-            {events.map((ev) => (
-              <EventFeedItem
-                key={ev.id}
-                event={ev}
-                queryKey={queryKey}
-                showDistance
-                isClient={isClient}
-                onInstructorPick={onInstructorPick}
-              />
-            ))}
-          </div>
+          <EventsList
+            events={events}
+            queryKey={queryKey}
+            showDistance
+            isClient={isClient}
+            onInstructorPick={onInstructorPick}
+          />
         )}
       </CardContent>
     </Card>
