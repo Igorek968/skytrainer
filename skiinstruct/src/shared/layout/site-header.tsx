@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { useSession, signOut } from "next-auth/react";
-import { Menu, Moon, Sun } from "lucide-react";
+import { LogOut, Menu, Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useState } from "react";
 
@@ -41,6 +41,12 @@ function openClientPersonalData(pathname: string, router: ReturnType<typeof useR
   router.push("/client");
 }
 
+const navLinkClass =
+  "inline-flex h-10 items-center justify-center whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 lg:px-4";
+
+const navLinkOutlineClass =
+  "inline-flex h-10 items-center justify-center whitespace-nowrap rounded-md border border-border px-3 py-2 text-sm font-medium transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 lg:px-4";
+
 export function SiteHeader() {
   const queryClient = useQueryClient();
   const router = useRouter();
@@ -68,9 +74,13 @@ export function SiteHeader() {
   const brandingHref = resolveBrandingHref(pathname, role);
   const onInstructorCabinet = pathname?.startsWith("/instructor");
 
+  function handleSignOut() {
+    signOutAndClearCache(queryClient, role);
+  }
+
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-background/80 pt-[env(safe-area-inset-top,0px)] backdrop-blur">
-      <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">
+      <div className="mx-auto flex max-w-6xl items-center justify-between gap-2 px-3 py-3 sm:gap-3 sm:px-4">
         <div className="min-w-0 flex-shrink">
           <Link
             href={brandingHref}
@@ -87,104 +97,59 @@ export function SiteHeader() {
           <HeaderAccountHint />
         </div>
 
-        <nav className="hidden items-center gap-2 md:flex" aria-label="Основная навигация">
-          {showAuthenticatedNav ? (
-            isClientUser ? (
-              <>
-                <Link
-                  href="/client/orders"
-                  className="inline-flex h-10 items-center justify-center whitespace-nowrap rounded-md px-4 py-2 text-sm font-medium transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                >
-                  Мои заказы
-                </Link>
-                <Link
-                  href="/client/referral"
-                  className="inline-flex h-10 items-center justify-center whitespace-nowrap rounded-md px-4 py-2 text-sm font-medium transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                >
-                  Пригласить друга
-                </Link>
-                <Button
-                  type="button"
-                  variant="accent"
-                  onClick={() => openClientPersonalData(pathname, router)}
-                >
-                  Личные данные
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => signOutAndClearCache(queryClient, role)}
-                >
-                  Выйти
-                </Button>
-              </>
+        <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+          {/* Ссылки — с lg: на узких десктопах у инструктора «Выйти» раньше уезжал за край */}
+          <nav className="hidden items-center gap-1 lg:flex lg:gap-2" aria-label="Основная навигация">
+            {showAuthenticatedNav ? (
+              isClientUser ? (
+                <>
+                  <Link href="/client/orders" className={navLinkClass}>
+                    Мои заказы
+                  </Link>
+                  <Link href="/client/referral" className={navLinkClass}>
+                    Пригласить друга
+                  </Link>
+                  <Button
+                    type="button"
+                    variant="accent"
+                    onClick={() => openClientPersonalData(pathname, router)}
+                  >
+                    Личные данные
+                  </Button>
+                </>
+              ) : (
+                <>
+                  {bookHref && bookLabel ? (
+                    <Link href={bookHref} className={navLinkOutlineClass}>
+                      {bookLabel}
+                    </Link>
+                  ) : null}
+                  <Link href={dashboardHref} className={navLinkClass}>
+                    {dashboardLabel}
+                  </Link>
+                  {profileHref && profileLabel ? (
+                    <Link href={profileHref} className={navLinkClass}>
+                      {profileLabel}
+                    </Link>
+                  ) : null}
+                  <Link href={ordersHref} className={navLinkClass}>
+                    {ordersLabel}
+                  </Link>
+                </>
+              )
             ) : (
               <>
-                {bookHref && bookLabel ? (
-                  <Link
-                    href={bookHref}
-                    className="inline-flex h-10 items-center justify-center whitespace-nowrap rounded-md border border-border px-4 py-2 text-sm font-medium transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                  >
-                    {bookLabel}
-                  </Link>
-                ) : null}
-                <Link
-                  href={dashboardHref}
-                  className="inline-flex h-10 items-center justify-center whitespace-nowrap rounded-md px-4 py-2 text-sm font-medium transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                >
-                  {dashboardLabel}
+                <Link href="/login?callbackUrl=%2Fclient" className={navLinkClass}>
+                  Войти
                 </Link>
-                {profileHref && profileLabel ? (
-                  <Link
-                    href={profileHref}
-                    className="inline-flex h-10 items-center justify-center whitespace-nowrap rounded-md px-4 py-2 text-sm font-medium transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                  >
-                    {profileLabel}
-                  </Link>
-                ) : null}
-                <Link
-                  href={ordersHref}
-                  className="inline-flex h-10 items-center justify-center whitespace-nowrap rounded-md px-4 py-2 text-sm font-medium transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                >
-                  {ordersLabel}
+                <Link href="/instructor/login" className={navLinkOutlineClass}>
+                  Инструктору
                 </Link>
-                <Button
-                  variant="outline"
-                  onClick={() => signOutAndClearCache(queryClient, role)}
-                >
-                  Выйти
-                </Button>
               </>
-            )
-          ) : (
-            <>
-              <Link
-                href="/login?callbackUrl=%2Fclient"
-                className="inline-flex h-10 items-center justify-center whitespace-nowrap rounded-md px-4 py-2 text-sm font-medium transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              >
-                Войти
-              </Link>
-              <Link
-                href="/instructor/login"
-                className="inline-flex h-10 items-center justify-center whitespace-nowrap rounded-md border border-border px-4 py-2 text-sm font-medium transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              >
-                Инструктору
-              </Link>
-            </>
-          )}
-          <SupportLauncher />
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            aria-label="Переключить тему"
-            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-          >
-            {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-          </Button>
-        </nav>
+            )}
+          </nav>
 
-        <div className="flex items-center gap-2 md:hidden">
-          <SupportLauncher className="h-9 px-2 text-xs" />
+          <SupportLauncher className="hidden h-9 px-2 text-xs sm:inline-flex" />
           <Button
             type="button"
             variant="outline"
@@ -194,10 +159,23 @@ export function SiteHeader() {
           >
             {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           </Button>
+          {showAuthenticatedNav ? (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleSignOut}
+              aria-label="Выйти"
+              className="gap-1.5"
+            >
+              <LogOut className="h-4 w-4 shrink-0" aria-hidden />
+              <span className="hidden sm:inline">Выйти</span>
+            </Button>
+          ) : null}
           <Button
             type="button"
             variant="outline"
             size="icon"
+            className="lg:hidden"
             aria-label="Открыть меню"
             aria-expanded={open}
             aria-controls="mobile-menu"
@@ -210,16 +188,24 @@ export function SiteHeader() {
 
       <div
         id="mobile-menu"
-        className={cn("border-t border-border md:hidden", open ? "block" : "hidden")}
+        className={cn("border-t border-border lg:hidden", open ? "block" : "hidden")}
       >
         <div className="mx-auto flex max-w-6xl flex-col gap-2 px-4 py-3">
           {showAuthenticatedNav ? (
             isClientUser ? (
               <>
-                <Link className="rounded-md px-3 py-2 hover:bg-muted" href="/client/orders" onClick={() => setOpen(false)}>
+                <Link
+                  className="rounded-md px-3 py-2 hover:bg-muted"
+                  href="/client/orders"
+                  onClick={() => setOpen(false)}
+                >
                   Мои заказы
                 </Link>
-                <Link className="rounded-md px-3 py-2 hover:bg-muted" href="/client/referral" onClick={() => setOpen(false)}>
+                <Link
+                  className="rounded-md px-3 py-2 hover:bg-muted"
+                  href="/client/referral"
+                  onClick={() => setOpen(false)}
+                >
                   Пригласить друга
                 </Link>
                 <button
@@ -236,7 +222,7 @@ export function SiteHeader() {
                 <button
                   type="button"
                   className="rounded-md px-3 py-2 text-left hover:bg-muted"
-                  onClick={() => signOutAndClearCache(queryClient, role)}
+                  onClick={handleSignOut}
                 >
                   Выйти
                 </button>
@@ -268,14 +254,21 @@ export function SiteHeader() {
                     {profileLabel}
                   </Link>
                 ) : null}
-                <Link className="rounded-md px-3 py-2 hover:bg-muted" href={ordersHref} onClick={() => setOpen(false)}>
+                <Link
+                  className="rounded-md px-3 py-2 hover:bg-muted"
+                  href={ordersHref}
+                  onClick={() => setOpen(false)}
+                >
                   {ordersLabel}
                 </Link>
+                <div className="px-3 py-1 sm:hidden">
+                  <SupportLauncher className="w-full justify-center" />
+                </div>
                 <PwaInstallMenuItem onNavigate={() => setOpen(false)} />
                 <button
                   type="button"
                   className="rounded-md px-3 py-2 text-left hover:bg-muted"
-                  onClick={() => signOutAndClearCache(queryClient, session?.user?.role)}
+                  onClick={handleSignOut}
                 >
                   Выйти
                 </button>

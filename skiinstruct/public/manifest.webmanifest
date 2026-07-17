@@ -1,17 +1,18 @@
 {
   "id": "/",
   "name": "ТвойТренер.рф",
-  "short_name": "ТвойТренер.рф",
+  "short_name": "ТвойТренер",
   "description": "Маркетплейс персональных тренировок: найдите инструктора на карте, забронируйте и оплатите занятие онлайн.",
   "start_url": "/client",
   "scope": "/",
   "display": "standalone",
-  "display_override": ["standalone", "minimal-ui"],
+  "display_override": ["standalone", "minimal-ui", "browser"],
   "orientation": "portrait-primary",
   "background_color": "#ffffff",
   "theme_color": "#0f766e",
   "lang": "ru",
   "dir": "ltr",
+  "prefer_related_applications": false,
   "categories": ["sports", "health", "lifestyle"],
   "icons": [
     {

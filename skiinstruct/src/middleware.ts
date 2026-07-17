@@ -33,15 +33,28 @@ function configuredSiteUsesHttps(): boolean {
   }
 }
 
+/** Локальная сеть / Cloudflare quick tunnel — без принудительного https→AUTH_URL. */
+function isDevAccessHost(hostHeader: string): boolean {
+  const host = hostHeader.split(":")[0]?.toLowerCase() ?? "";
+  if (!host || host === "localhost" || host === "127.0.0.1" || host === "[::1]") return true;
+  if (host.endsWith(".trycloudflare.com")) return true;
+  if (/^192\.168\.\d{1,3}\.\d{1,3}$/.test(host)) return true;
+  if (/^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(host)) return true;
+  if (/^172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3}$/.test(host)) return true;
+  return false;
+}
+
 function httpsRedirect(req: NextRequest): NextResponse | null {
   if (process.env.NODE_ENV !== "production") return null;
   if (!configuredSiteUsesHttps()) return null;
   const host = req.headers.get("x-forwarded-host") ?? req.headers.get("host");
-  if (!host || host.includes("localhost") || host.startsWith("127.0.0.1")) return null;
-  const proto = req.headers.get("x-forwarded-proto");
+  if (!host || isDevAccessHost(host)) return null;
+  const proto = req.headers.get("x-forwarded-proto")?.split(",")[0]?.trim();
   if (proto && proto !== "https") {
     const url = req.nextUrl.clone();
     url.protocol = "https:";
+    // nextUrl может брать host из AUTH_URL — оставляем host запроса
+    url.host = host;
     return NextResponse.redirect(url, 308);
   }
   return null;
@@ -49,6 +62,26 @@ function httpsRedirect(req: NextRequest): NextResponse | null {
 
 function withRefCookie(req: NextRequest, res: NextResponse): NextResponse {
   return attachReferralCookie(req, res);
+}
+
+/**
+ * Origin для редиректов: Host запроса, не AUTH_URL.
+ * Иначе при AUTH_URL=прод localhost:3001 уезжает на твойтренер.рф.
+ */
+function requestOrigin(req: NextRequest): string {
+  const host = (req.headers.get("x-forwarded-host") ?? req.headers.get("host") ?? "")
+    .split(",")[0]
+    ?.trim();
+  if (!host) return req.nextUrl.origin;
+  const protoHeader = req.headers.get("x-forwarded-proto")?.split(",")[0]?.trim();
+  const proto =
+    protoHeader ||
+    (isDevAccessHost(host) ? "http" : configuredSiteUsesHttps() ? "https" : "http");
+  return `${proto}://${host}`;
+}
+
+function redirectTo(req: NextRequest, path: string): NextResponse {
+  return NextResponse.redirect(new URL(path, requestOrigin(req)));
 }
 
 export default NextAuth(authConfig).auth((req) => {
@@ -73,7 +106,7 @@ export default NextAuth(authConfig).auth((req) => {
       req.nextUrl.searchParams.get("new") === "1" ||
       req.nextUrl.searchParams.get("register") === "1";
     if (!allowApply) {
-      return withRefCookie(req, NextResponse.redirect(new URL("/instructor/login", req.nextUrl.origin)));
+      return withRefCookie(req, redirectTo(req, "/instructor/login"));
     }
   }
 
@@ -115,7 +148,7 @@ export default NextAuth(authConfig).auth((req) => {
       : pathname.startsWith("/instructor")
         ? "/instructor/login"
         : "/login";
-    const url = new URL(loginPath, req.nextUrl.origin);
+    const url = new URL(loginPath, requestOrigin(req));
     const returnPath = `${pathname}${req.nextUrl.search}`;
     url.searchParams.set("callbackUrl", returnPath);
     return withRefCookie(req, NextResponse.redirect(url));
@@ -125,13 +158,13 @@ export default NextAuth(authConfig).auth((req) => {
   const roleHome = role ? roleHomePath(role) : "/login";
 
   if (isAdminPanelPath(pathname) && role !== "ADMIN") {
-    return withRefCookie(req, NextResponse.redirect(new URL(roleHome, req.nextUrl.origin)));
+    return withRefCookie(req, redirectTo(req, roleHome));
   }
   if (isInstructorPanelPath(pathname) && role !== "INSTRUCTOR") {
-    return withRefCookie(req, NextResponse.redirect(new URL(roleHome, req.nextUrl.origin)));
+    return withRefCookie(req, redirectTo(req, roleHome));
   }
   if (isClientAuthRequiredPath(pathname) && role !== "CLIENT") {
-    return withRefCookie(req, NextResponse.redirect(new URL(roleHome, req.nextUrl.origin)));
+    return withRefCookie(req, redirectTo(req, roleHome));
   }
 
   return withRefCookie(req, NextResponse.next());

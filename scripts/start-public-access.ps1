@@ -25,10 +25,11 @@ function Read-DotEnvValue([string]$path, [string]$key) {
 function Wait-TunnelUrl([int]$timeoutSec = 90) {
   $deadline = (Get-Date).AddSeconds($timeoutSec)
   while ((Get-Date) -lt $deadline) {
-    $logs = docker compose logs cloudflared-quick --tail 120 2>$null | Out-String
-    $m = [regex]::Match($logs, "https://[a-z0-9-]+\.trycloudflare\.com")
-    if ($m.Success) {
-      return $m.Value
+    # Only current container logs (not previous runs) — take the LAST URL match
+    $logs = docker logs --since 3m skytrainer-tunnel-quick 2>$null | Out-String
+    $matches = [regex]::Matches($logs, "https://[a-z0-9-]+\.trycloudflare\.com")
+    if ($matches.Count -gt 0) {
+      return $matches[$matches.Count - 1].Value
     }
     Start-Sleep -Seconds 2
   }

@@ -1,9 +1,11 @@
-export const PWA_HINT_DISMISS_STORAGE_KEY = "skiinstruct_pwa_hint_dismissed_v1";
+export const PWA_HINT_DISMISS_STORAGE_KEY = "skiinstruct_pwa_hint_dismissed_v2";
 
 export type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>;
   userChoice: Promise<{ outcome: "accepted" | "dismissed"; platform: string }>;
 };
+
+export type PwaPlatform = "android" | "ios" | "desktop";
 
 type Listener = () => void;
 
@@ -67,18 +69,32 @@ export function isStandaloneDisplay(): boolean {
   if (typeof window === "undefined") return false;
   return (
     window.matchMedia("(display-mode: standalone)").matches ||
+    window.matchMedia("(display-mode: fullscreen)").matches ||
     (window.navigator as Navigator & { standalone?: boolean }).standalone === true
   );
 }
 
-export function isMobileDevice(): boolean {
-  if (typeof window === "undefined") return false;
-  return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-}
-
 export function isIosDevice(): boolean {
   if (typeof window === "undefined") return false;
-  return /iPhone|iPad|iPod/i.test(navigator.userAgent);
+  const ua = navigator.userAgent;
+  const iOS = /iPhone|iPad|iPod/i.test(ua);
+  const iPadOs = navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1;
+  return iOS || iPadOs;
+}
+
+export function isAndroidDevice(): boolean {
+  if (typeof window === "undefined") return false;
+  return /Android/i.test(navigator.userAgent);
+}
+
+export function isMobileDevice(): boolean {
+  return isAndroidDevice() || isIosDevice();
+}
+
+export function getPwaPlatform(): PwaPlatform {
+  if (isIosDevice()) return "ios";
+  if (isAndroidDevice()) return "android";
+  return "desktop";
 }
 
 export function shouldOfferPwaInstall(): boolean {
@@ -96,14 +112,33 @@ export function dismissPwaHint(): void {
 }
 
 export function pwaInstallInstructions(): string {
-  if (typeof navigator === "undefined") {
-    return "Добавьте сайт на главный экран через меню браузера.";
+  const platform = getPwaPlatform();
+  if (platform === "ios") {
+    return "На iPhone/iPad откройте сайт в Safari → «Поделиться» → «На экран „Домой“».";
   }
-  if (isIosDevice()) {
-    return "Нажмите «Поделиться» в Safari → «На экран Домой».";
-  }
-  if (/Android/i.test(navigator.userAgent)) {
+  if (platform === "android") {
     return "В меню браузера (⋮) выберите «Установить приложение» или «Добавить на главный экран».";
   }
   return "Добавьте сайт на главный экран через меню браузера.";
+}
+
+export function pwaInstallSteps(): string[] {
+  const platform = getPwaPlatform();
+  if (platform === "ios") {
+    return [
+      "Откройте сайт в Safari (в Chrome на iOS установка может быть недоступна).",
+      "Нажмите кнопку «Поделиться» внизу экрана.",
+      "Пролистайте и выберите «На экран „Домой“».",
+      "Подтвердите «Добавить» — появится иконка ТвойТренер.",
+    ];
+  }
+  if (platform === "android") {
+    return [
+      "Дождитесь кнопки «Установить» на сайте или откройте меню браузера (⋮).",
+      "Выберите «Установить приложение» / «Добавить на главный экран».",
+      "Подтвердите установку — ярлык появится рядом с другими приложениями.",
+      "В Яндекс.Браузере: меню → «Добавить на домашний экран» / «Установить».",
+    ];
+  }
+  return ["Откройте меню браузера и добавьте сайт на главный экран."];
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -242,6 +242,8 @@ function EventsCarousel({
 }) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
 
   useEffect(() => {
     if (!events.length) {
@@ -251,16 +253,46 @@ function EventsCarousel({
     setSelectedId((prev) => (prev && events.some((e) => e.id === prev) ? prev : null));
   }, [events]);
 
-  const scrollBy = useCallback((delta: number) => {
-    scrollerRef.current?.scrollBy({ left: delta, behavior: "smooth" });
+  const updateScrollEdges = useCallback(() => {
+    const el = scrollerRef.current;
+    if (!el) {
+      setCanScrollLeft(false);
+      setCanScrollRight(false);
+      return;
+    }
+    const maxScroll = el.scrollWidth - el.clientWidth;
+    setCanScrollLeft(el.scrollLeft > 4);
+    setCanScrollRight(maxScroll > 4 && el.scrollLeft < maxScroll - 4);
   }, []);
+
+  useEffect(() => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    updateScrollEdges();
+    el.addEventListener("scroll", updateScrollEdges, { passive: true });
+    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(updateScrollEdges) : null;
+    ro?.observe(el);
+    return () => {
+      el.removeEventListener("scroll", updateScrollEdges);
+      ro?.disconnect();
+    };
+  }, [events, updateScrollEdges]);
+
+  const scrollBy = useCallback(
+    (delta: number) => {
+      scrollerRef.current?.scrollBy({ left: delta, behavior: "smooth" });
+      // после smooth-scroll края обновятся по событию scroll; дубль на случай быстрых кликов
+      window.setTimeout(updateScrollEdges, 320);
+    },
+    [updateScrollEdges],
+  );
 
   return (
     <div className="space-y-4">
       <div className="relative min-h-[26rem]">
         <div
           ref={scrollerRef}
-          className="flex items-start gap-3 overflow-x-auto pb-1 pr-12 scroll-smooth snap-x snap-mandatory [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          className="flex items-start gap-3 overflow-x-auto px-10 pb-1 scroll-smooth snap-x snap-mandatory [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           role="list"
           aria-label="Мероприятия — карусель"
         >
@@ -278,7 +310,19 @@ function EventsCarousel({
             </div>
           ))}
         </div>
-        {events.length > 3 ? (
+        {canScrollLeft ? (
+          <Button
+            type="button"
+            variant="secondary"
+            size="icon"
+            className="absolute -left-1 top-[38%] z-10 h-9 w-9 rounded-full border border-border bg-background shadow-md"
+            aria-label="Прокрутить мероприятия влево"
+            onClick={() => scrollBy(-320)}
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </Button>
+        ) : null}
+        {canScrollRight ? (
           <Button
             type="button"
             variant="secondary"

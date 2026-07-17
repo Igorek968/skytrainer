@@ -1,5 +1,5 @@
 /* eslint-disable no-restricted-globals */
-/* build: 20260624-lesson-chat-fix */
+/* build: 20260715-pwa-fetch-install */
 
 const NOTIFICATION_ICON = "/icon-192.png";
 
@@ -142,6 +142,18 @@ self.addEventListener("message", (event) => {
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(self.clients.claim());
+});
+
+/**
+ * Chrome/Android требуют fetch-handler в SW, иначе beforeinstallprompt не срабатывает
+ * и «Установить приложение» не появляется. Сеть без офлайн-кэша страниц.
+ */
+self.addEventListener("fetch", (event) => {
+  const req = event.request;
+  if (req.method !== "GET") return;
+  const url = new URL(req.url);
+  if (url.origin !== self.location.origin) return;
+  event.respondWith(fetch(req));
 });
 
 self.addEventListener("push", (event) => {

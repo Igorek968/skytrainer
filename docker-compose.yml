@@ -89,10 +89,11 @@ services:
       SKIINSTRUCT_PASSWORD_RESET_DEBUG: ${SKIINSTRUCT_PASSWORD_RESET_DEBUG:-0}
       DATABASE_URL: ${SKIINSTRUCT_DATABASE_URL:-postgres://sky:sky@postgres:5432/skytrainer_new?schema=skiinstruct}
       AUTH_SECRET: ${SKIINSTRUCT_AUTH_SECRET:-replace-with-long-random-secret}
-      AUTH_URL: ${SKIINSTRUCT_AUTH_URL:-http://твойтренер.рф}
+      # Локально по умолчанию :3001; на VPS задайте SKIINSTRUCT_AUTH_URL / SKIINSTRUCT_PUBLIC_APP_URL в .env
+      AUTH_URL: ${SKIINSTRUCT_AUTH_URL:-http://localhost:3001}
       NEXTAUTH_SECRET: ${SKIINSTRUCT_AUTH_SECRET:-replace-with-long-random-secret}
-      NEXTAUTH_URL: ${SKIINSTRUCT_AUTH_URL:-http://твойтренер.рф}
-      NEXT_PUBLIC_APP_URL: ${SKIINSTRUCT_PUBLIC_APP_URL:-http://твойтренер.рф}
+      NEXTAUTH_URL: ${SKIINSTRUCT_AUTH_URL:-http://localhost:3001}
+      NEXT_PUBLIC_APP_URL: ${SKIINSTRUCT_PUBLIC_APP_URL:-http://localhost:3001}
       # Доп. хосты для Server Actions (CSRF), через запятую
       NEXT_SERVER_ACTIONS_ALLOWED_ORIGINS: ${SKIINSTRUCT_SERVER_ACTIONS_ALLOWED_ORIGINS:-}
       CRON_SECRET: ${SKIINSTRUCT_CRON_SECRET:-replace-with-long-random-secret}
