@@ -11,6 +11,14 @@ import {
   instructorYandexPlacemarkOptions,
   type InstructorMapPin,
 } from "@/features/map/instructor-map-marker";
+import {
+  buildEventBalloonHtml,
+  buildEventsSignature,
+  eventYandexPlacemarkOptions,
+  eventYandexPlacemarkProperties,
+  getEventYandexLayout,
+  type EventMapPin,
+} from "@/features/map/event-map-marker";
 import { MapLegalStrip } from "@/shared/legal/map-legal-strip";
 import {
   loadYandexMaps,
@@ -27,12 +35,14 @@ export type BookingMapProps = {
   meetLat: number;
   meetLng: number;
   instructors: InstructorMapPin[];
+  events?: EventMapPin[];
   radiusKm: number;
   onMeetChange: (lat: number, lng: number) => void;
   onLocateMe?: () => Promise<void>;
   onInstructorSelect?: (id: string) => void;
   /** Двойной клик — открыть анкету и поднять инструктора в списке. */
   onInstructorFocus?: (id: string) => void;
+  onEventSelect?: (id: string) => void;
   selectedInstructorId?: string | null;
   className?: string;
   interactive: boolean;
@@ -51,11 +61,13 @@ export function YandexBookingMap({
   meetLat,
   meetLng,
   instructors,
+  events = [],
   radiusKm,
   onMeetChange,
   onLocateMe,
   onInstructorSelect,
   onInstructorFocus,
+  onEventSelect,
   selectedInstructorId,
   className,
   interactive,
@@ -68,19 +80,24 @@ export function YandexBookingMap({
   const meetPlacemarkRef = useRef<YmapsGeoObject | null>(null);
   const circleRef = useRef<YmapsGeoObject | null>(null);
   const instructorsRef = useRef<YmapsCollection | null>(null);
+  const eventsRef = useRef<YmapsCollection | null>(null);
   const placemarksByIdRef = useRef<Map<string, YmapsGeoObject>>(new Map());
+  const eventPlacemarksByIdRef = useRef<Map<string, YmapsGeoObject>>(new Map());
   const suppressMapClickRef = useRef(false);
   const selectedInstructorIdRef = useRef(selectedInstructorId);
   const instructorsSignatureRef = useRef("");
+  const eventsSignatureRef = useRef("");
   const onMeetChangeRef = useRef(onMeetChange);
   const onInstructorSelectRef = useRef(onInstructorSelect);
   const onInstructorFocusRef = useRef(onInstructorFocus);
+  const onEventSelectRef = useRef(onEventSelect);
   const [mapReady, setMapReady] = useState(false);
   const [mapError, setMapError] = useState<string | null>(null);
 
   onMeetChangeRef.current = onMeetChange;
   onInstructorSelectRef.current = onInstructorSelect;
   onInstructorFocusRef.current = onInstructorFocus;
+  onEventSelectRef.current = onEventSelect;
   selectedInstructorIdRef.current = selectedInstructorId;
 
   useEffect(() => {
@@ -135,6 +152,10 @@ export function YandexBookingMap({
         instructorsRef.current = instructorLayer;
         map.geoObjects.add(instructorLayer);
 
+        const eventLayer = new ymaps.GeoObjectCollection();
+        eventsRef.current = eventLayer;
+        map.geoObjects.add(eventLayer);
+
         const pickAtCoords = (coords: number[]) => {
           meetPlacemark.geometry.setCoordinates(coords);
           setCircleCenter(coords);
@@ -171,7 +192,9 @@ export function YandexBookingMap({
       meetPlacemarkRef.current = null;
       circleRef.current = null;
       instructorsRef.current = null;
+      eventsRef.current = null;
       placemarksByIdRef.current.clear();
+      eventPlacemarksByIdRef.current.clear();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- init once
   }, [interactive, radiusKm]);
@@ -251,6 +274,55 @@ export function YandexBookingMap({
   }, [instructors, mapReady]);
 
   useEffect(() => {
+    const ymaps = ymapsRef.current;
+    if (!mapReady || !eventsRef.current || !ymaps) return;
+    const layer = eventsRef.current;
+    const placemarksById = eventPlacemarksByIdRef.current;
+    const nextIds = new Set(events.map((e) => e.id));
+    const signature = buildEventsSignature(events);
+    const changed = signature !== eventsSignatureRef.current;
+    eventsSignatureRef.current = signature;
+    const layout = getEventYandexLayout(ymaps);
+
+    for (const id of placemarksById.keys()) {
+      if (!nextIds.has(id)) {
+        const stale = placemarksById.get(id);
+        if (stale) layer.remove(stale);
+        placemarksById.delete(id);
+      }
+    }
+
+    for (const ev of events) {
+      const existing = placemarksById.get(ev.id);
+      if (existing) {
+        if (changed) {
+          existing.geometry.setCoordinates([ev.lat, ev.lng]);
+          existing.properties.set(eventYandexPlacemarkProperties(ev));
+        }
+        continue;
+      }
+
+      const placemark = new ymaps.Placemark(
+        [ev.lat, ev.lng],
+        eventYandexPlacemarkProperties(ev),
+        eventYandexPlacemarkOptions(layout),
+      );
+
+      placemark.events.add("click", () => {
+        suppressMapClickRef.current = true;
+        window.setTimeout(() => {
+          suppressMapClickRef.current = false;
+        }, 0);
+        onEventSelectRef.current?.(ev.id);
+        placemark.balloon.open();
+      });
+
+      placemarksById.set(ev.id, placemark);
+      layer.add(placemark);
+    }
+  }, [events, mapReady]);
+
+  useEffect(() => {
     if (!mapReady) return;
     const placemarksById = placemarksByIdRef.current;
 
@@ -284,7 +356,7 @@ export function YandexBookingMap({
         <div
           ref={containerRef}
           className="h-full w-full"
-          aria-label="Яндекс.Карта — место встречи и инструкторы"
+          aria-label="Яндекс.Карта — место встречи, инструкторы и мероприятия"
         />
       </div>
       <MapLegalStrip />

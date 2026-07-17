@@ -18,8 +18,12 @@ import type {
 } from "@/features/client/instructor-profile-types";
 import { MeetAddressSearch } from "@/features/map/meet-address-search";
 import { BookingMapViewport } from "@/features/map/booking-map-viewport";
+import type { EventMapPin } from "@/features/map/event-map-marker";
 import { consumeOpenPersonalDataFlag } from "@/lib/client-personal-data-storage";
 import { locateUserMeetPoint, useMeetPoint } from "@/features/map/use-client-meet-point";
+import { CLIENT_EVENTS_RADIUS_KM } from "@/lib/client-events-geo";
+import type { ClientInstructorEventDTO } from "@/lib/instructor-events";
+import { devPollInterval } from "@/lib/query-poll";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Input } from "@/shared/ui/input";
@@ -431,6 +435,47 @@ export default function ClientHomePage() {
     void queryClient.invalidateQueries({ queryKey: ["instructor-profile"], exact: false });
   }, [dataUpdatedAt, queryClient]);
 
+  /** Опубликованные мероприятия для карты (те же, что в ленте; точка — только с venue). */
+  const { data: mapEventsData } = useQuery({
+    queryKey: ["client-events", String(meetLat), String(meetLng), "all"],
+    queryFn: async () => {
+      const qs = new URLSearchParams({
+        lat: String(meetLat),
+        lng: String(meetLng),
+        radiusKm: String(CLIENT_EVENTS_RADIUS_KM),
+        unlimited: "1",
+      });
+      const r = await fetch(`/api/client/events?${qs}`, { credentials: "include" });
+      if (!r.ok) throw new Error("events");
+      return r.json() as Promise<{ events: ClientInstructorEventDTO[] }>;
+    },
+    staleTime: 15_000,
+    refetchInterval: devPollInterval(30_000),
+    refetchIntervalInBackground: false,
+  });
+
+  const eventMapPins: EventMapPin[] = useMemo(() => {
+    return (mapEventsData?.events ?? [])
+      .filter(
+        (ev) =>
+          !ev.isCompleted &&
+          ev.moderationStatus === "PUBLISHED" &&
+          ev.venueLat != null &&
+          ev.venueLng != null &&
+          Number.isFinite(ev.venueLat) &&
+          Number.isFinite(ev.venueLng),
+      )
+      .map((ev) => ({
+        id: ev.id,
+        title: ev.title,
+        lat: ev.venueLat as number,
+        lng: ev.venueLng as number,
+        priceRub: ev.priceRub,
+        instructorName: ev.instructorName,
+        venueAddress: ev.venueAddress,
+      }));
+  }, [mapEventsData?.events]);
+
   const instructorNameSearchQ = instructorNameQuery.trim();
   const { data: nameSearchData, isFetching: isNameSearchFetching } = useQuery({
     queryKey: ["instructors-search", instructorNameSearchQ, meetLat, meetLng, specializationPref],
@@ -513,6 +558,10 @@ export default function ClientHomePage() {
     if (instructor.name?.trim()) {
       setInstructorNameQuery(instructor.name.trim());
     }
+  }
+
+  function focusEventFromMap(_eventId: string) {
+    scrollToClientSection(CLIENT_SECTION_IDS.events);
   }
 
   const { data: myInstructorReviews } = useQuery({
@@ -783,6 +832,8 @@ export default function ClientHomePage() {
             selectedInstructorId={selectedId}
             onInstructorSelect={(id) => setSelectedId(id)}
             onInstructorFocus={focusInstructorFromMap}
+            onEventSelect={focusEventFromMap}
+            events={eventMapPins}
             instructors={(data?.instructors ?? [])
               .filter((i) => i.lat != null && i.lng != null)
               .map((i) => ({

@@ -72,6 +72,6 @@ export async function POST(req: Request, ctx: Ctx) {
 
   return NextResponse.json({
     event: serializeInstructorEvent(row),
-    message: "Мероприятие опубликовано — появится в ленте клиентов.",
+    message: "Мероприятие опубликовано — появится в ленте и на карте клиентов (если указано место).",
   });
 }

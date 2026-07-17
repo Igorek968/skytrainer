@@ -132,6 +132,9 @@ export async function DELETE(_req: Request, ctx: Ctx) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
+  const url = new URL(_req.url);
+  const hardDelete = url.searchParams.get("hard") === "1";
+
   if (existing.moderationStatus === "PUBLISHED") {
     if (isInstructorEventCompleted(existing.eventAt)) {
       const readiness = await ensureEventReadyForDeletion(id);
@@ -149,11 +152,30 @@ export async function DELETE(_req: Request, ctx: Ctx) {
       return NextResponse.json({ ok: true });
     }
 
+    if (hardDelete) {
+      const paidCount = await prisma.eventRegistration.count({
+        where: { eventId: id, status: "PAID" },
+      });
+      if (paidCount > 0) {
+        return NextResponse.json(
+          { error: "Нельзя удалить: есть оплаченные записи. Сначала отмените мероприятие." },
+          { status: 400 },
+        );
+      }
+      await prisma.instructorEvent.delete({ where: { id } });
+      return NextResponse.json({ ok: true });
+    }
+
     await prisma.instructorEvent.update({
       where: { id },
       data: { moderationStatus: "ARCHIVED" },
     });
     return NextResponse.json({ ok: true, archived: true });
+  }
+
+  if (existing.moderationStatus === "PENDING_REVIEW") {
+    await prisma.instructorEvent.delete({ where: { id } });
+    return NextResponse.json({ ok: true });
   }
 
   if (existing.moderationStatus === "ARCHIVED") {

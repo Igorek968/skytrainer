@@ -128,19 +128,26 @@ export function showEventCardModeration(ev: InstructorEventDTO): boolean {
   return (ev.canEdit || canRestoreArchivedEvent(ev)) && Boolean(ev.eventAt || ev.hasSlots);
 }
 
+/** Скрыть опубликованное из ленты (без безвозвратного удаления). */
+export function showEventCardHide(ev: InstructorEventDTO): boolean {
+  return ev.moderationStatus === "PUBLISHED" && !ev.isCompleted;
+}
+
+/** Безвозвратное удаление (у опубликованного — только без оплаченных записей). */
 export function showEventCardDelete(ev: InstructorEventDTO): boolean {
-  if (ev.moderationStatus === "PUBLISHED") return true;
+  if (ev.moderationStatus === "PUBLISHED" && !ev.isCompleted) {
+    return (ev.paidRegistrationCount ?? 0) === 0;
+  }
+  if (ev.moderationStatus === "PUBLISHED" && ev.isCompleted) return true;
+  if (ev.moderationStatus === "PENDING_REVIEW") return true;
   if (ev.canEdit) return true;
   if (canRestoreArchivedEvent(ev)) return true;
   if (ev.moderationStatus === "ARCHIVED" && ev.isCompleted) return true;
   return false;
 }
 
-export function eventCardDeleteLabel(ev: InstructorEventDTO): string {
-  if (ev.moderationStatus === "PUBLISHED" && ev.isCompleted) return "Удалить";
-  if (ev.moderationStatus === "PUBLISHED") return "Скрыть из ленты";
-  if (ev.moderationStatus === "ARCHIVED" && ev.isCompleted) return "Удалить";
-  return "Удалить";
+export function eventCardDeleteLabel(_ev: InstructorEventDTO): string {
+  return "Удалить мероприятие";
 }
 
 /** Завершённое по дате — удаление с проверкой подтверждений участников. */

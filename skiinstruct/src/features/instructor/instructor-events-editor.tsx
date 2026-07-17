@@ -17,6 +17,7 @@ import {
   moderationStatusLabel,
   showEventCardDelete,
   showEventCardEdit,
+  showEventCardHide,
   showEventCardModeration,
   toDatetimeLocalValue,
 } from "@/lib/instructor-events";
@@ -511,15 +512,16 @@ export function InstructorEventsEditor({
   });
 
   const remove = useMutation({
-    mutationFn: async (id: string) => {
-      const r = await instructorFetch(`/api/instructor/events/${id}`, { method: "DELETE" });
+    mutationFn: async ({ id, hard }: { id: string; hard?: boolean }) => {
+      const qs = hard ? "?hard=1" : "";
+      const r = await instructorFetch(`/api/instructor/events/${id}${qs}`, { method: "DELETE" });
       if (!r.ok) {
         const err = (await r.json().catch(() => ({}))) as { error?: string };
         throw new Error(typeof err.error === "string" ? err.error : "delete");
       }
       return r.json() as Promise<{ archived?: boolean }>;
     },
-    onSuccess: async (data, id) => {
+    onSuccess: async (data, { id }) => {
       toast.success(data.archived ? "Скрыто из ленты клиентов" : "Удалено");
       if (editingId === id) resetForm();
       await qc.invalidateQueries({ queryKey: ["instructor-events"] });
@@ -553,6 +555,13 @@ export function InstructorEventsEditor({
     [loadFormFromEvent, restoreDraft],
   );
 
+  const handleCardHide = useCallback(
+    (ev: InstructorEventApi) => {
+      if (confirm("Скрыть из ленты клиентов?")) remove.mutate({ id: ev.id });
+    },
+    [remove],
+  );
+
   const handleCardDelete = useCallback(
     (ev: InstructorEventApi) => {
       if (isCompletedEventPermanentDelete(asEventCard(ev))) {
@@ -563,18 +572,23 @@ export function InstructorEventsEditor({
             ? `Удалить завершённое мероприятие? ${unconfirmed} участник(ов) ещё не подтвердили участие — им будет отправлено напоминание.`
             : "Удалить завершённое мероприятие? Записи участников также будут удалены."
           : "Удалить завершённое мероприятие?";
-        if (confirm(msg)) remove.mutate(ev.id);
-        return;
-      }
-      if (ev.moderationStatus === "PUBLISHED") {
-        if (confirm("Скрыть из ленты клиентов?")) remove.mutate(ev.id);
+        if (confirm(msg)) remove.mutate({ id: ev.id, hard: true });
         return;
       }
       const msg =
-        ev.moderationStatus === "ARCHIVED"
-          ? "Удалить мероприятие безвозвратно?"
-          : "Удалить черновик?";
-      if (confirm(msg)) remove.mutate(ev.id);
+        ev.moderationStatus === "PUBLISHED"
+          ? "Удалить мероприятие безвозвратно? Оно исчезнет из ленты и из списка."
+          : ev.moderationStatus === "ARCHIVED"
+            ? "Удалить мероприятие безвозвратно?"
+            : ev.moderationStatus === "PENDING_REVIEW"
+              ? "Удалить мероприятие с модерации?"
+              : "Удалить черновик?";
+      if (confirm(msg)) {
+        remove.mutate({
+          id: ev.id,
+          hard: ev.moderationStatus === "PUBLISHED",
+        });
+      }
     },
     [remove],
   );
@@ -1046,18 +1060,28 @@ export function InstructorEventsEditor({
             ) : loadedStatus === "ARCHIVED" ? (
               <>
                 <p className="text-sm text-muted-foreground">
-                  Скрыто из ленты клиентов. Можно вернуть в черновик и снова отправить на модерацию (если дата
-                  ещё не прошла и нет оплаченных записей).
+                  Скрыто из ленты и с карты. Верните в черновик, чтобы править; затем «На модерацию». Или сразу
+                  отправьте на модерацию без правок.
                 </p>
                 {editingId && !formIsCompleted ? (
-                  <Button
-                    type="button"
-                    variant="accent"
-                    disabled={restoreDraft.isPending}
-                    onClick={() => restoreDraft.mutate(editingId)}
-                  >
-                    Восстановить черновик
-                  </Button>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={restoreDraft.isPending || submitModeration.isPending}
+                      onClick={() => restoreDraft.mutate(editingId)}
+                    >
+                      Восстановить черновик
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="accent"
+                      disabled={restoreDraft.isPending || submitModeration.isPending}
+                      onClick={() => submitModeration.mutate(editingId)}
+                    >
+                      Восстановить и на модерацию
+                    </Button>
+                  </div>
                 ) : null}
               </>
             ) : null}
@@ -1100,13 +1124,16 @@ export function InstructorEventsEditor({
           events={groups.pending}
           onEdit={handleCardEdit}
           onDuplicate={handleDuplicate}
-          hint="Ожидает решения администратора — после одобрения появится в ленте клиентов."
+          onDelete={handleCardDelete}
+          actionsPending={remove.isPending}
+          hint="Ожидает решения администратора — после одобрения появится в ленте и на карте (если указано место)."
         />
         <EventList
           title="Опубликованные"
           events={groups.published}
           onEdit={handleCardEdit}
           onDuplicate={handleDuplicate}
+          onHide={handleCardHide}
           onDelete={handleCardDelete}
           onCancelEvent={handleCancelEvent}
           onRepeatDaily={(id, next) => setRepeatDailyMutation.mutate({ id, repeatDaily: next })}
@@ -1156,7 +1183,7 @@ export function InstructorEventsEditor({
               remove.isPending ||
               cancelEvent.isPending
             }
-            hint="Не отображаются у клиентов. «Редактировать» вернёт в черновик; «На модерацию» — снова на проверку."
+            hint="Не в ленте и не на карте. «Редактировать» / «Восстановить черновик» — правки; «Восстановить и на модерацию» — сразу на проверку."
           />
         ) : null}
       </CardContent>
@@ -1167,9 +1194,8 @@ export function InstructorEventsEditor({
     return (
       <div className="space-y-4">
         <p className="text-sm text-muted-foreground">
-          Создайте мероприятие с несколькими выходами в день (например, катание на яхте в 10:00, 14:00 и 18:00).
-          Для каждого выхода — своё время, цена и лимит мест. Клиент записывается на конкретное время; вы
-          получаете email о каждой новой записи. Оплата после мероприятия (комиссия 15%).
+          Черновик → «На модерацию» → после одобрения видно в ленте и на карте (точка по месту мероприятия).
+          Скрытое: «Восстановить черновик» для правок или «Восстановить и на модерацию».
         </p>
         {editorContent}
       </div>
@@ -1181,9 +1207,9 @@ export function InstructorEventsEditor({
       <CardHeader>
         <CardTitle>Мероприятия</CardTitle>
         <CardDescription>
-          Создайте мероприятие с несколькими выходами в день (например, катание на яхте в 10:00, 14:00 и 18:00).
-          Для каждого выхода — своё время, цена и лимит мест. Клиент записывается на конкретное время; вы
-          получаете email о каждой новой записи. Оплата после мероприятия (комиссия 15%).
+          Черновик → «На модерацию» → после одобрения админом мероприятие видно в ленте клиентов и на карте
+          (оранжевая точка по адресу места). Скрытое: «Восстановить черновик» для правок или «Восстановить и на
+          модерацию» без правок.
         </CardDescription>
       </CardHeader>
       {editorContent}
@@ -1200,6 +1226,7 @@ function EventList({
   onDuplicate,
   onSubmitModeration,
   submitModerationPending,
+  onHide,
   onDelete,
   onCancelEvent,
   onRepeatDaily,
@@ -1214,6 +1241,7 @@ function EventList({
   onDuplicate?: (ev: InstructorEventApi) => void;
   onSubmitModeration?: (id: string) => void;
   submitModerationPending?: boolean;
+  onHide?: (ev: InstructorEventApi) => void;
   onDelete?: (ev: InstructorEventApi) => void;
   onCancelEvent?: (ev: InstructorEventApi) => void;
   onRepeatDaily?: (id: string, repeatDaily: boolean) => void;
@@ -1342,7 +1370,20 @@ function EventList({
                   disabled={submitModerationPending || actionsPending}
                   onClick={() => onSubmitModeration(ev.id)}
                 >
-                  На модерацию
+                  {ev.moderationStatus === "ARCHIVED"
+                    ? "Восстановить и на модерацию"
+                    : "На модерацию"}
+                </Button>
+              ) : null}
+              {onHide && showEventCardHide(asEventCard(ev)) ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={actionsPending}
+                  onClick={() => onHide(ev)}
+                >
+                  Скрыть из ленты
                 </Button>
               ) : null}
               {onDelete && showEventCardDelete(asEventCard(ev)) ? (

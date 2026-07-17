@@ -13,6 +13,11 @@ import {
   createInstructorLeafletIcon,
   type InstructorMapPin,
 } from "@/features/map/instructor-map-marker";
+import {
+  buildEventBalloonHtml,
+  createEventLeafletIconHtml,
+  type EventMapPin,
+} from "@/features/map/event-map-marker";
 import { hasYandexMapsKey } from "@/features/map/yandex-maps-api";
 import { YandexBookingMap } from "@/features/map/yandex-booking-map";
 import { cn } from "@/lib/utils";
@@ -24,11 +29,14 @@ export type NearbyMapProps = {
   meetLat: number;
   meetLng: number;
   instructors: InstructorPin[];
+  /** Опубликованные мероприятия с указанным местом (venue). */
+  events?: EventMapPin[];
   radiusKm: number;
   onMeetChange: (lat: number, lng: number) => void;
   onLocateMe?: () => Promise<void>;
   onInstructorSelect?: (id: string) => void;
   onInstructorFocus?: (id: string) => void;
+  onEventSelect?: (id: string) => void;
   selectedInstructorId?: string | null;
   className?: string;
   interactive: boolean;
@@ -59,6 +67,16 @@ function pinIcon(fill: string) {
 }
 
 const MeetIcon = pinIcon("#2563eb");
+
+function createEventLeafletIcon(pin: EventMapPin) {
+  return L.divIcon({
+    className: "map-event-pin-icon",
+    html: createEventLeafletIconHtml(pin),
+    iconSize: [120, 64],
+    iconAnchor: [60, 42],
+    popupAnchor: [0, -40],
+  });
+}
 
 function MapViewSync({ lat, lng, zoom = 13 }: { lat: number; lng: number; zoom?: number }) {
   const map = useMap();
@@ -111,11 +129,13 @@ function LeafletNearbyMap({
   meetLat,
   meetLng,
   instructors,
+  events = [],
   radiusKm,
   onMeetChange,
   onLocateMe,
   onInstructorSelect,
   onInstructorFocus,
+  onEventSelect,
   selectedInstructorId,
   className,
   interactive,
@@ -129,7 +149,7 @@ function LeafletNearbyMap({
         zoom={13}
         className="h-full w-full"
         scrollWheelZoom
-        aria-label="Карта курорта и инструкторов"
+        aria-label="Карта курорта, инструкторов и мероприятий"
       >
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>'
@@ -184,6 +204,31 @@ function LeafletNearbyMap({
           </Marker>
           );
         })}
+        {events.map((ev) => (
+          <Marker
+            key={`event-${ev.id}`}
+            position={[ev.lat, ev.lng]}
+            icon={createEventLeafletIcon(ev)}
+            zIndexOffset={800}
+            eventHandlers={{
+              click: (e) => {
+                if (e.originalEvent) {
+                  L.DomEvent.stopPropagation(e.originalEvent);
+                }
+                const marker = e.target as L.Marker;
+                onEventSelect?.(ev.id);
+                marker.openPopup();
+              },
+            }}
+          >
+            <Popup closeOnClick={false} autoPan={false}>
+              <div
+                className="text-sm"
+                dangerouslySetInnerHTML={{ __html: buildEventBalloonHtml(ev) }}
+              />
+            </Popup>
+          </Marker>
+        ))}
       </MapContainer>
       </div>
       <MapLegalStrip />
