@@ -54,10 +54,10 @@ export function AdminSendMessageModal({ target, onClose }: Props) {
     onSuccess: (data) => {
       void qc.invalidateQueries({ queryKey: ["admin-direct-messages"] });
       if (data.emailSent) {
-        toast.success(`Сообщение отправлено на ${target.email}`);
+        toast.success(`Сообщение отправлено: чат поддержки + email (${target.email})`);
       } else {
-        toast.success("Сообщение сохранено", {
-          description: "Письмо не ушло — проверьте SMTP / Postbox.",
+        toast.success("Сообщение отправлено в чат поддержки", {
+          description: "Письмо не ушло — проверьте SMTP / Postbox. Push отправится, если включены уведомления.",
         });
       }
       onClose();
@@ -107,7 +107,8 @@ export function AdminSendMessageModal({ target, onClose }: Props) {
           {target.name?.trim() || "—"} · {target.email} · {roleLabel}
         </p>
         <p className="mt-2 text-sm text-foreground">
-          Текст сохранится в истории админки и уйдёт дублем на email адресата.
+          Текст появится в чате поддержки адресата, уйдёт push-уведомлением и дублем на email (если SMTP
+          настроен).
         </p>
 
         <div className="mt-4 space-y-3">

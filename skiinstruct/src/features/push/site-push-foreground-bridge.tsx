@@ -34,7 +34,10 @@ export function SitePushForegroundBridge() {
             : data.tag?.startsWith("instructor-chat") ||
                 data.tag?.startsWith("client-chat") ||
                 data.tag?.startsWith("lesson-") ||
-                data.tag?.startsWith("instructor-verification")
+                data.tag?.startsWith("instructor-verification") ||
+                data.tag?.startsWith("support-") ||
+                data.tag?.startsWith("admin-message") ||
+                data.tag?.startsWith("registration-chat")
               ? "chat"
               : "reminder");
 
@@ -44,12 +47,17 @@ export function SitePushForegroundBridge() {
         sound,
         tag: data.tag,
         url: data.url,
+        // OS-баннер уже показывает service worker — здесь toast + звук на сайте.
+        skipNotification: true,
         requireInteraction: Boolean(
           data.tag?.startsWith("instructor-order") ||
             data.tag?.startsWith("lesson-") ||
             data.tag?.startsWith("instructor-chat") ||
             data.tag?.startsWith("client-chat") ||
-            data.tag?.startsWith("instructor-verification"),
+            data.tag?.startsWith("instructor-verification") ||
+            data.tag?.startsWith("support-") ||
+            data.tag?.startsWith("admin-message") ||
+            data.tag?.startsWith("registration-chat"),
         ),
         toastAction: data.url
           ? {

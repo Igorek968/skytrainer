@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { resolveUserRole } from "@/lib/api-session";
 import { prisma } from "@/lib/prisma";
 import { assertRegistrationChatAccess } from "@/lib/services/registration-chat";
+import { notifyRegistrationChatMessage } from "@/lib/services/registration-chat-notify";
 import { messageSchema } from "@/lib/validations/order";
 
 export const dynamic = "force-dynamic";
@@ -74,6 +75,30 @@ export async function POST(req: Request, ctx: Ctx) {
     },
     include: { sender: { select: { id: true, name: true, image: true } } },
   });
+
+  const clientId = access.reg.clientId;
+  const instructorId = access.reg.event.instructorId;
+  if (clientId && instructorId) {
+    if (msg.senderId === clientId) {
+      void notifyRegistrationChatMessage({
+        registrationId: id,
+        messageId: msg.id,
+        recipientId: instructorId,
+        recipientRole: "instructor",
+        senderName: access.reg.client?.name ?? msg.sender.name,
+        body: msg.body,
+      });
+    } else if (msg.senderId === instructorId) {
+      void notifyRegistrationChatMessage({
+        registrationId: id,
+        messageId: msg.id,
+        recipientId: clientId,
+        recipientRole: "client",
+        senderName: msg.sender.name,
+        body: msg.body,
+      });
+    }
+  }
 
   return NextResponse.json({ message: msg });
 }

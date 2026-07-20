@@ -1,11 +1,11 @@
 import { prisma } from "@/lib/prisma";
-import { sendWebPushToUser } from "@/lib/push-web";
 import {
   isPasswordResetEmailConfigured,
   passwordResetEmailDefaults,
   sendPasswordResetEmailViaSmtp,
   sendPasswordResetEmailViaWebhook,
 } from "@/lib/services/password-reset-email";
+import { deliverStaffMessageToUserSupport } from "@/lib/support-service";
 import { getPublicProductName } from "@/shared/lib/product";
 
 const BODY_MAX = 4000;
@@ -166,12 +166,20 @@ export async function sendAdminDirectMessage(
 
   const appName = getPublicProductName();
   const pushTitle = subjectRaw?.trim() || `Сообщение от ${appName}`;
-  void sendWebPushToUser(recipient.id, {
-    title: pushTitle.slice(0, 80),
-    body: body.slice(0, 140),
-    url: recipient.role === "INSTRUCTOR" ? "/instructor" : "/client",
-    tag: `admin-message-${row.id}`,
-  }).catch(() => {});
+  // Дублируем в чат поддержки получателя + push (сайт и телефон).
+  try {
+    await deliverStaffMessageToUserSupport({
+      userId: recipient.id,
+      body,
+      subject: subjectRaw,
+      pushTitle,
+    });
+  } catch (e) {
+    console.error(
+      "[admin-direct-message] support inbox",
+      e instanceof Error ? e.message : e,
+    );
+  }
 
   return {
     ok: true,

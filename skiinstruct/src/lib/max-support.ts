@@ -123,7 +123,12 @@ export async function handleMaxSupportUpdate(update: unknown): Promise<void> {
     return;
   }
 
-  await prisma.supportMessage.create({
+  const ticket = await prisma.supportTicket.findUnique({
+    where: { id: anchor.ticketId },
+    select: { userId: true },
+  });
+
+  const msg = await prisma.supportMessage.create({
     data: {
       ticketId: anchor.ticketId,
       authorRole: "STAFF",
@@ -135,6 +140,15 @@ export async function handleMaxSupportUpdate(update: unknown): Promise<void> {
     where: { id: anchor.ticketId },
     data: { updatedAt: new Date() },
   });
+
+  if (ticket?.userId) {
+    const { notifyUserSupportStaffMessage } = await import("@/lib/support-service");
+    void notifyUserSupportStaffMessage({
+      userId: ticket.userId,
+      messageId: msg.id,
+      body: text,
+    });
+  }
 }
 
 type MaxWebhookUpdate = {

@@ -1,5 +1,5 @@
 /* eslint-disable no-restricted-globals */
-/* build: 20260715-pwa-fetch-install */
+/* build: 20260720-push-always-notify */
 
 const NOTIFICATION_ICON = "/icon-192.png";
 
@@ -161,11 +161,9 @@ self.addEventListener("push", (event) => {
   const { title, options } = notificationOptions(data);
   event.waitUntil(
     (async () => {
-      const clients = await notifyOpenClients(title, options);
-      const hasVisibleClient = clients.some((c) => c.visibilityState === "visible");
-      if (!hasVisibleClient) {
-        await self.registration.showNotification(title, options);
-      }
+      // Сайт (toast/звук) + системное уведомление на телефоне — всегда оба канала.
+      await notifyOpenClients(title, options);
+      await self.registration.showNotification(title, options);
     })(),
   );
 });
