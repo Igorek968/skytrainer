@@ -12,6 +12,7 @@ import {
 import { prisma } from "@/lib/prisma";
 import { publicUploadDisplaySrc, publicUploadDisplaySrcs, publicUploadStorageUrl } from "@/lib/public-uploads-display";
 import { writePublicUpload } from "@/lib/public-uploads";
+import { compressUploadedImageBytes } from "@/lib/image-compress";
 import { validateUploadedBytes } from "@/lib/upload-validation";
 
 function formatPhotoApiResponse(result: {
@@ -52,14 +53,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Максимум 5 MB" }, { status: 400 });
   }
 
-  const ext =
-    file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg";
-  const filename = `${userId}-${randomUUID()}.${ext}`;
-
-  const buffer = Buffer.from(await file.arrayBuffer());
-  if (!validateUploadedBytes(file.type, buffer)) {
+  const raw = Buffer.from(await file.arrayBuffer());
+  if (!validateUploadedBytes(file.type, raw)) {
     return NextResponse.json({ error: "Содержимое файла не соответствует формату" }, { status: 400 });
   }
+
+  const { buffer, ext } = await compressUploadedImageBytes(raw, file.type);
+  const filename = `${userId}-${randomUUID()}.${ext}`;
   const photoUrl = await writePublicUpload("instructors", filename, buffer);
   await ensureInstructorProfile(userId);
   const [profile, user] = await Promise.all([

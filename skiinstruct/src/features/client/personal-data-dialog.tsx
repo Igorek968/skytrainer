@@ -10,6 +10,7 @@ import { InstructorPhoto } from "@/shared/ui/instructor-photo";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
+import { compressImageFile } from "@/lib/compress-image-client";
 import { redirectToYooCardBinding } from "@/lib/payments/redirect-to-checkout";
 import { parseFullNameToParts } from "@/lib/user-display-name";
 import { useDisplayNameDuplicateCheck } from "@/shared/hooks/use-display-name-duplicate-check";
@@ -124,8 +125,9 @@ export function PersonalDataDialog({
 
   const uploadPhoto = useMutation({
     mutationFn: async (file: File) => {
+      const toUpload = await compressImageFile(file);
       const fd = new FormData();
-      fd.set("file", file);
+      fd.set("file", toUpload);
       const r = await fetch("/api/me/photo", { method: "POST", body: fd });
       const j = (await r.json().catch(() => ({}))) as { image?: string; error?: unknown };
       if (!r.ok) throw new Error(typeof j.error === "string" ? j.error : "upload");

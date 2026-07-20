@@ -9,6 +9,7 @@ import {
 } from "@/lib/instructor-events";
 import { prisma } from "@/lib/prisma";
 import { removePublicUploadByUrl, writePublicUpload } from "@/lib/public-uploads";
+import { compressUploadedImageBytes } from "@/lib/image-compress";
 import { validateUploadedBytes } from "@/lib/upload-validation";
 
 const MAX_SIZE_BYTES = 5 * 1024 * 1024;
@@ -48,14 +49,13 @@ export async function POST(req: Request, ctx: Ctx) {
     return NextResponse.json({ error: "Максимум 5 MB" }, { status: 400 });
   }
 
-  const ext =
-    file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg";
-  const filename = `${id}-${randomUUID()}.${ext}`;
-
-  const buffer = Buffer.from(await file.arrayBuffer());
-  if (!validateUploadedBytes(file.type, buffer)) {
+  const raw = Buffer.from(await file.arrayBuffer());
+  if (!validateUploadedBytes(file.type, raw)) {
     return NextResponse.json({ error: "Содержимое файла не соответствует формату" }, { status: 400 });
   }
+
+  const { buffer, ext } = await compressUploadedImageBytes(raw, file.type);
+  const filename = `${id}-${randomUUID()}.${ext}`;
   const photoUrl = await writePublicUpload("events", filename, buffer);
   await removePublicUploadByUrl(existing.photoUrl);
 

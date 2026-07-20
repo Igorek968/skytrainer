@@ -30,6 +30,7 @@ import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
 import { EventRegistrantsPanel } from "@/features/instructor/event-registrants-panel";
 import { EventVenuePicker, type EventVenueValue } from "@/features/instructor/event-venue-picker";
+import { compressImageFile } from "@/lib/compress-image-client";
 import { cn } from "@/lib/utils";
 
 type ActiveOrderOption = { id: string; label: string };
@@ -201,8 +202,9 @@ export function InstructorEventsEditor({
   }, [photoFile]);
 
   const uploadPhotoForEvent = useCallback(async (eventId: string, file: File) => {
+    const toUpload = await compressImageFile(file);
     const fd = new FormData();
-    fd.set("file", file);
+    fd.set("file", toUpload);
     const r = await instructorFetch(`/api/instructor/events/${eventId}/photo`, {
       method: "POST",
       body: fd,

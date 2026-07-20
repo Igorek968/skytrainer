@@ -40,38 +40,10 @@ import { cn } from "@/lib/utils";
 import { instructorActivityLabelsAlphabetical } from "@/lib/services/instructor-match";
 import { INSTRUCTOR_NO_SHOW_PENALTY_PERCENT } from "@/lib/legal-config";
 import { useDisplayNameDuplicateCheck } from "@/shared/hooks/use-display-name-duplicate-check";
+import { compressImageFile } from "@/lib/compress-image-client";
 
 const instructorFetch = (input: RequestInfo | URL, init?: RequestInit) =>
   fetch(input, { ...init, credentials: "include" });
-
-async function compressImageFile(file: File): Promise<File> {
-  if (!file.type.startsWith("image/")) return file;
-  if (typeof window === "undefined") return file;
-
-  const bitmap = await createImageBitmap(file);
-  const maxSide = 1600;
-  const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
-  const targetW = Math.max(1, Math.round(bitmap.width * scale));
-  const targetH = Math.max(1, Math.round(bitmap.height * scale));
-
-  const canvas = document.createElement("canvas");
-  canvas.width = targetW;
-  canvas.height = targetH;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return file;
-  ctx.drawImage(bitmap, 0, 0, targetW, targetH);
-
-  const outType = file.type === "image/png" ? "image/png" : "image/jpeg";
-  const quality = outType === "image/jpeg" ? 0.82 : 0.9;
-  const blob: Blob | null = await new Promise((resolve) =>
-    canvas.toBlob((b) => resolve(b), outType, quality)
-  );
-  if (!blob) return file;
-
-  const newName = file.name.replace(/\.\w+$/, outType === "image/png" ? ".png" : ".jpg");
-  const compressed = new File([blob], newName, { type: outType, lastModified: Date.now() });
-  return compressed.size < file.size ? compressed : file;
-}
 
 const CERTIFICATION_LEVEL_OPTIONS = [
   "ISIA Level 1",

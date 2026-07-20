@@ -21,6 +21,7 @@ import type { EventCatalogStatus } from "@prisma/client";
 import type { InstructorEventDTO } from "@/lib/instructor-events";
 import { formatEventDateRu, moderationStatusLabel } from "@/lib/instructor-events";
 import { publicUploadDisplaySrc } from "@/lib/public-uploads-display";
+import { compressImageFile } from "@/lib/compress-image-client";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
@@ -71,8 +72,9 @@ async function readJson(r: Response): Promise<unknown> {
 }
 
 async function uploadCatalogPhoto(catalogId: string, file: File) {
+  const toUpload = await compressImageFile(file);
   const fd = new FormData();
-  fd.set("file", file);
+  fd.set("file", toUpload);
   const r = await fetch(`/api/admin/event-catalog/${catalogId}/photo`, {
     method: "POST",
     credentials: "include",
