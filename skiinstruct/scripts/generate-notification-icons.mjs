@@ -28,8 +28,9 @@ async function main() {
     .toFile(path.join(publicDir, "notification-icon.png"));
   console.log("Wrote notification-icon.png");
 
-  const { data, info } = await sharp(logoPath)
-    .resize(80, 80, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
+  const logoSvg = path.join(publicDir, "brand/logo-mark.svg");
+  const { data, info } = await sharp(logoSvg, { density: 300 })
+    .resize(96, 96, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
     .ensureAlpha()
     .raw()
     .toBuffer({ resolveWithObject: true });
@@ -38,7 +39,7 @@ async function main() {
   for (let i = 0; i < info.width * info.height; i++) {
     const a = data[i * 4 + 3];
     const lum = (data[i * 4] + data[i * 4 + 1] + data[i * 4 + 2]) / 3;
-    const keep = a > 30 && lum > 25;
+    const keep = a > 40 && lum > 18;
     out[i * 4] = 255;
     out[i * 4 + 1] = 255;
     out[i * 4 + 2] = 255;
@@ -48,11 +49,12 @@ async function main() {
   const badgeInner = await sharp(out, {
     raw: { width: info.width, height: info.height, channels: 4 },
   })
+    .resize(100, 100, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
     .png()
     .toBuffer();
 
   await sharp({
-    create: { width: 96, height: 96, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } },
+    create: { width: 128, height: 128, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } },
   })
     .composite([{ input: badgeInner, gravity: "centre" }])
     .png()

@@ -21,37 +21,67 @@ async function postSubscription(sub: PushSubscription): Promise<boolean> {
   return res.ok;
 }
 
-export function isWebPushAvailable(): boolean {
+export function isIosDevice(): boolean {
   if (typeof window === "undefined") return false;
-  const vapid = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY?.trim();
-  return Boolean(vapid && "Notification" in window && "serviceWorker" in navigator && "PushManager" in window);
+  const ua = navigator.userAgent || "";
+  if (/iPad|iPhone|iPod/.test(ua)) return true;
+  // iPadOS 13+ может маскироваться под Mac
+  return navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1;
 }
 
 /** iOS Web Push работает только из «На экран Домой» (standalone). */
 export function isIosHomeScreenPwa(): boolean {
-  if (typeof window === "undefined") return false;
-  const ua = navigator.userAgent || "";
-  const isIos = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-  if (!isIos) return false;
+  if (typeof window === "undefined" || !isIosDevice()) return false;
   const standalone =
     window.matchMedia("(display-mode: standalone)").matches ||
     ("standalone" in navigator && Boolean((navigator as Navigator & { standalone?: boolean }).standalone));
   return standalone;
 }
 
+export function isWebPushAvailable(): boolean {
+  if (typeof window === "undefined") return false;
+  const vapid = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY?.trim();
+  return Boolean(vapid && "Notification" in window && "serviceWorker" in navigator && "PushManager" in window);
+}
+
 export function canRequestWebPushOnThisDevice(): boolean {
   if (!isWebPushAvailable()) return false;
-  const ua = navigator.userAgent || "";
-  const isIos = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-  if (isIos && !isIosHomeScreenPwa()) return false;
+  if (isIosDevice() && !isIosHomeScreenPwa()) return false;
   return true;
+}
+
+export type WebPushUiMode =
+  | "ready"
+  | "can-enable"
+  | "needs-ios-homescreen"
+  | "denied"
+  | "no-vapid"
+  | "unsupported";
+
+/** Что показать пользователю в UI (кнопка / инструкция для iPhone). */
+export function getWebPushUiMode(): WebPushUiMode {
+  if (typeof window === "undefined") return "unsupported";
+  const vapid = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY?.trim();
+  if (!vapid) return "no-vapid";
+
+  if (isIosDevice() && !isIosHomeScreenPwa()) {
+    return "needs-ios-homescreen";
+  }
+
+  if (!("Notification" in window) || !("serviceWorker" in navigator) || !("PushManager" in window)) {
+    return "unsupported";
+  }
+
+  if (Notification.permission === "denied") return "denied";
+  if (Notification.permission === "granted") return "ready";
+  return "can-enable";
 }
 
 /** Синхронизирует существующую подписку с сервером (без запроса разрешения). */
 export async function syncWebPushSubscription(): Promise<boolean> {
   const vapid = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY?.trim();
   if (!vapid || typeof navigator === "undefined" || !("serviceWorker" in navigator)) return false;
-  if (Notification.permission !== "granted") return false;
+  if (!("Notification" in window) || Notification.permission !== "granted") return false;
   try {
     const reg = await navigator.serviceWorker.register("/sw.js", { scope: "/" });
     await reg.update().catch(() => {});
@@ -65,6 +95,7 @@ export async function syncWebPushSubscription(): Promise<boolean> {
 
 /** Запрашивает разрешение и регистрирует Web Push на сервере. */
 export async function subscribeWebPush(): Promise<boolean> {
+  if (!canRequestWebPushOnThisDevice()) return false;
   const vapid = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY?.trim();
   if (!vapid || typeof navigator === "undefined" || !("serviceWorker" in navigator)) return false;
 
@@ -75,7 +106,7 @@ export async function subscribeWebPush(): Promise<boolean> {
   if (perm !== "granted") return false;
 
   try {
-    const reg = await navigator.serviceWorker.register("/sw.js", { scope: "/" });
+    const reg = await navigator.serviceWorker.register("/sw.js", { scope: "/", updateViaCache: "none" });
     await reg.update().catch(() => {});
     await navigator.serviceWorker.ready;
     let sub = await reg.pushManager.getSubscription();
@@ -86,7 +117,8 @@ export async function subscribeWebPush(): Promise<boolean> {
       });
     }
     return postSubscription(sub);
-  } catch {
+  } catch (e) {
+    console.error("[web-push] subscribe failed", e);
     return false;
   }
 }

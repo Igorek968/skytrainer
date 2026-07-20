@@ -17,6 +17,10 @@ import { ReferralProgramPanel } from "@/features/referral/referral-program-panel
 import { InstructorEventCatalogSection } from "@/features/instructor/instructor-event-catalog-section";
 import { enableInstructorOfflineAlerts } from "@/features/instructor/instructor-panel-shell";
 import { fireSiteAlert, siteAlertTitle } from "@/lib/site-alert";
+import {
+  getWebPushUiMode,
+  isIosDevice,
+} from "@/features/push/web-push-client";
 import { InstructorWeekScheduleCalendar } from "@/features/instructor/instructor-week-schedule-calendar";
 import {
   normalizeAvailabilitySlots,
@@ -432,7 +436,13 @@ export default function InstructorHomePage() {
   }, [data?.verificationStatus, qc]);
 
   useEffect(() => {
-    if (typeof window === "undefined" || !("Notification" in window)) {
+    if (typeof window === "undefined") return;
+    const mode = getWebPushUiMode();
+    if (mode === "needs-ios-homescreen") {
+      setNotificationPermission("default");
+      return;
+    }
+    if (!("Notification" in window)) {
       setNotificationPermission("unsupported");
       return;
     }
@@ -440,7 +450,17 @@ export default function InstructorHomePage() {
   }, []);
 
   const requestNotifications = async () => {
-    if (typeof window === "undefined" || !("Notification" in window)) return;
+    if (typeof window === "undefined") return;
+    if (isIosDevice() && getWebPushUiMode() === "needs-ios-homescreen") {
+      toast.message("Сначала добавьте приложение на экран «Домой»", {
+        description: "Safari → Поделиться → На экран «Домой», затем откройте ярлык и включите уведомления.",
+      });
+      return;
+    }
+    if (!("Notification" in window)) {
+      toast.error("Уведомления недоступны в этом браузере. На iPhone используйте Safari и ярлык на экране «Домой».");
+      return;
+    }
     if (!window.isSecureContext) {
       toast.error("Уведомления работают только по HTTPS или на localhost");
       return;
@@ -861,7 +881,7 @@ export default function InstructorHomePage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {notificationPermission !== "unsupported" ? (
+          {notificationPermission !== "unsupported" || isIosDevice() ? (
             <Button
               type="button"
               variant={notificationPermission === "granted" ? "accent" : "outline"}
@@ -872,7 +892,11 @@ export default function InstructorHomePage() {
               )}
               onClick={requestNotifications}
             >
-              {notificationPermission === "granted" ? "Уведомления включены" : "Включить уведомления"}
+              {notificationPermission === "granted"
+                ? "Уведомления включены"
+                : isIosDevice() && getWebPushUiMode() === "needs-ios-homescreen"
+                  ? "Как включить на iPhone"
+                  : "Включить уведомления"}
             </Button>
           ) : null}
           <Button asChild variant="outline">

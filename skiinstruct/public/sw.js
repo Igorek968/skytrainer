@@ -1,8 +1,16 @@
 /* eslint-disable no-restricted-globals */
-/* build: 20260720-notify-logo-actions */
+/* build: 20260720-notify-no-banner */
 
-const NOTIFICATION_ICON = "/notification-icon.png?v=brand4";
-const NOTIFICATION_BADGE = "/notification-badge.png?v=brand4";
+const NOTIFICATION_ICON = "/notification-icon.png?v=brand5";
+const NOTIFICATION_BADGE = "/notification-badge.png?v=brand5";
+
+function isAndroidUa() {
+  try {
+    return /Android/i.test(self.navigator.userAgent || "");
+  } catch {
+    return false;
+  }
+}
 
 function parsePushData(event) {
   let data = {};
@@ -31,12 +39,13 @@ function notificationOptions(data) {
         : null;
   const hasOrderId = Boolean(orderId);
   const ticketId = typeof data.ticketId === "string" ? data.ticketId : null;
+  const android = isAndroidUa();
 
   const options = {
     body: typeof data.body === "string" ? data.body : "",
-    icon: NOTIFICATION_ICON,
+    // Android: icon → квадрат справа, image → баннер в теле. Не ставим их.
+    // Слева — badge (монохромный логотип) / иконка приложения.
     badge: NOTIFICATION_BADGE,
-    image: NOTIFICATION_ICON,
     vibrate: [180, 80, 180, 80, 180],
     silent: false,
     renotify: true,
@@ -58,6 +67,11 @@ function notificationOptions(data) {
       tag,
     },
   };
+
+  // iOS / desktop: цветной логотип в уведомлении. На Android icon даёт правый квадрат — пропускаем.
+  if (!android) {
+    options.icon = NOTIFICATION_ICON;
+  }
 
   // Android: до 2 кнопок видны без раскрытия; iOS Web Push action-кнопки не поддерживает.
   if (isInstructorOrder) {
@@ -246,8 +260,8 @@ self.addEventListener("notificationclick", (event) => {
         const result = await sendPushSnooze(nd);
         await self.registration.showNotification("ТвойТренер", {
           body: result.ok ? "Напомним через 1 час." : "Не удалось отложить — откройте приложение.",
-          icon: NOTIFICATION_ICON,
           badge: NOTIFICATION_BADGE,
+          ...(isAndroidUa() ? {} : { icon: NOTIFICATION_ICON }),
           tag: "skiinstruct-snooze-ack",
           data: { url },
         });
@@ -263,8 +277,8 @@ self.addEventListener("notificationclick", (event) => {
         if (result.ok) {
           await self.registration.showNotification("ТвойТренер", {
             body: "Ответ отправлен в поддержку.",
-            icon: NOTIFICATION_ICON,
             badge: NOTIFICATION_BADGE,
+            ...(isAndroidUa() ? {} : { icon: NOTIFICATION_ICON }),
             tag: "skiinstruct-support-reply-sent",
             data: { url: "/support" },
           });
@@ -283,8 +297,8 @@ self.addEventListener("notificationclick", (event) => {
         if (result.ok) {
           await self.registration.showNotification("ТвойТренер", {
             body: "Ответ отправлен инструктору.",
-            icon: NOTIFICATION_ICON,
             badge: NOTIFICATION_BADGE,
+            ...(isAndroidUa() ? {} : { icon: NOTIFICATION_ICON }),
             tag: "skiinstruct-chat-reply-sent",
             data: { url: chatUrlForKind(kind, orderId) },
           });

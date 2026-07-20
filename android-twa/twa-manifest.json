@@ -13,9 +13,9 @@
   "backgroundColor": "#0f172a",
   "enableNotifications": true,
   "startUrl": "/client",
-  "iconUrl": "https://utrainer.ru/icon-512.png",
-  "maskableIconUrl": "https://utrainer.ru/icon-maskable-512.png",
-  "monochromeIconUrl": "https://utrainer.ru/icon-512.png",
+  "iconUrl": "https://xn--b1agaovdpdkd.xn--p1ai/icon-512.png",
+  "maskableIconUrl": "https://xn--b1agaovdpdkd.xn--p1ai/icon-maskable-512.png",
+  "monochromeIconUrl": "https://xn--b1agaovdpdkd.xn--p1ai/notification-badge.png",
   "splashScreenFadeOutDuration": 300,
   "signingKey": {
     "path": "./android.keystore",

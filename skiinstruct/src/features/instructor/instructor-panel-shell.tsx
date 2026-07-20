@@ -8,7 +8,12 @@ import { OrderLessonRemindersPrompt } from "@/features/orders/order-lesson-remin
 import { useAutoWebPushSubscribe } from "@/features/push/use-auto-web-push-subscribe";
 import { useVisibilityInvalidate } from "@/features/push/use-visibility-invalidate";
 import { unlockSiteAlertSound } from "@/lib/site-alert";
-import { isWebPushAvailable, subscribeWebPush, syncWebPushSubscription } from "@/features/push/web-push-client";
+import {
+  canRequestWebPushOnThisDevice,
+  isWebPushAvailable,
+  subscribeWebPush,
+  syncWebPushSubscription,
+} from "@/features/push/web-push-client";
 import { useEffect } from "react";
 
 export function InstructorPanelShell({ children }: { children: React.ReactNode }) {
@@ -23,7 +28,12 @@ export function InstructorPanelShell({ children }: { children: React.ReactNode }
     window.addEventListener("pointerdown", unlock, { once: true });
     window.addEventListener("keydown", unlock, { once: true });
 
-    if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "default") {
+    if (
+      typeof window !== "undefined" &&
+      "Notification" in window &&
+      Notification.permission === "default" &&
+      canRequestWebPushOnThisDevice()
+    ) {
       void Notification.requestPermission().catch(() => {});
     }
 
@@ -39,7 +49,7 @@ export function InstructorPanelShell({ children }: { children: React.ReactNode }
 
   return (
     <>
-      <InstructorPushAlertsBanner />
+      <InstructorPushAlertsBanner audience="instructor" />
       {children}
       <InstructorPendingOrderPrompt />
       <InstructorChatMessagePrompt />
@@ -51,6 +61,5 @@ export function InstructorPanelShell({ children }: { children: React.ReactNode }
 
 /** После разрешения браузерных уведомлений — подписать инструктора на Web Push (заявки вне сайта). */
 export async function enableInstructorOfflineAlerts(): Promise<boolean> {
-  if (!isWebPushAvailable()) return false;
   return subscribeWebPush();
 }
