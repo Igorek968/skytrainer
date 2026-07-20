@@ -7,6 +7,7 @@ import { useEffect, useRef } from "react";
 import { toast } from "sonner";
 
 import { CancelRegistrationButton } from "@/features/orders/cancel-registration-button";
+import { PaidContactCallButton } from "@/features/chat/paid-contact-call";
 import {
   clientRegistrationStatusLabel,
   type ClientRegistrationDetail,
@@ -140,6 +141,14 @@ export default function ClientRegistrationDetailPage() {
             <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
               {reg.event.body}
             </p>
+
+            {reg.status === "PAID" || (reg.amountRub <= 0 && reg.status !== "CANCELLED") ? (
+              <PaidContactCallButton
+                contactUrl={`/api/client/registrations/${reg.id}/contact`}
+                label="Позвонить инструктору"
+              />
+            ) : null}
+
             <p className="text-xs text-muted-foreground">
               Заявка от {new Date(reg.createdAt).toLocaleString("ru-RU")}
               {reg.paidAt ? ` · оплачено ${new Date(reg.paidAt).toLocaleString("ru-RU")}` : ""}

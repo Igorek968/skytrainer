@@ -7,6 +7,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { OrderChat } from "@/features/chat/order-chat";
+import { PaidContactCallButton } from "@/features/chat/paid-contact-call";
 import { ReferralInviteCta } from "@/features/share/referral-invite-cta";
 import { CancelOrderButton, ClaimLateRefundButton } from "@/features/orders/cancel-order-button";
 import { QualityRefundClaim } from "@/features/orders/quality-refund-claim";
@@ -888,7 +889,13 @@ function ClientOrderDetailContent({
       {status !== "PENDING_INSTRUCTOR" &&
       status !== "AWAITING_PAYMENT" &&
       status !== "CANCELLED" ? (
-        <OrderChat orderId={id} />
+        <div className="space-y-3">
+          <PaidContactCallButton
+            contactUrl={`/api/orders/${id}/contact`}
+            label="Позвонить инструктору"
+          />
+          <OrderChat orderId={id} />
+        </div>
       ) : null}
     </div>
   );
