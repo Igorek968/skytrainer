@@ -2,8 +2,13 @@
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
+import { useState } from "react";
 
 import { AdminDeleteUserButton } from "@/features/admin/admin-delete-user-button";
+import {
+  AdminSendMessageModal,
+  type AdminMessageTarget,
+} from "@/features/admin/admin-send-message-modal";
 import { adminOverviewHref } from "@/features/admin/admin-search-params";
 import { useAdminUsersList } from "@/features/admin/use-admin-users-list";
 import {
@@ -61,6 +66,7 @@ export function AdminUsersSection() {
   const focusUser = params.get("user")?.trim() || params.get("email")?.trim() || null;
   const focusActivity = params.get("activity")?.trim() || null;
   const focusParticipant = params.get("participant")?.trim() || null;
+  const [messageTarget, setMessageTarget] = useState<AdminMessageTarget | null>(null);
 
   const role = parseAdminUserRoleFilter(params.get("role"));
   const onlineOnly = parseAdminOnlineFilter(params.get("online"));
@@ -83,6 +89,9 @@ export function AdminUsersSection() {
 
   return (
     <div className="space-y-6">
+      {messageTarget ? (
+        <AdminSendMessageModal target={messageTarget} onClose={() => setMessageTarget(null)} />
+      ) : null}
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Фильтр пользователей</CardTitle>
@@ -183,6 +192,22 @@ export function AdminUsersSection() {
                     </td>
                     <td className="py-2">
                       <div className="flex flex-wrap items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-xs"
+                          onClick={() =>
+                            setMessageTarget({
+                              id: u.id,
+                              email: u.email,
+                              name: u.name,
+                              role: u.role,
+                            })
+                          }
+                        >
+                          Написать
+                        </Button>
                         <Button variant="outline" size="sm" className="h-7 text-xs" asChild>
                           <Link
                             href={adminOverviewHref("/admin/activity", {

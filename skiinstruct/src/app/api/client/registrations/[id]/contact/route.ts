@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 type Ctx = { params: Promise<{ id: string }> };
 
-/** Телефон инструктора для оплаченной (или бесплатной) записи на мероприятие. */
+/** Телефон инструктора после записи на мероприятие (в т.ч. до оплаты после события). */
 export async function GET(_req: Request, ctx: Ctx) {
   const authResult = await requireClientSession();
   if (isApiErrorResponse(authResult)) return authResult;
@@ -35,7 +35,7 @@ export async function GET(_req: Request, ctx: Ctx) {
   const amount = Number(reg.amountRub);
   if (!canRevealRegistrationContact(reg.status, amount)) {
     return NextResponse.json(
-      { error: "Контакт инструктора доступен после подтверждения оплаты записи" },
+      { error: "Контакт инструктора недоступен для этой заявки" },
       { status: 403 },
     );
   }

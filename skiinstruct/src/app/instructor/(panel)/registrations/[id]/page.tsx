@@ -11,7 +11,7 @@ import {
   type InstructorRegistrationListItem,
 } from "@/lib/instructor-event-registration";
 import { formatEventDateRu, formatEventPriceRu } from "@/lib/instructor-events";
-import { PaidContactCallButton } from "@/features/chat/paid-contact-call";
+import { RegistrationChat } from "@/features/chat/registration-chat";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Skeleton } from "@/shared/ui/skeleton";
@@ -192,11 +192,11 @@ export default function InstructorRegistrationDetailPage() {
                 {reg.paidAt ? ` · оплачено ${new Date(reg.paidAt).toLocaleString("ru-RU")}` : ""}
               </p>
 
-              {reg.status === "PAID" ||
-              ((reg.amountRub ?? 0) <= 0 && reg.status !== "CANCELLED") ? (
-                <PaidContactCallButton
+              {reg.status === "PAID" || reg.status === "PENDING_PAYMENT" ? (
+                <RegistrationChat
+                  registrationId={reg.id}
                   contactUrl={`/api/instructor/registrations/${reg.id}/contact`}
-                  label="Позвонить клиенту"
+                  callLabel="Позвонить клиенту"
                 />
               ) : null}
 

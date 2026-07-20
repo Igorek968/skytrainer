@@ -154,6 +154,7 @@ model User {
   instructorOrders Order[] @relation("InstructorOrders")
 
   sentMessages Message[] @relation("SentMessages")
+  sentRegistrationMessages EventRegistrationMessage[] @relation("SentRegistrationMessages")
 
   supportTickets SupportTicket[]
 
@@ -180,6 +181,9 @@ model User {
   referralRewardsAsReferrer ReferralReward[]        @relation("ReferrerUser")
   referralPayoutRequests  ReferralPayoutRequest[]
 
+  adminMessagesSent     AdminDirectMessage[] @relation("AdminMessagesSent")
+  adminMessagesReceived AdminDirectMessage[] @relation("AdminMessagesReceived")
+
   /// Сохранённый способ оплаты ЮKassa (автоплатежи / привязка карты).
   yookassaPaymentMethodId String?   @unique
   yookassaCardLast4       String?
@@ -193,6 +197,28 @@ model User {
   updatedAt DateTime @updatedAt
 
   @@index([referredById])
+}
+
+/// Сообщение администратора любому пользователю (с дублем на email).
+model AdminDirectMessage {
+  id String @id @default(cuid())
+
+  senderId String
+  sender   User   @relation("AdminMessagesSent", fields: [senderId], references: [id], onDelete: Cascade)
+
+  recipientId String
+  recipient   User   @relation("AdminMessagesReceived", fields: [recipientId], references: [id], onDelete: Cascade)
+
+  subject String?
+  body    String  @db.Text
+
+  /// Когда письмо успешно ушло адресату (null = не удалось / SMTP не настроен).
+  emailSentAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([recipientId, createdAt])
+  @@index([senderId, createdAt])
 }
 
 model Account {
@@ -631,12 +657,30 @@ model EventRegistration {
 
   penalties InstructorPlatformPenalty[]
 
+  messages EventRegistrationMessage[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([eventId, status])
   @@index([slotId, status])
   @@index([clientId])
+}
+
+/// Чат по записи на мероприятие (клиент ↔ инструктор).
+model EventRegistrationMessage {
+  id             String @id @default(cuid())
+  registrationId String
+  registration   EventRegistration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+
+  senderId String
+  sender   User   @relation("SentRegistrationMessages", fields: [senderId], references: [id], onDelete: Cascade)
+
+  body String @db.Text
+
+  createdAt DateTime @default(now())
+
+  @@index([registrationId, createdAt])
 }
 
 model Message {
