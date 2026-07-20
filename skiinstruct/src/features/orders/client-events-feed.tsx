@@ -371,12 +371,16 @@ function EventsCarousel({
   showDistance,
   isClient,
   onInstructorPick,
+  openFeedCardId,
+  onOpenFeedCardHandled,
 }: {
   cards: ClientEventFeedCardDTO[];
   queryKey: string[];
   showDistance: boolean;
   isClient: boolean;
   onInstructorPick?: (instructor: { id: string; name: string | null }) => void;
+  openFeedCardId?: string | null;
+  onOpenFeedCardHandled?: () => void;
 }) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -406,6 +410,14 @@ function EventsCarousel({
     },
     [cards],
   );
+
+  useEffect(() => {
+    if (!openFeedCardId) return;
+    const idx = cards.findIndex((c) => feedCardId(c) === openFeedCardId);
+    if (idx < 0) return;
+    setViewerIndex(idx);
+    onOpenFeedCardHandled?.();
+  }, [openFeedCardId, cards, onOpenFeedCardHandled]);
 
   const updateScrollEdges = useCallback(() => {
     const el = scrollerRef.current;
@@ -514,12 +526,16 @@ function EventsList({
   showDistance,
   isClient,
   onInstructorPick,
+  openFeedCardId,
+  onOpenFeedCardHandled,
 }: {
   cards: ClientEventFeedCardDTO[];
   queryKey: string[];
   showDistance: boolean;
   isClient: boolean;
   onInstructorPick?: (instructor: { id: string; name: string | null }) => void;
+  openFeedCardId?: string | null;
+  onOpenFeedCardHandled?: () => void;
 }) {
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
 
@@ -542,6 +558,14 @@ function EventsList({
     },
     [cards],
   );
+
+  useEffect(() => {
+    if (!openFeedCardId) return;
+    const idx = cards.findIndex((c) => feedCardId(c) === openFeedCardId);
+    if (idx < 0) return;
+    setViewerIndex(idx);
+    onOpenFeedCardHandled?.();
+  }, [openFeedCardId, cards, onOpenFeedCardHandled]);
 
   return (
     <>
@@ -599,9 +623,14 @@ function normalizeFeedCards(
 export function ClientEventsFeed({
   layout = "carousel",
   onInstructorPick,
+  openFeedCardId,
+  onOpenFeedCardHandled,
 }: {
   layout?: "carousel" | "list";
   onInstructorPick?: (instructor: { id: string; name: string | null }) => void;
+  /** Открыть полноэкранный просмотр карточки (например с карты по двойному клику). */
+  openFeedCardId?: string | null;
+  onOpenFeedCardHandled?: () => void;
 }) {
   const { data: session } = useSession();
   const isClient = session?.user?.role === "CLIENT";
@@ -750,6 +779,8 @@ export function ClientEventsFeed({
             showDistance
             isClient={isClient}
             onInstructorPick={onInstructorPick}
+            openFeedCardId={openFeedCardId}
+            onOpenFeedCardHandled={onOpenFeedCardHandled}
           />
         ) : (
           <EventsList
@@ -758,6 +789,8 @@ export function ClientEventsFeed({
             showDistance
             isClient={isClient}
             onInstructorPick={onInstructorPick}
+            openFeedCardId={openFeedCardId}
+            onOpenFeedCardHandled={onOpenFeedCardHandled}
           />
         )}
       </CardContent>

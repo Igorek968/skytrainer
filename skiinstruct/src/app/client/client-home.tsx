@@ -22,6 +22,12 @@ import type { EventMapPin } from "@/features/map/event-map-marker";
 import { consumeOpenPersonalDataFlag } from "@/lib/client-personal-data-storage";
 import { locateUserMeetPoint, useMeetPoint } from "@/features/map/use-client-meet-point";
 import { CLIENT_EVENTS_RADIUS_KM } from "@/lib/client-events-geo";
+import {
+  feedCardId,
+  feedCardPhotoUrl,
+  feedCardTitle,
+  type ClientEventFeedCardDTO,
+} from "@/lib/event-catalog";
 import type { ClientInstructorEventDTO } from "@/lib/instructor-events";
 import { devPollInterval } from "@/lib/query-poll";
 import { Button } from "@/shared/ui/button";
@@ -447,14 +453,53 @@ export default function ClientHomePage() {
       });
       const r = await fetch(`/api/client/events?${qs}`, { credentials: "include" });
       if (!r.ok) throw new Error("events");
-      return r.json() as Promise<{ events: ClientInstructorEventDTO[] }>;
+      return r.json() as Promise<{
+        cards?: ClientEventFeedCardDTO[];
+        events: ClientInstructorEventDTO[];
+      }>;
     },
     staleTime: 15_000,
     refetchInterval: devPollInterval(30_000),
     refetchIntervalInBackground: false,
   });
 
+  const [openFeedCardId, setOpenFeedCardId] = useState<string | null>(null);
+
   const eventMapPins: EventMapPin[] = useMemo(() => {
+    const cards = mapEventsData?.cards;
+    if (cards?.length) {
+      const pins: EventMapPin[] = [];
+      for (const card of cards) {
+        const lat = card.kind === "catalog" ? card.venueLat : card.event.venueLat;
+        const lng = card.kind === "catalog" ? card.venueLng : card.event.venueLng;
+        if (lat == null || lng == null || !Number.isFinite(lat) || !Number.isFinite(lng)) {
+          continue;
+        }
+        const offers = card.kind === "catalog" ? card.offers : [card.event];
+        const ratings = offers
+          .map((o) => o.instructorRatingAvg)
+          .filter((r): r is number => r != null && Number.isFinite(r) && r > 0);
+        const ratingAvg = ratings.length ? Math.max(...ratings) : null;
+        const primary = offers[0];
+        pins.push({
+          id: feedCardId(card),
+          feedCardId: feedCardId(card),
+          title: feedCardTitle(card),
+          lat,
+          lng,
+          priceRub: card.kind === "catalog" ? card.priceFromRub : card.event.priceRub,
+          instructorName:
+            card.kind === "catalog"
+              ? (primary?.instructorName ?? null)
+              : card.event.instructorName,
+          venueAddress: card.kind === "catalog" ? card.venueAddress : card.event.venueAddress,
+          photoUrl: feedCardPhotoUrl(card),
+          ratingAvg,
+        });
+      }
+      return pins;
+    }
+
     return (mapEventsData?.events ?? [])
       .filter(
         (ev) =>
@@ -466,15 +511,18 @@ export default function ClientHomePage() {
           Number.isFinite(ev.venueLng),
       )
       .map((ev) => ({
-        id: ev.id,
+        id: ev.catalogItemId ? `catalog:${ev.catalogItemId}` : `event:${ev.id}`,
+        feedCardId: ev.catalogItemId ? `catalog:${ev.catalogItemId}` : `event:${ev.id}`,
         title: ev.title,
         lat: ev.venueLat as number,
         lng: ev.venueLng as number,
         priceRub: ev.priceRub,
         instructorName: ev.instructorName,
         venueAddress: ev.venueAddress,
+        photoUrl: ev.photoUrl,
+        ratingAvg: ev.instructorRatingAvg ?? null,
       }));
-  }, [mapEventsData?.events]);
+  }, [mapEventsData?.cards, mapEventsData?.events]);
 
   const instructorNameSearchQ = instructorNameQuery.trim();
   const { data: nameSearchData, isFetching: isNameSearchFetching } = useQuery({
@@ -561,6 +609,11 @@ export default function ClientHomePage() {
   }
 
   function focusEventFromMap(_eventId: string) {
+    scrollToClientSection(CLIENT_SECTION_IDS.events);
+  }
+
+  function openEventFromMap(feedCardIdValue: string) {
+    setOpenFeedCardId(feedCardIdValue);
     scrollToClientSection(CLIENT_SECTION_IDS.events);
   }
 
@@ -833,6 +886,7 @@ export default function ClientHomePage() {
             onInstructorSelect={(id) => setSelectedId(id)}
             onInstructorFocus={focusInstructorFromMap}
             onEventSelect={focusEventFromMap}
+            onEventOpen={openEventFromMap}
             events={eventMapPins}
             instructors={(data?.instructors ?? [])
               .filter((i) => i.lat != null && i.lng != null)
@@ -861,7 +915,12 @@ export default function ClientHomePage() {
           rootMargin="400px"
         >
           <SectionErrorBoundary title="Мероприятия временно недоступны">
-            <ClientEventsFeed layout="carousel" onInstructorPick={focusInstructorFromEvent} />
+            <ClientEventsFeed
+              layout="carousel"
+              onInstructorPick={focusInstructorFromEvent}
+              openFeedCardId={openFeedCardId}
+              onOpenFeedCardHandled={() => setOpenFeedCardId(null)}
+            />
           </SectionErrorBoundary>
         </WhenInViewport>
       </div>

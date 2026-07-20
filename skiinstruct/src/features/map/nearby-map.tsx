@@ -4,7 +4,7 @@ import type { LatLngExpression } from "leaflet";
 import { Circle, MapContainer, Marker, Popup, TileLayer, useMap, useMapEvents } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 import { LocateMeControl } from "@/features/map/locate-me-control";
 import { MapLegalStrip } from "@/shared/legal/map-legal-strip";
@@ -16,7 +16,11 @@ import {
 import {
   buildEventBalloonHtml,
   createEventLeafletIconHtml,
+  eventLeafletIconAnchor,
+  eventLeafletIconSize,
+  resolveEventMarkerDetail,
   type EventMapPin,
+  type EventMarkerDetail,
 } from "@/features/map/event-map-marker";
 import { hasYandexMapsKey } from "@/features/map/yandex-maps-api";
 import { YandexBookingMap } from "@/features/map/yandex-booking-map";
@@ -36,7 +40,10 @@ export type NearbyMapProps = {
   onLocateMe?: () => Promise<void>;
   onInstructorSelect?: (id: string) => void;
   onInstructorFocus?: (id: string) => void;
+  /** Одиночный клик по метке мероприятия. */
   onEventSelect?: (id: string) => void;
+  /** Двойной клик — открыть экран просмотра (как фото в ленте). */
+  onEventOpen?: (feedCardId: string) => void;
   selectedInstructorId?: string | null;
   className?: string;
   interactive: boolean;
@@ -68,13 +75,13 @@ function pinIcon(fill: string) {
 
 const MeetIcon = pinIcon("#2563eb");
 
-function createEventLeafletIcon(pin: EventMapPin) {
+function createEventLeafletIcon(pin: EventMapPin, detail: EventMarkerDetail) {
   return L.divIcon({
     className: "map-event-pin-icon",
-    html: createEventLeafletIconHtml(pin),
-    iconSize: [120, 64],
-    iconAnchor: [60, 42],
-    popupAnchor: [0, -40],
+    html: createEventLeafletIconHtml(pin, detail),
+    iconSize: eventLeafletIconSize(detail),
+    iconAnchor: eventLeafletIconAnchor(detail),
+    popupAnchor: [0, -eventLeafletIconAnchor(detail)[1] + 8],
   });
 }
 
@@ -124,6 +131,22 @@ function MapClick({ onClick }: { onClick: (lat: number, lng: number) => void }) 
   return null;
 }
 
+function EventZoomDetail({ onDetail }: { onDetail: (d: EventMarkerDetail) => void }) {
+  const map = useMap();
+  useMapEvents({
+    zoomend() {
+      onDetail(resolveEventMarkerDetail(map.getZoom()));
+    },
+    zoom() {
+      onDetail(resolveEventMarkerDetail(map.getZoom()));
+    },
+  });
+  useEffect(() => {
+    onDetail(resolveEventMarkerDetail(map.getZoom()));
+  }, [map, onDetail]);
+  return null;
+}
+
 function LeafletNearbyMap({
   center,
   meetLat,
@@ -136,100 +159,111 @@ function LeafletNearbyMap({
   onInstructorSelect,
   onInstructorFocus,
   onEventSelect,
+  onEventOpen,
   selectedInstructorId,
   className,
   interactive,
 }: NearbyMapProps) {
+  const [eventDetail, setEventDetail] = useState<EventMarkerDetail>("mid");
+
   return (
     <div className={cn("w-full overflow-hidden rounded-lg border border-border", className)}>
       <div className="relative z-0 h-[320px] w-full md:h-[420px]">
-      {interactive && onLocateMe ? <LocateMeControl onLocate={onLocateMe} /> : null}
-      <MapContainer
-        center={center}
-        zoom={13}
-        className="h-full w-full"
-        scrollWheelZoom
-        aria-label="Карта курорта, инструкторов и мероприятий"
-      >
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>'
-          url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-          subdomains="abcd"
-        />
-        <MapViewSync lat={meetLat} lng={meetLng} />
-        <Circle
-          center={[meetLat, meetLng]}
-          radius={radiusKm * 1000}
-          pathOptions={{ color: "#38bdf8", fillOpacity: 0.08 }}
-        />
-        {interactive ? <MapClick onClick={onMeetChange} /> : null}
-        <MeetMarker
-          position={[meetLat, meetLng]}
-          draggable={interactive}
-          onDragEnd={onMeetChange}
-        />
-        {instructors.map((i) => {
-          const selected = selectedInstructorId === i.id;
-          return (
-          <Marker
-            key={i.id}
-            position={[i.lat, i.lng]}
-            icon={createInstructorLeafletIcon(i, selected)}
-            zIndexOffset={selected ? 1000 : 0}
-            eventHandlers={{
-              click: (e) => {
-                if (e.originalEvent) {
-                  L.DomEvent.stopPropagation(e.originalEvent);
-                }
-                const marker = e.target as L.Marker;
-                onInstructorSelect?.(i.id);
-                marker.openPopup();
-              },
-              dblclick: (e) => {
-                if (e.originalEvent) {
-                  L.DomEvent.stopPropagation(e.originalEvent);
-                }
-                const marker = e.target as L.Marker;
-                onInstructorFocus?.(i.id);
-                marker.openPopup();
-              },
-            }}
-          >
-            <Popup closeOnClick={false} autoPan={false}>
-              <div
-                className="text-sm"
-                dangerouslySetInnerHTML={{ __html: buildInstructorBalloonHtml(i, "class") }}
-              />
-            </Popup>
-          </Marker>
-          );
-        })}
-        {events.map((ev) => (
-          <Marker
-            key={`event-${ev.id}`}
-            position={[ev.lat, ev.lng]}
-            icon={createEventLeafletIcon(ev)}
-            zIndexOffset={800}
-            eventHandlers={{
-              click: (e) => {
-                if (e.originalEvent) {
-                  L.DomEvent.stopPropagation(e.originalEvent);
-                }
-                const marker = e.target as L.Marker;
-                onEventSelect?.(ev.id);
-                marker.openPopup();
-              },
-            }}
-          >
-            <Popup closeOnClick={false} autoPan={false}>
-              <div
-                className="text-sm"
-                dangerouslySetInnerHTML={{ __html: buildEventBalloonHtml(ev) }}
-              />
-            </Popup>
-          </Marker>
-        ))}
-      </MapContainer>
+        {interactive && onLocateMe ? <LocateMeControl onLocate={onLocateMe} /> : null}
+        <MapContainer
+          center={center}
+          zoom={13}
+          className="h-full w-full"
+          scrollWheelZoom
+          aria-label="Карта курорта, инструкторов и мероприятий"
+        >
+          <TileLayer
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>'
+            url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+            subdomains="abcd"
+          />
+          <MapViewSync lat={meetLat} lng={meetLng} />
+          <EventZoomDetail onDetail={setEventDetail} />
+          <Circle
+            center={[meetLat, meetLng]}
+            radius={radiusKm * 1000}
+            pathOptions={{ color: "#38bdf8", fillOpacity: 0.08 }}
+          />
+          {interactive ? <MapClick onClick={onMeetChange} /> : null}
+          <MeetMarker
+            position={[meetLat, meetLng]}
+            draggable={interactive}
+            onDragEnd={onMeetChange}
+          />
+          {instructors.map((i) => {
+            const selected = selectedInstructorId === i.id;
+            return (
+              <Marker
+                key={i.id}
+                position={[i.lat, i.lng]}
+                icon={createInstructorLeafletIcon(i, selected)}
+                zIndexOffset={selected ? 1000 : 0}
+                eventHandlers={{
+                  click: (e) => {
+                    if (e.originalEvent) {
+                      L.DomEvent.stopPropagation(e.originalEvent);
+                    }
+                    const marker = e.target as L.Marker;
+                    onInstructorSelect?.(i.id);
+                    marker.openPopup();
+                  },
+                  dblclick: (e) => {
+                    if (e.originalEvent) {
+                      L.DomEvent.stopPropagation(e.originalEvent);
+                    }
+                    const marker = e.target as L.Marker;
+                    onInstructorFocus?.(i.id);
+                    marker.openPopup();
+                  },
+                }}
+              >
+                <Popup closeOnClick={false} autoPan={false}>
+                  <div
+                    className="text-sm"
+                    dangerouslySetInnerHTML={{ __html: buildInstructorBalloonHtml(i, "class") }}
+                  />
+                </Popup>
+              </Marker>
+            );
+          })}
+          {events.map((ev) => (
+            <Marker
+              key={`event-${ev.id}`}
+              position={[ev.lat, ev.lng]}
+              icon={createEventLeafletIcon(ev, eventDetail)}
+              zIndexOffset={800}
+              eventHandlers={{
+                click: (e) => {
+                  if (e.originalEvent) {
+                    L.DomEvent.stopPropagation(e.originalEvent);
+                  }
+                  const marker = e.target as L.Marker;
+                  onEventSelect?.(ev.id);
+                  marker.openPopup();
+                },
+                dblclick: (e) => {
+                  if (e.originalEvent) {
+                    L.DomEvent.stopPropagation(e.originalEvent);
+                    L.DomEvent.preventDefault(e.originalEvent);
+                  }
+                  onEventOpen?.(ev.feedCardId);
+                },
+              }}
+            >
+              <Popup closeOnClick={false} autoPan={false}>
+                <div
+                  className="text-sm"
+                  dangerouslySetInnerHTML={{ __html: buildEventBalloonHtml(ev) }}
+                />
+              </Popup>
+            </Marker>
+          ))}
+        </MapContainer>
       </div>
       <MapLegalStrip />
     </div>

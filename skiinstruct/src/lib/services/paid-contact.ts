@@ -4,24 +4,23 @@ import { formatRussianPhoneDisplay, normalizeRussianPhone } from "@/lib/phone";
 
 /**
  * Когда можно раскрыть телефон второй стороны по заказу.
- * Клиент — как чат: после оплаты (не AWAITING_PAYMENT).
- * Инструктор — после принятия заявки (можно связаться до оплаты клиента).
+ * Клиент — после оплаты (не AWAITING_PAYMENT): может позвонить инструктору.
+ * Инструктор — номер клиента не раскрывается (только чат).
  */
 export function canRevealOrderContact(
   status: OrderStatus,
   asRole: "CLIENT" | "INSTRUCTOR" | "ADMIN",
 ): boolean {
+  if (asRole === "INSTRUCTOR") return false;
   if (asRole === "ADMIN") return true;
   if (
     status === "DRAFT" ||
     status === "PENDING_INSTRUCTOR" ||
     status === "CANCELLED" ||
-    status === "EXPIRED"
+    status === "EXPIRED" ||
+    status === "AWAITING_PAYMENT"
   ) {
     return false;
-  }
-  if (asRole === "CLIENT") {
-    return status !== "AWAITING_PAYMENT";
   }
   return true;
 }

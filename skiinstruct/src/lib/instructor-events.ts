@@ -66,6 +66,8 @@ export type InstructorEventSlotForm = {
 export type ClientInstructorEventDTO = InstructorEventDTO & {
   instructorId: string;
   instructorName?: string | null;
+  /** Средний рейтинг инструктора (для меток на карте). */
+  instructorRatingAvg?: number | null;
   /** Расстояние от точки клиента на карте до инструктора, км */
   distanceKm?: number;
   paidRegistrationCount: number;
@@ -242,6 +244,7 @@ export async function enrichClientEvent(
   } | null,
   instructorName?: string | null,
   clientId?: string | null,
+  instructorRatingAvg?: number | null,
 ): Promise<ClientInstructorEventDTO> {
   const slotRows =
     row.slots ??
@@ -252,6 +255,8 @@ export async function enrichClientEvent(
 
   const hasSlots = eventUsesSlots(slotRows);
   const slots = await loadEventSlotsForClient({ ...row, slots: slotRows }, clientId ?? null);
+  const rating =
+    instructorRatingAvg != null && Number.isFinite(instructorRatingAvg) ? instructorRatingAvg : null;
 
   if (hasSlots) {
     const openSlots = slots.filter((s) => s.registrationOpen);
@@ -264,6 +269,7 @@ export async function enrichClientEvent(
       ...base,
       instructorId: row.instructorId,
       instructorName: instructorName ?? null,
+      instructorRatingAvg: rating,
       slots,
       hasSlots: true,
       paidRegistrationCount: slots.reduce((n, s) => n + s.paidCount, 0),
@@ -281,6 +287,7 @@ export async function enrichClientEvent(
     ...base,
     instructorId: row.instructorId,
     instructorName: instructorName ?? null,
+    instructorRatingAvg: rating,
     slots: [],
     hasSlots: false,
     paidRegistrationCount: paidCount,

@@ -58,7 +58,7 @@ export async function GET(req: Request) {
       instructor: {
         select: {
           name: true,
-          instructorProfile: { select: { lat: true, lng: true } },
+          instructorProfile: { select: { lat: true, lng: true, ratingAvg: true } },
         },
       },
       slots: { orderBy: [{ sortOrder: "asc" }, { startsAt: "asc" }] },
@@ -98,6 +98,7 @@ export async function GET(req: Request) {
         row.registrations[0] ?? null,
         row.instructor.name,
         clientId,
+        row.instructor.instructorProfile?.ratingAvg ?? null,
       );
       return { ...event, distanceKm, catalogItemId: row.catalogItemId ?? null };
     }),

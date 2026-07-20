@@ -12,12 +12,13 @@ import {
   type InstructorMapPin,
 } from "@/features/map/instructor-map-marker";
 import {
-  buildEventBalloonHtml,
   buildEventsSignature,
   eventYandexPlacemarkOptions,
   eventYandexPlacemarkProperties,
   getEventYandexLayout,
+  resolveEventMarkerDetail,
   type EventMapPin,
+  type EventMarkerDetail,
 } from "@/features/map/event-map-marker";
 import { MapLegalStrip } from "@/shared/legal/map-legal-strip";
 import {
@@ -43,6 +44,8 @@ export type BookingMapProps = {
   /** Двойной клик — открыть анкету и поднять инструктора в списке. */
   onInstructorFocus?: (id: string) => void;
   onEventSelect?: (id: string) => void;
+  /** Двойной клик по метке мероприятия — полноэкранный просмотр. */
+  onEventOpen?: (feedCardId: string) => void;
   selectedInstructorId?: string | null;
   className?: string;
   interactive: boolean;
@@ -68,6 +71,7 @@ export function YandexBookingMap({
   onInstructorSelect,
   onInstructorFocus,
   onEventSelect,
+  onEventOpen,
   selectedInstructorId,
   className,
   interactive,
@@ -83,6 +87,8 @@ export function YandexBookingMap({
   const eventsRef = useRef<YmapsCollection | null>(null);
   const placemarksByIdRef = useRef<Map<string, YmapsGeoObject>>(new Map());
   const eventPlacemarksByIdRef = useRef<Map<string, YmapsGeoObject>>(new Map());
+  const eventsByIdRef = useRef<Map<string, EventMapPin>>(new Map());
+  const eventDetailRef = useRef<EventMarkerDetail>("mid");
   const suppressMapClickRef = useRef(false);
   const selectedInstructorIdRef = useRef(selectedInstructorId);
   const instructorsSignatureRef = useRef("");
@@ -91,6 +97,7 @@ export function YandexBookingMap({
   const onInstructorSelectRef = useRef(onInstructorSelect);
   const onInstructorFocusRef = useRef(onInstructorFocus);
   const onEventSelectRef = useRef(onEventSelect);
+  const onEventOpenRef = useRef(onEventOpen);
   const [mapReady, setMapReady] = useState(false);
   const [mapError, setMapError] = useState<string | null>(null);
 
@@ -98,6 +105,7 @@ export function YandexBookingMap({
   onInstructorSelectRef.current = onInstructorSelect;
   onInstructorFocusRef.current = onInstructorFocus;
   onEventSelectRef.current = onEventSelect;
+  onEventOpenRef.current = onEventOpen;
   selectedInstructorIdRef.current = selectedInstructorId;
 
   useEffect(() => {
@@ -173,6 +181,22 @@ export function YandexBookingMap({
             pickAtCoords(coords);
           });
         }
+
+        const applyEventDetail = (zoom: number) => {
+          const detail = resolveEventMarkerDetail(zoom);
+          if (detail === eventDetailRef.current) return;
+          eventDetailRef.current = detail;
+          for (const [id, placemark] of eventPlacemarksByIdRef.current) {
+            const pin = eventsByIdRef.current.get(id);
+            if (!pin) continue;
+            placemark.properties.set(eventYandexPlacemarkProperties(pin, detail));
+          }
+        };
+
+        eventDetailRef.current = resolveEventMarkerDetail(map.getZoom());
+        map.events.add("boundschange", () => {
+          applyEventDetail(map.getZoom());
+        });
 
         map.container?.fitToViewport();
         requestAnimationFrame(() => map.container?.fitToViewport());
@@ -283,6 +307,10 @@ export function YandexBookingMap({
     const changed = signature !== eventsSignatureRef.current;
     eventsSignatureRef.current = signature;
     const layout = getEventYandexLayout(ymaps);
+    const detail = eventDetailRef.current;
+
+    const byId = new Map(events.map((e) => [e.id, e]));
+    eventsByIdRef.current = byId;
 
     for (const id of placemarksById.keys()) {
       if (!nextIds.has(id)) {
@@ -297,14 +325,14 @@ export function YandexBookingMap({
       if (existing) {
         if (changed) {
           existing.geometry.setCoordinates([ev.lat, ev.lng]);
-          existing.properties.set(eventYandexPlacemarkProperties(ev));
+          existing.properties.set(eventYandexPlacemarkProperties(ev, detail));
         }
         continue;
       }
 
       const placemark = new ymaps.Placemark(
         [ev.lat, ev.lng],
-        eventYandexPlacemarkProperties(ev),
+        eventYandexPlacemarkProperties(ev, detail),
         eventYandexPlacemarkOptions(layout),
       );
 
@@ -315,6 +343,15 @@ export function YandexBookingMap({
         }, 0);
         onEventSelectRef.current?.(ev.id);
         placemark.balloon.open();
+      });
+
+      placemark.events.add("dblclick", () => {
+        suppressMapClickRef.current = true;
+        window.setTimeout(() => {
+          suppressMapClickRef.current = false;
+        }, 0);
+        const pin = eventsByIdRef.current.get(ev.id) ?? ev;
+        onEventOpenRef.current?.(pin.feedCardId);
       });
 
       placemarksById.set(ev.id, placemark);

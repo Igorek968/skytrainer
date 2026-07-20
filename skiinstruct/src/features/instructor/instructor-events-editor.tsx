@@ -156,10 +156,16 @@ function CompletionBadge({ event }: { event: Pick<InstructorEventDTO, "isComplet
 export function InstructorEventsEditor({
   activeOrders = [],
   embedded = false,
+  view = "all",
+  onRequestCreateView,
 }: {
   activeOrders?: ActiveOrderOption[];
   /** Внутри карточки «Профиль инструктора» — без отдельной обёртки Card. */
   embedded?: boolean;
+  /** Какой блок показать: форма создания, список своих мероприятий или всё сразу. */
+  view?: "all" | "create" | "list";
+  /** При редактировании из списка — переключить оболочку на панель создания. */
+  onRequestCreateView?: () => void;
 }) {
   const qc = useQueryClient();
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -590,20 +596,23 @@ export function InstructorEventsEditor({
   const handleDuplicate = useCallback(
     (ev: InstructorEventApi) => {
       fillTemplateFromEvent(ev);
+      onRequestCreateView?.();
       toast.message("Новое мероприятие по образцу — укажите дату и сохраните черновик");
     },
-    [fillTemplateFromEvent],
+    [fillTemplateFromEvent, onRequestCreateView],
   );
 
   const handleCardEdit = useCallback(
     (ev: InstructorEventApi) => {
       if (canRestoreArchivedEvent(asEventCard(ev))) {
         restoreDraft.mutate(ev.id);
+        onRequestCreateView?.();
         return;
       }
       loadFormFromEvent(ev);
+      onRequestCreateView?.();
     },
-    [loadFormFromEvent, restoreDraft],
+    [loadFormFromEvent, onRequestCreateView, restoreDraft],
   );
 
   const handleCardHide = useCallback(
@@ -685,9 +694,14 @@ export function InstructorEventsEditor({
     archived: events.filter((e) => e.moderationStatus === "ARCHIVED" && !e.isCompleted),
   };
 
+  const showCreate = view === "all" || view === "create";
+  const showList = view === "all" || view === "list";
+
   const editorContent = (
     <div className={embedded ? "space-y-6" : undefined}>
-      <CardContent className={embedded ? "p-0" : "space-y-6"}>
+      <CardContent className={embedded ? "p-0 space-y-6" : "space-y-6"}>
+        {showCreate ? (
+          <>
         <form
           className="space-y-3 rounded-lg border border-border bg-muted/20 p-4"
           onSubmit={(e) => {
@@ -1172,7 +1186,21 @@ export function InstructorEventsEditor({
             <EventRegistrantsPanel eventId={editingId} />
           </div>
         ) : null}
+          </>
+        ) : null}
 
+        {showList ? (
+          <>
+            {!isLoading &&
+            !groups.draft.length &&
+            !groups.pending.length &&
+            !groups.published.length &&
+            !groups.rejected.length &&
+            !groups.completed.length &&
+            !groups.archived.length ? (
+              <p className="text-sm text-muted-foreground">Пока нет ваших мероприятий.</p>
+            ) : null}
+            {isLoading ? <p className="text-sm text-muted-foreground">Загрузка…</p> : null}
         <EventList
           title="Черновики"
           events={groups.draft}
@@ -1256,6 +1284,8 @@ export function InstructorEventsEditor({
             }
             hint="Не в ленте и не на карте. «Редактировать» / «Восстановить черновик» — правки; «Восстановить и на модерацию» — сразу на проверку."
           />
+        ) : null}
+          </>
         ) : null}
       </CardContent>
     </div>

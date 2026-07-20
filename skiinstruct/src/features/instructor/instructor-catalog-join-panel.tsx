@@ -75,29 +75,52 @@ function emptyJoinForm(item?: Pick<EventCatalogItemDTO, "eventAt" | "body">): Jo
   };
 }
 
-export function InstructorCatalogJoinPanel() {
+export function InstructorCatalogJoinPanel({
+  embedded = false,
+  citySlug: citySlugProp,
+  onCityChange: onCityChangeProp,
+  hideCityPicker = false,
+}: {
+  /** Без внешней Card — внутри общего каркаса каталога. */
+  embedded?: boolean;
+  /** Город снаружи (общий селектор с админским UI). */
+  citySlug?: string;
+  onCityChange?: (slug: string) => void;
+  hideCityPicker?: boolean;
+} = {}) {
   const qc = useQueryClient();
-  const [citySlug, setCitySlug] = useState(FALLBACK_MAP_CITY.slug);
-  const [cityReady, setCityReady] = useState(false);
+  const [citySlugInternal, setCitySlugInternal] = useState(FALLBACK_MAP_CITY.slug);
+  const [cityReady, setCityReady] = useState(Boolean(citySlugProp));
   const [q, setQ] = useState("");
   const [joinForId, setJoinForId] = useState<string | null>(null);
   const [form, setForm] = useState<JoinFormState>(() => emptyJoinForm());
 
+  const cityControlled = citySlugProp != null;
+  const citySlug = cityControlled ? citySlugProp : citySlugInternal;
+
   useEffect(() => {
-    setCitySlug(readStoredCitySlug());
+    if (cityControlled) {
+      setCityReady(true);
+      return;
+    }
+    setCitySlugInternal(readStoredCitySlug());
     setCityReady(true);
-  }, []);
+  }, [cityControlled]);
 
   const selectedCity = getMapCityBySlug(citySlug) ?? FALLBACK_MAP_CITY;
 
   function changeCity(nextSlug: string) {
     const city = getMapCityBySlug(nextSlug);
     if (!city) return;
-    setCitySlug(city.slug);
-    try {
-      localStorage.setItem(CITY_STORAGE_KEY, city.slug);
-    } catch {
-      /* ignore */
+    if (onCityChangeProp) {
+      onCityChangeProp(city.slug);
+    } else {
+      setCitySlugInternal(city.slug);
+      try {
+        localStorage.setItem(CITY_STORAGE_KEY, city.slug);
+      } catch {
+        /* ignore */
+      }
     }
     setJoinForId(null);
   }
@@ -203,16 +226,9 @@ export function InstructorCatalogJoinPanel() {
     return <p className="text-sm text-muted-foreground">Загрузка каталога…</p>;
   }
 
-  return (
-    <Card className="mb-6">
-      <CardHeader>
-        <CardTitle>Каталог мероприятий</CardTitle>
-        <CardDescription>
-          Присоединитесь к опубликованной карточке: укажите свою цену и описание сервиса. Клиент
-          увидит вас в списке инструкторов под описанием мероприятия и сможет записаться к вам.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
+  const body = (
+      <div className="space-y-4">
+        {!hideCityPicker ? (
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
           <div className="space-y-1.5 sm:min-w-[14rem]">
             <Label htmlFor="inst-catalog-city">Город</Label>
@@ -240,6 +256,18 @@ export function InstructorCatalogJoinPanel() {
             />
           </div>
         </div>
+        ) : (
+          <div className="space-y-1.5">
+            <Label htmlFor="inst-catalog-q">Поиск</Label>
+            <Input
+              id="inst-catalog-q"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Название или место"
+              maxLength={120}
+            />
+          </div>
+        )}
 
         {myActive.length ? (
           <div className="rounded-md border border-border bg-muted/30 p-3 text-sm">
@@ -438,7 +466,36 @@ export function InstructorCatalogJoinPanel() {
             })}
           </ul>
         )}
-      </CardContent>
+      </div>
+  );
+
+  if (embedded) {
+    return (
+      <div className="space-y-3">
+        <div>
+          <h2 className="text-base font-semibold tracking-tight">
+            Карточки каталога · {selectedCity.name}
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Присоединитесь к опубликованной карточке: укажите свою цену и описание сервиса. Клиент
+            увидит вас в списке инструкторов под описанием мероприятия.
+          </p>
+        </div>
+        {body}
+      </div>
+    );
+  }
+
+  return (
+    <Card className="mb-6">
+      <CardHeader>
+        <CardTitle>Каталог мероприятий</CardTitle>
+        <CardDescription>
+          Присоединитесь к опубликованной карточке: укажите свою цену и описание сервиса. Клиент
+          увидит вас в списке инструкторов под описанием мероприятия и сможет записаться к вам.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>{body}</CardContent>
     </Card>
   );
 }

@@ -14,8 +14,7 @@ import { devPollInterval } from "@/lib/query-poll";
 import { InstructorComplianceCard } from "@/features/instructor/instructor-compliance-card";
 import { InstructorPayoutPanel } from "@/features/instructor/instructor-payout-panel";
 import { ReferralProgramPanel } from "@/features/referral/referral-program-panel";
-import { InstructorCatalogJoinPanel } from "@/features/instructor/instructor-catalog-join-panel";
-import { InstructorEventsEditor } from "@/features/instructor/instructor-events-editor";
+import { InstructorEventCatalogSection } from "@/features/instructor/instructor-event-catalog-section";
 import { enableInstructorOfflineAlerts } from "@/features/instructor/instructor-panel-shell";
 import { fireSiteAlert, siteAlertTitle } from "@/lib/site-alert";
 import { InstructorWeekScheduleCalendar } from "@/features/instructor/instructor-week-schedule-calendar";
@@ -1268,8 +1267,7 @@ export default function InstructorHomePage() {
 
       {activePanelSection === "events" ? (
         <div id="events" className="scroll-mt-24 space-y-0">
-          <InstructorCatalogJoinPanel />
-          <InstructorEventsEditor activeOrders={activeOrderOptions} />
+          <InstructorEventCatalogSection activeOrders={activeOrderOptions} />
         </div>
       ) : null}
 

@@ -7,7 +7,6 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { OrderChat } from "@/features/chat/order-chat";
-import { PaidContactCallButton } from "@/features/chat/paid-contact-call";
 import { NpdReceiptUpload } from "@/features/instructor/npd-receipt-upload";
 import { CancelOrderButton } from "@/features/orders/cancel-order-button";
 import { OrderEventsFeed } from "@/features/orders/order-events-feed";
@@ -423,7 +422,6 @@ function InstructorOrderDetailContent({
       {safeStatus !== "PENDING_INSTRUCTOR" && safeStatus !== "CANCELLED" ? (
         <>
           <OrderEventsFeed orderId={id} />
-          <PaidContactCallButton contactUrl={`/api/orders/${id}/contact`} label="Позвонить клиенту" />
           <OrderChat orderId={id} />
         </>
       ) : null}

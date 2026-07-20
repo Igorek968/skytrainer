@@ -10,7 +10,8 @@ export const dynamic = "force-dynamic";
 type Ctx = { params: Promise<{ id: string }> };
 
 /**
- * Раскрытие телефона второй стороны только после принятия/оплаты заказа.
+ * Раскрытие телефона инструктора клиенту после оплаты заказа.
+ * Инструктору номер клиента не отдаётся (только чат).
  * Номер не отдаётся в обычном GET заказа — только по явному запросу (кнопка «Позвонить»).
  */
 export async function GET(_req: Request, ctx: Ctx) {
@@ -51,26 +52,29 @@ export async function GET(_req: Request, ctx: Ctx) {
       ? "INSTRUCTOR"
       : "ADMIN";
 
+  if (asRole === "INSTRUCTOR") {
+    return NextResponse.json(
+      { error: "Телефон клиента недоступен. Свяжитесь через чат заказа." },
+      { status: 403 },
+    );
+  }
+
   if (!canRevealOrderContact(order.status, asRole)) {
     return NextResponse.json(
       {
         error:
-          asRole === "CLIENT"
-            ? "Контакт доступен после оплаты. До этого напишите в чат заказа, когда он откроется."
-            : "Контакт доступен после принятия заявки.",
+          "Контакт доступен после оплаты. До этого напишите в чат заказа, когда он откроется.",
       },
       { status: 403 },
     );
   }
 
-  const counterpart = isClient ? order.instructor : order.client;
+  const counterpart = order.instructor;
   const contact = buildPaidContactDTO(counterpart?.phone, counterpart?.name);
   if (!contact) {
     return NextResponse.json(
       {
-        error: isClient
-          ? "У инструктора не указан телефон в профиле"
-          : "У клиента не указан телефон в профиле",
+        error: "У инструктора не указан телефон в профиле",
         contact: null,
       },
       { status: 404 },
