@@ -1,5 +1,6 @@
 import { publicSiteHostLabel } from "@/lib/app-origin";
 import { sendWebPushToUser } from "@/lib/push-web";
+import { createPushSnoozeToken } from "@/lib/support-push-token";
 import { getPublicProductName } from "@/shared/lib/product";
 
 function previewBody(body: string, max = 160): string {
@@ -20,16 +21,27 @@ export async function notifyInstructorClientChatMessage(params: {
   const clientLabel = params.clientName?.trim() || "Клиент";
   const url = `/instructor/orders/${params.orderId}`;
   const siteLabel = publicSiteHostLabel();
+  const title = `${getPublicProductName()}: сообщение от клиента`;
+  const body = `${clientLabel}: ${preview}. Откройте ${siteLabel}.`;
+  const tag = `instructor-chat-${params.messageId}`;
+  const snoozeToken = createPushSnoozeToken({
+    userId: params.instructorId,
+    title,
+    body,
+    url,
+    tag,
+  });
 
   try {
     await sendWebPushToUser(params.instructorId, {
-      title: `${getPublicProductName()}: сообщение от клиента`,
-      body: `${clientLabel}: ${preview}. Откройте ${siteLabel}.`,
+      title,
+      body,
       url,
-      tag: `instructor-chat-${params.messageId}`,
+      tag,
       sound: "chat",
       kind: "instructor-chat",
       orderId: params.orderId,
+      snoozeToken: snoozeToken ?? undefined,
     });
   } catch (e) {
     console.error("[instructor-chat-notify] push", e instanceof Error ? e.message : e);

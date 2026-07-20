@@ -1,5 +1,6 @@
 import { processScheduledPushReminders } from "@/lib/services/scheduled-reminders";
 import { retryPendingInstructorOrderPush } from "@/lib/services/instructor-order-notify-retry";
+import { processPushSnoozeQueue } from "@/lib/services/push-snooze";
 
 const TICK_MS = 30_000;
 const globalStartedKey = Symbol.for("skiinstruct.internalSchedulerStarted");
@@ -25,6 +26,10 @@ export function startInternalScheduler(): void {
   const tick = async () => {
     try {
       await retryPendingInstructorOrderPush();
+      const snoozed = await processPushSnoozeQueue();
+      if (snoozed > 0) {
+        console.log("[scheduler] snoozed pushes delivered", snoozed);
+      }
       const r = await processScheduledPushReminders();
       const total =
         r.lessons.startReminders +

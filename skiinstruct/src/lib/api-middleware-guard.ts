@@ -118,6 +118,10 @@ export function guardApiRequest(
   }
 
   if (!isPublicApiPath(pathname) && pathname.startsWith("/api/me")) {
+    // Push snooze из SW может прийти с HMAC-токеном без cookie-сессии.
+    if (pathname === "/api/me/push-snooze") {
+      return null;
+    }
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

@@ -1,6 +1,6 @@
-import { publicSiteHostLabel } from "@/lib/app-origin";
 import { createChatPushReplyToken } from "@/lib/chat-push-reply-token";
 import { sendWebPushToUser } from "@/lib/push-web";
+import { createPushSnoozeToken } from "@/lib/support-push-token";
 import { getPublicProductName } from "@/shared/lib/product";
 
 function previewBody(body: string, max = 160): string {
@@ -22,18 +22,29 @@ export async function notifyClientInstructorChatMessage(params: {
   const origin = process.env.NEXT_PUBLIC_APP_URL?.trim() || "http://твойтренер.рф";
   const url = `${origin}/client/orders/${params.orderId}#order-chat`;
   const appName = getPublicProductName();
+  const title = `${appName}: сообщение от инструктора`;
+  const body = `${instructorLabel}: ${preview}`;
+  const tag = `client-chat-${params.messageId}`;
   const replyToken = createChatPushReplyToken(params.orderId, params.clientId);
+  const snoozeToken = createPushSnoozeToken({
+    userId: params.clientId,
+    title,
+    body,
+    url: `/client/orders/${params.orderId}#order-chat`,
+    tag,
+  });
 
   try {
     await sendWebPushToUser(params.clientId, {
-      title: `${appName}: сообщение от инструктора`,
-      body: `${instructorLabel}: ${preview}`,
+      title,
+      body,
       url,
-      tag: `client-chat-${params.messageId}`,
+      tag,
       sound: "chat",
       kind: "client-chat",
       orderId: params.orderId,
       replyToken: replyToken ?? undefined,
+      snoozeToken: snoozeToken ?? undefined,
     });
   } catch (e) {
     console.error("[client-chat-notify] push", e instanceof Error ? e.message : e);

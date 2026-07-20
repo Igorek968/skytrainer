@@ -145,6 +145,7 @@ export async function handleMaxSupportUpdate(update: unknown): Promise<void> {
     const { notifyUserSupportStaffMessage } = await import("@/lib/support-service");
     void notifyUserSupportStaffMessage({
       userId: ticket.userId,
+      ticketId: anchor.ticketId,
       messageId: msg.id,
       body: text,
     });

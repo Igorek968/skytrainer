@@ -1,26 +1,28 @@
 /* eslint-disable no-restricted-globals */
-/* build: 20260720-push-always-notify */
+/* build: 20260720-notify-logo-actions */
 
-const NOTIFICATION_ICON = "/icon-192.png";
+const NOTIFICATION_ICON = "/notification-icon.png?v=brand4";
+const NOTIFICATION_BADGE = "/notification-badge.png?v=brand4";
 
 function parsePushData(event) {
   let data = {};
   try {
     data = event.data ? event.data.json() : {};
   } catch {
-    data = { title: "Utrainer", body: event.data ? String(event.data.text()) : "" };
+    data = { title: "ТвойТренер", body: event.data ? String(event.data.text()) : "" };
   }
   return data;
 }
 
 function notificationOptions(data) {
-  const title = data.title || "Utrainer";
+  const title = data.title || "ТвойТренер";
   const url = typeof data.url === "string" ? data.url : "/";
   const tag = typeof data.tag === "string" ? data.tag : "skiinstruct";
   const isInstructorOrder = data.kind === "instructor-order" && typeof data.orderId === "string";
   const isLessonReminder = data.kind === "lesson-reminder";
   const isInstructorChat = data.kind === "instructor-chat";
   const isClientChat = data.kind === "client-chat" && typeof data.orderId === "string";
+  const isSupportChat = data.kind === "support-chat";
   const orderId =
     typeof data.orderId === "string"
       ? data.orderId
@@ -28,40 +30,71 @@ function notificationOptions(data) {
         ? data.url.match(/\/orders\/([^/?#]+)/)[1]
         : null;
   const hasOrderId = Boolean(orderId);
+  const ticketId = typeof data.ticketId === "string" ? data.ticketId : null;
 
   const options = {
     body: typeof data.body === "string" ? data.body : "",
     icon: NOTIFICATION_ICON,
-    badge: NOTIFICATION_ICON,
+    badge: NOTIFICATION_BADGE,
+    image: NOTIFICATION_ICON,
     vibrate: [180, 80, 180, 80, 180],
     silent: false,
     renotify: true,
-    requireInteraction: isInstructorOrder || isLessonReminder || isInstructorChat || isClientChat,
+    requireInteraction:
+      isInstructorOrder || isLessonReminder || isInstructorChat || isClientChat || isSupportChat,
     tag,
     data: {
       url,
       orderId: hasOrderId ? orderId : null,
+      ticketId,
       actionToken: typeof data.actionToken === "string" ? data.actionToken : null,
       replyToken: typeof data.replyToken === "string" ? data.replyToken : null,
+      snoozeToken: typeof data.snoozeToken === "string" ? data.snoozeToken : null,
       kind: data.kind || null,
       lessonPhase: data.lessonPhase || null,
       sound: data.sound || null,
+      title,
+      body: typeof data.body === "string" ? data.body : "",
+      tag,
     },
   };
 
+  // Android: до 2 кнопок видны без раскрытия; iOS Web Push action-кнопки не поддерживает.
   if (isInstructorOrder) {
-    options.actions = [{ action: "accept", title: "Принять" }];
+    options.actions = [
+      { action: "accept", title: "Принять" },
+      { action: "snooze", title: "Отложить" },
+    ];
   } else if (isClientChat) {
     options.actions = [
       { action: "reply", title: "Ответить", type: "text", placeholder: "Ваш ответ…" },
-      { action: "open", title: "Открыть чат" },
+      { action: "snooze", title: "Отложить" },
+    ];
+  } else if (isSupportChat) {
+    options.actions = [
+      { action: "reply", title: "Ответить", type: "text", placeholder: "Ваш ответ…" },
+      { action: "snooze", title: "Отложить" },
     ];
   } else if (isInstructorChat && hasOrderId) {
-    options.actions = [{ action: "open", title: "Открыть чат" }];
+    options.actions = [
+      { action: "open", title: "Открыть чат" },
+      { action: "snooze", title: "Отложить" },
+    ];
   } else if (isLessonReminder && hasOrderId && data.lessonPhase === "start") {
-    options.actions = [{ action: "start_lesson", title: "Начать урок" }];
+    options.actions = [
+      { action: "start_lesson", title: "Начать урок" },
+      { action: "snooze", title: "Отложить" },
+    ];
   } else if (isLessonReminder && hasOrderId && data.lessonPhase === "end") {
-    options.actions = [{ action: "complete_lesson", title: "Завершить урок" }];
+    options.actions = [
+      { action: "complete_lesson", title: "Завершить урок" },
+      { action: "snooze", title: "Отложить" },
+    ];
+  } else {
+    options.actions = [
+      { action: "open", title: "Открыть" },
+      { action: "snooze", title: "Отложить" },
+    ];
   }
 
   return { title, options };
@@ -108,6 +141,35 @@ async function sendChatPushReply(orderId, replyToken, body) {
     headers: { "Content-Type": "application/json" },
     credentials: "include",
     body: JSON.stringify({ body: text, token: replyToken || undefined }),
+  });
+  return { ok: res.ok };
+}
+
+async function sendSupportPushReply(ticketId, replyToken, body) {
+  const text = (body || "").trim();
+  if (!text || !ticketId) return { ok: false };
+  const res = await fetch("/api/support/messages/push-reply", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ body: text, ticketId, token: replyToken || undefined }),
+  });
+  return { ok: res.ok };
+}
+
+async function sendPushSnooze(nd) {
+  const res = await fetch("/api/me/push-snooze", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({
+      token: nd.snoozeToken || undefined,
+      title: nd.title || undefined,
+      body: nd.body || undefined,
+      url: nd.url || undefined,
+      tag: nd.tag || undefined,
+      delayMinutes: 60,
+    }),
   });
   return { ok: res.ok };
 }
@@ -161,7 +223,6 @@ self.addEventListener("push", (event) => {
   const { title, options } = notificationOptions(data);
   event.waitUntil(
     (async () => {
-      // Сайт (toast/звук) + системное уведомление на телефоне — всегда оба канала.
       await notifyOpenClients(title, options);
       await self.registration.showNotification(title, options);
     })(),
@@ -174,18 +235,56 @@ self.addEventListener("notificationclick", (event) => {
   const url = nd.url || "/";
   const action = event.action;
   const orderId = nd.orderId;
+  const ticketId = nd.ticketId;
   const actionToken = nd.actionToken;
   const replyToken = nd.replyToken;
   const kind = nd.kind;
+
+  if (action === "snooze") {
+    event.waitUntil(
+      (async () => {
+        const result = await sendPushSnooze(nd);
+        await self.registration.showNotification("ТвойТренер", {
+          body: result.ok ? "Напомним через 1 час." : "Не удалось отложить — откройте приложение.",
+          icon: NOTIFICATION_ICON,
+          badge: NOTIFICATION_BADGE,
+          tag: "skiinstruct-snooze-ack",
+          data: { url },
+        });
+      })(),
+    );
+    return;
+  }
+
+  if (kind === "support-chat" && action === "reply" && event.reply) {
+    event.waitUntil(
+      (async () => {
+        const result = await sendSupportPushReply(ticketId, replyToken, event.reply);
+        if (result.ok) {
+          await self.registration.showNotification("ТвойТренер", {
+            body: "Ответ отправлен в поддержку.",
+            icon: NOTIFICATION_ICON,
+            badge: NOTIFICATION_BADGE,
+            tag: "skiinstruct-support-reply-sent",
+            data: { url: "/support" },
+          });
+        } else {
+          await focusOrOpen("/support");
+        }
+      })(),
+    );
+    return;
+  }
 
   if (kind === "client-chat" && orderId && action === "reply" && event.reply) {
     event.waitUntil(
       (async () => {
         const result = await sendChatPushReply(orderId, replyToken, event.reply);
         if (result.ok) {
-          await self.registration.showNotification("Utrainer", {
+          await self.registration.showNotification("ТвойТренер", {
             body: "Ответ отправлен инструктору.",
             icon: NOTIFICATION_ICON,
+            badge: NOTIFICATION_BADGE,
             tag: "skiinstruct-chat-reply-sent",
             data: { url: chatUrlForKind(kind, orderId) },
           });
@@ -219,6 +318,11 @@ self.addEventListener("notificationclick", (event) => {
 
   if (orderId && (action === "open" || kind === "client-chat" || kind === "instructor-chat")) {
     event.waitUntil(focusOrOpen(chatUrlForKind(kind, orderId) || url));
+    return;
+  }
+
+  if (kind === "support-chat") {
+    event.waitUntil(focusOrOpen("/support"));
     return;
   }
 

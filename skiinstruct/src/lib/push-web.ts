@@ -27,10 +27,12 @@ export type PushPayload = {
   url: string;
   tag: string;
   /** Тип push для service worker (кнопки, приоритет). */
-  kind?: "instructor-order" | "lesson-reminder" | "instructor-chat" | "client-chat";
+  kind?: "instructor-order" | "lesson-reminder" | "instructor-chat" | "client-chat" | "support-chat";
   orderId?: string;
+  ticketId?: string;
   actionToken?: string;
   replyToken?: string;
+  snoozeToken?: string;
   /** start | end — кнопки в push для инструктора. */
   lessonPhase?: "start" | "end";
   sound?: "order" | "chat" | "reminder";

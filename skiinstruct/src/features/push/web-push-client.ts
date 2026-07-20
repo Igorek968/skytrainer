@@ -24,7 +24,27 @@ async function postSubscription(sub: PushSubscription): Promise<boolean> {
 export function isWebPushAvailable(): boolean {
   if (typeof window === "undefined") return false;
   const vapid = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY?.trim();
-  return Boolean(vapid && "Notification" in window && "serviceWorker" in navigator);
+  return Boolean(vapid && "Notification" in window && "serviceWorker" in navigator && "PushManager" in window);
+}
+
+/** iOS Web Push работает только из «На экран Домой» (standalone). */
+export function isIosHomeScreenPwa(): boolean {
+  if (typeof window === "undefined") return false;
+  const ua = navigator.userAgent || "";
+  const isIos = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  if (!isIos) return false;
+  const standalone =
+    window.matchMedia("(display-mode: standalone)").matches ||
+    ("standalone" in navigator && Boolean((navigator as Navigator & { standalone?: boolean }).standalone));
+  return standalone;
+}
+
+export function canRequestWebPushOnThisDevice(): boolean {
+  if (!isWebPushAvailable()) return false;
+  const ua = navigator.userAgent || "";
+  const isIos = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  if (isIos && !isIosHomeScreenPwa()) return false;
+  return true;
 }
 
 /** Синхронизирует существующую подписку с сервером (без запроса разрешения). */

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="ТвойТренер">
   <title>ТвойТренер</title>
-  <rect width="120" height="120" rx="22" fill="#ffffff"/>
+  <rect width="120" height="120" rx="22" fill="#0f766e"/>
   <g transform="translate(18,8) scale(1.05)">
     <circle cx="58.5" cy="26.5" r="8.2" fill="#1e293b"/>
     <path

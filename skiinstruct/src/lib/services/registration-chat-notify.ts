@@ -1,4 +1,5 @@
 import { sendWebPushToUser } from "@/lib/push-web";
+import { createPushSnoozeToken } from "@/lib/support-push-token";
 import { getPublicProductName } from "@/shared/lib/product";
 
 function previewBody(body: string, max = 160): string {
@@ -23,14 +24,25 @@ export async function notifyRegistrationChatMessage(params: {
     params.recipientRole === "client"
       ? `/client/registrations/${params.registrationId}`
       : `/instructor/registrations/${params.registrationId}`;
+  const title = `${appName}: сообщение по мероприятию`;
+  const body = `${senderLabel}: ${preview}`;
+  const tag = `registration-chat-${params.messageId}`;
+  const snoozeToken = createPushSnoozeToken({
+    userId: params.recipientId,
+    title,
+    body,
+    url,
+    tag,
+  });
 
   try {
     await sendWebPushToUser(params.recipientId, {
-      title: `${appName}: сообщение по мероприятию`,
-      body: `${senderLabel}: ${preview}`,
+      title,
+      body,
       url,
-      tag: `registration-chat-${params.messageId}`,
+      tag,
       sound: "chat",
+      snoozeToken: snoozeToken ?? undefined,
     });
   } catch (e) {
     console.error("[registration-chat-notify] push", e instanceof Error ? e.message : e);

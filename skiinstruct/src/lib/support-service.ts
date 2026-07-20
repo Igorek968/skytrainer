@@ -1,6 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import { sendSupportMessageToMax } from "@/lib/max-support";
 import { sendWebPushToUser } from "@/lib/push-web";
+import {
+  createPushSnoozeToken,
+  createSupportPushReplyToken,
+} from "@/lib/support-push-token";
 import { ticketShortId } from "@/lib/support-ticket-access";
 import { getPublicProductName } from "@/shared/lib/product";
 
@@ -53,6 +57,7 @@ export async function deliverStaffMessageToUserSupport(params: {
   const msg = await appendStaffSupportMessage(ticket.id, text);
   await notifyUserSupportStaffMessage({
     userId: params.userId,
+    ticketId: ticket.id,
     messageId: msg.id,
     body: text,
     title: params.pushTitle,
@@ -62,18 +67,48 @@ export async function deliverStaffMessageToUserSupport(params: {
 
 export async function notifyUserSupportStaffMessage(params: {
   userId: string;
+  ticketId?: string;
   messageId: string;
   body: string;
   title?: string;
 }): Promise<void> {
   const appName = getPublicProductName();
+  const title = (params.title?.trim() || `${appName}: сообщение поддержки`).slice(0, 80);
+  const body = previewBody(params.body);
+  const url = "/support";
+  const tag = `support-${params.messageId}`;
+
+  let ticketId = params.ticketId;
+  if (!ticketId) {
+    const row = await prisma.supportMessage.findUnique({
+      where: { id: params.messageId },
+      select: { ticketId: true },
+    });
+    ticketId = row?.ticketId;
+  }
+
+  const replyToken = ticketId
+    ? createSupportPushReplyToken(ticketId, params.userId)
+    : null;
+  const snoozeToken = createPushSnoozeToken({
+    userId: params.userId,
+    title,
+    body,
+    url,
+    tag,
+  });
+
   try {
     await sendWebPushToUser(params.userId, {
-      title: (params.title?.trim() || `${appName}: сообщение поддержки`).slice(0, 80),
-      body: previewBody(params.body),
-      url: "/support",
-      tag: `support-${params.messageId}`,
+      title,
+      body,
+      url,
+      tag,
       sound: "chat",
+      kind: "support-chat",
+      ticketId: ticketId ?? undefined,
+      replyToken: replyToken ?? undefined,
+      snoozeToken: snoozeToken ?? undefined,
     });
   } catch (e) {
     console.error("[support-notify] push", e instanceof Error ? e.message : e);
