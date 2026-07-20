@@ -250,6 +250,11 @@ export function EventViewerOverlay({
             ) : null}
           </div>
           <h2 className="text-lg font-semibold text-foreground">{title}</h2>
+          {card.kind === "catalog" && card.category ? (
+            <p className="text-xs text-muted-foreground">{card.category}</p>
+          ) : card.kind === "single" && card.event.category ? (
+            <p className="text-xs text-muted-foreground">{card.event.category}</p>
+          ) : null}
           <EventVenueDisplay address={venueAddress} lat={venueLat} lng={venueLng} />
           <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">{body}</p>
 

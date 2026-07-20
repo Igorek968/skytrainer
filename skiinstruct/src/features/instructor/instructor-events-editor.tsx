@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 import type { InstructorEventDTO } from "@/lib/instructor-events";
 import type { InstructorCatalogBrowseItemDTO } from "@/lib/event-catalog";
+import { eventCategoryOptions } from "@/lib/event-category";
 import { publicUploadDisplaySrc } from "@/lib/public-uploads-display";
 import {
   canEditInstructorEventPhoto,
@@ -164,6 +165,7 @@ export function InstructorEventsEditor({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
+  const [category, setCategory] = useState("");
   const [eventAt, setEventAt] = useState("");
   const [eventDay, setEventDay] = useState("");
   const [useSlots, setUseSlots] = useState(true);
@@ -222,6 +224,7 @@ export function InstructorEventsEditor({
     setEditingId(null);
     if (opts?.keepTitle !== false) setTitle(ev.title);
     setBody(ev.body);
+    setCategory(ev.category ?? "");
     setEventAt("");
     setEventDay("");
     const slotList = api.slots ?? [];
@@ -255,6 +258,7 @@ export function InstructorEventsEditor({
     setEditingId(ev.id);
     setTitle(ev.title);
     setBody(ev.body);
+    setCategory(ev.category ?? "");
     setEventAt(toDatetimeLocalValue(ev.eventAt));
     setEventDay(api.eventDay ?? eventDayFromEventAt(ev.eventAt));
     const slotList = api.slots ?? [];
@@ -290,6 +294,7 @@ export function InstructorEventsEditor({
     setEditingId(null);
     setTitle("");
     setBody("");
+    setCategory("");
     setEventAt("");
     setEventDay("");
     setUseSlots(true);
@@ -346,10 +351,15 @@ export function InstructorEventsEditor({
       const payload: Record<string, unknown> = {
         title: title.trim(),
         body: body.trim(),
+        category: category.trim(),
         orderId: orderId.trim() || null,
         eventId: editingId,
         repeatDaily,
       };
+
+      if (!category.trim()) {
+        throw new Error("Выберите категорию мероприятия");
+      }
 
       const venueAddress = venue.address.trim();
       if (venueAddress) {
@@ -761,6 +771,25 @@ export function InstructorEventsEditor({
               При выборе знакомого названия подставлять текст, цену и фото с прошлого раза
             </label>
             <CatalogSoftDupeHint title={title} />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="event-category">Категория</Label>
+            <select
+              id="event-category"
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm disabled:opacity-60"
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              disabled={formLocked}
+              required
+            >
+              <option value="">Выберите категорию</option>
+              {eventCategoryOptions().map((opt) => (
+                <option key={opt} value={opt}>
+                  {opt}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className="space-y-2 sm:grid sm:grid-cols-[minmax(0,1fr)_auto] sm:gap-4 sm:space-y-0">
@@ -1308,6 +1337,11 @@ function EventList({
               <Badge variant="outline" className="text-[10px]">
                 {moderationStatusLabel(ev.moderationStatus)}
               </Badge>
+              {ev.category ? (
+                <Badge variant="secondary" className="text-[10px]">
+                  {ev.category}
+                </Badge>
+              ) : null}
               {ev.repeatDaily ? (
                 <Badge variant="secondary" className="text-[10px]">
                   Каждый день

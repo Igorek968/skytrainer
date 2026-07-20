@@ -79,6 +79,7 @@ export function buildCatalogOfferCreateData(input: {
     catalogItemId: catalog.id,
     title: catalog.title,
     body: input.serviceNote,
+    category: catalog.category,
     photoUrl: catalog.photoUrl,
     eventAt: input.eventAt,
     priceRub: input.priceRub,

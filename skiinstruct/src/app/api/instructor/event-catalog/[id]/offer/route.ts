@@ -70,6 +70,7 @@ export async function PATCH(req: Request, ctx: Ctx) {
       moderationStatus: "DRAFT",
       title: catalog.title,
       photoUrl: catalog.photoUrl,
+      category: catalog.category,
       venueAddress: catalog.venueAddress,
       venueLat: catalog.venueLat,
       venueLng: catalog.venueLng,

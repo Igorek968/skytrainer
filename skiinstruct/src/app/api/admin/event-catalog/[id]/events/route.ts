@@ -43,7 +43,10 @@ export async function POST(req: Request, ctx: Ctx) {
 
   await prisma.instructorEvent.updateMany({
     where: { id: { in: eventIds } },
-    data: { catalogItemId: id },
+    data: {
+      catalogItemId: id,
+      ...(catalog.category ? { category: catalog.category } : {}),
+    },
   });
 
   const row = await prisma.eventCatalogItem.findUniqueOrThrow({

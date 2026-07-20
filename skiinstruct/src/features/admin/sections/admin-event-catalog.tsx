@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 import { EventVenuePicker, type EventVenueValue } from "@/features/instructor/event-venue-picker";
 import { catalogStatusLabel, type EventCatalogItemDTO } from "@/lib/event-catalog";
+import { eventCategoryOptions } from "@/lib/event-category";
 import {
   FALLBACK_MAP_CITY,
   MAP_CITY_CENTERS,
@@ -90,6 +91,7 @@ export function AdminEventCatalogSection() {
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
+  const [category, setCategory] = useState("");
   const [eventAtLocal, setEventAtLocal] = useState("");
   const [selectedEventIds, setSelectedEventIds] = useState<string[]>([]);
   const [attachForId, setAttachForId] = useState<string | null>(null);
@@ -163,6 +165,7 @@ export function AdminEventCatalogSection() {
     setPhotoFile(null);
     setTitle("");
     setBody("");
+    setCategory("");
     setEventAtLocal("");
     setSelectedEventIds([]);
   };
@@ -181,6 +184,7 @@ export function AdminEventCatalogSection() {
         body: JSON.stringify({
           title: title.trim(),
           body: body.trim(),
+          category: category.trim(),
           eventAt,
           venueAddress: venueAddress || null,
           venueLat: venue.lat ?? selectedCity.lat,
@@ -335,6 +339,11 @@ export function AdminEventCatalogSection() {
 
   const createFromEvent = useMutation({
     mutationFn: async (ev: PublishedEvent) => {
+      if (!ev.category?.trim()) {
+        throw new Error(
+          "У мероприятия нет категории. Создайте карточку вручную и выберите категорию, либо попросите инструктора указать её.",
+        );
+      }
       const r = await fetch("/api/admin/event-catalog", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -342,6 +351,7 @@ export function AdminEventCatalogSection() {
         body: JSON.stringify({
           title: ev.title,
           body: ev.body,
+          category: ev.category.trim(),
           photoUrl: ev.photoUrl,
           eventAt: ev.eventAt,
           venueAddress: ev.venueAddress ?? null,
@@ -488,6 +498,22 @@ export function AdminEventCatalogSection() {
               />
             </div>
             <div className="space-y-1.5 sm:col-span-2">
+              <Label htmlFor="catalog-category">Категория</Label>
+              <select
+                id="catalog-category"
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+              >
+                <option value="">Выберите категорию</option>
+                {eventCategoryOptions().map((opt) => (
+                  <option key={opt} value={opt}>
+                    {opt}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1.5 sm:col-span-2">
               <Label htmlFor="catalog-body">Описание</Label>
               <textarea
                 id="catalog-body"
@@ -539,7 +565,7 @@ export function AdminEventCatalogSection() {
             <Button
               type="button"
               variant="accent"
-              disabled={createCatalog.isPending || !title.trim() || !body.trim()}
+              disabled={createCatalog.isPending || !title.trim() || !body.trim() || !category.trim()}
               onClick={() => createCatalog.mutate(true)}
             >
               Создать и опубликовать
@@ -547,7 +573,7 @@ export function AdminEventCatalogSection() {
             <Button
               type="button"
               variant="outline"
-              disabled={createCatalog.isPending || !title.trim() || !body.trim()}
+              disabled={createCatalog.isPending || !title.trim() || !body.trim() || !category.trim()}
               onClick={() => createCatalog.mutate(false)}
             >
               Черновик
@@ -598,6 +624,9 @@ export function AdminEventCatalogSection() {
                             {catalogStatusLabel(item.status)} · офферов: {item.offerCount}
                           </span>
                         </div>
+                        {item.category ? (
+                          <p className="text-xs text-muted-foreground">{item.category}</p>
+                        ) : null}
                         {item.eventAt ? (
                           <p className="text-xs text-muted-foreground">
                             {formatEventDateRu(item.eventAt)}

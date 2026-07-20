@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { isApiErrorResponse, requireInstructorSession } from "@/lib/api-session";
 import { canEditInstructorEvent, serializeInstructorEvent } from "@/lib/instructor-events";
 import { duplicatePublicUploadForEvent } from "@/lib/public-uploads";
+import { canonicalizeActivityLabel } from "@/lib/services/instructor-match";
 import { prisma } from "@/lib/prisma";
 import {
   listInstructorEventTitles,
@@ -206,6 +207,7 @@ export async function POST(req: Request) {
 
   const titleRow = await upsertInstructorEventTitle(userId, parsed.data.title);
   const slotInputs = (parsed.data.slots ?? []) as EventSlotInput[];
+  const category = canonicalizeActivityLabel(parsed.data.category) ?? parsed.data.category;
 
   const saveSlotsForEvent = async (eventId: string) => {
     if (!hasSlots || !eventDay) return;
@@ -239,6 +241,7 @@ export async function POST(req: Request) {
         titleId: titleRow.id,
         title: titleRow.title,
         body: parsed.data.body,
+        category,
         eventAt: hasSlots ? existing.eventAt : eventAt,
         orderId,
         priceRub: hasSlots ? null : (parsed.data.priceRub ?? null),
@@ -268,6 +271,7 @@ export async function POST(req: Request) {
       titleId: titleRow.id,
       title: titleRow.title,
       body: parsed.data.body,
+      category,
       eventAt: hasSlots ? null : eventAt,
       orderId,
       priceRub: hasSlots ? null : (parsed.data.priceRub ?? null),

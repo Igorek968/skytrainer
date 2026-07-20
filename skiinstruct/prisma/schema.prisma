@@ -493,6 +493,9 @@ model EventCatalogItem {
   /// Город каталога (slug из MAP_CITY_CENTERS), для фильтра в админке.
   citySlug String?
 
+  /// Категория / направление (канон из каталога активностей, напр. «🤿 Дайвинг»).
+  category String?
+
   status         EventCatalogStatus @default(DRAFT)
   publishedAt    DateTime?
   unpublishedAt  DateTime?
@@ -508,6 +511,7 @@ model EventCatalogItem {
   @@index([status, eventAt])
   @@index([createdByAdminId])
   @@index([citySlug])
+  @@index([category])
 }
 
 /// Мероприятия / объявления инструктора (лента на странице заказа).
@@ -529,6 +533,8 @@ model InstructorEvent {
 
   title   String
   body    String @db.Text
+  /// Категория / направление (канон из каталога активностей).
+  category String?
   /// Обложка мероприятия для ленты клиентов.
   photoUrl String?
   eventAt DateTime?
@@ -563,6 +569,7 @@ model InstructorEvent {
   @@index([titleId])
   @@index([orderId])
   @@index([catalogItemId])
+  @@index([category])
 }
 
 /// Выход мероприятия (время, цена, лимит мест).

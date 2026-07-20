@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { requiredEventCategorySchema } from "@/lib/event-category";
 import { MAP_CITY_CENTERS } from "@/lib/map-city-centers";
 
 const venueCoordField = z.number().optional().nullable();
@@ -13,6 +14,7 @@ const citySlugField = z
 export const createEventCatalogSchema = z.object({
   title: z.string().trim().min(1).max(120),
   body: z.string().trim().min(1).max(2000),
+  category: requiredEventCategorySchema,
   photoUrl: z.string().trim().max(500).optional().nullable(),
   eventAt: z.string().max(40).optional().nullable(),
   venueAddress: z.string().trim().max(500).optional().nullable(),
@@ -28,6 +30,7 @@ export const createEventCatalogSchema = z.object({
 export const updateEventCatalogSchema = z.object({
   title: z.string().trim().min(1).max(120).optional(),
   body: z.string().trim().min(1).max(2000).optional(),
+  category: requiredEventCategorySchema.optional(),
   photoUrl: z.string().trim().max(500).optional().nullable(),
   eventAt: z.string().max(40).optional().nullable(),
   venueAddress: z.string().trim().max(500).optional().nullable(),

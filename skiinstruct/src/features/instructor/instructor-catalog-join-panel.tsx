@@ -327,6 +327,9 @@ export function InstructorCatalogJoinPanel() {
                         {item.priceFromRub != null ? ` · от ${item.priceFromRub} ₽` : null}
                         {item.eventAt ? ` · ${formatEventDateRu(item.eventAt)}` : null}
                       </p>
+                      {item.category ? (
+                        <p className="text-xs text-muted-foreground">{item.category}</p>
+                      ) : null}
                       {item.venueAddress ? (
                         <p className="text-xs text-muted-foreground">{item.venueAddress}</p>
                       ) : null}

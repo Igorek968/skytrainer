@@ -26,6 +26,7 @@ export type InstructorEventDTO = {
   /** Привязка к карточке каталога (группировка в ленте). */
   catalogItemId: string | null;
   body: string;
+  category: string | null;
   photoUrl: string | null;
   eventAt: string | null;
   moderationStatus: InstructorEventModerationStatus;
@@ -204,6 +205,7 @@ export function serializeInstructorEvent(
     titleId: row.titleId,
     catalogItemId: row.catalogItemId ?? null,
     body: row.body,
+    category: row.category ?? null,
     photoUrl: row.photoUrl,
     eventAt: row.eventAt?.toISOString() ?? null,
     eventDay: row.eventAt ? eventDayFromIso(row.eventAt.toISOString()) : null,

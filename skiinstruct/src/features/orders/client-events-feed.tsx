@@ -21,6 +21,7 @@ import {
   feedCardTitle,
   type ClientEventFeedCardDTO,
 } from "@/lib/event-catalog";
+import { eventCategoryOptions } from "@/lib/event-category";
 import { EventRegistrationButton } from "@/features/orders/event-registration-button";
 import { EventFeedPhoto } from "@/features/orders/event-feed-photo";
 import { EventVenueDisplay } from "@/features/orders/event-venue-display";
@@ -29,6 +30,7 @@ import { publicUploadDisplaySrc } from "@/lib/public-uploads-display";
 import { devPollInterval } from "@/lib/query-poll";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
+import { Label } from "@/shared/ui/label";
 import { Skeleton } from "@/shared/ui/skeleton";
 import { cn } from "@/lib/utils";
 
@@ -134,6 +136,9 @@ function CatalogCardDetails({
         {card.offerCount} {card.offerCount === 1 ? "инструктор" : "инструктора"}
         {card.priceFromRub != null ? ` · от ${card.priceFromRub} ₽` : null}
       </p>
+      {card.category ? (
+        <p className="text-xs text-muted-foreground">{card.category}</p>
+      ) : null}
       <h3 className="mt-1 text-sm font-semibold text-foreground">{card.title}</h3>
       <EventVenueDisplay
         address={card.venueAddress}
@@ -604,6 +609,8 @@ export function ClientEventsFeed({
   const meetLng = useMeetPoint((s) => s.meetLng);
 
   const [unlimited, setUnlimited] = useState(true);
+  /** Пустая строка = «Все» — как направление на карте инструкторов. */
+  const [categoryPref, setCategoryPref] = useState("");
   const [prefsReady, setPrefsReady] = useState(false);
 
   useEffect(() => {
@@ -631,6 +638,7 @@ export function ClientEventsFeed({
     String(meetLat),
     String(meetLng),
     unlimited ? "all" : "nearby",
+    categoryPref || "all-cats",
   ];
 
   const { data, isLoading, error } = useQuery({
@@ -643,6 +651,7 @@ export function ClientEventsFeed({
         radiusKm: String(CLIENT_EVENTS_RADIUS_KM),
         unlimited: unlimited ? "1" : "0",
       });
+      if (categoryPref.trim()) qs.set("category", categoryPref.trim());
       const r = await fetch(`/api/client/events?${qs}`, { credentials: "include" });
       if (!r.ok) {
         let msg = "Не удалось загрузить мероприятия";
@@ -667,6 +676,7 @@ export function ClientEventsFeed({
   });
 
   const cards = normalizeFeedCards(data?.cards, data?.events);
+  const categoryOptions = eventCategoryOptions();
 
   const feedDescription = unlimited
     ? "Все опубликованные — сначала ближайшие к точке на карте"
@@ -686,6 +696,22 @@ export function ClientEventsFeed({
             {feedDescription}
             {badgeHint ? <span className="mt-1 block text-[11px]">{badgeHint}</span> : null}
           </CardDescription>
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="event-category-filter">Категория</Label>
+          <select
+            id="event-category-filter"
+            className="flex h-10 w-full max-w-md rounded-md border border-input bg-background px-3 text-sm"
+            value={categoryPref}
+            onChange={(e) => setCategoryPref(e.target.value)}
+          >
+            <option value="">Все</option>
+            {categoryOptions.map((opt) => (
+              <option key={opt} value={opt}>
+                {opt}
+              </option>
+            ))}
+          </select>
         </div>
         <label className="flex cursor-pointer items-start gap-2 text-sm leading-snug">
           <input

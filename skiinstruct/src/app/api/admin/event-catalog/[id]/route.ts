@@ -91,6 +91,7 @@ export async function PATCH(req: Request, ctx: Ctx) {
     data: {
       ...(data.title !== undefined ? { title: data.title } : {}),
       ...(data.body !== undefined ? { body: data.body } : {}),
+      ...(data.category !== undefined ? { category: data.category } : {}),
       ...(data.photoUrl !== undefined ? { photoUrl: data.photoUrl || null } : {}),
       ...(eventAt !== undefined ? { eventAt } : {}),
       ...(venueAddress !== undefined ? { venueAddress } : {}),
@@ -100,6 +101,13 @@ export async function PATCH(req: Request, ctx: Ctx) {
     },
     include: { events: { select: { id: true } } },
   });
+
+  if (data.category !== undefined) {
+    await prisma.instructorEvent.updateMany({
+      where: { catalogItemId: id },
+      data: { category: data.category },
+    });
+  }
 
   return NextResponse.json({ item: serializeEventCatalogItem(row) });
 }

@@ -6,6 +6,7 @@ export type EventCatalogItemDTO = {
   id: string;
   title: string;
   body: string;
+  category: string | null;
   photoUrl: string | null;
   eventAt: string | null;
   venueAddress: string | null;
@@ -41,6 +42,7 @@ export type ClientEventFeedCardDTO =
       catalogId: string;
       title: string;
       body: string;
+      category: string | null;
       photoUrl: string | null;
       eventAt: string | null;
       venueAddress: string | null;
@@ -55,6 +57,10 @@ export type ClientEventFeedCardDTO =
       kind: "single";
       event: ClientInstructorEventDTO;
     };
+
+export function feedCardCategory(card: ClientEventFeedCardDTO): string | null {
+  return card.kind === "catalog" ? card.category : card.event.category ?? null;
+}
 
 export function catalogStatusLabel(status: EventCatalogStatus): string {
   switch (status) {
@@ -114,6 +120,7 @@ export function buildClientEventFeedCards(
       id: string;
       title: string;
       body: string;
+      category: string | null;
       photoUrl: string | null;
       eventAt: string | null;
       venueAddress: string | null;
@@ -163,6 +170,10 @@ export function buildClientEventFeedCards(
       catalogId,
       title: meta.title,
       body: meta.body,
+      category:
+        meta.category ??
+        sortedOffers.find((o) => o.category)?.category ??
+        null,
       photoUrl: meta.photoUrl ?? sortedOffers.find((o) => o.photoUrl)?.photoUrl ?? null,
       eventAt: meta.eventAt ?? sortedOffers.find((o) => o.eventAt)?.eventAt ?? null,
       venueAddress: meta.venueAddress ?? sortedOffers.find((o) => o.venueAddress)?.venueAddress ?? null,

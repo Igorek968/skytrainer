@@ -8,7 +8,8 @@ import {
   instructorEventDistanceKm,
   resolveClientEventsOrigin,
 } from "@/lib/client-events-geo";
-import { buildClientEventFeedCards } from "@/lib/event-catalog";
+import { buildClientEventFeedCards, feedCardCategory } from "@/lib/event-catalog";
+import { canonicalizeActivityLabel } from "@/lib/services/instructor-match";
 import { enrichClientEvent } from "@/lib/instructor-events";
 import { prisma } from "@/lib/prisma";
 import {
@@ -27,6 +28,8 @@ const querySchema = z.object({
     .enum(["0", "1", "true", "false"])
     .optional()
     .transform((v) => v === "1" || v === "true"),
+  /** Пусто / отсутствует = «Все» категории. */
+  category: z.string().trim().max(120).optional(),
 });
 
 export async function GET(req: Request) {
@@ -39,6 +42,9 @@ export async function GET(req: Request) {
   }
 
   const { lat, lng, radiusKm, unlimited } = parsed.data;
+  const categoryFilter = parsed.data.category?.trim()
+    ? canonicalizeActivityLabel(parsed.data.category.trim())
+    : null;
   const origin = resolveClientEventsOrigin(lat, lng);
   const now = new Date();
 
@@ -64,6 +70,7 @@ export async function GET(req: Request) {
           id: true,
           title: true,
           body: true,
+          category: true,
           photoUrl: true,
           eventAt: true,
           venueAddress: true,
@@ -113,6 +120,7 @@ export async function GET(req: Request) {
       id: string;
       title: string;
       body: string;
+      category: string | null;
       photoUrl: string | null;
       eventAt: string | null;
       venueAddress: string | null;
@@ -129,6 +137,7 @@ export async function GET(req: Request) {
       id: c.id,
       title: c.title,
       body: c.body,
+      category: c.category ?? null,
       photoUrl: c.photoUrl,
       eventAt: c.eventAt?.toISOString() ?? null,
       venueAddress: c.venueAddress,
@@ -138,7 +147,13 @@ export async function GET(req: Request) {
     });
   }
 
-  const cards = buildClientEventFeedCards(sortedFlat, catalogMeta).slice(0, 50);
+  let cards = buildClientEventFeedCards(sortedFlat, catalogMeta);
+
+  if (categoryFilter) {
+    cards = cards.filter((card) => feedCardCategory(card) === categoryFilter);
+  }
+
+  cards = cards.slice(0, 50);
 
   /** Плоский список для карты / совместимости: по одной точке на карточку каталога + одиночные. */
   const eventsForMap = cards.flatMap((card) => {
@@ -151,6 +166,7 @@ export async function GET(req: Request) {
         id: primary.id,
         title: card.title,
         body: card.body,
+        category: card.category,
         photoUrl: card.photoUrl,
         eventAt: card.eventAt,
         venueAddress: card.venueAddress,
@@ -171,6 +187,7 @@ export async function GET(req: Request) {
       originLng: origin.lng,
       radiusKm,
       unlimited,
+      category: categoryFilter,
       totalPublished: rows.length,
       shown: cards.length,
     },

@@ -10,6 +10,7 @@ export function serializeEventCatalogItem(
     id: row.id,
     title: row.title,
     body: row.body,
+    category: row.category ?? null,
     photoUrl: row.photoUrl,
     eventAt: row.eventAt?.toISOString() ?? null,
     venueAddress: row.venueAddress,

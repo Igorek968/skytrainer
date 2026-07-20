@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { requiredEventCategorySchema } from "@/lib/event-category";
+
 const priceRubField = z
   .number()
   .int()
@@ -28,6 +30,8 @@ const venueCoordField = z.number().optional().nullable();
 export const createInstructorEventSchema = z.object({
   title: z.string().trim().min(1).max(120),
   body: z.string().trim().min(1).max(200),
+  /** Категория / направление из каталога активностей. */
+  category: requiredEventCategorySchema,
   /** День мероприятия YYYY-MM-DD (для слотов) или ISO datetime (legacy) */
   eventDay: z.string().max(40).optional().nullable(),
   eventAt: z.string().max(40).optional().nullable(),
@@ -48,6 +52,7 @@ export const createInstructorEventSchema = z.object({
 export const updateInstructorEventSchema = z.object({
   title: z.string().trim().min(1).max(120).optional(),
   body: z.string().trim().min(1).max(200).optional(),
+  category: requiredEventCategorySchema.optional(),
   eventAt: z.string().max(40).optional().nullable(),
   orderId: z.string().cuid().optional().nullable(),
   priceRub: priceRubField,

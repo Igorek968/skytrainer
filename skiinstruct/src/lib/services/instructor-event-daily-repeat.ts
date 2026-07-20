@@ -119,6 +119,8 @@ export async function spawnNextDailyEventIfMissing(source: EventWithSlots): Prom
       titleId: source.titleId,
       title: source.title,
       body: source.body,
+      category: source.category,
+      catalogItemId: source.catalogItemId,
       orderId: source.orderId,
       eventAt: nextEventAt,
       priceRub: source.priceRub,

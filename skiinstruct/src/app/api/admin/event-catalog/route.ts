@@ -80,6 +80,7 @@ export async function POST(req: Request) {
       data: {
         title: data.title,
         body: data.body,
+        category: data.category,
         photoUrl: data.photoUrl || null,
         eventAt,
         venueAddress: data.venueAddress || null,
@@ -95,7 +96,7 @@ export async function POST(req: Request) {
     if (eventIds.length) {
       await tx.instructorEvent.updateMany({
         where: { id: { in: eventIds } },
-        data: { catalogItemId: created.id },
+        data: { catalogItemId: created.id, category: data.category },
       });
     }
 
