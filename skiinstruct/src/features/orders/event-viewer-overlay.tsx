@@ -7,6 +7,11 @@ import { useCallback, useEffect, useRef } from "react";
 import { EventRegistrationButton } from "@/features/orders/event-registration-button";
 import { EventVenueDisplay } from "@/features/orders/event-venue-display";
 import { formatDistanceKm } from "@/lib/client-events-geo";
+import {
+  feedCardPhotoUrl,
+  feedCardTitle,
+  type ClientEventFeedCardDTO,
+} from "@/lib/event-catalog";
 import type { ClientInstructorEventDTO } from "@/lib/instructor-events";
 import { formatEventDateRu } from "@/lib/instructor-events";
 import { publicUploadDisplaySrc } from "@/lib/public-uploads-display";
@@ -14,8 +19,70 @@ import { Button } from "@/shared/ui/button";
 
 const SWIPE_THRESHOLD_PX = 56;
 
+function OfferBlock({
+  event,
+  queryKey,
+  showDistance,
+  isClient,
+  onInstructorPick,
+  onClose,
+}: {
+  event: ClientInstructorEventDTO;
+  queryKey: string[];
+  showDistance: boolean;
+  isClient: boolean;
+  onInstructorPick?: (instructor: { id: string; name: string | null }) => void;
+  onClose: () => void;
+}) {
+  const serviceNote = event.body?.trim();
+  return (
+    <div className="rounded-lg border border-border p-3">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+        {event.instructorName ? (
+          onInstructorPick ? (
+            <button
+              type="button"
+              className="text-left text-sm font-medium text-accent underline-offset-2 hover:underline"
+              onClick={() => {
+                onInstructorPick({ id: event.instructorId, name: event.instructorName ?? null });
+                onClose();
+              }}
+            >
+              {event.instructorName}
+            </button>
+          ) : (
+            <p className="text-sm font-medium text-foreground">{event.instructorName}</p>
+          )
+        ) : (
+          <p className="text-sm font-medium text-foreground">Инструктор</p>
+        )}
+        {showDistance && event.distanceKm != null ? (
+          <span className="text-xs text-muted-foreground">
+            · {formatDistanceKm(event.distanceKm)}
+          </span>
+        ) : null}
+        {event.priceRub != null && event.priceRub > 0 ? (
+          <span className="text-xs font-medium text-foreground">· {event.priceRub} ₽</span>
+        ) : (
+          <span className="text-xs text-muted-foreground">· бесплатно</span>
+        )}
+      </div>
+      {serviceNote ? (
+        <p className="mt-1.5 whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
+          {serviceNote}
+        </p>
+      ) : null}
+      {isClient ? (
+        <div className="mt-2">
+          <EventRegistrationButton event={event} queryKey={queryKey} />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export function EventViewerOverlay({
-  events,
+  cards,
   index,
   onIndexChange,
   onClose,
@@ -24,7 +91,7 @@ export function EventViewerOverlay({
   isClient,
   onInstructorPick,
 }: {
-  events: ClientInstructorEventDTO[];
+  cards: ClientEventFeedCardDTO[];
   index: number;
   onIndexChange: (index: number) => void;
   onClose: () => void;
@@ -33,9 +100,9 @@ export function EventViewerOverlay({
   isClient: boolean;
   onInstructorPick?: (instructor: { id: string; name: string | null }) => void;
 }) {
-  const event = events[index];
+  const card = cards[index];
   const canPrev = index > 0;
-  const canNext = index < events.length - 1;
+  const canNext = index < cards.length - 1;
   const touchStartX = useRef<number | null>(null);
 
   const goPrev = useCallback(() => {
@@ -43,8 +110,8 @@ export function EventViewerOverlay({
   }, [index, onIndexChange]);
 
   const goNext = useCallback(() => {
-    if (index < events.length - 1) onIndexChange(index + 1);
-  }, [events.length, index, onIndexChange]);
+    if (index < cards.length - 1) onIndexChange(index + 1);
+  }, [cards.length, index, onIndexChange]);
 
   useEffect(() => {
     const prev = document.body.style.overflow;
@@ -64,10 +131,19 @@ export function EventViewerOverlay({
     return () => window.removeEventListener("keydown", onKey);
   }, [goNext, goPrev, onClose]);
 
-  if (!event) return null;
+  if (!card) return null;
 
-  const photoSrc = publicUploadDisplaySrc(event.photoUrl);
-  const when = formatEventDateRu(event.eventAt) ?? formatEventDateRu(event.createdAt);
+  const title = feedCardTitle(card);
+  const photoSrc = publicUploadDisplaySrc(feedCardPhotoUrl(card));
+  const when =
+    card.kind === "catalog"
+      ? formatEventDateRu(card.eventAt)
+      : formatEventDateRu(card.event.eventAt) ?? formatEventDateRu(card.event.createdAt);
+  const distanceKm = card.kind === "catalog" ? card.distanceKm : card.event.distanceKm;
+  const venueAddress = card.kind === "catalog" ? card.venueAddress : card.event.venueAddress;
+  const venueLat = card.kind === "catalog" ? card.venueLat : card.event.venueLat;
+  const venueLng = card.kind === "catalog" ? card.venueLng : card.event.venueLng;
+  const body = card.kind === "catalog" ? card.body : card.event.body;
 
   return (
     <div
@@ -75,7 +151,7 @@ export function EventViewerOverlay({
       onClick={onClose}
       role="dialog"
       aria-modal="true"
-      aria-label={`Мероприятие: ${event.title}`}
+      aria-label={`Мероприятие: ${title}`}
       onTouchStart={(e) => {
         touchStartX.current = e.changedTouches[0]?.clientX ?? null;
       }}
@@ -141,13 +217,13 @@ export function EventViewerOverlay({
         className="relative flex h-full w-full max-h-none max-w-none flex-col overflow-hidden rounded-none border-0 bg-background shadow-none sm:h-auto sm:max-h-[92vh] sm:max-w-3xl sm:rounded-xl sm:border sm:border-white/15 sm:shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="relative max-h-[48dvh] shrink-0 bg-black sm:max-h-[55vh]">
+        <div className="relative max-h-[42dvh] shrink-0 bg-black sm:max-h-[50vh]">
           {photoSrc ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={photoSrc}
-              alt={event.title}
-              className="mx-auto h-full max-h-[48dvh] w-full object-contain sm:max-h-[55vh]"
+              alt={title}
+              className="mx-auto h-full max-h-[42dvh] w-full object-contain sm:max-h-[50vh]"
             />
           ) : (
             <div className="flex aspect-[16/10] w-full items-center justify-center bg-gradient-to-b from-slate-700 to-slate-900 text-4xl text-white/80">
@@ -155,53 +231,86 @@ export function EventViewerOverlay({
             </div>
           )}
           <p className="absolute bottom-2 right-3 rounded bg-black/55 px-2 py-0.5 text-xs text-white/90">
-            {index + 1} / {events.length}
+            {index + 1} / {cards.length}
           </p>
         </div>
 
-        <div className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-5">
+        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-5">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-            <time className="text-xs text-muted-foreground">{when}</time>
-            {showDistance && event.distanceKm != null ? (
+            {when ? <time className="text-xs text-muted-foreground">{when}</time> : null}
+            {showDistance && distanceKm != null ? (
+              <span className="text-xs text-muted-foreground">· {formatDistanceKm(distanceKm)}</span>
+            ) : null}
+            {card.kind === "catalog" ? (
               <span className="text-xs text-muted-foreground">
-                · {formatDistanceKm(event.distanceKm)}
+                · {card.offerCount}{" "}
+                {card.offerCount === 1 ? "инструктор" : "инструктора"}
+                {card.priceFromRub != null ? ` · от ${card.priceFromRub} ₽` : null}
               </span>
             ) : null}
           </div>
-          {event.instructorName ? (
-            onInstructorPick ? (
-              <button
-                type="button"
-                className="text-left text-xs font-medium text-accent underline-offset-2 hover:underline"
-                onClick={() => {
-                  onInstructorPick({ id: event.instructorId, name: event.instructorName ?? null });
-                  onClose();
-                }}
-              >
-                {event.instructorName}
-              </button>
-            ) : (
-              <p className="text-xs font-medium text-foreground">{event.instructorName}</p>
-            )
-          ) : null}
-          <h2 className="text-lg font-semibold text-foreground">{event.title}</h2>
-          <EventVenueDisplay
-            address={event.venueAddress}
-            lat={event.venueLat}
-            lng={event.venueLng}
-          />
-          <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
-            {event.body}
-          </p>
-          {isClient ? (
-            <EventRegistrationButton event={event} queryKey={queryKey} />
+          <h2 className="text-lg font-semibold text-foreground">{title}</h2>
+          <EventVenueDisplay address={venueAddress} lat={venueLat} lng={venueLng} />
+          <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">{body}</p>
+
+          {card.kind === "catalog" ? (
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-foreground">Выберите инструктора</p>
+              <p className="text-xs text-muted-foreground">
+                У каждого своя цена и условия. Оплата идёт выбранному инструктору.
+              </p>
+              {card.offers.map((offer) => (
+                <OfferBlock
+                  key={offer.id}
+                  event={offer}
+                  queryKey={queryKey}
+                  showDistance={showDistance}
+                  isClient={isClient}
+                  onInstructorPick={onInstructorPick}
+                  onClose={onClose}
+                />
+              ))}
+              {!isClient ? (
+                <p className="text-xs text-muted-foreground">
+                  <Link href="/login?callbackUrl=/client" className="font-medium text-accent underline">
+                    Войдите как клиент
+                  </Link>
+                  , чтобы записаться на мероприятие.
+                </p>
+              ) : null}
+            </div>
           ) : (
-            <p className="text-xs text-muted-foreground">
-              <Link href="/login?callbackUrl=/client" className="font-medium text-accent underline">
-                Войдите как клиент
-              </Link>
-              , чтобы записаться на мероприятие.
-            </p>
+            <>
+              {card.event.instructorName ? (
+                onInstructorPick ? (
+                  <button
+                    type="button"
+                    className="text-left text-xs font-medium text-accent underline-offset-2 hover:underline"
+                    onClick={() => {
+                      onInstructorPick({
+                        id: card.event.instructorId,
+                        name: card.event.instructorName ?? null,
+                      });
+                      onClose();
+                    }}
+                  >
+                    {card.event.instructorName}
+                  </button>
+                ) : (
+                  <p className="text-xs font-medium text-foreground">{card.event.instructorName}</p>
+                )
+              ) : null}
+              {isClient ? (
+                <EventRegistrationButton event={card.event} queryKey={queryKey} />
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  <Link href="/login?callbackUrl=/client" className="font-medium text-accent underline">
+                    Войдите как клиент
+                  </Link>
+                  , чтобы записаться на мероприятие.
+                </p>
+              )}
+            </>
           )}
         </div>
       </div>

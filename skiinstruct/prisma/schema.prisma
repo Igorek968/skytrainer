@@ -103,6 +103,14 @@ enum InstructorEventModerationStatus {
   ARCHIVED
 }
 
+/// Статус карточки каталога «одно событие — много инструкторов».
+enum EventCatalogStatus {
+  DRAFT
+  PUBLISHED
+  UNPUBLISHED
+  ARCHIVED
+}
+
 enum EventRegistrationStatus {
   PENDING_PAYMENT
   PAID
@@ -158,6 +166,7 @@ model User {
   instructorEventTitles InstructorEventTitle[]
   eventRegistrations    EventRegistration[]
   payoutRequests        InstructorPayoutRequest[]
+  eventCatalogItemsCreated EventCatalogItem[] @relation("EventCatalogCreatedBy")
 
   /// Персональный код для реферальной ссылки (?ref=CODE).
   referralCode       String?  @unique
@@ -468,6 +477,39 @@ model InstructorEventTitle {
   @@index([instructorId])
 }
 
+/// Карточка каталога: одно событие в ленте, несколько мероприятий инструкторов.
+model EventCatalogItem {
+  id    String @id @default(cuid())
+  title String
+  body  String @db.Text
+  /// Обложка карточки в ленте клиентов.
+  photoUrl String?
+  eventAt  DateTime?
+
+  venueAddress String?
+  venueLat     Float?
+  venueLng     Float?
+
+  /// Город каталога (slug из MAP_CITY_CENTERS), для фильтра в админке.
+  citySlug String?
+
+  status         EventCatalogStatus @default(DRAFT)
+  publishedAt    DateTime?
+  unpublishedAt  DateTime?
+
+  createdByAdminId String?
+  createdByAdmin   User?   @relation("EventCatalogCreatedBy", fields: [createdByAdminId], references: [id], onDelete: SetNull)
+
+  events InstructorEvent[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, eventAt])
+  @@index([createdByAdminId])
+  @@index([citySlug])
+}
+
 /// Мероприятия / объявления инструктора (лента на странице заказа).
 model InstructorEvent {
   id           String @id @default(cuid())
@@ -476,6 +518,10 @@ model InstructorEvent {
 
   titleId String?
   titleRef InstructorEventTitle? @relation(fields: [titleId], references: [id], onDelete: SetNull)
+
+  /// Привязка к карточке каталога (группировка в ленте клиентов).
+  catalogItemId String?
+  catalogItem   EventCatalogItem? @relation(fields: [catalogItemId], references: [id], onDelete: SetNull)
 
   /// Если задан — видно только на этом заказе; иначе на всех заказах с этим инструктором.
   orderId String?
@@ -516,6 +562,7 @@ model InstructorEvent {
   @@index([instructorId, moderationStatus, createdAt])
   @@index([titleId])
   @@index([orderId])
+  @@index([catalogItemId])
 }
 
 /// Выход мероприятия (время, цена, лимит мест).

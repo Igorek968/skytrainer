@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { nominatimReverseWithParts } from "@/lib/geocode-nominatim";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
+import { yandexHttpGeocodeReverse } from "@/lib/yandex-geocode-http";
 
 export const dynamic = "force-dynamic";
 
@@ -26,13 +27,21 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Некорректные координаты" }, { status: 400 });
   }
 
+  const { lat, lng } = parsed.data;
+
   try {
-    const hit = await nominatimReverseWithParts(parsed.data.lat, parsed.data.lng);
-    if (!hit) {
-      return NextResponse.json({ error: "Не удалось определить адрес для этой точки" }, { status: 404 });
+    const yandexHit = await yandexHttpGeocodeReverse(lat, lng);
+    if (yandexHit?.displayName) {
+      return NextResponse.json(yandexHit);
     }
-    return NextResponse.json(hit);
+
+    const nominatimHit = await nominatimReverseWithParts(lat, lng);
+    if (nominatimHit) {
+      return NextResponse.json(nominatimHit);
+    }
   } catch {
     return NextResponse.json({ error: "Сервис геокодирования недоступен" }, { status: 502 });
   }
+
+  return NextResponse.json({ error: "Не удалось определить адрес для этой точки" }, { status: 404 });
 }

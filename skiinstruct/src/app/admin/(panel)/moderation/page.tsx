@@ -15,6 +15,13 @@ export default function AdminModerationPage() {
       </AdminWorkspace>
       {/* Не зависит от /api/admin/overview — очередь мероприятий доступна даже при сбое сводки. */}
       <AdminEventsModerationSection />
+      <p className="text-sm text-muted-foreground">
+        Группировка одинаковых туров и снятие с публикации — в разделе{" "}
+        <a href="/admin/event-catalog" className="font-medium text-accent underline">
+          Каталог
+        </a>
+        .
+      </p>
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import type { InstructorEventDTO } from "@/lib/instructor-events";
+import type { InstructorCatalogBrowseItemDTO } from "@/lib/event-catalog";
 import { publicUploadDisplaySrc } from "@/lib/public-uploads-display";
 import {
   canEditInstructorEventPhoto,
@@ -82,6 +83,46 @@ function eventDayFromEventAt(iso: string | null | undefined): string {
 
 function asEventCard(ev: InstructorEventApi): InstructorEventDTO {
   return ev as unknown as InstructorEventDTO;
+}
+
+/** Подсказка: похожая карточка уже есть в каталоге — лучше присоединиться. */
+function CatalogSoftDupeHint({ title }: { title: string }) {
+  const q = title.trim();
+  const { data } = useQuery({
+    queryKey: ["instructor-catalog-soft-dupe", q],
+    enabled: q.length >= 3,
+    queryFn: async () => {
+      const params = new URLSearchParams({ q });
+      const r = await instructorFetch(`/api/instructor/event-catalog?${params}`);
+      if (!r.ok) return { items: [] as InstructorCatalogBrowseItemDTO[] };
+      return r.json() as Promise<{ items: InstructorCatalogBrowseItemDTO[] }>;
+    },
+    staleTime: 15_000,
+  });
+
+  const matches = (data?.items ?? [])
+    .filter((item) => item.title.toLowerCase().includes(q.toLowerCase()) || q.toLowerCase().includes(item.title.toLowerCase()))
+    .slice(0, 3);
+
+  if (!matches.length) return null;
+
+  return (
+    <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-100">
+      <p className="font-medium">Похожее уже есть в каталоге</p>
+      <p className="mt-1 text-amber-900/90 dark:text-amber-100/90">
+        Чтобы не дублировать ленту, присоединитесь к карточке выше (блок «Каталог мероприятий») со своей
+        ценой и сервисом:
+      </p>
+      <ul className="mt-1 list-inside list-disc">
+        {matches.map((m) => (
+          <li key={m.id}>
+            {m.title}
+            {m.venueAddress ? ` · ${m.venueAddress}` : null}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
 }
 
 async function instructorFetch(input: RequestInfo, init?: RequestInit) {
@@ -719,6 +760,7 @@ export function InstructorEventsEditor({
               />
               При выборе знакомого названия подставлять текст, цену и фото с прошлого раза
             </label>
+            <CatalogSoftDupeHint title={title} />
           </div>
 
           <div className="space-y-2 sm:grid sm:grid-cols-[minmax(0,1fr)_auto] sm:gap-4 sm:space-y-0">

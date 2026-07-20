@@ -10,6 +10,7 @@ import { Toaster } from "sonner";
 import { LessonPushRegistrar } from "@/features/push/lesson-push-registrar";
 import { SitePushForegroundBridge } from "@/features/push/site-push-foreground-bridge";
 import { ClientRemindersRoot } from "@/features/client/client-reminders-root";
+import { MapCityCenterBootstrap } from "@/features/map/map-city-center-bootstrap";
 import { PwaInstallBanner } from "@/features/share/pwa-install-hint";
 import { PwaServiceWorkerRegister } from "@/features/share/pwa-service-worker-register";
 import { SupportProvider } from "@/features/support/support-provider";
@@ -41,6 +42,7 @@ export function AppProviders({
       <QueryClientProvider client={client}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <SupportProvider>
+            <MapCityCenterBootstrap />
             <PwaServiceWorkerRegister />
             <SitePushForegroundBridge />
             {children}

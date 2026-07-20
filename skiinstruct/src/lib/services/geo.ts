@@ -1,7 +1,10 @@
 const EARTH_RADIUS_KM = 6371;
 
-/** Как на /client до геолокации: для расстояния и маркера, если у инструктора ещё нет GPS. */
-export const DEFAULT_SKI_RESORT_CENTER = { lat: 43.659, lng: 40.314 } as const;
+/**
+ * Fallback до определения города посетителя (Сочи).
+ * Стартовый центр карт задаётся через MapCityCenterBootstrap / GPS / IP.
+ */
+export const DEFAULT_SKI_RESORT_CENTER = { lat: 43.5855, lng: 39.7231 } as const;
 
 export function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const toRad = (d: number) => (d * Math.PI) / 180;

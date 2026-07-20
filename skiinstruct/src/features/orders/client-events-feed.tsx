@@ -13,6 +13,14 @@ import {
   CLIENT_EVENTS_RADIUS_KM,
   formatDistanceKm,
 } from "@/lib/client-events-geo";
+import {
+  feedCardBadgeValue,
+  feedCardDistanceKm,
+  feedCardId,
+  feedCardPhotoUrl,
+  feedCardTitle,
+  type ClientEventFeedCardDTO,
+} from "@/lib/event-catalog";
 import { EventRegistrationButton } from "@/features/orders/event-registration-button";
 import { EventFeedPhoto } from "@/features/orders/event-feed-photo";
 import { EventVenueDisplay } from "@/features/orders/event-venue-display";
@@ -37,16 +45,6 @@ function shouldOpenViewerOnFirstTap(): boolean {
 }
 
 const UNLIMITED_STORAGE_KEY = "skiinstruct_client_events_unlimited";
-
-/** Число в зелёном бейдже (как рейтинг на постере): одна цифра после запятой. */
-function eventPosterBadgeValue(event: ClientInstructorEventDTO): string {
-  if (event.distanceKm != null && Number.isFinite(event.distanceKm) && event.distanceKm < 9000) {
-    return event.distanceKm.toFixed(1).replace(".", ",");
-  }
-  if (event.isFree || event.priceRub == null || event.priceRub <= 0) return "0";
-  if (event.priceRub < 1000) return String(event.priceRub);
-  return (event.priceRub / 1000).toFixed(1).replace(".", ",");
-}
 
 function EventFeedDetails({
   event,
@@ -112,21 +110,67 @@ function EventFeedDetails({
   );
 }
 
+function CatalogCardDetails({
+  card,
+  showDistance,
+}: {
+  card: Extract<ClientEventFeedCardDTO, { kind: "catalog" }>;
+  showDistance: boolean;
+}) {
+  const when = formatEventDateRu(card.eventAt);
+  const names = card.offers
+    .map((o) => o.instructorName?.trim())
+    .filter((n): n is string => Boolean(n))
+    .slice(0, 4);
+  return (
+    <div className="space-y-0.5">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+        {when ? <time className="text-xs text-muted-foreground">{when}</time> : null}
+        {showDistance && card.distanceKm != null ? (
+          <span className="text-xs text-muted-foreground">· {formatDistanceKm(card.distanceKm)}</span>
+        ) : null}
+      </div>
+      <p className="mt-0.5 text-xs text-muted-foreground">
+        {card.offerCount} {card.offerCount === 1 ? "инструктор" : "инструктора"}
+        {card.priceFromRub != null ? ` · от ${card.priceFromRub} ₽` : null}
+      </p>
+      <h3 className="mt-1 text-sm font-semibold text-foreground">{card.title}</h3>
+      <EventVenueDisplay
+        address={card.venueAddress}
+        lat={card.venueLat}
+        lng={card.venueLng}
+        compact
+      />
+      <p className="mt-1 line-clamp-4 whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
+        {card.body}
+      </p>
+      {names.length ? (
+        <p className="pt-1 text-xs text-muted-foreground">
+          {names.join(", ")}
+          {card.offerCount > names.length ? "…" : null}
+        </p>
+      ) : null}
+      <p className="pt-1 text-xs text-accent">Открыть — выбрать инструктора и оплатить</p>
+    </div>
+  );
+}
+
 function EventFeedItem({
-  event,
+  card,
   queryKey,
   showDistance,
   isClient,
   onInstructorPick,
   onOpenViewer,
 }: {
-  event: ClientInstructorEventDTO;
+  card: ClientEventFeedCardDTO;
   queryKey: string[];
   showDistance: boolean;
   isClient: boolean;
   onInstructorPick?: (instructor: { id: string; name: string | null }) => void;
   onOpenViewer?: (id: string) => void;
 }) {
+  const id = feedCardId(card);
   return (
     <article
       className="cursor-pointer border-b border-border pb-4 last:border-0 last:pb-0"
@@ -134,24 +178,28 @@ function EventFeedItem({
         if (!onOpenViewer || !shouldOpenViewerOnFirstTap()) return;
         const t = e.target as HTMLElement | null;
         if (t?.closest("a, button, input, textarea, select, [role='button']")) return;
-        onOpenViewer(event.id);
+        onOpenViewer(id);
       }}
-      onDoubleClick={() => onOpenViewer?.(event.id)}
+      onDoubleClick={() => onOpenViewer?.(id)}
       title={onOpenViewer ? "Нажмите, чтобы открыть на весь экран" : undefined}
     >
-      <EventFeedDetails
-        event={event}
-        queryKey={queryKey}
-        showDistance={showDistance}
-        isClient={isClient}
-        onInstructorPick={onInstructorPick}
-      />
+      {card.kind === "catalog" ? (
+        <CatalogCardDetails card={card} showDistance={showDistance} />
+      ) : (
+        <EventFeedDetails
+          event={card.event}
+          queryKey={queryKey}
+          showDistance={showDistance}
+          isClient={isClient}
+          onInstructorPick={onInstructorPick}
+        />
+      )}
     </article>
   );
 }
 
 function EventPosterCard({
-  event,
+  card,
   selected,
   onSelect,
   onOpenViewer,
@@ -160,7 +208,7 @@ function EventPosterCard({
   isClient,
   onInstructorPick,
 }: {
-  event: ClientInstructorEventDTO;
+  card: ClientEventFeedCardDTO;
   selected: boolean;
   onSelect: (id: string | null) => void;
   onOpenViewer: (id: string) => void;
@@ -169,9 +217,13 @@ function EventPosterCard({
   isClient: boolean;
   onInstructorPick?: (instructor: { id: string; name: string | null }) => void;
 }) {
-  const badge = eventPosterBadgeValue(event);
+  const id = feedCardId(card);
+  const title = feedCardTitle(card);
+  const badge = feedCardBadgeValue(card);
+  const distanceKm = feedCardDistanceKm(card);
   const distanceTitle =
-    event.distanceKm != null ? `${formatDistanceKm(event.distanceKm)} от вас` : undefined;
+    distanceKm != null ? `${formatDistanceKm(distanceKm)} от вас` : undefined;
+  const photoSrc = publicUploadDisplaySrc(feedCardPhotoUrl(card));
   const clickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -180,7 +232,7 @@ function EventPosterCard({
     };
   }, []);
 
-  const toggleSelected = () => onSelect(selected ? null : event.id);
+  const toggleSelected = () => onSelect(selected ? null : id);
 
   const handleClick = () => {
     if (shouldOpenViewerOnFirstTap()) {
@@ -188,7 +240,7 @@ function EventPosterCard({
         clearTimeout(clickTimerRef.current);
         clickTimerRef.current = null;
       }
-      onOpenViewer(event.id);
+      onOpenViewer(id);
       return;
     }
     if (clickTimerRef.current) {
@@ -207,16 +259,19 @@ function EventPosterCard({
       clearTimeout(clickTimerRef.current);
       clickTimerRef.current = null;
     }
-    onOpenViewer(event.id);
+    onOpenViewer(id);
   };
+
+  const subtitle =
+    card.kind === "catalog"
+      ? `${card.offerCount} инстр.`
+      : card.event.instructorName ?? null;
 
   return (
     <div
       className={cn(
         "group shrink-0 snap-start text-left",
-        selected
-          ? "w-[min(100%,18rem)] sm:w-72"
-          : "w-[7.25rem] sm:w-[8.5rem]",
+        selected ? "w-[min(100%,18rem)] sm:w-72" : "w-[7.25rem] sm:w-[8.5rem]",
         selected && "rounded-2xl ring-2 ring-accent ring-offset-2 ring-offset-background",
       )}
     >
@@ -232,15 +287,20 @@ function EventPosterCard({
           onDoubleClick={handleDoubleClick}
           className="block w-full text-left"
           aria-expanded={selected}
-          aria-label={`${event.title}${distanceTitle ? `, ${distanceTitle}` : ""}. Нажмите, чтобы открыть`}
+          aria-label={`${title}${distanceTitle ? `, ${distanceTitle}` : ""}. Нажмите, чтобы открыть`}
           title="Нажмите, чтобы открыть на весь экран"
         >
-          <div className={cn("relative overflow-hidden bg-muted", selected ? "aspect-[16/10]" : "aspect-[2/3]")}>
-            {publicUploadDisplaySrc(event.photoUrl) ? (
+          <div
+            className={cn(
+              "relative overflow-hidden bg-muted",
+              selected ? "aspect-[16/10]" : "aspect-[2/3]",
+            )}
+          >
+            {photoSrc ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={publicUploadDisplaySrc(event.photoUrl)!}
-                alt={event.title}
+                src={photoSrc}
+                alt={title}
                 className="h-full w-full object-cover"
                 loading="lazy"
               />
@@ -250,7 +310,7 @@ function EventPosterCard({
                   🎿
                 </span>
                 <span className="line-clamp-3 text-[10px] font-medium leading-tight text-slate-600 dark:text-slate-300">
-                  {event.title}
+                  {title}
                 </span>
               </div>
             )}
@@ -260,12 +320,17 @@ function EventPosterCard({
             >
               {badge}
             </span>
+            {card.kind === "catalog" && card.offerCount > 1 ? (
+              <span className="absolute right-2 top-2 rounded-md bg-black/55 px-1.5 py-0.5 text-[10px] font-medium text-white">
+                {card.offerCount} инстр.
+              </span>
+            ) : null}
           </div>
           {!selected ? (
             <div className="px-0.5 pb-1.5 pt-1">
-              <p className="line-clamp-2 text-xs font-medium leading-snug text-foreground">{event.title}</p>
-              {event.instructorName ? (
-                <p className="mt-0.5 line-clamp-1 text-[10px] text-muted-foreground">{event.instructorName}</p>
+              <p className="line-clamp-2 text-xs font-medium leading-snug text-foreground">{title}</p>
+              {subtitle ? (
+                <p className="mt-0.5 line-clamp-1 text-[10px] text-muted-foreground">{subtitle}</p>
               ) : null}
             </div>
           ) : null}
@@ -276,14 +341,18 @@ function EventPosterCard({
             onPointerDown={(e) => e.stopPropagation()}
             onClick={(e) => e.stopPropagation()}
           >
-            <EventFeedDetails
-              event={event}
-              queryKey={queryKey}
-              showDistance={showDistance}
-              isClient={isClient}
-              compact
-              onInstructorPick={onInstructorPick}
-            />
+            {card.kind === "catalog" ? (
+              <CatalogCardDetails card={card} showDistance={showDistance} />
+            ) : (
+              <EventFeedDetails
+                event={card.event}
+                queryKey={queryKey}
+                showDistance={showDistance}
+                isClient={isClient}
+                compact
+                onInstructorPick={onInstructorPick}
+              />
+            )}
           </div>
         ) : null}
       </div>
@@ -292,13 +361,13 @@ function EventPosterCard({
 }
 
 function EventsCarousel({
-  events,
+  cards,
   queryKey,
   showDistance,
   isClient,
   onInstructorPick,
 }: {
-  events: ClientInstructorEventDTO[];
+  cards: ClientEventFeedCardDTO[];
   queryKey: string[];
   showDistance: boolean;
   isClient: boolean;
@@ -311,25 +380,26 @@ function EventsCarousel({
   const [canScrollRight, setCanScrollRight] = useState(false);
 
   useEffect(() => {
-    if (!events.length) {
+    if (!cards.length) {
       setSelectedId(null);
       setViewerIndex(null);
       return;
     }
-    setSelectedId((prev) => (prev && events.some((e) => e.id === prev) ? prev : null));
+    const ids = new Set(cards.map(feedCardId));
+    setSelectedId((prev) => (prev && ids.has(prev) ? prev : null));
     setViewerIndex((prev) => {
       if (prev == null) return null;
-      if (prev >= events.length) return events.length - 1;
+      if (prev >= cards.length) return cards.length - 1;
       return prev;
     });
-  }, [events]);
+  }, [cards]);
 
   const openViewer = useCallback(
     (id: string) => {
-      const idx = events.findIndex((e) => e.id === id);
+      const idx = cards.findIndex((c) => feedCardId(c) === id);
       if (idx >= 0) setViewerIndex(idx);
     },
-    [events],
+    [cards],
   );
 
   const updateScrollEdges = useCallback(() => {
@@ -355,12 +425,11 @@ function EventsCarousel({
       el.removeEventListener("scroll", updateScrollEdges);
       ro?.disconnect();
     };
-  }, [events, updateScrollEdges]);
+  }, [cards, updateScrollEdges]);
 
   const scrollBy = useCallback(
     (delta: number) => {
       scrollerRef.current?.scrollBy({ left: delta, behavior: "smooth" });
-      // после smooth-scroll края обновятся по событию scroll; дубль на случай быстрых кликов
       window.setTimeout(updateScrollEdges, 320);
     },
     [updateScrollEdges],
@@ -375,20 +444,23 @@ function EventsCarousel({
           role="list"
           aria-label="Мероприятия — карусель"
         >
-          {events.map((ev) => (
-            <div key={ev.id} role="listitem">
-              <EventPosterCard
-                event={ev}
-                selected={selectedId === ev.id}
-                onSelect={setSelectedId}
-                onOpenViewer={openViewer}
-                queryKey={queryKey}
-                showDistance={showDistance}
-                isClient={isClient}
-                onInstructorPick={onInstructorPick}
-              />
-            </div>
-          ))}
+          {cards.map((card) => {
+            const id = feedCardId(card);
+            return (
+              <div key={id} role="listitem">
+                <EventPosterCard
+                  card={card}
+                  selected={selectedId === id}
+                  onSelect={setSelectedId}
+                  onOpenViewer={openViewer}
+                  queryKey={queryKey}
+                  showDistance={showDistance}
+                  isClient={isClient}
+                  onInstructorPick={onInstructorPick}
+                />
+              </div>
+            );
+          })}
         </div>
         {canScrollLeft ? (
           <Button
@@ -417,7 +489,7 @@ function EventsCarousel({
       </div>
       {viewerIndex != null ? (
         <EventViewerOverlay
-          events={events}
+          cards={cards}
           index={viewerIndex}
           onIndexChange={setViewerIndex}
           onClose={() => setViewerIndex(null)}
@@ -432,13 +504,13 @@ function EventsCarousel({
 }
 
 function EventsList({
-  events,
+  cards,
   queryKey,
   showDistance,
   isClient,
   onInstructorPick,
 }: {
-  events: ClientInstructorEventDTO[];
+  cards: ClientEventFeedCardDTO[];
   queryKey: string[];
   showDistance: boolean;
   isClient: boolean;
@@ -447,32 +519,32 @@ function EventsList({
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
 
   useEffect(() => {
-    if (!events.length) {
+    if (!cards.length) {
       setViewerIndex(null);
       return;
     }
     setViewerIndex((prev) => {
       if (prev == null) return null;
-      if (prev >= events.length) return events.length - 1;
+      if (prev >= cards.length) return cards.length - 1;
       return prev;
     });
-  }, [events]);
+  }, [cards]);
 
   const openViewer = useCallback(
     (id: string) => {
-      const idx = events.findIndex((e) => e.id === id);
+      const idx = cards.findIndex((c) => feedCardId(c) === id);
       if (idx >= 0) setViewerIndex(idx);
     },
-    [events],
+    [cards],
   );
 
   return (
     <>
       <div className="max-h-80 space-y-4 overflow-y-auto pr-1" role="feed" aria-label="Мероприятия">
-        {events.map((ev) => (
+        {cards.map((card) => (
           <EventFeedItem
-            key={ev.id}
-            event={ev}
+            key={feedCardId(card)}
+            card={card}
             queryKey={queryKey}
             showDistance={showDistance}
             isClient={isClient}
@@ -483,7 +555,7 @@ function EventsList({
       </div>
       {viewerIndex != null ? (
         <EventViewerOverlay
-          events={events}
+          cards={cards}
           index={viewerIndex}
           onIndexChange={setViewerIndex}
           onClose={() => setViewerIndex(null)}
@@ -495,6 +567,28 @@ function EventsList({
       ) : null}
     </>
   );
+}
+
+function normalizeFeedCards(
+  cards: ClientEventFeedCardDTO[] | undefined,
+  events: ClientInstructorEventDTO[] | undefined,
+): ClientEventFeedCardDTO[] {
+  if (cards?.length) {
+    return cards
+      .map((c) => {
+        if (c.kind !== "catalog") return c;
+        const offers = c.offers.filter((o) => !o.isCompleted);
+        if (!offers.length) return null;
+        return { ...c, offers, offerCount: offers.length };
+      })
+      .filter((c): c is ClientEventFeedCardDTO => {
+        if (!c) return false;
+        return c.kind === "catalog" ? true : !c.event.isCompleted;
+      });
+  }
+  return (events ?? [])
+    .filter((ev) => !ev.isCompleted)
+    .map((event) => ({ kind: "single" as const, event }));
 }
 
 export function ClientEventsFeed({
@@ -509,7 +603,6 @@ export function ClientEventsFeed({
   const meetLat = useMeetPoint((s) => s.meetLat);
   const meetLng = useMeetPoint((s) => s.meetLng);
 
-  /** По умолчанию — все опубликованные; в localStorage можно сохранить режим «только рядом». */
   const [unlimited, setUnlimited] = useState(true);
   const [prefsReady, setPrefsReady] = useState(false);
 
@@ -563,6 +656,7 @@ export function ClientEventsFeed({
         throw new Error(msg);
       }
       return r.json() as Promise<{
+        cards?: ClientEventFeedCardDTO[];
         events: ClientInstructorEventDTO[];
         meta?: { shown: number; totalPublished: number };
       }>;
@@ -572,7 +666,7 @@ export function ClientEventsFeed({
     refetchIntervalInBackground: false,
   });
 
-  const events = (data?.events ?? []).filter((ev) => !ev.isCompleted);
+  const cards = normalizeFeedCards(data?.cards, data?.events);
 
   const feedDescription = unlimited
     ? "Все опубликованные — сначала ближайшие к точке на карте"
@@ -580,7 +674,7 @@ export function ClientEventsFeed({
 
   const badgeHint =
     layout === "carousel"
-      ? "Зелёная метка: расстояние (км) или цена (тыс. ₽). На телефоне — нажмите карточку, чтобы открыть на весь экран."
+      ? "Одинаковые туры схлопываются в одну карточку. Зелёная метка: расстояние или цена. На телефоне — тап на весь экран."
       : "Нажмите мероприятие, чтобы открыть на весь экран.";
 
   return (
@@ -590,9 +684,7 @@ export function ClientEventsFeed({
           <CardTitle className="text-base">Мероприятия</CardTitle>
           <CardDescription>
             {feedDescription}
-            {badgeHint ? (
-              <span className="mt-1 block text-[11px]">{badgeHint}</span>
-            ) : null}
+            {badgeHint ? <span className="mt-1 block text-[11px]">{badgeHint}</span> : null}
           </CardDescription>
         </div>
         <label className="flex cursor-pointer items-start gap-2 text-sm leading-snug">
@@ -619,7 +711,7 @@ export function ClientEventsFeed({
           </div>
         ) : error ? (
           <p className="text-sm text-destructive">{error.message}</p>
-        ) : events.length === 0 ? (
+        ) : cards.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             {unlimited
               ? "Пока нет опубликованных мероприятий."
@@ -627,7 +719,7 @@ export function ClientEventsFeed({
           </p>
         ) : layout === "carousel" ? (
           <EventsCarousel
-            events={events}
+            cards={cards}
             queryKey={queryKey}
             showDistance
             isClient={isClient}
@@ -635,7 +727,7 @@ export function ClientEventsFeed({
           />
         ) : (
           <EventsList
-            events={events}
+            cards={cards}
             queryKey={queryKey}
             showDistance
             isClient={isClient}

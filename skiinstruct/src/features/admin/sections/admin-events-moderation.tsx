@@ -12,6 +12,7 @@ import { Label } from "@/shared/ui/label";
 
 type PendingEvent = InstructorEventDTO & {
   instructor: { id: string; name: string | null; email: string };
+  catalogItem?: { id: string; title: string; status: string; citySlug?: string | null } | null;
 };
 
 function parseApiError(payload: unknown, fallback: string): string {
@@ -83,7 +84,9 @@ export function AdminEventsModerationSection() {
       <CardHeader>
         <CardTitle>Мероприятия инструкторов</CardTitle>
         <CardDescription>
-          После одобрения публикация появляется в ленте клиентов. Выполненные по дате редактировать нельзя.
+          После одобрения публикация появляется в ленте клиентов. Заявки «присоединиться к каталогу»
+          помечены бейджем — у инструктора своя цена и описание сервиса. Выполненные по дате
+          редактировать нельзя.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -108,12 +111,30 @@ export function AdminEventsModerationSection() {
           <ul className="space-y-3">
             {events.map((ev) => (
               <li key={ev.id} className="rounded-lg border border-border p-3 text-sm">
-                <div className="font-medium">{ev.title}</div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="font-medium">{ev.title}</div>
+                  {ev.catalogItemId && ev.catalogItem ? (
+                    <span className="rounded-full border border-sky-300 bg-sky-50 px-2 py-0.5 text-[11px] font-medium text-sky-900 dark:border-sky-800 dark:bg-sky-950/50 dark:text-sky-100">
+                      Каталог: {ev.catalogItem.title}
+                    </span>
+                  ) : null}
+                </div>
                 <div className="text-xs text-muted-foreground">
                   {ev.instructor.name ?? ev.instructor.email} · {moderationStatusLabel(ev.moderationStatus)}
                   {ev.eventAt ? ` · ${formatEventDateRu(ev.eventAt)}` : null}
+                  {ev.priceRub != null ? ` · ${ev.priceRub} ₽` : null}
+                  {ev.maxRegistrations != null ? ` · мест: ${ev.maxRegistrations}` : null}
                 </div>
-                <p className="mt-2 whitespace-pre-wrap text-muted-foreground">{ev.body}</p>
+                <p className="mt-2 whitespace-pre-wrap text-muted-foreground">
+                  {ev.catalogItemId ? (
+                    <>
+                      <span className="font-medium text-foreground">Сервис инструктора: </span>
+                      {ev.body}
+                    </>
+                  ) : (
+                    ev.body
+                  )}
+                </p>
                 <div className="mt-3 flex flex-wrap gap-2">
                   <Button
                     type="button"
@@ -122,7 +143,7 @@ export function AdminEventsModerationSection() {
                     disabled={review.isPending}
                     onClick={() => review.mutate({ eventId: ev.id, action: "approve" })}
                   >
-                    Опубликовать
+                    {ev.catalogItemId ? "Одобрить участие" : "Опубликовать"}
                   </Button>
                   <Button
                     type="button"

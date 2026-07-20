@@ -72,6 +72,8 @@ export async function POST(req: Request, ctx: Ctx) {
 
   return NextResponse.json({
     event: serializeInstructorEvent(row),
-    message: "Мероприятие опубликовано — появится в ленте и на карте клиентов (если указано место).",
+    message: row.catalogItemId
+      ? "Участие одобрено — инструктор появится в карточке каталога у клиентов."
+      : "Мероприятие опубликовано — появится в ленте и на карте клиентов (если указано место).",
   });
 }

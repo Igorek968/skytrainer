@@ -14,6 +14,7 @@ import { devPollInterval } from "@/lib/query-poll";
 import { InstructorComplianceCard } from "@/features/instructor/instructor-compliance-card";
 import { InstructorPayoutPanel } from "@/features/instructor/instructor-payout-panel";
 import { ReferralProgramPanel } from "@/features/referral/referral-program-panel";
+import { InstructorCatalogJoinPanel } from "@/features/instructor/instructor-catalog-join-panel";
 import { InstructorEventsEditor } from "@/features/instructor/instructor-events-editor";
 import { enableInstructorOfflineAlerts } from "@/features/instructor/instructor-panel-shell";
 import { fireSiteAlert, siteAlertTitle } from "@/lib/site-alert";
@@ -1266,7 +1267,8 @@ export default function InstructorHomePage() {
       ) : null}
 
       {activePanelSection === "events" ? (
-        <div id="events" className="scroll-mt-24">
+        <div id="events" className="scroll-mt-24 space-y-0">
+          <InstructorCatalogJoinPanel />
           <InstructorEventsEditor activeOrders={activeOrderOptions} />
         </div>
       ) : null}

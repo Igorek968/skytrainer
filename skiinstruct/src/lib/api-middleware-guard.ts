@@ -14,6 +14,7 @@ const ORIGIN_EXEMPT_PREFIXES = [
 
 const PUBLIC_API_PREFIXES = [
   "/api/geocode",
+  "/api/geo",
   "/api/instructors",
   "/api/resorts",
   "/api/auth",

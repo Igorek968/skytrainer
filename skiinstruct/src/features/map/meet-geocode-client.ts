@@ -55,10 +55,9 @@ export async function geocodeReverseParts(
   if (hasYandexMapsKey()) {
     try {
       const hit = await yandexGeocodeReverseParts(lat, lng);
-      if (hit) return hit;
-      return { error: "Не удалось определить адрес для этой точки" };
+      if (hit?.displayName?.trim()) return hit;
     } catch {
-      return { error: "Яндекс.Геокодер недоступен" };
+      /* fallback to HTTP API below */
     }
   }
 

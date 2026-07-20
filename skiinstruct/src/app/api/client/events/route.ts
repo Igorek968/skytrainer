@@ -8,6 +8,7 @@ import {
   instructorEventDistanceKm,
   resolveClientEventsOrigin,
 } from "@/lib/client-events-geo";
+import { buildClientEventFeedCards } from "@/lib/event-catalog";
 import { enrichClientEvent } from "@/lib/instructor-events";
 import { prisma } from "@/lib/prisma";
 import {
@@ -58,6 +59,19 @@ export async function GET(req: Request) {
       registrations: clientId
         ? { where: { clientId }, take: 10 }
         : { take: 0 },
+      catalogItem: {
+        select: {
+          id: true,
+          title: true,
+          body: true,
+          photoUrl: true,
+          eventAt: true,
+          venueAddress: true,
+          venueLat: true,
+          venueLng: true,
+          status: true,
+        },
+      },
     },
   });
 
@@ -78,23 +92,87 @@ export async function GET(req: Request) {
         row.instructor.name,
         clientId,
       );
-      return { ...event, distanceKm };
+      return { ...event, distanceKm, catalogItemId: row.catalogItemId ?? null };
     }),
   );
 
   const activeOnly = withDistance.filter((event) => isVisibleInClientEventFeed(event, now));
 
-  const events = filterAndSortEventsByDistance(activeOnly, { unlimited, radiusKm }).slice(0, 50);
+  /** События, привязанные к снятому/черновому каталогу, не показываем. */
+  const visibleForFeed = activeOnly.filter((ev) => {
+    if (!ev.catalogItemId) return true;
+    const meta = rows.find((r) => r.id === ev.id)?.catalogItem;
+    return meta?.status === "PUBLISHED";
+  });
+
+  const sortedFlat = filterAndSortEventsByDistance(visibleForFeed, { unlimited, radiusKm });
+
+  const catalogMeta = new Map<
+    string,
+    {
+      id: string;
+      title: string;
+      body: string;
+      photoUrl: string | null;
+      eventAt: string | null;
+      venueAddress: string | null;
+      venueLng: number | null;
+      venueLat: number | null;
+      status: "DRAFT" | "PUBLISHED" | "UNPUBLISHED" | "ARCHIVED";
+    }
+  >();
+
+  for (const row of rows) {
+    if (!row.catalogItem) continue;
+    const c = row.catalogItem;
+    catalogMeta.set(c.id, {
+      id: c.id,
+      title: c.title,
+      body: c.body,
+      photoUrl: c.photoUrl,
+      eventAt: c.eventAt?.toISOString() ?? null,
+      venueAddress: c.venueAddress,
+      venueLat: c.venueLat,
+      venueLng: c.venueLng,
+      status: c.status,
+    });
+  }
+
+  const cards = buildClientEventFeedCards(sortedFlat, catalogMeta).slice(0, 50);
+
+  /** Плоский список для карты / совместимости: по одной точке на карточку каталога + одиночные. */
+  const eventsForMap = cards.flatMap((card) => {
+    if (card.kind === "single") return [card.event];
+    const primary = card.offers[0];
+    if (!primary) return [];
+    return [
+      {
+        ...primary,
+        id: primary.id,
+        title: card.title,
+        body: card.body,
+        photoUrl: card.photoUrl,
+        eventAt: card.eventAt,
+        venueAddress: card.venueAddress,
+        venueLat: card.venueLat,
+        venueLng: card.venueLng,
+        distanceKm: card.distanceKm,
+        priceRub: card.priceFromRub,
+        catalogItemId: card.catalogId,
+      },
+    ];
+  });
 
   return NextResponse.json({
-    events,
+    cards,
+    events: eventsForMap,
     meta: {
       originLat: origin.lat,
       originLng: origin.lng,
       radiusKm,
       unlimited,
       totalPublished: rows.length,
-      shown: events.length,
+      shown: cards.length,
     },
   });
 }

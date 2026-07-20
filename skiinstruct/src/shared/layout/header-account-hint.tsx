@@ -35,21 +35,11 @@ export function HeaderAccountHint() {
   if (status !== "authenticated" || !userId) return null;
 
   const contactLine = data?.email ?? session.user?.email ?? "";
-  const nameLine =
-    data?.name?.trim() || session.user?.name?.trim() || "Ф.И.О. не указано";
-  const birthLine = data?.birthDate
-    ? new Date(`${data.birthDate}T12:00:00`).toLocaleDateString("ru-RU", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-      })
-    : null;
+  if (!contactLine) return null;
 
   return (
     <p className="max-w-[min(320px,70vw)] text-[11px] leading-snug text-muted-foreground">
-      Владелец аккаунта: {nameLine}
-      <span className="text-muted-foreground/80"> · {contactLine}</span>
-      {birthLine ? <span className="text-muted-foreground/80"> · д.р. {birthLine}</span> : null}
+      {contactLine}
     </p>
   );
 }

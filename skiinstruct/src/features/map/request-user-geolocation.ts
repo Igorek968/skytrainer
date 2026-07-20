@@ -1,6 +1,7 @@
 "use client";
 
 import { useMeetPoint } from "@/features/map/use-client-meet-point";
+import { resolveMapViewCenter } from "@/lib/map-city-centers";
 
 export type GeolocationErrorCode = "GEO_DENIED" | "GEO_UNSUPPORTED" | "GEO_FAIL" | "GEO_INSECURE";
 
@@ -71,15 +72,21 @@ export async function queryGeolocationPermission(): Promise<PermissionState | "u
   }
 }
 
+/**
+ * Центр карт = центр города посетителя (ближайший из каталога).
+ * Точная GPS-точка используется только если город далеко от известных курортов.
+ */
 export function applyGeolocationToMeetPoint(position: GeolocationPosition): void {
-  useMeetPoint
-    .getState()
-    .setMeet(position.coords.latitude, position.coords.longitude, "gps");
+  const resolved = resolveMapViewCenter(position.coords.latitude, position.coords.longitude);
+  useMeetPoint.getState().setMeet(resolved.lat, resolved.lng, resolved.snapped ? "city" : "gps");
 }
 
 /** Обновить точку встречи по GPS (кнопка «Найти меня» на карте). */
 export function locateUserMeetPoint(): Promise<void> {
   return requestUserGeolocation().then((position) => {
-    applyGeolocationToMeetPoint(position);
+    /** «Найти меня» — точная точка пользователя, не центр города. */
+    useMeetPoint
+      .getState()
+      .setMeet(position.coords.latitude, position.coords.longitude, "gps");
   });
 }
