@@ -21,6 +21,13 @@ export function PwaServiceWorkerRegister() {
         if (reg.waiting) {
           reg.waiting.postMessage({ type: "SKIP_WAITING" });
         }
+        if (reg.installing) {
+          reg.installing.addEventListener("statechange", () => {
+            if (reg.installing?.state === "installed" && navigator.serviceWorker.controller) {
+              reg.installing.postMessage({ type: "SKIP_WAITING" });
+            }
+          });
+        }
       } catch {
         /* ignore */
       }

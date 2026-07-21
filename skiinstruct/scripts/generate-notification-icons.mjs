@@ -1,6 +1,9 @@
 /**
- * Generates notification-icon.png, notification-badge.png, refreshes apple-touch-icon.png
- * from brand/logo-mark.png. Run: node scripts/generate-notification-icons.mjs
+ * Generates notification icons + PWA/apple icons.
+ * Run: node scripts/generate-notification-icons.mjs
+ *
+ * - notification-icon: teal bg (push on iOS/desktop)
+ * - apple-touch / icon-192 / icon-512 / maskable: white bg (iPhone home screen)
  */
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -9,26 +12,30 @@ import sharp from "sharp";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const publicDir = path.resolve(__dirname, "../public");
-const logoPath = path.join(publicDir, "brand/logo-mark.png");
+const logoSvg = path.join(publicDir, "brand/logo-mark.svg");
 const teal = { r: 15, g: 118, b: 110, alpha: 1 };
+const white = { r: 255, g: 255, b: 255, alpha: 1 };
 
 async function logoContain(size) {
-  return sharp(logoPath)
+  return sharp(logoSvg, { density: 400 })
     .resize(size, size, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
     .png()
     .toBuffer();
 }
 
-async function main() {
+async function writeOnBg(name, size, pad, bg) {
   await sharp({
-    create: { width: 192, height: 192, channels: 4, background: teal },
+    create: { width: size, height: size, channels: 4, background: bg },
   })
-    .composite([{ input: await logoContain(140), gravity: "centre" }])
+    .composite([{ input: await logoContain(pad), gravity: "centre" }])
     .png()
-    .toFile(path.join(publicDir, "notification-icon.png"));
-  console.log("Wrote notification-icon.png");
+    .toFile(path.join(publicDir, name));
+  console.log(`Wrote ${name}`);
+}
 
-  const logoSvg = path.join(publicDir, "brand/logo-mark.svg");
+async function main() {
+  await writeOnBg("notification-icon.png", 192, 140, teal);
+
   const { data, info } = await sharp(logoSvg, { density: 300 })
     .resize(96, 96, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
     .ensureAlpha()
@@ -61,27 +68,11 @@ async function main() {
     .toFile(path.join(publicDir, "notification-badge.png"));
   console.log("Wrote notification-badge.png");
 
-  await sharp({
-    create: { width: 180, height: 180, channels: 4, background: teal },
-  })
-    .composite([{ input: await logoContain(132), gravity: "centre" }])
-    .png()
-    .toFile(path.join(publicDir, "apple-touch-icon.png"));
-  console.log("Wrote apple-touch-icon.png");
-
-  // PWA icons without white square bg (fixes tiny monochrome square in Android header)
-  for (const [name, size, pad] of [
-    ["icon-192.png", 192, 140],
-    ["icon-512.png", 512, 380],
-  ]) {
-    await sharp({
-      create: { width: size, height: size, channels: 4, background: teal },
-    })
-      .composite([{ input: await logoContain(pad), gravity: "centre" }])
-      .png()
-      .toFile(path.join(publicDir, name));
-    console.log(`Wrote ${name}`);
-  }
+  // iPhone / PWA: белый фон
+  await writeOnBg("apple-touch-icon.png", 180, 132, white);
+  await writeOnBg("icon-192.png", 192, 140, white);
+  await writeOnBg("icon-512.png", 512, 380, white);
+  await writeOnBg("icon-maskable-512.png", 512, 320, white);
 }
 
 main().catch((e) => {

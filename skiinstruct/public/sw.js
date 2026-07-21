@@ -1,14 +1,17 @@
 /* eslint-disable no-restricted-globals */
-/* build: 20260720-notify-no-banner */
+/* build: 20260721-no-push-images-v3 */
 
-const NOTIFICATION_ICON = "/notification-icon.png?v=brand5";
-const NOTIFICATION_BADGE = "/notification-badge.png?v=brand5";
+/** Цветной логотип как на сайте — только для iOS/desktop (на Android даёт картинку справа). */
+const NOTIFICATION_ICON = "/notification-icon.png?v=brand6";
 
 function isAndroidUa() {
   try {
-    return /Android/i.test(self.navigator.userAgent || "");
+    const ua = self.navigator.userAgent || "";
+    // При сомнении считаем Android — иначе снова появятся картинки справа/в теле.
+    if (!ua) return true;
+    return /Android/i.test(ua);
   } catch {
-    return false;
+    return true;
   }
 }
 
@@ -41,11 +44,15 @@ function notificationOptions(data) {
   const ticketId = typeof data.ticketId === "string" ? data.ticketId : null;
   const android = isAndroidUa();
 
+  /**
+   * Android Chrome:
+   * - image → большой баннер в теле (убрать)
+   * - icon → квадрат справа (убрать)
+   * - badge → белый силуэт слева вместо цветной иконки приложения (убрать)
+   * Слева остаётся цветная иконка PWA/приложения (icon-192) — как логотип на сайте.
+   */
   const options = {
     body: typeof data.body === "string" ? data.body : "",
-    // Android: icon → квадрат справа, image → баннер в теле. Не ставим их.
-    // Слева — badge (монохромный логотип) / иконка приложения.
-    badge: NOTIFICATION_BADGE,
     vibrate: [180, 80, 180, 80, 180],
     silent: false,
     renotify: true,
@@ -68,12 +75,14 @@ function notificationOptions(data) {
     },
   };
 
-  // iOS / desktop: цветной логотип в уведомлении. На Android icon даёт правый квадрат — пропускаем.
+  // Никогда не ставим image (баннер в сообщении).
+  // На Android не ставим icon/badge — иначе справа/слева чужие картинки.
+  // iOS/desktop: цветной логотип через icon.
   if (!android) {
     options.icon = NOTIFICATION_ICON;
   }
 
-  // Android: до 2 кнопок видны без раскрытия; iOS Web Push action-кнопки не поддерживает.
+  // Android: до 2 кнопок; iOS Web Push action-кнопки не поддерживает.
   if (isInstructorOrder) {
     options.actions = [
       { action: "accept", title: "Принять" },
@@ -260,7 +269,6 @@ self.addEventListener("notificationclick", (event) => {
         const result = await sendPushSnooze(nd);
         await self.registration.showNotification("ТвойТренер", {
           body: result.ok ? "Напомним через 1 час." : "Не удалось отложить — откройте приложение.",
-          badge: NOTIFICATION_BADGE,
           ...(isAndroidUa() ? {} : { icon: NOTIFICATION_ICON }),
           tag: "skiinstruct-snooze-ack",
           data: { url },
@@ -277,7 +285,6 @@ self.addEventListener("notificationclick", (event) => {
         if (result.ok) {
           await self.registration.showNotification("ТвойТренер", {
             body: "Ответ отправлен в поддержку.",
-            badge: NOTIFICATION_BADGE,
             ...(isAndroidUa() ? {} : { icon: NOTIFICATION_ICON }),
             tag: "skiinstruct-support-reply-sent",
             data: { url: "/support" },
@@ -297,7 +304,6 @@ self.addEventListener("notificationclick", (event) => {
         if (result.ok) {
           await self.registration.showNotification("ТвойТренер", {
             body: "Ответ отправлен инструктору.",
-            badge: NOTIFICATION_BADGE,
             ...(isAndroidUa() ? {} : { icon: NOTIFICATION_ICON }),
             tag: "skiinstruct-chat-reply-sent",
             data: { url: chatUrlForKind(kind, orderId) },
