@@ -1,8 +1,8 @@
 /* eslint-disable no-restricted-globals */
-/* build: 20260721-no-push-images-v3 */
+/* build: 20260721-logo-unified-v8 */
 
 /** Цветной логотип как на сайте — только для iOS/desktop (на Android даёт картинку справа). */
-const NOTIFICATION_ICON = "/notification-icon.png?v=brand6";
+const NOTIFICATION_ICON = "/notification-icon.png?v=brand8";
 
 function isAndroidUa() {
   try {

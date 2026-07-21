@@ -1,9 +1,8 @@
 /**
- * Generates notification icons + PWA/apple icons.
- * Run: node scripts/generate-notification-icons.mjs
+ * Единый источник логотипа: brand/press/logo-mark-on-white.png
+ * (два профиля + белая дорожка на белом фоне — как на сайте).
  *
- * - notification-icon: teal bg (push on iOS/desktop)
- * - apple-touch / icon-192 / icon-512 / maskable: white bg (iPhone home screen)
+ * Run: node scripts/generate-notification-icons.mjs
  */
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -12,67 +11,44 @@ import sharp from "sharp";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const publicDir = path.resolve(__dirname, "../public");
-const logoSvg = path.join(publicDir, "brand/logo-mark.svg");
-const teal = { r: 15, g: 118, b: 110, alpha: 1 };
+const LOGO_WHITE = path.join(publicDir, "brand/press/logo-mark-on-white.png");
+const LOGO_TRANSPARENT = path.join(publicDir, "brand/press/logo-mark-transparent.png");
 const white = { r: 255, g: 255, b: 255, alpha: 1 };
 
-async function logoContain(size) {
-  return sharp(logoSvg, { density: 400 })
-    .resize(size, size, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
+async function onBg(outName, size, padRatio, bg = white) {
+  const pad = Math.round(size * padRatio);
+  const logo = await sharp(LOGO_WHITE)
+    .resize(pad, pad, { fit: "contain", background: bg })
     .png()
     .toBuffer();
-}
-
-async function writeOnBg(name, size, pad, bg) {
   await sharp({
     create: { width: size, height: size, channels: 4, background: bg },
   })
-    .composite([{ input: await logoContain(pad), gravity: "centre" }])
+    .composite([{ input: logo, gravity: "centre" }])
     .png()
-    .toFile(path.join(publicDir, name));
-  console.log(`Wrote ${name}`);
+    .toFile(path.join(publicDir, outName));
+  console.log(`Wrote ${outName}`);
 }
 
 async function main() {
-  await writeOnBg("notification-icon.png", 192, 140, teal);
+  await onBg("apple-touch-icon.png", 180, 0.78);
+  await onBg("icon-192.png", 192, 0.78);
+  await onBg("icon-512.png", 512, 0.78);
+  await onBg("icon-maskable-512.png", 512, 0.62);
+  await onBg("favicon-120.png", 120, 0.85);
+  await onBg("favicon-48.png", 48, 0.85);
+  await onBg("favicon-32.png", 32, 0.9);
+  await onBg("notification-icon.png", 192, 0.78);
 
-  const { data, info } = await sharp(logoSvg, { density: 300 })
-    .resize(96, 96, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
-    .ensureAlpha()
-    .raw()
-    .toBuffer({ resolveWithObject: true });
+  await sharp(path.join(publicDir, "favicon-32.png")).toFile(path.join(publicDir, "favicon.ico"));
+  console.log("Wrote favicon.ico");
 
-  const out = Buffer.alloc(info.width * info.height * 4);
-  for (let i = 0; i < info.width * info.height; i++) {
-    const a = data[i * 4 + 3];
-    const lum = (data[i * 4] + data[i * 4 + 1] + data[i * 4 + 2]) / 3;
-    const keep = a > 40 && lum > 18;
-    out[i * 4] = 255;
-    out[i * 4 + 1] = 255;
-    out[i * 4 + 2] = 255;
-    out[i * 4 + 3] = keep ? 255 : 0;
-  }
-
-  const badgeInner = await sharp(out, {
-    raw: { width: info.width, height: info.height, channels: 4 },
-  })
-    .resize(100, 100, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
+  // Шапка сайта — прозрачный фон
+  await sharp(LOGO_TRANSPARENT)
+    .resize(240, null, { fit: "inside" })
     .png()
-    .toBuffer();
-
-  await sharp({
-    create: { width: 128, height: 128, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } },
-  })
-    .composite([{ input: badgeInner, gravity: "centre" }])
-    .png()
-    .toFile(path.join(publicDir, "notification-badge.png"));
-  console.log("Wrote notification-badge.png");
-
-  // iPhone / PWA: белый фон
-  await writeOnBg("apple-touch-icon.png", 180, 132, white);
-  await writeOnBg("icon-192.png", 192, 140, white);
-  await writeOnBg("icon-512.png", 512, 380, white);
-  await writeOnBg("icon-maskable-512.png", 512, 320, white);
+    .toFile(path.join(publicDir, "brand/logo-mark.png"));
+  console.log("Wrote brand/logo-mark.png");
 }
 
 main().catch((e) => {

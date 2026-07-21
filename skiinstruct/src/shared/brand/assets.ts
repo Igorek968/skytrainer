@@ -4,7 +4,7 @@ import { getPublicProductName } from "@/shared/lib/product";
 export const BRAND_LOGO_HORIZONTAL = "/brand/logo-horizontal.svg" as const;
 
 /** Знак без текста — эталонный PNG. */
-export const BRAND_LOGO_MARK = "/brand/logo-mark.png" as const;
+export const BRAND_LOGO_MARK = "/brand/logo-mark.png?v=brand8" as const;
 
 /** Знак на тёмном фоне (SVG). */
 export const BRAND_LOGO_MARK_ON_DARK = "/brand/logo-mark-on-dark.svg" as const;

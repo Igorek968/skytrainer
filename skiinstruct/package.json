@@ -22,7 +22,7 @@
     "db:backfill-instructor-profiles": "tsx scripts/backfill-instructor-profiles.ts",
     "export:agency-registry": "tsx scripts/export-agency-registry.ts",
     "export:yookassa-package": "tsx scripts/export-yookassa-package.ts",
-    "pwa:icons": "node scripts/generate-pwa-icons.mjs && node scripts/generate-notification-icons.mjs",
+    "pwa:icons": "node scripts/generate-notification-icons.mjs",
     "db:studio": "prisma studio",
     "postinstall": "prisma generate"
   },
