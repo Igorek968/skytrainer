@@ -74,6 +74,11 @@ if ! node -e "require.resolve('@tanstack/react-virtual')" >/dev/null 2>&1; then
   NODE_ENV=development npm install @tanstack/react-virtual@^3.13.12 --no-save --no-package-lock --no-audit --no-fund
 fi
 
+if ! node -e "require.resolve('sharp')" >/dev/null 2>&1; then
+  echo "[entry] npm install sharp (нужен для сжатия фото)..."
+  NODE_ENV=development npm install sharp@^0.33.5 --no-save --no-package-lock --no-audit --no-fund
+fi
+
 if [ "${SKIINSTRUCT_FORCE_REBUILD:-0}" = "1" ]; then
   echo "[entry] prod: next build (SKIINSTRUCT_FORCE_REBUILD=1)..."
   npm run build

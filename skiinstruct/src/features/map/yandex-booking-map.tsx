@@ -41,7 +41,7 @@ export type BookingMapProps = {
   onMeetChange: (lat: number, lng: number) => void;
   onLocateMe?: () => Promise<void>;
   onInstructorSelect?: (id: string) => void;
-  /** Двойной клик — открыть анкету и поднять инструктора в списке. */
+  /** Повторный клик по выбранному / double-click — открыть анкету. */
   onInstructorFocus?: (id: string) => void;
   onEventSelect?: (id: string) => void;
   /** Двойной клик по метке мероприятия — полноэкранный просмотр. */
@@ -306,19 +306,20 @@ export function YandexBookingMap({
 
         const now = Date.now();
         const prev = lastInstructorClickRef.current;
-        if (prev && prev.id === i.id && now - prev.at <= 550) {
+        const alreadySelected = selectedInstructorIdRef.current === i.id;
+        // 1) быстрый double-click  2) повторный клик по уже выбранному — в анкету
+        if ((prev && prev.id === i.id && now - prev.at <= 700) || alreadySelected) {
           openInstructorProfile();
           return;
         }
         if (prev?.openTimer) window.clearTimeout(prev.openTimer);
 
-        // Балун открываем с задержкой: иначе он перехватывает второй клик по метке
+        // Балун с небольшой задержкой: быстрый 2-й клик успевает уйти в анкету
         const openTimer = window.setTimeout(() => {
           const cur = lastInstructorClickRef.current;
           if (!cur || cur.id !== i.id || cur.at !== now) return;
-          onInstructorSelectRef.current?.(i.id);
           placemark.balloon.open();
-        }, 280);
+        }, 320);
 
         lastInstructorClickRef.current = { id: i.id, at: now, openTimer };
         onInstructorSelectRef.current?.(i.id);

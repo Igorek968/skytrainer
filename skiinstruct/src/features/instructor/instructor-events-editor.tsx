@@ -1,11 +1,11 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
-import type { InstructorEventDTO } from "@/lib/instructor-events";
-import type { InstructorCatalogBrowseItemDTO } from "@/lib/event-catalog";
+import type { InstructorEventDTO, ClientInstructorEventDTO } from "@/lib/instructor-events";
+import type { ClientEventFeedCardDTO, InstructorCatalogBrowseItemDTO } from "@/lib/event-catalog";
 import { eventCategoryOptions } from "@/lib/event-category";
 import { publicUploadDisplaySrc } from "@/lib/public-uploads-display";
 import {
@@ -23,6 +23,7 @@ import {
   showEventCardModeration,
   toDatetimeLocalValue,
 } from "@/lib/instructor-events";
+import { EventViewerOverlay } from "@/features/orders/event-viewer-overlay";
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
@@ -34,7 +35,6 @@ import { compressImageFile } from "@/lib/compress-image-client";
 import { cn } from "@/lib/utils";
 
 type ActiveOrderOption = { id: string; label: string };
-type TitleOption = { id: string; title: string };
 
 type SlotFormRow = {
   id?: string;
@@ -67,6 +67,29 @@ function todayYmd(): string {
   const d = new Date();
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+function addDaysYmd(ymd: string, days: number): string {
+  const d = new Date(`${ymd}T12:00:00`);
+  if (!Number.isFinite(d.getTime())) return todayYmd();
+  d.setDate(d.getDate() + days);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+function newLocalSlotId(): string {
+  return `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function formatYmdRu(ymd: string): string {
+  const d = new Date(`${ymd}T12:00:00`);
+  if (!Number.isFinite(d.getTime())) return ymd;
+  return d.toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" });
+}
+
+function slotStartsAtIso(date: string, time: string): string {
+  const d = new Date(`${date.trim()}T${time.trim()}:00`);
+  return Number.isFinite(d.getTime()) ? d.toISOString() : new Date().toISOString();
 }
 
 const DEFAULT_SLOTS: SlotFormRow[] = [];
@@ -211,13 +234,14 @@ export function InstructorEventsEditor({
   const [photoUrl, setPhotoUrl] = useState("");
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [templatePhotoSourceId, setTemplatePhotoSourceId] = useState<string | null>(null);
-  const [useSimilarTemplate, setUseSimilarTemplate] = useState(false);
   const [repeatDaily, setRepeatDaily] = useState(false);
   const [venue, setVenue] = useState<EventVenueValue>(EMPTY_VENUE);
   const [canEdit, setCanEdit] = useState(true);
   const [loadedStatus, setLoadedStatus] = useState<InstructorEventDTO["moderationStatus"] | null>(null);
-  const titleLoadTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewCard, setPreviewCard] = useState<ClientEventFeedCardDTO | null>(null);
+  const [sendToModerationPending, setSendToModerationPending] = useState(false);
 
   useEffect(() => {
     if (!photoFile) {
@@ -247,7 +271,7 @@ export function InstructorEventsEditor({
     queryFn: async () => {
       const r = await instructorFetch("/api/instructor/events");
       if (!r.ok) throw new Error("events");
-      return r.json() as Promise<{ events: InstructorEventApi[]; titles: TitleOption[] }>;
+      return r.json() as Promise<{ events: InstructorEventApi[] }>;
     },
     refetchInterval: (query) => {
       const list = query.state.data?.events ?? [];
@@ -330,46 +354,11 @@ export function InstructorEventsEditor({
     setPhotoUrl("");
     setPhotoFile(null);
     setTemplatePhotoSourceId(null);
-    setUseSimilarTemplate(false);
     setRepeatDaily(false);
     setVenue(EMPTY_VENUE);
     setCanEdit(true);
     setLoadedStatus(null);
   }, []);
-
-  const fillTemplateByTitle = useCallback(
-    async (titleValue: string) => {
-      const t = titleValue.trim();
-      if (!t) return;
-      const r = await instructorFetch(`/api/instructor/events/by-title?title=${encodeURIComponent(t)}`);
-      if (!r.ok) return;
-      const j = (await r.json()) as { event: InstructorEventApi | null };
-      if (j.event) {
-        fillTemplateFromEvent(j.event);
-        toast.message("Подставлены текст, цена и фото с прошлого раза — укажите новую дату");
-      }
-    },
-    [fillTemplateFromEvent],
-  );
-
-  const onTitleChange = (value: string) => {
-    setTitle(value);
-    if (titleLoadTimer.current) clearTimeout(titleLoadTimer.current);
-    if (!useSimilarTemplate) return;
-    const trimmed = value.trim();
-    if (!trimmed) return;
-    const known = data?.titles.some((t) => t.title.toLowerCase() === trimmed.toLowerCase());
-    if (known) {
-      titleLoadTimer.current = setTimeout(() => void fillTemplateByTitle(trimmed), 400);
-    }
-  };
-
-  useEffect(
-    () => () => {
-      if (titleLoadTimer.current) clearTimeout(titleLoadTimer.current);
-    },
-    [],
-  );
 
   const saveDraft = useMutation({
     mutationFn: async () => {
@@ -412,7 +401,7 @@ export function InstructorEventsEditor({
             const priceParsed = s.priceRub.trim() ? Number.parseInt(s.priceRub.trim(), 10) : NaN;
             const titleTrim = s.title.trim();
             return {
-              id: s.id,
+              id: s.id && !s.id.startsWith("local-") ? s.id : undefined,
               date: s.date.trim(),
               time: s.time.trim(),
               title: titleTrim || null,
@@ -685,7 +674,6 @@ export function InstructorEventsEditor({
   );
 
   const events = data?.events ?? [];
-  const titles = data?.titles ?? [];
   const formLocked = !canEdit;
   const latestSlotDay = useSlots
     ? slotRows
@@ -711,6 +699,152 @@ export function InstructorEventsEditor({
     photoPreview ?? (photoUrl ? (publicUploadDisplaySrc(photoUrl) ?? photoUrl) : null);
   const formIsCompleted =
     Boolean(effectiveEventAt) && effectiveEventAt!.getTime() <= Date.now();
+
+  function validateEventForm(): string | null {
+    if (!title.trim() || !body.trim()) return "Заполните заголовок и текст";
+    if (!category.trim()) return "Выберите категорию мероприятия";
+    if (useSlots && !slotRows.some((s) => s.date.trim() && s.time.trim())) {
+      return "Добавьте хотя бы один выход с датой и временем";
+    }
+    if (!useSlots && !eventAt.trim()) return "Укажите дату и время";
+    return null;
+  }
+
+  function addDraftSlot() {
+    if (!draftSlotDate.trim() || !draftSlotTime.trim()) {
+      toast.error("Укажите дату и время выхода");
+      return;
+    }
+    const newRow: SlotFormRow = {
+      id: newLocalSlotId(),
+      date: draftSlotDate.trim(),
+      time: draftSlotTime.trim(),
+      title: draftSlotTitle.trim(),
+      maxSeats: draftSlotSeats.trim(),
+      priceRub: draftSlotPrice.trim(),
+    };
+    setSlotRows((rows) =>
+      [...rows, newRow].sort((a, b) =>
+        `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`),
+      ),
+    );
+    setDraftSlotDate(addDaysYmd(draftSlotDate.trim(), 1));
+    setDraftSlotTitle("");
+    toast.success("День добавлен в список ниже");
+  }
+
+  function buildPreviewFeedCard(): ClientEventFeedCardDTO | null {
+    const err = validateEventForm();
+    if (err) {
+      toast.error(err);
+      return null;
+    }
+    const photo =
+      photoPreview ?? (photoUrl ? (publicUploadDisplaySrc(photoUrl) ?? photoUrl) : null);
+    const validSlots = slotRows.filter((s) => s.date.trim() && s.time.trim());
+    const mappedSlots = useSlots
+      ? validSlots.map((s, idx) => {
+          const maxParsed = s.maxSeats.trim() ? Number.parseInt(s.maxSeats.trim(), 10) : NaN;
+          const priceParsed = s.priceRub.trim() ? Number.parseInt(s.priceRub.trim(), 10) : NaN;
+          const priceRubVal =
+            Number.isFinite(priceParsed) && priceParsed >= 0 ? priceParsed : null;
+          const maxSeats =
+            Number.isFinite(maxParsed) && maxParsed >= 1 ? maxParsed : null;
+          return {
+            id: s.id ?? `preview-slot-${idx}`,
+            startsAt: slotStartsAtIso(s.date, s.time),
+            title: s.title.trim() || null,
+            maxSeats,
+            priceRub: priceRubVal,
+            sortOrder: idx,
+            paidCount: 0,
+            spotsLeft: maxSeats,
+            isFull: false,
+            isCompleted: false,
+            registrationOpen: false,
+            isFree: priceRubVal == null || priceRubVal <= 0,
+            myRegistration: null,
+          };
+        })
+      : [];
+    const priceParsed = priceRub.trim() ? Number.parseInt(priceRub.trim(), 10) : NaN;
+    const classicPrice =
+      Number.isFinite(priceParsed) && priceParsed >= 0 ? priceParsed : null;
+    const firstAt = useSlots
+      ? mappedSlots[0]?.startsAt ?? null
+      : eventAt.trim()
+        ? new Date(eventAt).toISOString()
+        : null;
+    const event: ClientInstructorEventDTO = {
+      id: editingId ?? "preview-draft",
+      title: title.trim(),
+      titleId: null,
+      catalogItemId: null,
+      body: body.trim(),
+      category: category.trim() || null,
+      photoUrl: photo,
+      eventAt: firstAt,
+      moderationStatus: "DRAFT",
+      rejectNote: null,
+      orderId: orderId.trim() || null,
+      priceRub: useSlots ? mappedSlots[0]?.priceRub ?? null : classicPrice,
+      maxRegistrations: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      submittedAt: null,
+      publishedAt: null,
+      isCompleted: false,
+      canEdit: true,
+      repeatDaily,
+      venueAddress: venue.address.trim() || null,
+      venueLat: venue.lat,
+      venueLng: venue.lng,
+      instructorId: "preview",
+      instructorName: "Предпросмотр",
+      paidRegistrationCount: 0,
+      spotsLeft: mappedSlots[0]?.spotsLeft ?? null,
+      registrationOpen: false,
+      isFree: useSlots
+        ? Boolean(mappedSlots[0]?.isFree)
+        : classicPrice == null || classicPrice <= 0,
+      myRegistration: null,
+      slots: mappedSlots,
+      hasSlots: useSlots && mappedSlots.length > 0,
+    };
+    return { kind: "single", event };
+  }
+
+  async function handleSendToModeration() {
+    if (formLocked) {
+      toast.error("Редактирование недоступно");
+      return;
+    }
+    const err = validateEventForm();
+    if (err) {
+      toast.error(err);
+      return;
+    }
+    setSendToModerationPending(true);
+    try {
+      const saved = await saveDraft.mutateAsync();
+      const r = await instructorFetch(`/api/instructor/events/${saved.event.id}/submit`, {
+        method: "POST",
+      });
+      if (!r.ok) {
+        const j = (await r.json().catch(() => ({}))) as { error?: string };
+        throw new Error(typeof j.error === "string" ? j.error : "Не удалось отправить на модерацию");
+      }
+      const j = (await r.json()) as { message?: string };
+      resetForm();
+      onRequestCreateView?.();
+      toast.success(j.message ?? "Отправлено на модерацию — можно создать новое мероприятие");
+      await qc.invalidateQueries({ queryKey: ["instructor-events"] });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Не удалось отправить на модерацию");
+    } finally {
+      setSendToModerationPending(false);
+    }
+  }
 
   const groups = {
     draft: events.filter((e) => e.moderationStatus === "DRAFT"),
@@ -764,53 +898,16 @@ export function InstructorEventsEditor({
           </div>
 
           <div className="space-y-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <Label htmlFor="event-title" className="mb-0">
-                Заголовок
-              </Label>
-              {title.trim() &&
-              data?.titles.some((t) => t.title.toLowerCase() === title.trim().toLowerCase()) ? (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className="h-7 text-xs"
-                  disabled={formLocked}
-                  onClick={() => void fillTemplateByTitle(title)}
-                >
-                  Как у прошлого
-                </Button>
-              ) : null}
-            </div>
+            <Label htmlFor="event-title">Заголовок</Label>
             <Input
               id="event-title"
-              list="instructor-event-titles"
               value={title}
-              onChange={(e) => onTitleChange(e.target.value)}
-              onBlur={() => {
-                if (!useSimilarTemplate) return;
-                const t = title.trim();
-                if (t && data?.titles.some((x) => x.title === t)) void fillTemplateByTitle(t);
-              }}
-              placeholder="Новое название или выберите из списка"
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Название мероприятия"
               maxLength={120}
               disabled={formLocked}
               required
             />
-            <datalist id="instructor-event-titles">
-              {titles.map((t) => (
-                <option key={t.id} value={t.title} />
-              ))}
-            </datalist>
-            <label className="flex items-center gap-2 text-xs text-muted-foreground">
-              <input
-                type="checkbox"
-                checked={useSimilarTemplate}
-                disabled={formLocked}
-                onChange={(e) => setUseSimilarTemplate(e.target.checked)}
-              />
-              При выборе знакомого названия подставлять текст, цену и фото с прошлого раза
-            </label>
             <CatalogSoftDupeHint title={title} />
           </div>
 
@@ -930,7 +1027,7 @@ export function InstructorEventsEditor({
                   disabled={formLocked}
                   onChange={() => setUseSlots(true)}
                 />
-                Несколько дней / выходов
+                Однодневный тур
               </label>
               <label className="flex items-center gap-2 text-sm">
                 <input
@@ -1040,7 +1137,7 @@ export function InstructorEventsEditor({
                         <Label htmlFor="draft-slot-seats" className="text-xs text-muted-foreground">
                           Мест
                         </Label>
-                        <div className="flex gap-2">
+                        <div className="flex flex-col gap-2 sm:flex-row">
                           <Input
                             id="draft-slot-seats"
                             type="number"
@@ -1054,26 +1151,9 @@ export function InstructorEventsEditor({
                           <Button
                             type="button"
                             size="sm"
-                            variant="outline"
-                            className="h-9 shrink-0"
-                            onClick={() => {
-                              if (!draftSlotDate.trim() || !draftSlotTime.trim()) {
-                                toast.error("Укажите дату и время выхода");
-                                return;
-                              }
-                              setSlotRows((rows) => [
-                                ...rows,
-                                {
-                                  date: draftSlotDate.trim(),
-                                  time: draftSlotTime.trim(),
-                                  title: draftSlotTitle.trim(),
-                                  maxSeats: draftSlotSeats.trim(),
-                                  priceRub: draftSlotPrice.trim(),
-                                },
-                              ]);
-                              setDraftSlotTitle("");
-                              toast.success("Выход добавлен");
-                            }}
+                            variant="accent"
+                            className="h-9 w-full shrink-0 sm:w-auto"
+                            onClick={addDraftSlot}
                           >
                             + Добавить
                           </Button>
@@ -1084,8 +1164,61 @@ export function InstructorEventsEditor({
                 ) : null}
 
                 <div className="space-y-2">
-                  <Label>Дни мероприятия</Label>
-                  <div className="overflow-x-auto rounded-md border border-border">
+                  <Label>
+                    Дни мероприятия
+                    {slotRows.length > 0 ? (
+                      <span className="ml-1 font-normal text-muted-foreground">
+                        ({slotRows.length})
+                      </span>
+                    ) : null}
+                  </Label>
+
+                  {slotRows.length === 0 ? (
+                    <p className="rounded-md border border-dashed border-border px-3 py-4 text-center text-xs text-muted-foreground">
+                      Пока нет дней — заполните поля выше и нажмите «+ Добавить»
+                    </p>
+                  ) : (
+                    <ul className="space-y-2 md:hidden">
+                      {slotRows.map((row, idx) => (
+                        <li
+                          key={row.id ?? `mobile-${idx}`}
+                          className="rounded-md border border-border bg-background p-3 text-sm"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <p className="font-medium">
+                                {row.date ? formatYmdRu(row.date) : "—"} · {row.time || "—"}
+                              </p>
+                              <p className="text-muted-foreground">
+                                {row.title.trim() || "Без названия"}
+                                {" · "}
+                                {row.priceRub.trim()
+                                  ? `${row.priceRub} ₽`
+                                  : "бесплатно"}
+                                {" · "}
+                                {row.maxSeats.trim() ? `${row.maxSeats} мест` : "без лимита"}
+                              </p>
+                            </div>
+                            {!formLocked ? (
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="ghost"
+                                className="h-8 shrink-0 text-destructive"
+                                onClick={() =>
+                                  setSlotRows((rows) => rows.filter((_, i) => i !== idx))
+                                }
+                              >
+                                Удалить
+                              </Button>
+                            ) : null}
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+
+                  <div className="hidden overflow-x-auto rounded-md border border-border md:block">
                     <table className="w-full min-w-[640px] text-sm">
                       <thead>
                         <tr className="border-b border-border bg-muted/40 text-left text-xs text-muted-foreground">
@@ -1104,7 +1237,7 @@ export function InstructorEventsEditor({
                               colSpan={formLocked ? 5 : 6}
                               className="px-3 py-4 text-center text-xs text-muted-foreground"
                             >
-                              Пока нет выходов — выберите дату в календаре и нажмите «Добавить»
+                              Пока нет дней — заполните поля выше и нажмите «+ Добавить»
                             </td>
                           </tr>
                         ) : (
@@ -1175,7 +1308,7 @@ export function InstructorEventsEditor({
                                       ),
                                     )
                                   }
-                                  className="h-9"
+                                  className="h-9 w-24"
                                 />
                               </td>
                               <td className="px-2 py-1.5">
@@ -1193,7 +1326,7 @@ export function InstructorEventsEditor({
                                       ),
                                     )
                                   }
-                                  className="h-9"
+                                  className="h-9 w-28"
                                 />
                               </td>
                               {!formLocked ? (
@@ -1202,7 +1335,7 @@ export function InstructorEventsEditor({
                                     type="button"
                                     size="sm"
                                     variant="ghost"
-                                    className="h-9 w-9 p-0 text-muted-foreground"
+                                    className="h-8 px-2 text-destructive"
                                     onClick={() =>
                                       setSlotRows((rows) => rows.filter((_, i) => i !== idx))
                                     }
@@ -1217,7 +1350,7 @@ export function InstructorEventsEditor({
                       </tbody>
                     </table>
                   </div>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-[11px] text-muted-foreground">
                     Каждый день — отдельная строка с датой, временем, названием и ценой. Клиент
                     записывается именно на выбранный день.
                   </p>
@@ -1282,19 +1415,30 @@ export function InstructorEventsEditor({
           <div className="flex flex-wrap gap-2">
             {!formLocked ? (
               <>
-                <Button type="submit" variant="outline" disabled={saveDraft.isPending}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={saveDraft.isPending || sendToModerationPending}
+                  onClick={() => {
+                    const card = buildPreviewFeedCard();
+                    if (!card) return;
+                    setPreviewCard(card);
+                    setPreviewOpen(true);
+                  }}
+                >
+                  Посмотреть
+                </Button>
+                <Button type="submit" variant="outline" disabled={saveDraft.isPending || sendToModerationPending}>
                   {saveDraft.isPending ? "Сохранение…" : "Сохранить черновик"}
                 </Button>
-                {editingId ? (
-                  <Button
-                    type="button"
-                    variant="accent"
-                    disabled={submitModeration.isPending || saveDraft.isPending}
-                    onClick={() => submitModeration.mutate(editingId)}
-                  >
-                    На модерацию
-                  </Button>
-                ) : null}
+                <Button
+                  type="button"
+                  variant="accent"
+                  disabled={saveDraft.isPending || sendToModerationPending || submitModeration.isPending}
+                  onClick={() => void handleSendToModeration()}
+                >
+                  {sendToModerationPending ? "Отправка…" : "Отправить на модерацию"}
+                </Button>
               </>
             ) : formIsCompleted ? (
               <p className="text-sm text-muted-foreground">
@@ -1337,6 +1481,21 @@ export function InstructorEventsEditor({
             </Button>
           </div>
         </form>
+
+        {previewOpen && previewCard ? (
+          <EventViewerOverlay
+            cards={[previewCard]}
+            index={0}
+            onIndexChange={() => undefined}
+            onClose={() => {
+              setPreviewOpen(false);
+              setPreviewCard(null);
+            }}
+            queryKey={["instructor-event-preview"]}
+            showDistance={false}
+            isClient={false}
+          />
+        ) : null}
 
         {editingId ? (
           <div className="rounded-lg border border-border bg-muted/10 p-4">

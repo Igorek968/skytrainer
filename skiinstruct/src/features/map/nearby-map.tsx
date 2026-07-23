@@ -214,7 +214,9 @@ function LeafletNearbyMap({
                     };
                     const now = Date.now();
                     const last = marker.__lastClickAt ?? 0;
-                    if (now - last <= 550) {
+                    const alreadySelected = selectedInstructorId === i.id;
+                    // 1) быстрый double-click  2) повторный клик по уже выбранному — в анкету
+                    if (now - last <= 700 || alreadySelected) {
                       if (marker.__balloonTimer) window.clearTimeout(marker.__balloonTimer);
                       marker.__lastClickAt = 0;
                       marker.__balloonTimer = undefined;
@@ -228,7 +230,7 @@ function LeafletNearbyMap({
                     marker.__balloonTimer = window.setTimeout(() => {
                       if (marker.__lastClickAt !== now) return;
                       marker.openPopup();
-                    }, 280);
+                    }, 320);
                   },
                   dblclick: (e) => {
                     if (e.originalEvent) {

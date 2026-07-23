@@ -597,8 +597,9 @@ export default function ClientHomePage() {
   function focusInstructorFromMap(id: string) {
     setListPriorityId(id);
     setSelectedId(id);
+    setExpandedId(id);
     setShowAllReviewsFor(null);
-    // Двойной клик по метке на карте — публичная анкета
+    // Повторный клик / double-click по метке — публичная анкета
     router.push(`/instructors/${id}`);
   }
 
@@ -912,22 +913,6 @@ export default function ClientHomePage() {
             onLocateMe={locateUserMeetPoint}
           />
         </SectionErrorBoundary>
-      </div>
-
-      <div id={CLIENT_SECTION_IDS.events} className="scroll-mt-24">
-        <WhenInViewport
-          fallback={<Skeleton className="h-48 w-full rounded-lg" aria-hidden />}
-          rootMargin="400px"
-        >
-          <SectionErrorBoundary title="Мероприятия временно недоступны">
-            <ClientEventsFeed
-              layout="carousel"
-              onInstructorPick={focusInstructorFromEvent}
-              openFeedCardId={openFeedCardId}
-              onOpenFeedCardHandled={() => setOpenFeedCardId(null)}
-            />
-          </SectionErrorBoundary>
-        </WhenInViewport>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
@@ -1284,8 +1269,25 @@ export default function ClientHomePage() {
             </Button>
           </CardContent>
         </Card>
+      </div>
 
-        <Card id={CLIENT_SECTION_IDS.instructorReviews} className="scroll-mt-24 md:col-span-2">
+      <div id={CLIENT_SECTION_IDS.events} className="scroll-mt-24">
+        <WhenInViewport
+          fallback={<Skeleton className="h-48 w-full rounded-lg" aria-hidden />}
+          rootMargin="400px"
+        >
+          <SectionErrorBoundary title="Мероприятия временно недоступны">
+            <ClientEventsFeed
+              layout="carousel"
+              onInstructorPick={focusInstructorFromEvent}
+              openFeedCardId={openFeedCardId}
+              onOpenFeedCardHandled={() => setOpenFeedCardId(null)}
+            />
+          </SectionErrorBoundary>
+        </WhenInViewport>
+      </div>
+
+      <Card id={CLIENT_SECTION_IDS.instructorReviews} className="scroll-mt-24">
             <CardHeader>
               <CardTitle>Отзывы инструкторов о вас</CardTitle>
               <CardDescription>Показываются после завершения обучения.</CardDescription>
@@ -1307,7 +1309,6 @@ export default function ClientHomePage() {
               )}
             </CardContent>
           </Card>
-      </div>
 
       <PersonalDataDialog open={personalOpen} onOpenChange={setPersonalOpen} />
 

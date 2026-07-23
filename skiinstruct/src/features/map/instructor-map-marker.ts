@@ -83,7 +83,7 @@ function buildStarRatingInlineHtml(rating: number): string {
   return `<span style="display:inline-flex;gap:1px;align-items:center;">${stars}</span><span style="margin-left:3px;font-size:12px;font-weight:600;color:#334155;">${clamped.toFixed(1)}</span>`;
 }
 
-/** Компактная карточка для балуна/попапа (выбор — клик по маркеру; анкета — ссылка / двойной клик). */
+/** Компактная карточка для балуна/попапа (выбор — клик; анкета — ссылка / повторный клик). */
 export function buildInstructorBalloonHtml(
   pin: Pick<
     InstructorMapPin,

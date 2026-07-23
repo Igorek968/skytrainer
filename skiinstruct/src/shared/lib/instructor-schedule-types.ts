@@ -32,3 +32,16 @@ export type InstructorWeekSchedule = {
     status: OrderStatus;
   }>;
 };
+
+export type InstructorPublicBusyDay = {
+  ymd: string;
+  weekday: number;
+  label: string;
+  busyRanges: Array<{ from: string; to: string }>;
+};
+
+export type InstructorPublicBusyWeek = {
+  weekStartYmd: string;
+  weekEndYmd: string;
+  days: InstructorPublicBusyDay[];
+};

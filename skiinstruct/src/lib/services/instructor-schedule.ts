@@ -7,6 +7,7 @@ import {
   LESSON_SCHEDULE_GAP_MINUTES,
   SCHEDULE_GRID_HOUR_END,
   SCHEDULE_GRID_HOUR_START,
+  type InstructorPublicBusyWeek,
   type InstructorWeekSchedule,
   type WeekScheduleDay,
   type WeekScheduleHourCell,
@@ -17,7 +18,13 @@ export {
   SCHEDULE_GRID_HOUR_END,
   SCHEDULE_GRID_HOUR_START,
 } from "@/shared/lib/instructor-schedule-types";
-export type { InstructorWeekSchedule, WeekScheduleDay, WeekScheduleHourCell };
+export type {
+  InstructorPublicBusyDay,
+  InstructorPublicBusyWeek,
+  InstructorWeekSchedule,
+  WeekScheduleDay,
+  WeekScheduleHourCell,
+} from "@/shared/lib/instructor-schedule-types";
 
 export const SCHEDULE_BLOCKING_STATUSES: OrderStatus[] = [
   "AWAITING_PAYMENT",
@@ -337,6 +344,55 @@ export async function getInstructorWeekSchedule(
     return blocks.some((b) => b.ymd >= weekStartYmd && b.ymd <= weekEndYmd);
   });
   return buildInstructorWeekSchedule(weekStartYmd, orders);
+}
+
+/** Склеить занятые часы сетки в интервалы (без id заказов / имён клиентов). */
+export function busyRangesFromHourCells(
+  hours: WeekScheduleHourCell[],
+): Array<{ from: string; to: string }> {
+  const busyHours = hours
+    .filter((h) => h.busy)
+    .map((h) => h.hour)
+    .sort((a, b) => a - b);
+  const ranges: Array<{ from: string; to: string }> = [];
+  let start: number | null = null;
+  let prev: number | null = null;
+  for (const hour of busyHours) {
+    if (start === null || prev === null) {
+      start = hour;
+      prev = hour;
+      continue;
+    }
+    if (hour === prev + 1) {
+      prev = hour;
+      continue;
+    }
+    ranges.push({ from: minutesToHm(start * 60), to: minutesToHm((prev + 1) * 60) });
+    start = hour;
+    prev = hour;
+  }
+  if (start !== null && prev !== null) {
+    ranges.push({ from: minutesToHm(start * 60), to: minutesToHm((prev + 1) * 60) });
+  }
+  return ranges;
+}
+
+/** Публичная занятость на неделю — только интервалы, без персональных данных учеников. */
+export async function getInstructorPublicBusyWeek(
+  instructorId: string,
+  anchorYmd?: string,
+): Promise<InstructorPublicBusyWeek> {
+  const schedule = await getInstructorWeekSchedule(instructorId, anchorYmd);
+  return {
+    weekStartYmd: schedule.weekStartYmd,
+    weekEndYmd: schedule.weekEndYmd,
+    days: schedule.days.map((d) => ({
+      ymd: d.ymd,
+      weekday: d.weekday,
+      label: d.label,
+      busyRanges: busyRangesFromHourCells(d.hours),
+    })),
+  };
 }
 
 export async function cancelInstructorDayOrders(params: {

@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { useQuery } from "@tanstack/react-query";
 import { Award, CalendarDays, Languages, ShieldCheck } from "lucide-react";
-import type { Dispatch, SetStateAction } from "react";
+import { useState, useEffect, type Dispatch, type SetStateAction } from "react";
 
 import type { ClientInstructorProfileInstructor } from "@/features/client/instructor-profile-types";
 import { instructorExpandedAvatar } from "@/features/client/instructor-profile-utils";
@@ -10,12 +11,23 @@ import {
   formatDrivingSchoolDetailsSummary,
   isAutoInstructorLabel,
 } from "@/lib/auto-instructor-offer";
+import type { InstructorPublicBusyWeek } from "@/shared/lib/instructor-schedule-types";
 import { isSyntheticInstructorBioLine } from "@/lib/services/instructor-match";
+import { cn } from "@/lib/utils";
 import { Button } from "@/shared/ui/button";
 import { InstructorPhoto } from "@/shared/ui/instructor-photo";
 import type { PhotoViewerState } from "@/shared/ui/photo-viewer-overlay";
 
-const DAY_LABELS = ["Вс", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"];
+/** day: 0=Вс … 6=Сб — отображение с понедельника */
+const WEEK_DAYS: { day: number; label: string }[] = [
+  { day: 1, label: "Пн" },
+  { day: 2, label: "Вт" },
+  { day: 3, label: "Ср" },
+  { day: 4, label: "Чт" },
+  { day: 5, label: "Пт" },
+  { day: 6, label: "Сб" },
+  { day: 0, label: "Вс" },
+];
 
 /** Раскрытый профиль: порядок секций и подписи как в анкете инструктора («Профиль для клиентов»). */
 export function InstructorSearchExpandedBody({
@@ -42,6 +54,31 @@ export function InstructorSearchExpandedBody({
   const showBioSection =
     Boolean(bioTrim) && !isSyntheticInstructorBioLine(p.bio, p.specializations);
   const gallery = p.photoGallery.filter((ph) => ph?.trim());
+  const [selectedWeekday, setSelectedWeekday] = useState<number | null>(null);
+
+  useEffect(() => {
+    setSelectedWeekday(null);
+  }, [listItemId]);
+
+  const busyWeekQuery = useQuery({
+    queryKey: ["instructor-public-busy-week", listItemId],
+    queryFn: async () => {
+      const r = await fetch(`/api/instructors/${listItemId}/schedule`, { cache: "no-store" });
+      if (!r.ok) throw new Error("schedule");
+      const j = (await r.json()) as { schedule: InstructorPublicBusyWeek };
+      return j.schedule;
+    },
+    staleTime: 60_000,
+  });
+
+  const selectedBusyDay =
+    selectedWeekday == null
+      ? null
+      : (busyWeekQuery.data?.days.find((d) => d.weekday === selectedWeekday) ?? null);
+  const selectedTemplateSlots =
+    selectedWeekday == null
+      ? []
+      : p.availabilitySlots.filter((s) => s.day === selectedWeekday && s.busy !== true);
 
   return (
     <>
@@ -213,19 +250,46 @@ export function InstructorSearchExpandedBody({
           <CalendarDays className="h-3.5 w-3.5" />
           Календарь доступности
         </p>
+        <p className="text-[11px] text-muted-foreground">
+          Нажмите на день, чтобы увидеть занятые часы на этой неделе
+        </p>
         <div className="grid gap-1 rounded-md border border-border p-2 text-[11px] md:grid-cols-7">
-          {DAY_LABELS.map((d, idx) => {
-            const slots = p.availabilitySlots.filter((s) => s.day === idx);
+          {WEEK_DAYS.map(({ day, label }) => {
+            const slots = p.availabilitySlots.filter((s) => s.day === day);
+            const dayBusy = busyWeekQuery.data?.days.find((d) => d.weekday === day);
+            const hasBusy = Boolean(dayBusy?.busyRanges.length);
+            const selected = selectedWeekday === day;
             return (
-              <div key={d} className="rounded border border-border p-1">
-                <div className="font-medium">{d}</div>
+              <button
+                type="button"
+                key={label}
+                className={cn(
+                  "rounded border border-border p-1 text-left transition-colors",
+                  selected
+                    ? "border-sky-500 bg-sky-50 ring-1 ring-sky-400"
+                    : "hover:border-sky-300 hover:bg-muted/40",
+                )}
+                aria-pressed={selected}
+                aria-label={`${label}: показать занятые часы`}
+                onClick={() => setSelectedWeekday((prev) => (prev === day ? null : day))}
+              >
+                <div className="flex items-center justify-between gap-1 font-medium">
+                  <span>{label}</span>
+                  {hasBusy ? (
+                    <span
+                      className="h-1.5 w-1.5 shrink-0 rounded-full bg-rose-500"
+                      title="Есть занятые часы"
+                      aria-hidden
+                    />
+                  ) : null}
+                </div>
                 {!slots.length ? (
                   <div className="mt-1 text-muted-foreground">—</div>
                 ) : (
                   <div className="mt-1 space-y-1">
                     {slots.slice(0, 3).map((s, ix) => (
                       <div
-                        key={`${d}-${ix}`}
+                        key={`${label}-${ix}`}
                         className={`rounded px-1 py-0.5 ${
                           s.busy ? "bg-muted text-muted-foreground" : "bg-sky-100 text-sky-900"
                         }`}
@@ -235,10 +299,62 @@ export function InstructorSearchExpandedBody({
                     ))}
                   </div>
                 )}
-              </div>
+              </button>
             );
           })}
         </div>
+
+        {selectedWeekday != null ? (
+          <div className="space-y-2 rounded-md border border-border bg-muted/20 p-2 text-xs">
+            <p className="font-medium">
+              {WEEK_DAYS.find((d) => d.day === selectedWeekday)?.label}
+              {selectedBusyDay
+                ? ` · ${new Date(`${selectedBusyDay.ymd}T12:00:00`).toLocaleDateString("ru-RU", {
+                    day: "numeric",
+                    month: "long",
+                  })}`
+                : null}
+            </p>
+            <div>
+              <p className="text-[11px] text-muted-foreground">Рабочие часы</p>
+              {!selectedTemplateSlots.length ? (
+                <p className="mt-0.5 text-muted-foreground">Выходной / нет слотов</p>
+              ) : (
+                <ul className="mt-1 flex flex-wrap gap-1">
+                  {selectedTemplateSlots.map((s, ix) => (
+                    <li
+                      key={`avail-${ix}`}
+                      className="rounded bg-sky-100 px-1.5 py-0.5 text-sky-900"
+                    >
+                      {s.from}–{s.to}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            <div>
+              <p className="text-[11px] text-muted-foreground">Занято на этой неделе</p>
+              {busyWeekQuery.isLoading ? (
+                <p className="mt-0.5 text-muted-foreground">Загрузка…</p>
+              ) : busyWeekQuery.isError ? (
+                <p className="mt-0.5 text-destructive">Не удалось загрузить занятость</p>
+              ) : !selectedBusyDay?.busyRanges.length ? (
+                <p className="mt-0.5 text-muted-foreground">Свободно — записей нет</p>
+              ) : (
+                <ul className="mt-1 flex flex-wrap gap-1">
+                  {selectedBusyDay.busyRanges.map((r, ix) => (
+                    <li
+                      key={`busy-${ix}`}
+                      className="rounded bg-rose-100 px-1.5 py-0.5 text-rose-900"
+                    >
+                      {r.from}–{r.to}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        ) : null}
       </div>
 
       <div className="space-y-1">
