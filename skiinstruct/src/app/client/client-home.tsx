@@ -597,13 +597,17 @@ export default function ClientHomePage() {
   function focusInstructorFromMap(id: string) {
     setListPriorityId(id);
     setSelectedId(id);
-    setExpandedId(id);
     setShowAllReviewsFor(null);
-    scrollToClientSection(CLIENT_SECTION_IDS.nearbyInstructors);
+    // Двойной клик по метке на карте — публичная анкета
+    router.push(`/instructors/${id}`);
   }
 
   function focusInstructorFromEvent(instructor: { id: string; name: string | null }) {
-    focusInstructorFromMap(instructor.id);
+    setListPriorityId(instructor.id);
+    setSelectedId(instructor.id);
+    setExpandedId(instructor.id);
+    setShowAllReviewsFor(null);
+    scrollToClientSection(CLIENT_SECTION_IDS.nearbyInstructors);
     if (instructor.name?.trim()) {
       setInstructorNameQuery(instructor.name.trim());
     }

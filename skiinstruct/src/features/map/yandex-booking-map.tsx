@@ -90,7 +90,7 @@ export function YandexBookingMap({
   const eventsByIdRef = useRef<Map<string, EventMapPin>>(new Map());
   const eventDetailRef = useRef<EventMarkerDetail>("mid");
   const suppressMapClickRef = useRef(false);
-  const lastInstructorClickRef = useRef<{ id: string; at: number } | null>(null);
+  const lastInstructorClickRef = useRef<{ id: string; at: number; openTimer?: number } | null>(null);
   const selectedInstructorIdRef = useRef(selectedInstructorId);
   const instructorsSignatureRef = useRef("");
   const eventsSignatureRef = useRef("");
@@ -132,6 +132,12 @@ export function YandexBookingMap({
           { suppressMapOpenBlock: true },
         );
         mapRef.current = map;
+        // Иначе второй клик по метке уходит в зум карты, а не в переход на анкету
+        try {
+          map.behaviors.disable("dblClickZoom");
+        } catch {
+          /* older API */
+        }
 
         const meetPlacemark = new ymaps.Placemark(
           [meetLat, meetLng],
@@ -276,12 +282,14 @@ export function YandexBookingMap({
 
       const suppressMapPick = () => {
         suppressMapClickRef.current = true;
-        queueMicrotask(() => {
+        window.setTimeout(() => {
           suppressMapClickRef.current = false;
-        });
+        }, 50);
       };
 
       const openInstructorProfile = () => {
+        const prev = lastInstructorClickRef.current;
+        if (prev?.openTimer) window.clearTimeout(prev.openTimer);
         lastInstructorClickRef.current = null;
         onInstructorFocusRef.current?.(i.id);
         try {
@@ -298,13 +306,22 @@ export function YandexBookingMap({
 
         const now = Date.now();
         const prev = lastInstructorClickRef.current;
-        if (prev && prev.id === i.id && now - prev.at <= 400) {
+        if (prev && prev.id === i.id && now - prev.at <= 550) {
           openInstructorProfile();
           return;
         }
-        lastInstructorClickRef.current = { id: i.id, at: now };
+        if (prev?.openTimer) window.clearTimeout(prev.openTimer);
+
+        // Балун открываем с задержкой: иначе он перехватывает второй клик по метке
+        const openTimer = window.setTimeout(() => {
+          const cur = lastInstructorClickRef.current;
+          if (!cur || cur.id !== i.id || cur.at !== now) return;
+          onInstructorSelectRef.current?.(i.id);
+          placemark.balloon.open();
+        }, 280);
+
+        lastInstructorClickRef.current = { id: i.id, at: now, openTimer };
         onInstructorSelectRef.current?.(i.id);
-        placemark.balloon.open();
       });
       placemark.events.add("dblclick", (e) => {
         e?.preventDefault?.();

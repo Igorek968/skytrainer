@@ -208,25 +208,39 @@ function LeafletNearbyMap({
                     if (e.originalEvent) {
                       L.DomEvent.stopPropagation(e.originalEvent);
                     }
-                    const marker = e.target as L.Marker;
+                    const marker = e.target as L.Marker & {
+                      __lastClickAt?: number;
+                      __balloonTimer?: number;
+                    };
                     const now = Date.now();
-                    const last = (marker as L.Marker & { __lastClickAt?: number }).__lastClickAt ?? 0;
-                    if (now - last <= 400) {
-                      (marker as L.Marker & { __lastClickAt?: number }).__lastClickAt = 0;
+                    const last = marker.__lastClickAt ?? 0;
+                    if (now - last <= 550) {
+                      if (marker.__balloonTimer) window.clearTimeout(marker.__balloonTimer);
+                      marker.__lastClickAt = 0;
+                      marker.__balloonTimer = undefined;
                       onInstructorFocus?.(i.id);
                       marker.closePopup();
                       return;
                     }
-                    (marker as L.Marker & { __lastClickAt?: number }).__lastClickAt = now;
+                    if (marker.__balloonTimer) window.clearTimeout(marker.__balloonTimer);
+                    marker.__lastClickAt = now;
                     onInstructorSelect?.(i.id);
-                    marker.openPopup();
+                    marker.__balloonTimer = window.setTimeout(() => {
+                      if (marker.__lastClickAt !== now) return;
+                      marker.openPopup();
+                    }, 280);
                   },
                   dblclick: (e) => {
                     if (e.originalEvent) {
                       L.DomEvent.stopPropagation(e.originalEvent);
                       L.DomEvent.preventDefault(e.originalEvent);
                     }
-                    const marker = e.target as L.Marker;
+                    const marker = e.target as L.Marker & {
+                      __lastClickAt?: number;
+                      __balloonTimer?: number;
+                    };
+                    if (marker.__balloonTimer) window.clearTimeout(marker.__balloonTimer);
+                    marker.__lastClickAt = 0;
                     onInstructorFocus?.(i.id);
                     marker.closePopup();
                   },

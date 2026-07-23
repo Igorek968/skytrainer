@@ -83,17 +83,18 @@ function buildStarRatingInlineHtml(rating: number): string {
   return `<span style="display:inline-flex;gap:1px;align-items:center;">${stars}</span><span style="margin-left:3px;font-size:12px;font-weight:600;color:#334155;">${clamped.toFixed(1)}</span>`;
 }
 
-/** Компактная карточка для балуна/попапа (выбор — клик по маркеру, без кнопок). */
+/** Компактная карточка для балуна/попапа (выбор — клик по маркеру; анкета — ссылка / двойной клик). */
 export function buildInstructorBalloonHtml(
   pin: Pick<
     InstructorMapPin,
-    "name" | "ratingAvg" | "hourlyRate" | "distanceKm" | "photoUrl" | "image" | "specializations" | "sportLabel"
+    "id" | "name" | "ratingAvg" | "hourlyRate" | "distanceKm" | "photoUrl" | "image" | "specializations" | "sportLabel"
   >,
   mode: "class" | "inline" = "class",
 ): string {
   const displayName = pin.name?.trim() || "Инструктор";
   const photoUrl = resolveInstructorMarkerPhoto(pin);
   const sportLabel = resolveInstructorSportLabel(pin);
+  const profileHref = `/instructors/${encodeURIComponent(pin.id)}`;
   const sportHtml = sportLabel
     ? mode === "inline"
       ? `<div style="margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;line-height:1.25;color:#64748b;">${escapeHtml(sportLabel)}</div>`
@@ -119,6 +120,7 @@ export function buildInstructorBalloonHtml(
         <span style="color:#cbd5e1;" aria-hidden="true">·</span>
         <span>${pin.distanceKm}&nbsp;км</span>
       </div>
+      <a href="${escapeHtml(profileHref)}" style="display:inline-block;margin-top:8px;font-size:12px;font-weight:600;color:#0f766e;text-decoration:underline;">Открыть анкету</a>
     </div>`;
   }
 
@@ -140,6 +142,7 @@ export function buildInstructorBalloonHtml(
       <span class="instructor-map-balloon__sep" aria-hidden="true">·</span>
       <span class="instructor-map-balloon__distance">${pin.distanceKm}&nbsp;км</span>
     </div>
+    <a class="instructor-map-balloon__profile-link" href="${escapeHtml(profileHref)}">Открыть анкету</a>
   </div>`;
 }
 

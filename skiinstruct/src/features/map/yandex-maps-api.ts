@@ -50,6 +50,7 @@ export type YmapsNamespace = {
 export type YmapsMap = {
   geoObjects: YmapsCollection;
   events: { add: (type: string, cb: (e: YmapsEvent) => void) => void };
+  behaviors: { disable: (name: string) => void; enable: (name: string) => void };
   setCenter: (center: number[], zoom?: number, options?: { duration?: number }) => void;
   getZoom: () => number;
   destroy: () => void;

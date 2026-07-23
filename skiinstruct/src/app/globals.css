@@ -373,3 +373,16 @@
 .instructor-map-balloon__sep {
   color: #cbd5e1;
 }
+
+.instructor-map-balloon__profile-link {
+  display: inline-block;
+  margin-top: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #0f766e;
+  text-decoration: underline;
+}
+
+.instructor-map-balloon__profile-link:hover {
+  color: #115e59;
+}
