@@ -661,7 +661,7 @@ function ClientOrderDetailContent({
             Дисциплина: <span className="font-medium">{discipline}</span>
           </div>
           <div>
-            Уровень:{" "}
+            Мой уровень:{" "}
             <span className="font-medium">{skillLevelLabelRu(o.skillLevel as SkillLevel)}</span>
           </div>
           <div>

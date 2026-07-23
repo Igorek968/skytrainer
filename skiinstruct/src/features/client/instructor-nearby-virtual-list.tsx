@@ -12,6 +12,7 @@ import { instructorListAvatar } from "@/features/client/instructor-profile-utils
 import { InstructorSearchExpandedBody } from "@/features/client/instructor-search-expanded-body";
 import { Button } from "@/shared/ui/button";
 import { InstructorPhoto } from "@/shared/ui/instructor-photo";
+import type { PhotoViewerState } from "@/shared/ui/photo-viewer-overlay";
 import { Skeleton } from "@/shared/ui/skeleton";
 
 const COLLAPSED_ROW_ESTIMATE = 132;
@@ -28,7 +29,7 @@ type InstructorNearbyVirtualListProps = {
   setSelectedId: Dispatch<SetStateAction<string | null>>;
   setExpandedId: Dispatch<SetStateAction<string | null>>;
   setShowAllReviewsFor: Dispatch<SetStateAction<string | null>>;
-  setPreviewUrl: Dispatch<SetStateAction<string | null>>;
+  setPhotoPreview: Dispatch<SetStateAction<PhotoViewerState | null>>;
   onStartCheckout: (instructorId: string) => void;
 };
 
@@ -43,7 +44,7 @@ export function InstructorNearbyVirtualList({
   setSelectedId,
   setExpandedId,
   setShowAllReviewsFor,
-  setPreviewUrl,
+  setPhotoPreview,
   onStartCheckout,
 }: InstructorNearbyVirtualListProps) {
   const parentRef = useRef<HTMLDivElement>(null);
@@ -61,6 +62,17 @@ export function InstructorNearbyVirtualList({
     virtualizer.measure();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- remeasure on expand/collapse
   }, [expandedId, expandedProfile?.instructor.id, isExpandedProfileLoading, showAllReviewsFor, items.length]);
+
+  useEffect(() => {
+    if (!expandedId) return;
+    const index = items.findIndex((row) => row.id === expandedId);
+    if (index < 0) return;
+    const frame = window.requestAnimationFrame(() => {
+      virtualizer.scrollToIndex(index, { align: "start" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- scroll when анкета opens from map
+  }, [expandedId, items]);
 
   return (
     <div
@@ -196,7 +208,7 @@ export function InstructorNearbyVirtualList({
                         listItemId={i.id}
                         showAllReviewsFor={showAllReviewsFor}
                         setShowAllReviewsFor={setShowAllReviewsFor}
-                        setPreviewUrl={setPreviewUrl}
+                        setPhotoPreview={setPhotoPreview}
                         setSelectedId={setSelectedId}
                         onStartCheckout={onStartCheckout}
                       />

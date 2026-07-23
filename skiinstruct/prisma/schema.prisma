@@ -605,6 +605,8 @@ model EventSlot {
   event   InstructorEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
 
   startsAt  DateTime
+  /// Краткое название выхода / дня (опционально), напр. «Утренний заезд».
+  title     String?
   /// Push инструктору за ~1 ч до этого выхода.
   startReminderSentAt DateTime?
   maxSeats  Int?

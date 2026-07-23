@@ -38,7 +38,9 @@ type TitleOption = { id: string; title: string };
 
 type SlotFormRow = {
   id?: string;
+  date: string;
   time: string;
+  title: string;
   maxSeats: string;
   priceRub: string;
 };
@@ -51,7 +53,9 @@ type InstructorEventApi = Omit<InstructorEventDTO, "slots" | "hasSlots"> & {
   venueLng?: number | null;
   slots?: {
     id?: string;
+    date?: string | null;
     time: string;
+    title?: string | null;
     maxSeats: number | null;
     priceRub: number | null;
     paidCount?: number;
@@ -59,11 +63,31 @@ type InstructorEventApi = Omit<InstructorEventDTO, "slots" | "hasSlots"> & {
   }[];
 };
 
-const DEFAULT_SLOTS: SlotFormRow[] = [
-  { time: "10:00", maxSeats: "4", priceRub: "5000" },
-  { time: "14:00", maxSeats: "4", priceRub: "5000" },
-  { time: "18:00", maxSeats: "6", priceRub: "6000" },
-];
+function todayYmd(): string {
+  const d = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+const DEFAULT_SLOTS: SlotFormRow[] = [];
+
+function defaultSlotsForToday(): SlotFormRow[] {
+  return DEFAULT_SLOTS;
+}
+
+function slotRowsFromApi(
+  slotList: NonNullable<InstructorEventApi["slots"]>,
+  fallbackDay: string,
+): SlotFormRow[] {
+  return slotList.map((s) => ({
+    id: s.id,
+    date: s.date?.trim() || (s.startsAt ? eventDayFromEventAt(s.startsAt) : fallbackDay) || todayYmd(),
+    time: s.time ?? (s.startsAt ? formatSlotTimeRu(s.startsAt) : "10:00"),
+    title: s.title?.trim() ?? "",
+    maxSeats: s.maxSeats != null ? String(s.maxSeats) : "",
+    priceRub: s.priceRub != null && s.priceRub > 0 ? String(s.priceRub) : "",
+  }));
+}
 
 const EMPTY_VENUE: EventVenueValue = { address: "", lat: null, lng: null };
 
@@ -174,9 +198,13 @@ export function InstructorEventsEditor({
   const [body, setBody] = useState("");
   const [category, setCategory] = useState("");
   const [eventAt, setEventAt] = useState("");
-  const [eventDay, setEventDay] = useState("");
   const [useSlots, setUseSlots] = useState(true);
-  const [slotRows, setSlotRows] = useState<SlotFormRow[]>(DEFAULT_SLOTS);
+  const [slotRows, setSlotRows] = useState<SlotFormRow[]>(() => defaultSlotsForToday());
+  const [draftSlotDate, setDraftSlotDate] = useState(() => todayYmd());
+  const [draftSlotTime, setDraftSlotTime] = useState("10:00");
+  const [draftSlotTitle, setDraftSlotTitle] = useState("");
+  const [draftSlotPrice, setDraftSlotPrice] = useState("");
+  const [draftSlotSeats, setDraftSlotSeats] = useState("4");
   const [orderId, setOrderId] = useState("");
   const [priceRub, setPriceRub] = useState("");
   const [maxRegistrations, setMaxRegistrations] = useState("");
@@ -234,20 +262,13 @@ export function InstructorEventsEditor({
     setBody(ev.body);
     setCategory(ev.category ?? "");
     setEventAt("");
-    setEventDay("");
     const slotList = api.slots ?? [];
     const hasSlotRows = Boolean(api.hasSlots && slotList.length > 0);
     setUseSlots(hasSlotRows || !ev.eventAt);
     if (hasSlotRows && slotList.length) {
-      setSlotRows(
-        slotList.map((s) => ({
-          time: s.time ?? (s.startsAt ? formatSlotTimeRu(s.startsAt) : "10:00"),
-          maxSeats: s.maxSeats != null ? String(s.maxSeats) : "",
-          priceRub: s.priceRub != null && s.priceRub > 0 ? String(s.priceRub) : "",
-        })),
-      );
+      setSlotRows(slotRowsFromApi(slotList, todayYmd()));
     } else if (!ev.eventAt) {
-      setSlotRows(DEFAULT_SLOTS);
+      setSlotRows(defaultSlotsForToday());
     }
     setOrderId(ev.orderId ?? "");
     setPriceRub(ev.priceRub != null && ev.priceRub > 0 ? String(ev.priceRub) : "");
@@ -268,21 +289,13 @@ export function InstructorEventsEditor({
     setBody(ev.body);
     setCategory(ev.category ?? "");
     setEventAt(toDatetimeLocalValue(ev.eventAt));
-    setEventDay(api.eventDay ?? eventDayFromEventAt(ev.eventAt));
     const slotList = api.slots ?? [];
     const hasSlotRows = Boolean(api.hasSlots && slotList.length > 0);
     setUseSlots(hasSlotRows || !ev.eventAt);
     if (hasSlotRows && slotList.length) {
-      setSlotRows(
-        slotList.map((s) => ({
-          id: s.id,
-          time: s.time ?? (s.startsAt ? formatSlotTimeRu(s.startsAt) : "10:00"),
-          maxSeats: s.maxSeats != null ? String(s.maxSeats) : "",
-          priceRub: s.priceRub != null && s.priceRub > 0 ? String(s.priceRub) : "",
-        })),
-      );
+      setSlotRows(slotRowsFromApi(slotList, api.eventDay ?? eventDayFromEventAt(ev.eventAt) || todayYmd()));
     } else if (!ev.eventAt) {
-      setSlotRows(DEFAULT_SLOTS);
+      setSlotRows(defaultSlotsForToday());
     }
     setOrderId(ev.orderId ?? "");
     setPriceRub(ev.priceRub != null && ev.priceRub > 0 ? String(ev.priceRub) : "");
@@ -304,9 +317,13 @@ export function InstructorEventsEditor({
     setBody("");
     setCategory("");
     setEventAt("");
-    setEventDay("");
     setUseSlots(true);
-    setSlotRows(DEFAULT_SLOTS);
+    setSlotRows(defaultSlotsForToday());
+    setDraftSlotDate(todayYmd());
+    setDraftSlotTime("10:00");
+    setDraftSlotTitle("");
+    setDraftSlotPrice("");
+    setDraftSlotSeats("4");
     setOrderId("");
     setPriceRub("");
     setMaxRegistrations("");
@@ -388,22 +405,23 @@ export function InstructorEventsEditor({
       }
 
       if (useSlots) {
-        if (!eventDay.trim()) throw new Error("Укажите день мероприятия");
-        payload.eventDay = eventDay.trim();
         payload.slots = slotRows
-          .filter((s) => s.time.trim())
+          .filter((s) => s.date.trim() && s.time.trim())
           .map((s) => {
             const maxParsed = s.maxSeats.trim() ? Number.parseInt(s.maxSeats.trim(), 10) : NaN;
             const priceParsed = s.priceRub.trim() ? Number.parseInt(s.priceRub.trim(), 10) : NaN;
+            const titleTrim = s.title.trim();
             return {
               id: s.id,
+              date: s.date.trim(),
               time: s.time.trim(),
+              title: titleTrim || null,
               maxSeats: Number.isFinite(maxParsed) && maxParsed >= 1 ? maxParsed : null,
               priceRub: Number.isFinite(priceParsed) && priceParsed >= 0 ? priceParsed : null,
             };
           });
         if (!(payload.slots as unknown[]).length) {
-          throw new Error("Добавьте хотя бы один выход");
+          throw new Error("Добавьте хотя бы один выход с датой и временем");
         }
       } else {
         if (eventAt.trim()) payload.eventAt = new Date(eventAt).toISOString();
@@ -669,9 +687,16 @@ export function InstructorEventsEditor({
   const events = data?.events ?? [];
   const titles = data?.titles ?? [];
   const formLocked = !canEdit;
+  const latestSlotDay = useSlots
+    ? slotRows
+        .map((s) => s.date.trim())
+        .filter(Boolean)
+        .sort()
+        .at(-1) ?? ""
+    : "";
   const effectiveEventAt =
-    eventDay.trim() !== ""
-      ? new Date(`${eventDay.trim()}T23:59:59`)
+    useSlots && latestSlotDay
+      ? new Date(`${latestSlotDay}T23:59:59`)
       : eventAt.trim()
         ? new Date(eventAt)
         : null;
@@ -716,8 +741,8 @@ export function InstructorEventsEditor({
               toast.error("Заполните заголовок и текст");
               return;
             }
-            if (useSlots && !eventDay.trim()) {
-              toast.error("Укажите день мероприятия");
+            if (useSlots && !slotRows.some((s) => s.date.trim() && s.time.trim())) {
+              toast.error("Добавьте хотя бы один выход с датой и временем");
               return;
             }
             if (!useSlots && !eventAt.trim()) {
@@ -905,7 +930,7 @@ export function InstructorEventsEditor({
                   disabled={formLocked}
                   onChange={() => setUseSlots(true)}
                 />
-                Несколько выходов в день
+                Несколько дней / выходов
               </label>
               <label className="flex items-center gap-2 text-sm">
                 <input
@@ -920,19 +945,7 @@ export function InstructorEventsEditor({
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2">
-              {useSlots ? (
-                <div className="space-y-2 sm:col-span-2">
-                  <Label htmlFor="event-day">День мероприятия</Label>
-                  <Input
-                    id="event-day"
-                    type="date"
-                    value={eventDay}
-                    onChange={(e) => setEventDay(e.target.value)}
-                    disabled={formLocked}
-                    required={useSlots}
-                  />
-                </div>
-              ) : (
+              {!useSlots ? (
                 <div className="space-y-2">
                   <Label htmlFor="event-at">Дата и время</Label>
                   <Input
@@ -944,8 +957,8 @@ export function InstructorEventsEditor({
                     required={!useSlots}
                   />
                 </div>
-              )}
-              <div className="space-y-2">
+              ) : null}
+              <div className={cn("space-y-2", useSlots && "sm:col-span-2")}>
                 <Label htmlFor="event-order">Только для заказа</Label>
                 <select
                   id="event-order"
@@ -965,103 +978,250 @@ export function InstructorEventsEditor({
             </div>
 
             {useSlots ? (
-              <div className="space-y-2">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <Label>Выходы в этот день</Label>
-                  {!formLocked ? (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      onClick={() =>
-                        setSlotRows((rows) => [...rows, { time: "12:00", maxSeats: "4", priceRub: "" }])
-                      }
-                    >
-                      + Добавить выход
-                    </Button>
-                  ) : null}
-                </div>
-                <div className="overflow-x-auto rounded-md border border-border">
-                  <table className="w-full min-w-[480px] text-sm">
-                    <thead>
-                      <tr className="border-b border-border bg-muted/40 text-left text-xs text-muted-foreground">
-                        <th className="px-2 py-2 font-medium">Время</th>
-                        <th className="px-2 py-2 font-medium">Мест</th>
-                        <th className="px-2 py-2 font-medium">Цена, ₽</th>
-                        {!formLocked ? <th className="px-2 py-2 w-10" /> : null}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {slotRows.map((row, idx) => (
-                        <tr key={row.id ?? `new-${idx}`} className="border-b border-border/60 last:border-0">
-                          <td className="px-2 py-1.5">
-                            <Input
-                              type="time"
-                              value={row.time}
-                              disabled={formLocked}
-                              onChange={(e) =>
-                                setSlotRows((rows) =>
-                                  rows.map((r, i) => (i === idx ? { ...r, time: e.target.value } : r)),
-                                )
+              <div className="space-y-3">
+                {!formLocked ? (
+                  <div className="space-y-2 rounded-md border border-dashed border-border/80 bg-muted/20 p-3">
+                    <Label>Добавить день выхода</Label>
+                    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+                      <div className="space-y-1">
+                        <Label htmlFor="draft-slot-date" className="text-xs text-muted-foreground">
+                          Дата
+                        </Label>
+                        <Input
+                          id="draft-slot-date"
+                          type="date"
+                          value={draftSlotDate}
+                          onChange={(e) => setDraftSlotDate(e.target.value)}
+                          className="h-9"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor="draft-slot-time" className="text-xs text-muted-foreground">
+                          Время
+                        </Label>
+                        <Input
+                          id="draft-slot-time"
+                          type="time"
+                          value={draftSlotTime}
+                          onChange={(e) => setDraftSlotTime(e.target.value)}
+                          className="h-9"
+                        />
+                      </div>
+                      <div className="space-y-1 sm:col-span-2 lg:col-span-1">
+                        <Label htmlFor="draft-slot-title" className="text-xs text-muted-foreground">
+                          Название
+                        </Label>
+                        <Input
+                          id="draft-slot-title"
+                          type="text"
+                          maxLength={80}
+                          placeholder="Утренний"
+                          value={draftSlotTitle}
+                          onChange={(e) => setDraftSlotTitle(e.target.value)}
+                          className="h-9"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor="draft-slot-price" className="text-xs text-muted-foreground">
+                          Цена, ₽
+                        </Label>
+                        <Input
+                          id="draft-slot-price"
+                          type="number"
+                          min={0}
+                          max={500000}
+                          placeholder="0"
+                          value={draftSlotPrice}
+                          onChange={(e) => setDraftSlotPrice(e.target.value)}
+                          className="h-9"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor="draft-slot-seats" className="text-xs text-muted-foreground">
+                          Мест
+                        </Label>
+                        <div className="flex gap-2">
+                          <Input
+                            id="draft-slot-seats"
+                            type="number"
+                            min={1}
+                            max={10000}
+                            placeholder="∞"
+                            value={draftSlotSeats}
+                            onChange={(e) => setDraftSlotSeats(e.target.value)}
+                            className="h-9"
+                          />
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="h-9 shrink-0"
+                            onClick={() => {
+                              if (!draftSlotDate.trim() || !draftSlotTime.trim()) {
+                                toast.error("Укажите дату и время выхода");
+                                return;
                               }
-                              className="h-9"
-                            />
-                          </td>
-                          <td className="px-2 py-1.5">
-                            <Input
-                              type="number"
-                              min={1}
-                              max={10000}
-                              placeholder="∞"
-                              value={row.maxSeats}
-                              disabled={formLocked}
-                              onChange={(e) =>
-                                setSlotRows((rows) =>
-                                  rows.map((r, i) => (i === idx ? { ...r, maxSeats: e.target.value } : r)),
-                                )
-                              }
-                              className="h-9"
-                            />
-                          </td>
-                          <td className="px-2 py-1.5">
-                            <Input
-                              type="number"
-                              min={0}
-                              max={500000}
-                              placeholder="0"
-                              value={row.priceRub}
-                              disabled={formLocked}
-                              onChange={(e) =>
-                                setSlotRows((rows) =>
-                                  rows.map((r, i) => (i === idx ? { ...r, priceRub: e.target.value } : r)),
-                                )
-                              }
-                              className="h-9"
-                            />
-                          </td>
-                          {!formLocked ? (
-                            <td className="px-2 py-1.5">
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="ghost"
-                                className="h-9 w-9 p-0 text-muted-foreground"
-                                disabled={slotRows.length <= 1}
-                                onClick={() => setSlotRows((rows) => rows.filter((_, i) => i !== idx))}
-                              >
-                                ×
-                              </Button>
-                            </td>
-                          ) : null}
+                              setSlotRows((rows) => [
+                                ...rows,
+                                {
+                                  date: draftSlotDate.trim(),
+                                  time: draftSlotTime.trim(),
+                                  title: draftSlotTitle.trim(),
+                                  maxSeats: draftSlotSeats.trim(),
+                                  priceRub: draftSlotPrice.trim(),
+                                },
+                              ]);
+                              setDraftSlotTitle("");
+                              toast.success("Выход добавлен");
+                            }}
+                          >
+                            + Добавить
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+
+                <div className="space-y-2">
+                  <Label>Дни мероприятия</Label>
+                  <div className="overflow-x-auto rounded-md border border-border">
+                    <table className="w-full min-w-[640px] text-sm">
+                      <thead>
+                        <tr className="border-b border-border bg-muted/40 text-left text-xs text-muted-foreground">
+                          <th className="px-2 py-2 font-medium">Дата</th>
+                          <th className="px-2 py-2 font-medium">Время</th>
+                          <th className="px-2 py-2 font-medium">Название</th>
+                          <th className="px-2 py-2 font-medium">Мест</th>
+                          <th className="px-2 py-2 font-medium">Цена, ₽</th>
+                          {!formLocked ? <th className="px-2 py-2 w-10" /> : null}
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {slotRows.length === 0 ? (
+                          <tr>
+                            <td
+                              colSpan={formLocked ? 5 : 6}
+                              className="px-3 py-4 text-center text-xs text-muted-foreground"
+                            >
+                              Пока нет выходов — выберите дату в календаре и нажмите «Добавить»
+                            </td>
+                          </tr>
+                        ) : (
+                          slotRows.map((row, idx) => (
+                            <tr
+                              key={row.id ?? `new-${idx}`}
+                              className="border-b border-border/60 last:border-0"
+                            >
+                              <td className="px-2 py-1.5">
+                                <Input
+                                  type="date"
+                                  value={row.date}
+                                  disabled={formLocked}
+                                  onChange={(e) =>
+                                    setSlotRows((rows) =>
+                                      rows.map((r, i) =>
+                                        i === idx ? { ...r, date: e.target.value } : r,
+                                      ),
+                                    )
+                                  }
+                                  className="h-9"
+                                />
+                              </td>
+                              <td className="px-2 py-1.5">
+                                <Input
+                                  type="time"
+                                  value={row.time}
+                                  disabled={formLocked}
+                                  onChange={(e) =>
+                                    setSlotRows((rows) =>
+                                      rows.map((r, i) =>
+                                        i === idx ? { ...r, time: e.target.value } : r,
+                                      ),
+                                    )
+                                  }
+                                  className="h-9"
+                                />
+                              </td>
+                              <td className="px-2 py-1.5">
+                                <Input
+                                  type="text"
+                                  maxLength={80}
+                                  placeholder="—"
+                                  value={row.title}
+                                  disabled={formLocked}
+                                  onChange={(e) =>
+                                    setSlotRows((rows) =>
+                                      rows.map((r, i) =>
+                                        i === idx ? { ...r, title: e.target.value } : r,
+                                      ),
+                                    )
+                                  }
+                                  className="h-9"
+                                />
+                              </td>
+                              <td className="px-2 py-1.5">
+                                <Input
+                                  type="number"
+                                  min={1}
+                                  max={10000}
+                                  placeholder="∞"
+                                  value={row.maxSeats}
+                                  disabled={formLocked}
+                                  onChange={(e) =>
+                                    setSlotRows((rows) =>
+                                      rows.map((r, i) =>
+                                        i === idx ? { ...r, maxSeats: e.target.value } : r,
+                                      ),
+                                    )
+                                  }
+                                  className="h-9"
+                                />
+                              </td>
+                              <td className="px-2 py-1.5">
+                                <Input
+                                  type="number"
+                                  min={0}
+                                  max={500000}
+                                  placeholder="0"
+                                  value={row.priceRub}
+                                  disabled={formLocked}
+                                  onChange={(e) =>
+                                    setSlotRows((rows) =>
+                                      rows.map((r, i) =>
+                                        i === idx ? { ...r, priceRub: e.target.value } : r,
+                                      ),
+                                    )
+                                  }
+                                  className="h-9"
+                                />
+                              </td>
+                              {!formLocked ? (
+                                <td className="px-2 py-1.5">
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-9 w-9 p-0 text-muted-foreground"
+                                    onClick={() =>
+                                      setSlotRows((rows) => rows.filter((_, i) => i !== idx))
+                                    }
+                                  >
+                                    ×
+                                  </Button>
+                                </td>
+                              ) : null}
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Каждый день — отдельная строка с датой, временем, названием и ценой. Клиент
+                    записывается именно на выбранный день.
+                  </p>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Пример: «Катаю на яхте» — три выхода с разным временем, лимитом и ценой. Клиент выбирает слот в
-                  ленте.
-                </p>
               </div>
             ) : (
               <div className="grid gap-3 sm:grid-cols-2">

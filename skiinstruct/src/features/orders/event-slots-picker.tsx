@@ -6,7 +6,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import type { ClientInstructorEventDTO } from "@/lib/instructor-events";
-import { formatEventPriceRu, formatSlotTimeRu } from "@/lib/instructor-events";
+import { formatSlotLineRu } from "@/lib/instructor-events";
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
 import { LegalConsentCheckbox } from "@/shared/legal/legal-consent-checkbox";
@@ -77,7 +77,7 @@ export function EventSlotsPicker({
 
   return (
     <div className="mt-3 space-y-2">
-      <p className="text-xs font-medium text-foreground">Выберите время выхода</p>
+      <p className="text-xs font-medium text-foreground">Выберите день мероприятия</p>
       <LegalConsentCheckbox
         id={`event-slots-legal-${event.id}`}
         checked={acceptLegal}
@@ -89,8 +89,11 @@ export function EventSlotsPicker({
           const my = slot.myRegistration;
           const booked =
             my && (my.status === "PAID" || my.status === "PENDING_PAYMENT");
-          const timeLabel = formatSlotTimeRu(slot.startsAt);
-          const priceLabel = formatEventPriceRu(slot.priceRub);
+          const line = formatSlotLineRu(slot.startsAt, {
+            title: slot.title,
+            priceRub: slot.priceRub,
+            includePrice: true,
+          });
           const seats =
             slot.maxSeats != null
               ? booked
@@ -106,7 +109,7 @@ export function EventSlotsPicker({
             <li
               key={slot.id}
               className={cn(
-                "flex flex-wrap items-center justify-between gap-2 rounded-md border p-2.5",
+                "flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2.5",
                 booked
                   ? "border-emerald-500/40 bg-emerald-500/5"
                   : slot.registrationOpen
@@ -114,15 +117,12 @@ export function EventSlotsPicker({
                     : "border-muted bg-muted/30 opacity-75",
               )}
             >
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-sm font-semibold tabular-nums">{timeLabel}</span>
-                  <span className="text-xs text-muted-foreground">{priceLabel}</span>
-                  {!slot.isFree ? (
-                    <span className="text-[10px] text-muted-foreground">· оплата после</span>
-                  ) : null}
-                </div>
-                <p className="mt-0.5 text-xs text-muted-foreground">{seats}</p>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium leading-snug">{line}</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {seats}
+                  {!slot.isFree ? " · оплата после" : null}
+                </p>
               </div>
               <div className="flex shrink-0 items-center gap-2">
                 {booked ? (

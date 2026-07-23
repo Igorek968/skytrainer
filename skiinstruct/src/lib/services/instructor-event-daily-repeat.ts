@@ -4,7 +4,7 @@ import { formatSlotTimeRu } from "@/lib/instructor-events";
 import { duplicatePublicUploadForEvent } from "@/lib/public-uploads";
 import { prisma } from "@/lib/prisma";
 
-import { syncEventSlots, type EventSlotInput } from "./event-slots";
+import { eventDayFromIso, syncEventSlots, type EventSlotInput } from "./event-slots";
 
 type EventWithSlots = InstructorEvent & { slots: EventSlot[] };
 
@@ -54,11 +54,16 @@ function nextDayFromEvent(source: EventWithSlots): {
     );
     const eventDay = startOfLocalDay(firstSlot.startsAt);
     const nextDay = addDays(eventDay, 1);
-    const slotInputs = source.slots.map((s) => ({
-      time: formatSlotTimeRu(s.startsAt),
-      maxSeats: s.maxSeats,
-      priceRub: s.priceRub,
-    }));
+    const slotInputs = source.slots.map((s) => {
+      const shifted = addDays(s.startsAt, 1);
+      return {
+        date: eventDayFromIso(shifted.toISOString()),
+        time: formatSlotTimeRu(s.startsAt),
+        title: s.title ?? null,
+        maxSeats: s.maxSeats,
+        priceRub: s.priceRub,
+      };
+    });
     return { nextEventAt: null, nextDay, slotInputs };
   }
   if (source.eventAt) {

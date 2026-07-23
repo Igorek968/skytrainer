@@ -72,13 +72,17 @@ export type YmapsGeoObject = {
     getCoordinates: () => number[] | [number[], number];
     setCoordinates: (c: number[] | [number[], number]) => void;
   };
-  events: { add: (type: string, cb: () => void) => void };
+  events: { add: (type: string, cb: (e?: YmapsEvent) => void) => void };
   properties: { set: (k: Record<string, unknown>) => void };
   options: { set: (key: string, value: unknown) => void };
   balloon: { open: () => void; close: () => void };
 };
 
-export type YmapsEvent = { get: (key: string) => number[] };
+export type YmapsEvent = {
+  get: (key: string) => number[];
+  preventDefault?: () => void;
+  stopPropagation?: () => void;
+};
 
 export type YmapsGeocodeResult = {
   geoObjects: {

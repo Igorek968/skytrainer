@@ -5,15 +5,18 @@ import { prisma } from "@/lib/prisma";
 
 import {
   isEventFree,
-  registrationOpenForEvent,
   serializeEventRegistration,
   type EventRegistrationSummary,
 } from "./event-registration";
 
 export type EventSlotInput = {
   id?: string;
+  /** YYYY-MM-DD — день этого выхода (если нет, берётся eventDay) */
+  date?: string | null;
   /** HH:mm */
   time: string;
+  /** Название выхода / дня */
+  title?: string | null;
   maxSeats?: number | null;
   priceRub?: number | null;
 };
@@ -21,6 +24,7 @@ export type EventSlotInput = {
 export type EventSlotDTO = {
   id: string;
   startsAt: string;
+  title: string | null;
   maxSeats: number | null;
   priceRub: number | null;
   sortOrder: number;
@@ -35,6 +39,14 @@ export type EventSlotDTO = {
 
 export function eventUsesSlots(slots: { id: string }[] | number): boolean {
   return typeof slots === "number" ? slots > 0 : slots.length > 0;
+}
+
+export function parseEventDayYmd(raw: string | null | undefined): Date | null {
+  if (!raw) return null;
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(raw.trim());
+  if (!m) return null;
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 12, 0, 0, 0);
+  return Number.isFinite(d.getTime()) ? d : null;
 }
 
 export function buildSlotStartsAt(eventDay: Date, timeHm: string): Date | null {
@@ -90,18 +102,26 @@ export function computeEventAtFromSlots(slots: Pick<EventSlot, "startsAt">[]): D
   return new Date(max);
 }
 
+function normalizeSlotTitle(raw: string | null | undefined): string | null {
+  const t = raw?.trim() ?? "";
+  return t.length ? t.slice(0, 80) : null;
+}
+
 export async function syncEventSlots(
   eventId: string,
-  eventDay: Date,
+  eventDay: Date | null,
   inputs: EventSlotInput[],
 ): Promise<EventSlot[]> {
   const normalized = inputs
     .map((row, index) => {
-      const startsAt = buildSlotStartsAt(eventDay, row.time);
+      const day = parseEventDayYmd(row.date) ?? eventDay;
+      if (!day) return null;
+      const startsAt = buildSlotStartsAt(day, row.time);
       if (!startsAt) return null;
       return {
         id: row.id?.trim() || undefined,
         startsAt,
+        title: normalizeSlotTitle(row.title),
         maxSeats: row.maxSeats ?? null,
         priceRub: row.priceRub ?? null,
         sortOrder: index,
@@ -110,7 +130,7 @@ export async function syncEventSlots(
     .filter((row): row is NonNullable<typeof row> => row != null);
 
   if (!normalized.length) {
-    throw new Error("Добавьте хотя бы один выход с временем");
+    throw new Error("Добавьте хотя бы один выход с датой и временем");
   }
 
   const existing = await prisma.eventSlot.findMany({
@@ -140,6 +160,7 @@ export async function syncEventSlots(
         where: { id: row.id },
         data: {
           startsAt: row.startsAt,
+          title: row.title,
           maxSeats: row.maxSeats,
           priceRub: row.priceRub,
           sortOrder: row.sortOrder,
@@ -151,6 +172,7 @@ export async function syncEventSlots(
         data: {
           eventId,
           startsAt: row.startsAt,
+          title: row.title,
           maxSeats: row.maxSeats,
           priceRub: row.priceRub,
           sortOrder: row.sortOrder,
@@ -185,6 +207,7 @@ export async function serializeEventSlot(
   return {
     id: slot.id,
     startsAt: slot.startsAt.toISOString(),
+    title: slot.title ?? null,
     maxSeats: slot.maxSeats,
     priceRub: slot.priceRub,
     sortOrder: slot.sortOrder,
@@ -240,7 +263,9 @@ export function eventDayFromIso(iso: string | null | undefined): string {
 export function slotsToFormInputs(slots: EventSlot[]): EventSlotInput[] {
   return slots.map((s) => ({
     id: s.id,
+    date: eventDayFromIso(s.startsAt.toISOString()),
     time: formatSlotTimeRu(s.startsAt),
+    title: s.title ?? null,
     maxSeats: s.maxSeats,
     priceRub: s.priceRub,
   }));

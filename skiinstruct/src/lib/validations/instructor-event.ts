@@ -20,7 +20,16 @@ const maxRegistrationsField = z
 
 const eventSlotInputSchema = z.object({
   id: z.string().cuid().optional(),
+  /** YYYY-MM-DD — день этого выхода */
+  date: z
+    .string()
+    .trim()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Дата в формате ГГГГ-ММ-ДД")
+    .optional()
+    .nullable(),
   time: z.string().trim().regex(/^\d{1,2}:\d{2}$/, "Время в формате ЧЧ:ММ"),
+  /** Название выхода / дня */
+  title: z.string().trim().max(80).optional().nullable(),
   maxSeats: z.number().int().min(1).max(10_000).optional().nullable(),
   priceRub: priceRubField,
 });

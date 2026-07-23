@@ -58,7 +58,9 @@ export type InstructorEventDTO = {
 
 export type InstructorEventSlotForm = {
   id?: string;
+  date?: string | null;
   time: string;
+  title?: string | null;
   maxSeats: number | null;
   priceRub: number | null;
 };
@@ -325,6 +327,29 @@ export function formatSlotTimeRu(iso: string | Date): string {
   const d = iso instanceof Date ? iso : new Date(iso);
   if (!Number.isFinite(d.getTime())) return "—";
   return d.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+}
+
+/** Дата выхода без года (для строки записи): «23 июля». */
+export function formatSlotDayRu(iso: string | Date): string {
+  const d = iso instanceof Date ? iso : new Date(iso);
+  if (!Number.isFinite(d.getTime())) return "—";
+  return d.toLocaleDateString("ru-RU", { day: "numeric", month: "long" });
+}
+
+/** Одна строка для клиента: «23 июля, 10:00 · Утренний · 5 000 ₽». */
+export function formatSlotLineRu(
+  startsAt: string | Date,
+  opts?: { title?: string | null; priceRub?: number | null; includePrice?: boolean },
+): string {
+  const day = formatSlotDayRu(startsAt);
+  const time = formatSlotTimeRu(startsAt);
+  const parts = [`${day}, ${time}`];
+  const title = opts?.title?.trim();
+  if (title) parts.push(title);
+  if (opts?.includePrice !== false) {
+    parts.push(formatEventPriceRu(opts?.priceRub));
+  }
+  return parts.join(" · ");
 }
 
 export function toDatetimeLocalValue(iso: string | null | undefined): string {

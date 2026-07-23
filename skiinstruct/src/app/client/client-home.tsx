@@ -34,6 +34,7 @@ import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
+import { PhotoViewerOverlay, type PhotoViewerState } from "@/shared/ui/photo-viewer-overlay";
 import { TimeInput24, normalizeTimeInput24 } from "@/shared/ui/time-input-24";
 import { Skeleton } from "@/shared/ui/skeleton";
 import { WhenInViewport } from "@/shared/ui/when-in-viewport";
@@ -238,7 +239,7 @@ export default function ClientHomePage() {
   /** Инструктор, поднятый в начало списка после двойного клика на карте. */
   const [listPriorityId, setListPriorityId] = useState<string | null>(null);
   const [showAllReviewsFor, setShowAllReviewsFor] = useState<string | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<PhotoViewerState | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [checkoutInstructor, setCheckoutInstructor] = useState<ClientCheckoutInstructorSummary | null>(null);
@@ -816,7 +817,7 @@ export default function ClientHomePage() {
       <div className="space-y-3">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Найти тренера рядом</h1>
+            <h1 className="text-2xl font-semibold tracking-tight">Найти Тренера, Инструктора, Гида.</h1>
             <p className="text-sm text-muted-foreground">
               Без регистрации: отметьте себя на карте, выберите направление и инструктора. После выбора — согласие с
               офертой, аккаунт и оплата картой, затем заявка уходит инструктору.
@@ -857,18 +858,18 @@ export default function ClientHomePage() {
             variant="outline"
             size="sm"
             className="w-full px-2 text-xs sm:text-sm"
-            onClick={() => scrollToClientSection(CLIENT_SECTION_IDS.instructorReviews)}
+            onClick={() => scrollToClientSection(CLIENT_SECTION_IDS.events)}
           >
-            Отзывы инструкторов
+            Мероприятия
           </Button>
           <Button
             type="button"
             variant="outline"
             size="sm"
             className="w-full px-2 text-xs sm:text-sm"
-            onClick={() => scrollToClientSection(CLIENT_SECTION_IDS.events)}
+            onClick={() => scrollToClientSection(CLIENT_SECTION_IDS.instructorReviews)}
           >
-            Мероприятия
+            Отзывы инструкторов
           </Button>
         </nav>
       </div>
@@ -949,7 +950,7 @@ export default function ClientHomePage() {
               </select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="skill">Уровень</Label>
+              <Label htmlFor="skill">Мой уровень</Label>
               <select
                 id="skill"
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
@@ -1080,7 +1081,7 @@ export default function ClientHomePage() {
               className="w-full"
               onClick={() => setShowAdvancedParams((v) => !v)}
             >
-              {showAdvancedParams ? "Скрыть даты и комментарий" : "Даты, язык и комментарий"}
+              {showAdvancedParams ? "Скрыть даты и комментарий" : "📅 выбор даты, времени для занятия"}
             </Button>
             {showAdvancedParams ? (
               <>
@@ -1263,7 +1264,7 @@ export default function ClientHomePage() {
                 setSelectedId={setSelectedId}
                 setExpandedId={setExpandedId}
                 setShowAllReviewsFor={setShowAllReviewsFor}
-                setPreviewUrl={setPreviewUrl}
+                setPhotoPreview={setPhotoPreview}
                 onStartCheckout={openCheckoutForSelected}
               />
             )}
@@ -1344,23 +1345,14 @@ export default function ClientHomePage() {
         </div>
       ) : null}
 
-      {previewUrl ? (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
-          onClick={() => setPreviewUrl(null)}
-          role="dialog"
-          aria-modal="true"
-          aria-label="Просмотр фото инструктора"
-        >
-          <div className="max-h-[90vh] max-w-[90vw]" onClick={(e) => e.stopPropagation()}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={previewUrl}
-              alt="Фото инструктора"
-              className="max-h-[90vh] max-w-[90vw] rounded-lg border border-white/20 object-contain"
-            />
-          </div>
-        </div>
+      {photoPreview ? (
+        <PhotoViewerOverlay
+          urls={photoPreview.urls}
+          index={photoPreview.index}
+          onIndexChange={(index) => setPhotoPreview((prev) => (prev ? { ...prev, index } : prev))}
+          onClose={() => setPhotoPreview(null)}
+          ariaLabel="Просмотр фото инструктора"
+        />
       ) : null}
     </div>
   );

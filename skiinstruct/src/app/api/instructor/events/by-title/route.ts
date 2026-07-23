@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { isApiErrorResponse, requireInstructorSession } from "@/lib/api-session";
 import { formatSlotTimeRu, serializeInstructorEvent } from "@/lib/instructor-events";
 import { findLatestEventByTitleForTemplate } from "@/lib/services/instructor-event-titles";
+import { eventDayFromIso } from "@/lib/services/event-slots";
 
 export const dynamic = "force-dynamic";
 
@@ -32,7 +33,9 @@ export async function GET(req: Request) {
       hasSlots: true,
       slots: slots.map((s) => ({
         id: s.id,
+        date: eventDayFromIso(s.startsAt.toISOString()),
         time: formatSlotTimeRu(s.startsAt),
+        title: s.title ?? null,
         maxSeats: s.maxSeats,
         priceRub: s.priceRub,
         startsAt: s.startsAt.toISOString(),

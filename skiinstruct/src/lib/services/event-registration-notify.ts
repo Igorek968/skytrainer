@@ -44,6 +44,7 @@ export type EventRegistrationNotifyPayload = {
   eventBody: string;
   eventAt: Date | null;
   slotStartsAt: Date | null;
+  slotTitle: string | null;
   amountRub: number;
   paidCount: number;
   maxSeats: number | null;
@@ -56,9 +57,10 @@ export function buildEventRegistrationEmailContent(p: EventRegistrationNotifyPay
   html: string;
 } {
   const appName = getPublicProductName();
-  const when = p.slotStartsAt
+  const whenBase = p.slotStartsAt
     ? `${formatEventDateRu(p.slotStartsAt.toISOString())} (${formatSlotTimeRu(p.slotStartsAt)})`
     : formatEventDateRu(p.eventAt?.toISOString() ?? null) ?? "дата не указана";
+  const when = p.slotTitle?.trim() ? `${whenBase} · ${p.slotTitle.trim()}` : whenBase;
 
   const seats =
     p.maxSeats != null ? `${p.paidCount} из ${p.maxSeats}` : `${p.paidCount} участник(ов)`;
@@ -111,7 +113,7 @@ export async function notifyInstructorOfEventRegistration(registrationId: string
     where: { id: registrationId },
     include: {
       client: { select: { name: true, email: true } },
-      slot: { select: { startsAt: true, maxSeats: true } },
+      slot: { select: { startsAt: true, maxSeats: true, title: true } },
       event: {
         select: {
           id: true,
@@ -159,6 +161,7 @@ export async function notifyInstructorOfEventRegistration(registrationId: string
     eventBody: reg.event.body,
     eventAt: reg.event.eventAt,
     slotStartsAt: reg.slot?.startsAt ?? null,
+    slotTitle: reg.slot?.title ?? null,
     amountRub: Number(reg.amountRub),
     paidCount,
     maxSeats: reg.slot?.maxSeats ?? null,

@@ -13,6 +13,7 @@ import {
 import { isSyntheticInstructorBioLine } from "@/lib/services/instructor-match";
 import { Button } from "@/shared/ui/button";
 import { InstructorPhoto } from "@/shared/ui/instructor-photo";
+import type { PhotoViewerState } from "@/shared/ui/photo-viewer-overlay";
 
 const DAY_LABELS = ["Вс", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"];
 
@@ -22,7 +23,7 @@ export function InstructorSearchExpandedBody({
   listItemId,
   showAllReviewsFor,
   setShowAllReviewsFor,
-  setPreviewUrl,
+  setPhotoPreview,
   setSelectedId,
   onStartCheckout,
 }: {
@@ -30,7 +31,7 @@ export function InstructorSearchExpandedBody({
   listItemId: string;
   showAllReviewsFor: string | null;
   setShowAllReviewsFor: Dispatch<SetStateAction<string | null>>;
-  setPreviewUrl: Dispatch<SetStateAction<string | null>>;
+  setPhotoPreview: Dispatch<SetStateAction<PhotoViewerState | null>>;
   setSelectedId: Dispatch<SetStateAction<string | null>>;
   onStartCheckout: (instructorId: string) => void;
 }) {
@@ -40,6 +41,7 @@ export function InstructorSearchExpandedBody({
   const bioTrim = p.bio?.trim() ?? "";
   const showBioSection =
     Boolean(bioTrim) && !isSyntheticInstructorBioLine(p.bio, p.specializations);
+  const gallery = p.photoGallery.filter((ph) => ph?.trim());
 
   return (
     <>
@@ -175,28 +177,26 @@ export function InstructorSearchExpandedBody({
         )}
       </div>
 
-      {p.photoGallery.some((ph) => ph?.trim()) ? (
+      {gallery.length > 0 ? (
         <div className="space-y-1">
           <p className="text-xs font-medium">Фотографии инструктора</p>
           <div className="flex flex-wrap gap-2">
-            {p.photoGallery
-              .filter((ph) => ph?.trim())
-              .map((ph, ix) => (
-                <button
-                  type="button"
-                  key={`${ph}-${ix}`}
-                  className="h-20 w-20 overflow-hidden rounded-md border border-border"
-                  onClick={() => setPreviewUrl(ph)}
-                  aria-label={`Открыть фото ${ix + 1}`}
-                >
-                  <InstructorPhoto
-                    src={ph}
-                    alt={`Фото инструктора ${ix + 1}`}
-                    size={80}
-                    className="h-full w-full"
-                  />
-                </button>
-              ))}
+            {gallery.map((ph, ix) => (
+              <button
+                type="button"
+                key={`${ph}-${ix}`}
+                className="h-20 w-20 overflow-hidden rounded-md border border-border"
+                onClick={() => setPhotoPreview({ urls: gallery, index: ix })}
+                aria-label={`Открыть фото ${ix + 1}`}
+              >
+                <InstructorPhoto
+                  src={ph}
+                  alt={`Фото инструктора ${ix + 1}`}
+                  size={80}
+                  className="h-full w-full"
+                />
+              </button>
+            ))}
           </div>
         </div>
       ) : null}

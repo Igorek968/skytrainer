@@ -209,16 +209,26 @@ function LeafletNearbyMap({
                       L.DomEvent.stopPropagation(e.originalEvent);
                     }
                     const marker = e.target as L.Marker;
+                    const now = Date.now();
+                    const last = (marker as L.Marker & { __lastClickAt?: number }).__lastClickAt ?? 0;
+                    if (now - last <= 400) {
+                      (marker as L.Marker & { __lastClickAt?: number }).__lastClickAt = 0;
+                      onInstructorFocus?.(i.id);
+                      marker.closePopup();
+                      return;
+                    }
+                    (marker as L.Marker & { __lastClickAt?: number }).__lastClickAt = now;
                     onInstructorSelect?.(i.id);
                     marker.openPopup();
                   },
                   dblclick: (e) => {
                     if (e.originalEvent) {
                       L.DomEvent.stopPropagation(e.originalEvent);
+                      L.DomEvent.preventDefault(e.originalEvent);
                     }
                     const marker = e.target as L.Marker;
                     onInstructorFocus?.(i.id);
-                    marker.openPopup();
+                    marker.closePopup();
                   },
                 }}
               >

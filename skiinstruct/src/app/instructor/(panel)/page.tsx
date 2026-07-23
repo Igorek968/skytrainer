@@ -40,6 +40,7 @@ import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
+import { PhotoViewerOverlay, type PhotoViewerState } from "@/shared/ui/photo-viewer-overlay";
 import { cn } from "@/lib/utils";
 import { instructorActivityLabelsAlphabetical } from "@/lib/services/instructor-match";
 import { INSTRUCTOR_NO_SHOW_PENALTY_PERCENT } from "@/lib/legal-config";
@@ -359,7 +360,7 @@ export default function InstructorHomePage() {
   const [photoGallery, setPhotoGallery] = useState<string[]>([]);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const [dragPhotoUrl, setDragPhotoUrl] = useState<string | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<PhotoViewerState | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<ProfileField, string>>>({});
   const [inited, setInited] = useState(false);
   /** Иначе Chrome подставляет «чужие» имя/фамилию из профиля браузера в поля с id вроде first-name. */
@@ -1172,7 +1173,7 @@ export default function InstructorHomePage() {
                 </div>
                 {photoGallery.length ? (
                   <div className="grid grid-cols-5 gap-2">
-                    {photoGallery.map((p) => (
+                    {photoGallery.map((p, photoIndex) => (
                       <div
                         key={p}
                         className={`relative ${photoUrl === p ? "ring-2 ring-accent" : ""}`}
@@ -1195,7 +1196,7 @@ export default function InstructorHomePage() {
                         <button
                           type="button"
                           className="h-20 w-20 overflow-hidden rounded-md border border-border"
-                          onClick={() => setPreviewUrl(p)}
+                          onClick={() => setPhotoPreview({ urls: photoGallery, index: photoIndex })}
                           aria-label="Открыть фото"
                         >
                           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -1346,23 +1347,14 @@ export default function InstructorHomePage() {
       </Card>
       ) : null}
 
-      {previewUrl ? (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
-          onClick={() => setPreviewUrl(null)}
-          role="dialog"
-          aria-modal="true"
-          aria-label="Просмотр фото"
-        >
-          <div className="max-h-[90vh] max-w-[90vw]" onClick={(e) => e.stopPropagation()}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={previewUrl}
-              alt="Просмотр фото инструктора"
-              className="max-h-[90vh] max-w-[90vw] rounded-lg border border-white/20 object-contain"
-            />
-          </div>
-        </div>
+      {photoPreview ? (
+        <PhotoViewerOverlay
+          urls={photoPreview.urls}
+          index={photoPreview.index}
+          onIndexChange={(index) => setPhotoPreview((prev) => (prev ? { ...prev, index } : prev))}
+          onClose={() => setPhotoPreview(null)}
+          ariaLabel="Просмотр фото"
+        />
       ) : null}
 
       <datalist id="certification-level-options">

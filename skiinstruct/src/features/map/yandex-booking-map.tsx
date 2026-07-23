@@ -90,6 +90,7 @@ export function YandexBookingMap({
   const eventsByIdRef = useRef<Map<string, EventMapPin>>(new Map());
   const eventDetailRef = useRef<EventMarkerDetail>("mid");
   const suppressMapClickRef = useRef(false);
+  const lastInstructorClickRef = useRef<{ id: string; at: number } | null>(null);
   const selectedInstructorIdRef = useRef(selectedInstructorId);
   const instructorsSignatureRef = useRef("");
   const eventsSignatureRef = useRef("");
@@ -273,23 +274,43 @@ export function YandexBookingMap({
 
       const placemark = new ymaps.Placemark([i.lat, i.lng], properties, options);
 
-      placemark.events.add("click", () => {
+      const suppressMapPick = () => {
         suppressMapClickRef.current = true;
         queueMicrotask(() => {
           suppressMapClickRef.current = false;
         });
+      };
 
+      const openInstructorProfile = () => {
+        lastInstructorClickRef.current = null;
+        onInstructorFocusRef.current?.(i.id);
+        try {
+          placemark.balloon.close();
+        } catch {
+          /* balloon may already be closed */
+        }
+      };
+
+      placemark.events.add("click", (e) => {
+        e?.preventDefault?.();
+        e?.stopPropagation?.();
+        suppressMapPick();
+
+        const now = Date.now();
+        const prev = lastInstructorClickRef.current;
+        if (prev && prev.id === i.id && now - prev.at <= 400) {
+          openInstructorProfile();
+          return;
+        }
+        lastInstructorClickRef.current = { id: i.id, at: now };
         onInstructorSelectRef.current?.(i.id);
         placemark.balloon.open();
       });
-      placemark.events.add("dblclick", () => {
-        suppressMapClickRef.current = true;
-        queueMicrotask(() => {
-          suppressMapClickRef.current = false;
-        });
-
-        onInstructorFocusRef.current?.(i.id);
-        placemark.balloon.open();
+      placemark.events.add("dblclick", (e) => {
+        e?.preventDefault?.();
+        e?.stopPropagation?.();
+        suppressMapPick();
+        openInstructorProfile();
       });
 
       placemarksById.set(i.id, placemark);

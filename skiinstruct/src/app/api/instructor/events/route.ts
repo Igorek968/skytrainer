@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 
 import { isApiErrorResponse, requireInstructorSession } from "@/lib/api-session";
-import { canEditInstructorEvent, serializeInstructorEvent } from "@/lib/instructor-events";
+import {
+  canEditInstructorEvent,
+  formatSlotTimeRu,
+  serializeInstructorEvent,
+} from "@/lib/instructor-events";
 import { duplicatePublicUploadForEvent } from "@/lib/public-uploads";
 import { canonicalizeActivityLabel } from "@/lib/services/instructor-match";
 import { prisma } from "@/lib/prisma";
@@ -10,8 +14,7 @@ import {
   upsertInstructorEventTitle,
 } from "@/lib/services/instructor-event-titles";
 import { archivePastPublishedInstructorEvents } from "@/lib/services/instructor-event-expiry";
-import { formatSlotTimeRu } from "@/lib/instructor-events";
-import { syncEventSlots, type EventSlotInput } from "@/lib/services/event-slots";
+import { syncEventSlots, eventDayFromIso, type EventSlotInput } from "@/lib/services/event-slots";
 import { createInstructorEventSchema } from "@/lib/validations/instructor-event";
 
 export const dynamic = "force-dynamic";
@@ -33,13 +36,34 @@ function parseEventDay(raw: string | null | undefined): Date | null {
 
 async function serializeEventWithSlots(
   row: Awaited<ReturnType<typeof prisma.instructorEvent.findMany>>[number] & {
-    slots?: { id: string; startsAt: Date; maxSeats: number | null; priceRub: number | null; sortOrder: number }[];
+    slots?: {
+      id: string;
+      startsAt: Date;
+      title: string | null;
+      maxSeats: number | null;
+      priceRub: number | null;
+      sortOrder: number;
+    }[];
   },
   extra?: Parameters<typeof serializeInstructorEvent>[1],
 ) {
   const slots = row.slots ?? [];
   const base = serializeInstructorEvent(row, { ...extra, slots });
-  if (!slots.length) return { ...base, slots: [] as { id: string; time: string; maxSeats: number | null; priceRub: number | null; paidCount: number; startsAt: string }[] };
+  if (!slots.length) {
+    return {
+      ...base,
+      slots: [] as {
+        id: string;
+        date: string;
+        time: string;
+        title: string | null;
+        maxSeats: number | null;
+        priceRub: number | null;
+        paidCount: number;
+        startsAt: string;
+      }[],
+    };
+  }
 
   const counts = await prisma.eventRegistration.groupBy({
     by: ["slotId"],
@@ -56,7 +80,9 @@ async function serializeEventWithSlots(
     hasSlots: true,
     slots: slots.map((s) => ({
       id: s.id,
+      date: eventDayFromIso(s.startsAt.toISOString()),
       time: formatSlotTimeRu(s.startsAt),
+      title: s.title ?? null,
       maxSeats: s.maxSeats,
       priceRub: s.priceRub,
       startsAt: s.startsAt.toISOString(),
@@ -197,8 +223,13 @@ export async function POST(req: Request) {
   const repeatDaily = parsed.data.repeatDaily ?? false;
 
   if (hasSlots) {
-    if (!eventDay) {
-      return NextResponse.json({ error: "Укажите день мероприятия для расписания выходов" }, { status: 400 });
+    const slotInputs = (parsed.data.slots ?? []) as EventSlotInput[];
+    const allHaveDate = slotInputs.every((s) => Boolean(s.date?.trim()));
+    if (!eventDay && !allHaveDate) {
+      return NextResponse.json(
+        { error: "Укажите дату для каждого выхода или общий день мероприятия" },
+        { status: 400 },
+      );
     }
     eventAt = null;
   } else if (parsed.data.eventAt && !eventAt) {
@@ -210,7 +241,7 @@ export async function POST(req: Request) {
   const category = canonicalizeActivityLabel(parsed.data.category) ?? parsed.data.category;
 
   const saveSlotsForEvent = async (eventId: string) => {
-    if (!hasSlots || !eventDay) return;
+    if (!hasSlots) return;
     await syncEventSlots(eventId, eventDay, slotInputs);
   };
 
@@ -253,7 +284,7 @@ export async function POST(req: Request) {
       },
       include: { slots: { orderBy: [{ sortOrder: "asc" }, { startsAt: "asc" }] } },
     });
-    if (hasSlots && eventDay) {
+    if (hasSlots) {
       await saveSlotsForEvent(existingId);
     }
     const refreshed = await prisma.instructorEvent.findUnique({
@@ -283,7 +314,7 @@ export async function POST(req: Request) {
     include: { slots: true },
   });
 
-  if (hasSlots && eventDay) {
+  if (hasSlots) {
     await saveSlotsForEvent(row.id);
   }
 
