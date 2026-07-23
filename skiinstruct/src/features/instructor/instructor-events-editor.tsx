@@ -293,7 +293,7 @@ export function InstructorEventsEditor({
     const hasSlotRows = Boolean(api.hasSlots && slotList.length > 0);
     setUseSlots(hasSlotRows || !ev.eventAt);
     if (hasSlotRows && slotList.length) {
-      setSlotRows(slotRowsFromApi(slotList, api.eventDay ?? eventDayFromEventAt(ev.eventAt) || todayYmd()));
+      setSlotRows(slotRowsFromApi(slotList, api.eventDay ?? (eventDayFromEventAt(ev.eventAt) || todayYmd())));
     } else if (!ev.eventAt) {
       setSlotRows(defaultSlotsForToday());
     }
