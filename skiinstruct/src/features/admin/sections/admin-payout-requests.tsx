@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 
+import { formatInAppTimeZone } from "@/shared/lib/app-timezone";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
 
@@ -67,7 +68,7 @@ export function AdminPayoutRequestsSection() {
               {r.instructor.name ?? "—"} · {r.amountRub.toFixed(0)} ₽ · {r.status}
             </div>
             <div className="text-xs text-muted-foreground">
-              {r.instructor.email} · заказов: {r.orderCount} · {new Date(r.createdAt).toLocaleString("ru-RU")}
+              {r.instructor.email} · заказов: {r.orderCount} · {formatInAppTimeZone(r.createdAt)}
             </div>
             {r.status === "PENDING" || r.status === "PROCESSING" ? (
               <div className="mt-2 flex flex-wrap gap-2">

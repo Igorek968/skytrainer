@@ -1,19 +1,17 @@
 import type { LessonDuration } from "@prisma/client";
 
 import { durationHours } from "@/lib/pricing";
+import { appNowHm, appTodayYmd } from "@/shared/lib/app-timezone";
 import { billableHoursFromLessonWallWindow } from "@/shared/lib/lesson-wall-datetime";
-import { lessonDurationLabelRu } from "@/shared/lib/order-duration";
 
 /** Минимальный запас до начала занятия при заказе «на сегодня». */
 export const LESSON_BOOKING_MIN_LEAD_MINUTES = 30;
 
 const MIN_SPAN_MINUTES = 30;
 
+/** «Сегодня» по Москве (Europe/Moscow) — единый TZ платформы. */
 export function localTodayYmd(now = new Date()): string {
-  const y = now.getFullYear();
-  const m = String(now.getMonth() + 1).padStart(2, "0");
-  const d = String(now.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
+  return appTodayYmd(now);
 }
 
 export function hmToMinutes(hm: string): number {
@@ -38,10 +36,11 @@ export function parseLessonWallDateTime(ymd: string, hm: string): Date | null {
   return Number.isFinite(d.getTime()) ? d : null;
 }
 
-/** Ближайшее допустимое время начала для заказа на сегодня (округление вверх до 5 мин). */
+/** Ближайшее допустимое время начала для заказа на сегодня (округление вверх до 5 мин, МСК). */
 export function earliestBookableStartHm(now = new Date()): string {
-  const minMs = now.getTime() + LESSON_BOOKING_MIN_LEAD_MINUTES * 60_000;
-  const mins = new Date(minMs).getHours() * 60 + new Date(minMs).getMinutes();
+  const minAt = new Date(now.getTime() + LESSON_BOOKING_MIN_LEAD_MINUTES * 60_000);
+  const hm = appNowHm(minAt);
+  const mins = hmToMinutes(hm);
   return minutesToHm(Math.ceil(mins / 5) * 5);
 }
 

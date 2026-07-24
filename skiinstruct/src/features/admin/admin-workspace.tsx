@@ -11,6 +11,7 @@ import { adminOverviewHref } from "@/features/admin/admin-search-params";
 import { useAdminOverview } from "@/features/admin/use-admin-overview";
 import { formatRussianPhoneDisplay } from "@/lib/phone";
 import { cn } from "@/lib/utils";
+import { formatInAppTimeZone } from "@/shared/lib/app-timezone";
 import { Button } from "@/shared/ui/button";
 import { Skeleton } from "@/shared/ui/skeleton";
 
@@ -82,7 +83,7 @@ function AdminWorkspaceInner({ title, subtitle, children }: Props) {
     return <p className="max-w-xl whitespace-pre-wrap text-sm text-destructive">{msg}</p>;
   }
 
-  const refreshedAt = new Date(data.context.generatedAt).toLocaleString("ru-RU", {
+  const refreshedAt = formatInAppTimeZone(data.context.generatedAt, {
     day: "2-digit",
     month: "2-digit",
     hour: "2-digit",

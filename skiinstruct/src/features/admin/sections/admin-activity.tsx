@@ -5,6 +5,7 @@ import { adminActivityCategoryLabel } from "@/features/admin/admin-overview-type
 import { Badge } from "@/shared/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
 import { getPublicProductName } from "@/shared/lib/product";
+import { APP_TIME_ZONE_LABEL, formatInAppTimeZone } from "@/shared/lib/app-timezone";
 
 export function AdminActivitySection({ data }: { data: AdminOverview }) {
   const productName = getPublicProductName();
@@ -14,7 +15,7 @@ export function AdminActivitySection({ data }: { data: AdminOverview }) {
         <CardTitle className="text-base">Лента событий {productName}</CardTitle>
         <CardDescription>
           Журнал в реальном времени по данным приложения: заказы (создание и изменения), регистрации, модерация
-          инструкторов и сообщения в чатах заказов.
+          инструкторов и сообщения в чатах заказов. Время — {APP_TIME_ZONE_LABEL}.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -25,7 +26,7 @@ export function AdminActivitySection({ data }: { data: AdminOverview }) {
             {data.activityFeed.map((item) => (
               <li key={item.id} className="flex flex-col gap-0.5 px-3 py-2.5 sm:flex-row sm:items-baseline sm:gap-4">
                 <time className="shrink-0 text-xs tabular-nums text-muted-foreground sm:w-36" dateTime={item.at}>
-                  {new Date(item.at).toLocaleString("ru-RU", {
+                  {formatInAppTimeZone(item.at, {
                     day: "2-digit",
                     month: "2-digit",
                     hour: "2-digit",

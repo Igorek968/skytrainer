@@ -231,8 +231,8 @@ export function buildDraftPatchFromMePayload(input: {
     additionalServices?: string[];
     offeredDurations?: string[];
     achievements?: string[];
-    experienceYears?: number;
-    sportsExperienceYears?: number;
+    experienceYears?: number | null;
+    sportsExperienceYears?: number | null;
     totalLessons?: number;
     age?: number;
     availabilitySlots?: Prisma.JsonValue;
@@ -292,8 +292,8 @@ const PROFILE_DRAFT_FIELD_LABELS: Record<keyof InstructorProfileDraftPayload, st
   middleName: "Отчество",
   nickname: "Никнейм",
   bio: "Биография",
-  certificationLevel: "Уровень сертификации",
-  certifications: "Сертификаты",
+  certificationLevel: "Категория",
+  certifications: "Категория",
   skillLevels: "Уровни учеников",
   languages: "Языки",
   specializations: "Направления",

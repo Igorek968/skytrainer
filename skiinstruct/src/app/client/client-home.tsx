@@ -54,13 +54,18 @@ import { cn } from "@/lib/utils";
 import type { LessonDuration } from "@prisma/client";
 import { URGENT_INSTRUCTOR_DEADLINE_MIN } from "@/shared/lib/order-flex";
 import {
+  APP_TIME_ZONE,
+  APP_TIME_ZONE_LABEL,
+  appNowHm,
+  appTimezoneOffsetMinutes,
+} from "@/shared/lib/app-timezone";
+import {
   buildLessonBookingPreview,
   defaultLessonTimeWindow,
   earliestBookableStartHm,
   lessonEndHmFromStartAndDuration,
   LESSON_BOOKING_MIN_LEAD_MINUTES,
   localTodayYmd,
-  minutesToHm,
 } from "@/shared/lib/lesson-booking-time";
 import { lessonDurationLabelRu } from "@/shared/lib/order-duration";
 import { SectionErrorBoundary } from "@/shared/ui/section-error-boundary";
@@ -88,11 +93,6 @@ const GeolocationPermissionDialog = dynamic(
   () => import("@/features/map/geolocation-permission-dialog").then((m) => m.GeolocationPermissionDialog),
   { ssr: false },
 );
-
-function currentLocalTimeHm(): string {
-  const now = new Date();
-  return minutesToHm(now.getHours() * 60 + now.getMinutes());
-}
 
 function normalizeHm(value: string): string {
   return value.trim().match(/^(\d{2}:\d{2})/)?.[1] ?? value.trim();
@@ -300,8 +300,7 @@ export default function ClientHomePage() {
   const [lessonStartTime, setLessonStartTime] = useState("10:00");
   const [lessonEndTime, setLessonEndTime] = useState("12:00");
   const [startTimeZoneHint, setStartTimeZoneHint] = useState<string | null>(null);
-  const [userTimeZone, setUserTimeZone] = useState("местное время");
-  /** Только на клиенте — иначе SSR (UTC) и браузер (MSK) дают разный текст и ломают hydration. */
+  /** Только на клиенте — иначе SSR и клиент дают разный текст и ломают hydration. */
   const [todayLeadLine, setTodayLeadLine] = useState<string | null>(null);
   const isOutdoorTour = specializationPref.includes("Пешие туры") || specializationPref.includes("Маунтибайк");
 
@@ -324,18 +323,13 @@ export default function ClientHomePage() {
   };
 
   const refreshStartTimeZoneHint = () => {
-    const now = new Date();
     setStartTimeZoneHint(
-      `Сейчас ${now.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })} · ${userTimeZone}`,
+      `Сейчас ${appNowHm()} · ${APP_TIME_ZONE_LABEL} (${APP_TIME_ZONE})`,
     );
   };
 
-  useEffect(() => {
-    setUserTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone || "местное время");
-  }, []);
-
   const applyCurrentLessonStartTime = () => {
-    const nowHm = currentLocalTimeHm();
+    const nowHm = appNowHm();
     setLessonStartTime(nowHm);
     syncLessonEndTime(nowHm, lessonDuration);
     refreshStartTimeZoneHint();
@@ -394,7 +388,7 @@ export default function ClientHomePage() {
 
   const nearbyLessonStartTime = normalizeHm(lessonStartTime);
   const nearbyLessonEndTime = normalizeHm(lessonEndTime);
-  const nearbyTzOffset = new Date().getTimezoneOffset();
+  const nearbyTzOffset = appTimezoneOffsetMinutes();
 
   const { data, isLoading, error, refetch, dataUpdatedAt } = useQuery({
     queryKey: [
@@ -702,7 +696,7 @@ export default function ClientHomePage() {
         const m = lessonEndTime.trim().match(/^(\d{2}:\d{2})/);
         return m ? m[1] : lessonEndTime;
       })(),
-      lessonTimeZoneOffsetMinutes: new Date().getTimezoneOffset(),
+      lessonTimeZoneOffsetMinutes: appTimezoneOffsetMinutes(),
       instructorId,
       flexibleInstructorInvite: nearbyRelaxed,
       urgentInvite: urgentBooking && urgentBookingAvailable,
@@ -977,7 +971,7 @@ export default function ClientHomePage() {
               </div>
               <p className="text-xs text-muted-foreground">
                 {startTimeZoneHint ??
-                  `Время в вашем часовом поясе (${userTimeZone}). Нажмите на поле или иконку часов, чтобы выбрать время.`}
+                  `Время по Москве (${APP_TIME_ZONE_LABEL}, ${APP_TIME_ZONE}). Нажмите на поле или иконку часов, чтобы выбрать время.`}
               </p>
             </div>
             <div className="space-y-2">

@@ -103,11 +103,11 @@ export function InstructorSearchExpandedBody({
             <p className="text-xs text-muted-foreground">
               {p.certificationLevel?.trim() ? (
                 <>
-                  <span className="font-medium text-foreground">Сертификация · </span>
+                  <span className="font-medium text-foreground">Категория · </span>
                   {p.certificationLevel}
                 </>
               ) : (
-                "Сертификация не указана"
+                "Категория не указана"
               )}
             </p>
           </div>
@@ -142,7 +142,7 @@ export function InstructorSearchExpandedBody({
         <div className="rounded-md bg-muted/60 p-2 text-xs">
           <p className="inline-flex items-center gap-1 font-medium">
             <ShieldCheck className="h-3.5 w-3.5" />
-            Ключевые сертификаты
+            Категория
           </p>
           <p className="mt-1">
             {p.certifications.length

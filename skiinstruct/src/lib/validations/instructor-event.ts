@@ -38,7 +38,7 @@ const venueCoordField = z.number().optional().nullable();
 
 export const createInstructorEventSchema = z.object({
   title: z.string().trim().min(1).max(120),
-  body: z.string().trim().min(1).max(200),
+  body: z.string().trim().min(1).max(1000),
   /** Категория / направление из каталога активностей. */
   category: requiredEventCategorySchema,
   /** День мероприятия YYYY-MM-DD (для слотов) или ISO datetime (legacy) */
@@ -60,7 +60,7 @@ export const createInstructorEventSchema = z.object({
 
 export const updateInstructorEventSchema = z.object({
   title: z.string().trim().min(1).max(120).optional(),
-  body: z.string().trim().min(1).max(200).optional(),
+  body: z.string().trim().min(1).max(1000).optional(),
   category: requiredEventCategorySchema.optional(),
   eventAt: z.string().max(40).optional().nullable(),
   orderId: z.string().cuid().optional().nullable(),

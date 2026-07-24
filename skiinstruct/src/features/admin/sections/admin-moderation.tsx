@@ -9,6 +9,7 @@ import {
   useAdminVerifyInstructorMutation,
 } from "@/features/admin/use-admin-overview";
 import { formatRussianPhoneDisplay } from "@/lib/phone";
+import { formatInAppTimeZone } from "@/shared/lib/app-timezone";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Label } from "@/shared/ui/label";
@@ -147,7 +148,7 @@ function ModerationRejectModal({
             onChange={(e) => setMessage(e.target.value)}
             placeholder={
               isNewAccount
-                ? "Например: укажите действующую сертификацию и корректное описание опыта…"
+                ? "Например: укажите категорию и корректное описание опыта…"
                 : "Например: уберите контакты и рекламу из достижений, укажите реальные длительности занятий…"
             }
             maxLength={2000}
@@ -231,7 +232,7 @@ export function AdminModerationSection({ data }: { data: AdminOverview }) {
                         ? "Новая регистрация — первая проверка"
                         : "Изменения опубликованной анкеты"}
                       {p.profileDraftSubmittedAt
-                        ? ` · ${new Date(p.profileDraftSubmittedAt).toLocaleString("ru-RU")}`
+                        ? ` · ${formatInAppTimeZone(p.profileDraftSubmittedAt)}`
                         : null}
                     </p>
                     <div className="text-xs">{p.certificationLevel}</div>

@@ -65,8 +65,8 @@ const updateSchema = z.object({
   additionalServices: z.array(z.string().min(1).max(80)).max(12).optional(),
   offeredDurations: z.array(z.string().min(1).max(30)).max(10).optional(),
   achievements: z.array(z.string().min(1).max(200)).max(20).optional(),
-  experienceYears: z.number().int().min(0).max(80).optional(),
-  sportsExperienceYears: z.number().int().min(0).max(80).optional(),
+  experienceYears: z.number().int().min(0).max(80).nullish(),
+  sportsExperienceYears: z.number().int().min(0).max(80).nullish(),
   totalLessons: z.number().int().min(0).max(100000).optional(),
   age: z.number().int().min(0).max(90).optional(),
   availabilitySlots: z

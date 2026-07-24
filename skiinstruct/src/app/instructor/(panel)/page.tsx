@@ -50,15 +50,7 @@ import { compressImageFile } from "@/lib/compress-image-client";
 const instructorFetch = (input: RequestInfo | URL, init?: RequestInit) =>
   fetch(input, { ...init, credentials: "include" });
 
-const CERTIFICATION_LEVEL_OPTIONS = [
-  "ISIA Level 1",
-  "ISIA Level 2",
-  "ISIA Level 3",
-  "CASI Level 1",
-  "CASI Level 2",
-  "Austrian Ski Instructor",
-  "Canadian Ski Instructors’ Alliance",
-];
+const CATEGORY_OPTIONS = ["A", "B", "C", "D"];
 const SKILL_LEVEL_OPTIONS = ["Для начинающих", "Средний", "Продвинутый", "Эксперт"];
 const LANGUAGE_OPTIONS = ["Русский", "English", "Deutsch", "Français", "Italiano"];
 const SERVICE_OPTIONS = [
@@ -68,6 +60,22 @@ const SERVICE_OPTIONS = [
   "Фотосъёмка на склоне",
 ];
 const DURATION_OPTIONS = ["1 ч", "1.5 ч", "2 ч", "Полдня", "День"];
+
+/** Non-negative int for profile year fields — no leading zeros, empty when cleared. */
+type NonNegIntInput = number | "";
+
+function parseNonNegIntInput(raw: string): NonNegIntInput {
+  const digits = raw.replace(/\D/g, "");
+  if (!digits) return "";
+  const normalized = digits.replace(/^0+(?=\d)/, "");
+  const n = Number(normalized);
+  if (!Number.isFinite(n) || n < 0) return "";
+  return Math.floor(n);
+}
+
+function nonNegIntOrEmpty(value: number | null | undefined): NonNegIntInput {
+  return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : "";
+}
 const INSTRUCTOR_PANEL_SECTIONS = [
   { id: "lesson-schedule", label: "Календарь" },
   { id: "profile", label: "Профиль инструктора" },
@@ -353,9 +361,9 @@ export default function InstructorHomePage() {
   const [availabilitySlots, setAvailabilitySlots] = useState<AvailabilitySlot[]>([
     { day: 1, from: "09:00", to: "12:00", busy: false },
   ]);
-  const [age, setAge] = useState<number>(25);
-  const [experienceYears, setExperienceYears] = useState<number>(5);
-  const [sportsExperienceYears, setSportsExperienceYears] = useState<number>(0);
+  const [age, setAge] = useState<NonNegIntInput>(25);
+  const [experienceYears, setExperienceYears] = useState<NonNegIntInput>(5);
+  const [sportsExperienceYears, setSportsExperienceYears] = useState<NonNegIntInput>("");
   const [photoUrl, setPhotoUrl] = useState("");
   const [photoGallery, setPhotoGallery] = useState<string[]>([]);
   const photoInputRef = useRef<HTMLInputElement>(null);
@@ -526,9 +534,15 @@ export default function InstructorHomePage() {
     setAdditionalServicesRaw(data.profile.additionalServices.join(", "));
     setOfferedDurationsRaw(data.profile.offeredDurations.join(", "));
     setAchievementsRaw(data.profile.achievements.join(", "));
-    setAge(data.profile.age ?? 25);
-    setExperienceYears(data.profile.experienceYears ?? 5);
-    setSportsExperienceYears(data.profile.sportsExperienceYears ?? 0);
+    setAge(typeof data.profile.age === "number" && data.profile.age > 0 ? data.profile.age : 25);
+    setExperienceYears(
+      typeof data.profile.experienceYears === "number" && data.profile.experienceYears > 0
+        ? data.profile.experienceYears
+        : data.profile.experienceYears == null
+          ? 5
+          : "",
+    );
+    setSportsExperienceYears(nonNegIntOrEmpty(data.profile.sportsExperienceYears));
     setAvailabilitySlots(
       data.profile.availabilitySlots?.length
         ? data.profile.availabilitySlots
@@ -598,7 +612,7 @@ export default function InstructorHomePage() {
       return { ok: false, availabilitySlots: normalizeAvailabilitySlots(availabilitySlots) };
     }
 
-    if (!certificationLevel.trim()) errors.certificationLevel = "Укажите уровень сертификации";
+    if (!certificationLevel.trim()) errors.certificationLevel = "Укажите категорию";
     if (!languagesRaw.trim()) errors.languagesRaw = "Укажите хотя бы один язык";
     const filledOffers = filledSpecializationOffers(specializationOffers);
     if (!filledOffers.length) {
@@ -619,7 +633,9 @@ export default function InstructorHomePage() {
         }
       }
     }
-    if (age > 0 && (age < 14 || age > 90)) errors.age = "Возраст должен быть от 14 до 90";
+    if (typeof age === "number" && age > 0 && (age < 14 || age > 90)) {
+      errors.age = "Возраст должен быть от 14 до 90";
+    }
 
     const normalizedSlots = normalizeAvailabilitySlots(availabilitySlots);
     const availabilityErr = validateAvailabilitySlots(normalizedSlots);
@@ -706,9 +722,9 @@ export default function InstructorHomePage() {
           additionalServices,
           offeredDurations,
           achievements,
-          age: age >= 14 ? age : undefined,
-          experienceYears,
-          sportsExperienceYears,
+          age: typeof age === "number" && age >= 14 ? age : undefined,
+          experienceYears: experienceYears === "" ? null : experienceYears,
+          sportsExperienceYears: sportsExperienceYears === "" ? null : sportsExperienceYears,
           availabilitySlots,
           photoUrl,
         }),
@@ -1015,15 +1031,27 @@ export default function InstructorHomePage() {
                   <p className="md:col-span-2 text-xs text-muted-foreground">Проверка имени…</p>
                 ) : null}
                 <div className="space-y-2">
-                  <Label htmlFor="cert">Сертификация</Label>
-                  <Input
+                  <Label htmlFor="cert">Категория</Label>
+                  <select
                     id="cert"
-                    list="certification-level-options"
                     value={certificationLevel}
                     onChange={(e) => setCertificationLevel(e.target.value)}
-                    placeholder="ISIA Level 3 / CASI / Austrian ..."
-                    className={cn(fieldErrors.certificationLevel && "border-destructive ring-destructive")}
-                  />
+                    className={cn(
+                      "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                      fieldErrors.certificationLevel && "border-destructive ring-destructive",
+                    )}
+                  >
+                    <option value="">Выберите категорию</option>
+                    {CATEGORY_OPTIONS.map((opt) => (
+                      <option key={opt} value={opt}>
+                        {opt}
+                      </option>
+                    ))}
+                    {certificationLevel &&
+                    !CATEGORY_OPTIONS.includes(certificationLevel) ? (
+                      <option value={certificationLevel}>{certificationLevel}</option>
+                    ) : null}
+                  </select>
                   {fieldErrors.certificationLevel ? (
                     <p className="text-xs text-destructive">{fieldErrors.certificationLevel}</p>
                   ) : null}
@@ -1034,9 +1062,12 @@ export default function InstructorHomePage() {
                   <Label htmlFor="age">Возраст</Label>
                   <Input
                     id="age"
-                    type="number"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    autoComplete="off"
                     value={age}
-                    onChange={(e) => setAge(Number(e.target.value) || 0)}
+                    onChange={(e) => setAge(parseNonNegIntInput(e.target.value))}
                     className={cn(fieldErrors.age && "border-destructive ring-destructive")}
                   />
                   {fieldErrors.age ? (
@@ -1047,20 +1078,24 @@ export default function InstructorHomePage() {
                   <Label htmlFor="exp">Стаж инструктора (лет)</Label>
                   <Input
                     id="exp"
-                    type="number"
-                    min={0}
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    autoComplete="off"
                     value={experienceYears}
-                    onChange={(e) => setExperienceYears(Number(e.target.value) || 0)}
+                    onChange={(e) => setExperienceYears(parseNonNegIntInput(e.target.value))}
                   />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="sports-exp">Стаж в спорте (лет)</Label>
                   <Input
                     id="sports-exp"
-                    type="number"
-                    min={0}
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    autoComplete="off"
                     value={sportsExperienceYears}
-                    onChange={(e) => setSportsExperienceYears(Number(e.target.value) || 0)}
+                    onChange={(e) => setSportsExperienceYears(parseNonNegIntInput(e.target.value))}
                   />
                 </div>
               </div>
@@ -1357,11 +1392,6 @@ export default function InstructorHomePage() {
         />
       ) : null}
 
-      <datalist id="certification-level-options">
-        {CERTIFICATION_LEVEL_OPTIONS.map((opt) => (
-          <option key={opt} value={opt} />
-        ))}
-      </datalist>
       <datalist id="skill-level-options">
         {SKILL_LEVEL_OPTIONS.map((opt) => (
           <option key={opt} value={opt} />

@@ -13,13 +13,14 @@ import { AdminYookassaExportCard } from "@/features/admin/admin-yookassa-export-
 import { complianceDocTypeLabel } from "@/lib/instructor-agency-registry";
 import { LEGAL_ROUTES } from "@/lib/legal";
 import { publicUploadDisplaySrc } from "@/lib/public-uploads-display";
+import { formatInAppTimeZone } from "@/shared/lib/app-timezone";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Label } from "@/shared/ui/label";
 
 function formatDt(iso: string | null): string {
   if (!iso) return "—";
-  return new Date(iso).toLocaleString("ru-RU", { dateStyle: "short", timeStyle: "short" });
+  return formatInAppTimeZone(iso, { dateStyle: "short", timeStyle: "short" });
 }
 
 export function AdminComplianceSection() {

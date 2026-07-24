@@ -71,6 +71,8 @@ services:
     env_file:
       - .env
     environment:
+      # Платформенный TZ: тренировки и админка в МСК
+      TZ: Europe/Moscow
       # prod = next start (быстро на :8000). dev = hot-reload, медленно в Docker на Windows.
       SKIINSTRUCT_NEXT_MODE: ${SKIINSTRUCT_NEXT_MODE:-prod}
       SKIINSTRUCT_FORCE_REBUILD: ${SKIINSTRUCT_FORCE_REBUILD:-0}

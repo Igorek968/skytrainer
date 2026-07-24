@@ -5,6 +5,7 @@ import { useState } from "react";
 
 import { useAdminQualityClaims } from "@/features/admin/use-admin-quality-claims";
 import { LEGAL_ROUTES } from "@/lib/legal";
+import { formatInAppTimeZone } from "@/shared/lib/app-timezone";
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
@@ -13,7 +14,7 @@ import { Skeleton } from "@/shared/ui/skeleton";
 
 function formatDt(iso: string | null): string {
   if (!iso) return "—";
-  return new Date(iso).toLocaleString("ru-RU", { dateStyle: "short", timeStyle: "short" });
+  return formatInAppTimeZone(iso, { dateStyle: "short", timeStyle: "short" });
 }
 
 function refundStatusLabel(status: string): string {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import type { InstructorEventDTO, ClientInstructorEventDTO } from "@/lib/instructor-events";
@@ -35,6 +35,12 @@ import { compressImageFile } from "@/lib/compress-image-client";
 import { cn } from "@/lib/utils";
 
 type ActiveOrderOption = { id: string; label: string };
+
+export type EventCreateLeaveGuard = {
+  shouldConfirmLeave: () => boolean;
+  save: () => Promise<boolean>;
+  discard: () => void;
+};
 
 type SlotFormRow = {
   id?: string;
@@ -202,18 +208,21 @@ function CompletionBadge({ event }: { event: Pick<InstructorEventDTO, "isComplet
 }
 
 export function InstructorEventsEditor({
-  activeOrders = [],
+  activeOrders: _activeOrders = [],
   embedded = false,
   view = "all",
   onRequestCreateView,
+  onLeaveGuardReady,
 }: {
   activeOrders?: ActiveOrderOption[];
   /** Внутри карточки «Профиль инструктора» — без отдельной обёртки Card. */
   embedded?: boolean;
-  /** Какой блок показать: форма создания, список своих мероприятий или всё сразу. */
-  view?: "all" | "create" | "list";
+  /** Какой блок показать: форма создания, списки или всё сразу. */
+  view?: "all" | "create" | "list" | "saved" | "past";
   /** При редактировании из списка — переключить оболочку на панель создания. */
   onRequestCreateView?: () => void;
+  /** Guard при уходе со страницы создания без отправки на модерацию. */
+  onLeaveGuardReady?: (guard: EventCreateLeaveGuard | null) => void;
 }) {
   const qc = useQueryClient();
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -225,10 +234,8 @@ export function InstructorEventsEditor({
   const [slotRows, setSlotRows] = useState<SlotFormRow[]>(() => defaultSlotsForToday());
   const [draftSlotDate, setDraftSlotDate] = useState(() => todayYmd());
   const [draftSlotTime, setDraftSlotTime] = useState("10:00");
-  const [draftSlotTitle, setDraftSlotTitle] = useState("");
   const [draftSlotPrice, setDraftSlotPrice] = useState("");
   const [draftSlotSeats, setDraftSlotSeats] = useState("4");
-  const [orderId, setOrderId] = useState("");
   const [priceRub, setPriceRub] = useState("");
   const [maxRegistrations, setMaxRegistrations] = useState("");
   const [photoUrl, setPhotoUrl] = useState("");
@@ -242,6 +249,94 @@ export function InstructorEventsEditor({
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewCard, setPreviewCard] = useState<ClientEventFeedCardDTO | null>(null);
   const [sendToModerationPending, setSendToModerationPending] = useState(false);
+  const formSnapshotRef = useRef("");
+
+  function captureFormSnapshot(next?: {
+    title: string;
+    body: string;
+    category: string;
+    eventAt: string;
+    useSlots: boolean;
+    slotRows: SlotFormRow[];
+    priceRub: string;
+    maxRegistrations: string;
+    venue: EventVenueValue;
+    repeatDaily: boolean;
+    photoUrl: string;
+    photoFileName: string | null;
+    templatePhotoSourceId: string | null;
+  }) {
+    const snap =
+      next ??
+      ({
+        title,
+        body,
+        category,
+        eventAt,
+        useSlots,
+        slotRows,
+        priceRub,
+        maxRegistrations,
+        venue,
+        repeatDaily,
+        photoUrl,
+        photoFileName: photoFile?.name ?? null,
+        templatePhotoSourceId,
+      } as const);
+    formSnapshotRef.current = JSON.stringify(snap);
+  }
+
+  function isFormDirtyNow(): boolean {
+    return (
+      JSON.stringify({
+        title,
+        body,
+        category,
+        eventAt,
+        useSlots,
+        slotRows,
+        priceRub,
+        maxRegistrations,
+        venue,
+        repeatDaily,
+        photoUrl,
+        photoFileName: photoFile?.name ?? null,
+        templatePhotoSourceId,
+      }) !== formSnapshotRef.current
+    );
+  }
+
+  function formHasContent(): boolean {
+    return Boolean(
+      title.trim() ||
+        body.trim() ||
+        category.trim() ||
+        eventAt.trim() ||
+        photoFile ||
+        photoUrl.trim() ||
+        slotRows.some((s) => s.date.trim() && s.time.trim()) ||
+        venue.address.trim(),
+    );
+  }
+
+  useEffect(() => {
+    captureFormSnapshot({
+      title: "",
+      body: "",
+      category: "",
+      eventAt: "",
+      useSlots: true,
+      slotRows: defaultSlotsForToday(),
+      priceRub: "",
+      maxRegistrations: "",
+      venue: EMPTY_VENUE,
+      repeatDaily: false,
+      photoUrl: "",
+      photoFileName: null,
+      templatePhotoSourceId: null,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- initial empty snapshot once
+  }, []);
 
   useEffect(() => {
     if (!photoFile) {
@@ -294,7 +389,6 @@ export function InstructorEventsEditor({
     } else if (!ev.eventAt) {
       setSlotRows(defaultSlotsForToday());
     }
-    setOrderId(ev.orderId ?? "");
     setPriceRub(ev.priceRub != null && ev.priceRub > 0 ? String(ev.priceRub) : "");
     setMaxRegistrations(ev.maxRegistrations != null ? String(ev.maxRegistrations) : "");
     setPhotoUrl(ev.photoUrl ?? "");
@@ -304,6 +398,28 @@ export function InstructorEventsEditor({
     setRepeatDaily(Boolean(ev.repeatDaily));
     setCanEdit(true);
     setLoadedStatus(null);
+    queueMicrotask(() =>
+      captureFormSnapshot({
+        title: opts?.keepTitle !== false ? ev.title : title,
+        body: ev.body,
+        category: ev.category ?? "",
+        eventAt: "",
+        useSlots: Boolean((api.hasSlots && (api.slots?.length ?? 0) > 0) || !ev.eventAt),
+        slotRows:
+          api.hasSlots && api.slots?.length
+            ? slotRowsFromApi(api.slots, todayYmd())
+            : !ev.eventAt
+              ? defaultSlotsForToday()
+              : [],
+        priceRub: ev.priceRub != null && ev.priceRub > 0 ? String(ev.priceRub) : "",
+        maxRegistrations: ev.maxRegistrations != null ? String(ev.maxRegistrations) : "",
+        venue: venueFromEvent(ev),
+        repeatDaily: Boolean(ev.repeatDaily),
+        photoUrl: ev.photoUrl ?? "",
+        photoFileName: null,
+        templatePhotoSourceId: ev.photoUrl ? ev.id : null,
+      }),
+    );
   }, []);
 
   const loadFormFromEvent = useCallback((ev: InstructorEventApi | InstructorEventDTO) => {
@@ -316,16 +432,21 @@ export function InstructorEventsEditor({
     const slotList = api.slots ?? [];
     const hasSlotRows = Boolean(api.hasSlots && slotList.length > 0);
     setUseSlots(hasSlotRows || !ev.eventAt);
+    const nextSlots =
+      hasSlotRows && slotList.length
+        ? slotRowsFromApi(slotList, api.eventDay ?? (eventDayFromEventAt(ev.eventAt) || todayYmd()))
+        : !ev.eventAt
+          ? defaultSlotsForToday()
+          : [];
     if (hasSlotRows && slotList.length) {
-      setSlotRows(slotRowsFromApi(slotList, api.eventDay ?? (eventDayFromEventAt(ev.eventAt) || todayYmd())));
+      setSlotRows(nextSlots);
     } else if (!ev.eventAt) {
-      setSlotRows(defaultSlotsForToday());
+      setSlotRows(nextSlots);
     }
-    setOrderId(ev.orderId ?? "");
-    setPriceRub(ev.priceRub != null && ev.priceRub > 0 ? String(ev.priceRub) : "");
-    setMaxRegistrations(
-      ev.maxRegistrations != null ? String(ev.maxRegistrations) : "",
-    );
+    const nextPrice = ev.priceRub != null && ev.priceRub > 0 ? String(ev.priceRub) : "";
+    const nextMax = ev.maxRegistrations != null ? String(ev.maxRegistrations) : "";
+    setPriceRub(nextPrice);
+    setMaxRegistrations(nextMax);
     setPhotoUrl(ev.photoUrl ?? "");
     setPhotoFile(null);
     setTemplatePhotoSourceId(null);
@@ -333,6 +454,23 @@ export function InstructorEventsEditor({
     setRepeatDaily(Boolean(ev.repeatDaily));
     setCanEdit(ev.canEdit);
     setLoadedStatus(ev.moderationStatus);
+    queueMicrotask(() =>
+      captureFormSnapshot({
+        title: ev.title,
+        body: ev.body,
+        category: ev.category ?? "",
+        eventAt: toDatetimeLocalValue(ev.eventAt),
+        useSlots: hasSlotRows || !ev.eventAt,
+        slotRows: nextSlots,
+        priceRub: nextPrice,
+        maxRegistrations: nextMax,
+        venue: venueFromEvent(ev),
+        repeatDaily: Boolean(ev.repeatDaily),
+        photoUrl: ev.photoUrl ?? "",
+        photoFileName: null,
+        templatePhotoSourceId: null,
+      }),
+    );
   }, []);
 
   const resetForm = useCallback(() => {
@@ -345,10 +483,8 @@ export function InstructorEventsEditor({
     setSlotRows(defaultSlotsForToday());
     setDraftSlotDate(todayYmd());
     setDraftSlotTime("10:00");
-    setDraftSlotTitle("");
     setDraftSlotPrice("");
     setDraftSlotSeats("4");
-    setOrderId("");
     setPriceRub("");
     setMaxRegistrations("");
     setPhotoUrl("");
@@ -358,6 +494,23 @@ export function InstructorEventsEditor({
     setVenue(EMPTY_VENUE);
     setCanEdit(true);
     setLoadedStatus(null);
+    queueMicrotask(() =>
+      captureFormSnapshot({
+        title: "",
+        body: "",
+        category: "",
+        eventAt: "",
+        useSlots: true,
+        slotRows: defaultSlotsForToday(),
+        priceRub: "",
+        maxRegistrations: "",
+        venue: EMPTY_VENUE,
+        repeatDaily: false,
+        photoUrl: "",
+        photoFileName: null,
+        templatePhotoSourceId: null,
+      }),
+    );
   }, []);
 
   const saveDraft = useMutation({
@@ -366,7 +519,7 @@ export function InstructorEventsEditor({
         title: title.trim(),
         body: body.trim(),
         category: category.trim(),
-        orderId: orderId.trim() || null,
+        orderId: null,
         eventId: editingId,
         repeatDaily,
       };
@@ -719,7 +872,7 @@ export function InstructorEventsEditor({
       id: newLocalSlotId(),
       date: draftSlotDate.trim(),
       time: draftSlotTime.trim(),
-      title: draftSlotTitle.trim(),
+      title: "",
       maxSeats: draftSlotSeats.trim(),
       priceRub: draftSlotPrice.trim(),
     };
@@ -729,7 +882,6 @@ export function InstructorEventsEditor({
       ),
     );
     setDraftSlotDate(addDaysYmd(draftSlotDate.trim(), 1));
-    setDraftSlotTitle("");
     toast.success("День добавлен в список ниже");
   }
 
@@ -786,7 +938,7 @@ export function InstructorEventsEditor({
       eventAt: firstAt,
       moderationStatus: "DRAFT",
       rejectNote: null,
-      orderId: orderId.trim() || null,
+      orderId: null,
       priceRub: useSlots ? mappedSlots[0]?.priceRub ?? null : classicPrice,
       maxRegistrations: null,
       createdAt: new Date().toISOString(),
@@ -849,14 +1001,66 @@ export function InstructorEventsEditor({
   const groups = {
     draft: events.filter((e) => e.moderationStatus === "DRAFT"),
     pending: events.filter((e) => e.moderationStatus === "PENDING_REVIEW"),
-    published: events.filter((e) => e.moderationStatus === "PUBLISHED"),
+    published: events.filter((e) => e.moderationStatus === "PUBLISHED" && !e.isCompleted),
     rejected: events.filter((e) => e.moderationStatus === "REJECTED"),
-    completed: events.filter((e) => e.moderationStatus === "ARCHIVED" && e.isCompleted),
+    past: events.filter((e) => e.isCompleted),
     archived: events.filter((e) => e.moderationStatus === "ARCHIVED" && !e.isCompleted),
   };
 
   const showCreate = view === "all" || view === "create";
   const showList = view === "all" || view === "list";
+  const showSaved = view === "saved";
+  const showPast = view === "past";
+
+  const leaveApiRef = useRef<EventCreateLeaveGuard>({
+    shouldConfirmLeave: () => false,
+    save: async () => false,
+    discard: () => undefined,
+  });
+  leaveApiRef.current = {
+    shouldConfirmLeave: () => {
+      if (formLocked) return false;
+      if (loadedStatus === "PENDING_REVIEW" || loadedStatus === "PUBLISHED") return false;
+      if (!formHasContent()) return false;
+      return isFormDirtyNow() || !editingId || loadedStatus === "DRAFT" || loadedStatus === null;
+    },
+    save: async () => {
+      const err = validateEventForm();
+      if (err) {
+        toast.error(err);
+        return false;
+      }
+      try {
+        await saveDraft.mutateAsync();
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    discard: () => {
+      resetForm();
+    },
+  };
+
+  useEffect(() => {
+    if (!onLeaveGuardReady) return;
+    if (!showCreate) {
+      onLeaveGuardReady(null);
+      return;
+    }
+    onLeaveGuardReady({
+      shouldConfirmLeave: () => leaveApiRef.current.shouldConfirmLeave(),
+      save: () => leaveApiRef.current.save(),
+      discard: () => leaveApiRef.current.discard(),
+    });
+    return () => onLeaveGuardReady(null);
+  }, [onLeaveGuardReady, showCreate]);
+
+  const listActionsPending =
+    restoreDraft.isPending ||
+    submitModeration.isPending ||
+    remove.isPending ||
+    cancelEvent.isPending;
 
   const editorContent = (
     <div className={embedded ? "space-y-6" : undefined}>
@@ -939,7 +1143,7 @@ export function InstructorEventsEditor({
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
                 disabled={formLocked}
-                maxLength={200}
+                maxLength={1000}
                 required
               />
             </div>
@@ -1027,7 +1231,7 @@ export function InstructorEventsEditor({
                   disabled={formLocked}
                   onChange={() => setUseSlots(true)}
                 />
-                Однодневный тур
+                Многодневный тур
               </label>
               <label className="flex items-center gap-2 text-sm">
                 <input
@@ -1037,49 +1241,30 @@ export function InstructorEventsEditor({
                   disabled={formLocked}
                   onChange={() => setUseSlots(false)}
                 />
-                Одно время (классика)
+                Однодневный выход
               </label>
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-2">
-              {!useSlots ? (
-                <div className="space-y-2">
-                  <Label htmlFor="event-at">Дата и время</Label>
-                  <Input
-                    id="event-at"
-                    type="datetime-local"
-                    value={eventAt}
-                    onChange={(e) => setEventAt(e.target.value)}
-                    disabled={formLocked}
-                    required={!useSlots}
-                  />
-                </div>
-              ) : null}
-              <div className={cn("space-y-2", useSlots && "sm:col-span-2")}>
-                <Label htmlFor="event-order">Только для заказа</Label>
-                <select
-                  id="event-order"
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm disabled:opacity-60"
-                  value={orderId}
-                  onChange={(e) => setOrderId(e.target.value)}
+            {!useSlots ? (
+              <div className="space-y-2">
+                <Label htmlFor="event-at">Дата и время</Label>
+                <Input
+                  id="event-at"
+                  type="datetime-local"
+                  value={eventAt}
+                  onChange={(e) => setEventAt(e.target.value)}
                   disabled={formLocked}
-                >
-                  <option value="">Все мои заказы</option>
-                  {activeOrders.map((o) => (
-                    <option key={o.id} value={o.id}>
-                      {o.label}
-                    </option>
-                  ))}
-                </select>
+                  required
+                />
               </div>
-            </div>
+            ) : null}
 
             {useSlots ? (
               <div className="space-y-3">
                 {!formLocked ? (
                   <div className="space-y-2 rounded-md border border-dashed border-border/80 bg-muted/20 p-3">
                     <Label>Добавить день выхода</Label>
-                    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+                    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
                       <div className="space-y-1">
                         <Label htmlFor="draft-slot-date" className="text-xs text-muted-foreground">
                           Дата
@@ -1101,20 +1286,6 @@ export function InstructorEventsEditor({
                           type="time"
                           value={draftSlotTime}
                           onChange={(e) => setDraftSlotTime(e.target.value)}
-                          className="h-9"
-                        />
-                      </div>
-                      <div className="space-y-1 sm:col-span-2 lg:col-span-1">
-                        <Label htmlFor="draft-slot-title" className="text-xs text-muted-foreground">
-                          Название
-                        </Label>
-                        <Input
-                          id="draft-slot-title"
-                          type="text"
-                          maxLength={80}
-                          placeholder="Утренний"
-                          value={draftSlotTitle}
-                          onChange={(e) => setDraftSlotTitle(e.target.value)}
                           className="h-9"
                         />
                       </div>
@@ -1190,8 +1361,6 @@ export function InstructorEventsEditor({
                                 {row.date ? formatYmdRu(row.date) : "—"} · {row.time || "—"}
                               </p>
                               <p className="text-muted-foreground">
-                                {row.title.trim() || "Без названия"}
-                                {" · "}
                                 {row.priceRub.trim()
                                   ? `${row.priceRub} ₽`
                                   : "бесплатно"}
@@ -1224,7 +1393,6 @@ export function InstructorEventsEditor({
                         <tr className="border-b border-border bg-muted/40 text-left text-xs text-muted-foreground">
                           <th className="px-2 py-2 font-medium">Дата</th>
                           <th className="px-2 py-2 font-medium">Время</th>
-                          <th className="px-2 py-2 font-medium">Название</th>
                           <th className="px-2 py-2 font-medium">Мест</th>
                           <th className="px-2 py-2 font-medium">Цена, ₽</th>
                           {!formLocked ? <th className="px-2 py-2 w-10" /> : null}
@@ -1234,7 +1402,7 @@ export function InstructorEventsEditor({
                         {slotRows.length === 0 ? (
                           <tr>
                             <td
-                              colSpan={formLocked ? 5 : 6}
+                              colSpan={formLocked ? 4 : 5}
                               className="px-3 py-4 text-center text-xs text-muted-foreground"
                             >
                               Пока нет дней — заполните поля выше и нажмите «+ Добавить»
@@ -1270,23 +1438,6 @@ export function InstructorEventsEditor({
                                     setSlotRows((rows) =>
                                       rows.map((r, i) =>
                                         i === idx ? { ...r, time: e.target.value } : r,
-                                      ),
-                                    )
-                                  }
-                                  className="h-9"
-                                />
-                              </td>
-                              <td className="px-2 py-1.5">
-                                <Input
-                                  type="text"
-                                  maxLength={80}
-                                  placeholder="—"
-                                  value={row.title}
-                                  disabled={formLocked}
-                                  onChange={(e) =>
-                                    setSlotRows((rows) =>
-                                      rows.map((r, i) =>
-                                        i === idx ? { ...r, title: e.target.value } : r,
                                       ),
                                     )
                                   }
@@ -1510,35 +1661,51 @@ export function InstructorEventsEditor({
           </>
         ) : null}
 
+        {showSaved ? (
+          <>
+            {isLoading ? <p className="text-sm text-muted-foreground">Загрузка…</p> : null}
+            <EventList
+              title="Сохранённые мероприятия"
+              events={groups.draft}
+              isLoading={isLoading}
+              emptyMessage="Пока нет сохранённых мероприятий. Сохраните черновик на странице создания."
+              onEdit={handleCardEdit}
+              onDuplicate={handleDuplicate}
+              onSubmitModeration={(id) => submitModeration.mutate(id)}
+              submitModerationPending={submitModeration.isPending}
+              onDelete={handleCardDelete}
+              onCancelEvent={handleCancelEvent}
+              actionsPending={listActionsPending}
+              hint="Черновики до отправки на проверку. Можно править или отправить на модерацию."
+            />
+          </>
+        ) : null}
+
+        {showPast ? (
+          <>
+            {isLoading ? <p className="text-sm text-muted-foreground">Загрузка…</p> : null}
+            <EventList
+              title="Прошедшие мероприятия"
+              events={groups.past}
+              isLoading={isLoading}
+              emptyMessage="Пока нет прошедших мероприятий."
+              onDelete={handleCardDelete}
+              actionsPending={remove.isPending}
+              hint="Дата и время уже прошли — с ленты клиентов сняты автоматически."
+            />
+          </>
+        ) : null}
+
         {showList ? (
           <>
             {!isLoading &&
-            !groups.draft.length &&
             !groups.pending.length &&
             !groups.published.length &&
             !groups.rejected.length &&
-            !groups.completed.length &&
             !groups.archived.length ? (
-              <p className="text-sm text-muted-foreground">Пока нет ваших мероприятий.</p>
+              <p className="text-sm text-muted-foreground">Пока нет активных мероприятий.</p>
             ) : null}
             {isLoading ? <p className="text-sm text-muted-foreground">Загрузка…</p> : null}
-        <EventList
-          title="Черновики"
-          events={groups.draft}
-          isLoading={isLoading}
-          onEdit={handleCardEdit}
-          onDuplicate={handleDuplicate}
-          onSubmitModeration={(id) => submitModeration.mutate(id)}
-          submitModerationPending={submitModeration.isPending}
-          onDelete={handleCardDelete}
-          onCancelEvent={handleCancelEvent}
-          actionsPending={
-            restoreDraft.isPending ||
-            submitModeration.isPending ||
-            remove.isPending ||
-            cancelEvent.isPending
-          }
-        />
         <EventList
           title="На модерации"
           events={groups.pending}
@@ -1570,21 +1737,7 @@ export function InstructorEventsEditor({
             submitModerationPending={submitModeration.isPending}
             onDelete={handleCardDelete}
             onCancelEvent={handleCancelEvent}
-            actionsPending={
-              restoreDraft.isPending ||
-              submitModeration.isPending ||
-              remove.isPending ||
-              cancelEvent.isPending
-            }
-          />
-        ) : null}
-        {groups.completed.length > 0 ? (
-          <EventList
-            title="Завершённые"
-            events={groups.completed}
-            onDelete={handleCardDelete}
-            actionsPending={remove.isPending}
-            hint="Дата и время прошли — мероприятие снято с ленты клиентов автоматически."
+            actionsPending={listActionsPending}
           />
         ) : null}
         {groups.archived.length > 0 ? (
@@ -1597,12 +1750,7 @@ export function InstructorEventsEditor({
             submitModerationPending={submitModeration.isPending}
             onDelete={handleCardDelete}
             onCancelEvent={handleCancelEvent}
-            actionsPending={
-              restoreDraft.isPending ||
-              submitModeration.isPending ||
-              remove.isPending ||
-              cancelEvent.isPending
-            }
+            actionsPending={listActionsPending}
             hint="Не в ленте и не на карте. «Редактировать» / «Восстановить черновик» — правки; «Восстановить и на модерацию» — сразу на проверку."
           />
         ) : null}
@@ -1613,15 +1761,7 @@ export function InstructorEventsEditor({
   );
 
   if (embedded) {
-    return (
-      <div className="space-y-4">
-        <p className="text-sm text-muted-foreground">
-          Черновик → «На модерацию» → после одобрения видно в ленте и на карте (точка по месту мероприятия).
-          Скрытое: «Восстановить черновик» для правок или «Восстановить и на модерацию».
-        </p>
-        {editorContent}
-      </div>
-    );
+    return <div className="space-y-4">{editorContent}</div>;
   }
 
   return (
@@ -1644,6 +1784,7 @@ function EventList({
   events,
   isLoading,
   hint,
+  emptyMessage,
   onEdit,
   onDuplicate,
   onSubmitModeration,
@@ -1659,6 +1800,7 @@ function EventList({
   events: InstructorEventApi[];
   isLoading?: boolean;
   hint?: string;
+  emptyMessage?: string;
   onEdit?: (ev: InstructorEventApi) => void;
   onDuplicate?: (ev: InstructorEventApi) => void;
   onSubmitModeration?: (id: string) => void;
@@ -1671,7 +1813,15 @@ function EventList({
   actionsPending?: boolean;
 }) {
   if (isLoading) return null;
-  if (!events.length) return null;
+  if (!events.length) {
+    if (!emptyMessage) return null;
+    return (
+      <div className="space-y-2">
+        <h3 className="text-sm font-medium">{title}</h3>
+        <p className="text-sm text-muted-foreground">{emptyMessage}</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-2">

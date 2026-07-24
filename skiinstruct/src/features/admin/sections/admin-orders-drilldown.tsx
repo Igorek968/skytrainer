@@ -18,6 +18,7 @@ import {
   parseAdminOrderGroup,
   type AdminOrderGroup,
 } from "@/lib/admin-list-filters";
+import { formatInAppTimeZone } from "@/shared/lib/app-timezone";
 import { orderStatusLabel } from "@/shared/lib/order-status";
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
@@ -108,7 +109,7 @@ function OrdersTable({
                   />
                 </td>
                 <td className="py-2 pr-3 whitespace-nowrap text-muted-foreground">
-                  {new Date(o.updatedAt).toLocaleString("ru-RU", {
+                  {formatInAppTimeZone(o.updatedAt, {
                     day: "2-digit",
                     month: "2-digit",
                     hour: "2-digit",

@@ -3,6 +3,7 @@
 import type { AdminOverview } from "@/features/admin/admin-overview-types";
 import { adminMoney, adminOrderFlowLabel } from "@/features/admin/admin-overview-types";
 import { orderStatusLabel } from "@/shared/lib/order-status";
+import { formatInAppTimeZone } from "@/shared/lib/app-timezone";
 import { Badge } from "@/shared/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
 import type { OrderStatus } from "@prisma/client";
@@ -56,7 +57,7 @@ export function AdminOrdersSection({ data }: { data: AdminOverview }) {
               {data.recentOrders.map((o) => (
                 <tr key={o.id} className="border-b border-border/80">
                   <td className="py-2 pr-3 whitespace-nowrap text-muted-foreground">
-                    {new Date(o.updatedAt).toLocaleString("ru-RU", {
+                    {formatInAppTimeZone(o.updatedAt, {
                       day: "2-digit",
                       month: "2-digit",
                       hour: "2-digit",

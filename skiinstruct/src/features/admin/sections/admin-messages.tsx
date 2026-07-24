@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { UserRole } from "@prisma/client";
 
 import { ADMIN_USER_ROLE_LABELS, type AdminUserRoleFilter } from "@/lib/admin-list-filters";
+import { formatInAppTimeZone } from "@/shared/lib/app-timezone";
 import { Badge } from "@/shared/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Skeleton } from "@/shared/ui/skeleton";
@@ -22,7 +23,7 @@ type AdminMessageRow = {
 
 function formatWhen(iso: string): string {
   try {
-    return new Date(iso).toLocaleString("ru-RU", { timeZone: "Europe/Moscow" });
+    return formatInAppTimeZone(iso);
   } catch {
     return iso;
   }

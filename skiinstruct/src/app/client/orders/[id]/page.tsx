@@ -37,6 +37,7 @@ import {
 import { isInLessonStartPopupWindow, msUntilLessonStart } from "@/shared/lib/order-lesson-start";
 import { resolveMeetAddress } from "@/shared/lib/order-meet-address";
 import { extractClientWishNotes, skillLevelLabelRu } from "@/shared/lib/order-booking-labels";
+import { APP_TIME_ZONE, formatInAppTimeZone } from "@/shared/lib/app-timezone";
 import {
   formatOrderSumWithDuration,
   lessonDurationLabelRu,
@@ -112,14 +113,14 @@ function formatDateTimeRu(raw: string | Date | null | undefined): string {
   if (!raw) return "—";
   const d = new Date(raw);
   if (!Number.isFinite(d.getTime())) return "—";
-  return d.toLocaleString("ru-RU", { timeZone: "Europe/Moscow" });
+  return formatInAppTimeZone(d);
 }
 
 function formatDateRu(raw: string | Date | null | undefined): string {
   if (!raw) return "—";
   const d = new Date(raw);
   if (!Number.isFinite(d.getTime())) return "—";
-  return d.toLocaleDateString("ru-RU", { timeZone: "Europe/Moscow" });
+  return d.toLocaleDateString("ru-RU", { timeZone: APP_TIME_ZONE });
 }
 
 function calendarYmdMoscow(raw: string | Date | null | undefined): string | null {
@@ -127,7 +128,7 @@ function calendarYmdMoscow(raw: string | Date | null | undefined): string | null
   const d = new Date(raw);
   if (!Number.isFinite(d.getTime())) return null;
   const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Europe/Moscow",
+    timeZone: APP_TIME_ZONE,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
@@ -400,7 +401,7 @@ function ClientOrderDetailContent({
                 {new Date(o.requestedStartDate!).toLocaleString("ru-RU", {
                   dateStyle: "short",
                   timeStyle: "short",
-                  timeZone: "Europe/Moscow",
+                  timeZone: APP_TIME_ZONE,
                 })}
               </span>
             </p>

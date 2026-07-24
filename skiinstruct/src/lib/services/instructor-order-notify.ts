@@ -8,6 +8,7 @@ import { lessonDurationLabelRu, skillLevelLabelRu } from "@/shared/lib/order-boo
 import { publicSiteHostLabel } from "@/lib/app-origin";
 import { orderIsUrgent, URGENT_INSTRUCTOR_DEADLINE_MIN } from "@/shared/lib/order-flex";
 import { getPublicProductName } from "@/shared/lib/product";
+import { APP_TIME_ZONE } from "@/shared/lib/app-timezone";
 
 function envSecret(value: string | undefined): string {
   const v = value?.trim() ?? "";
@@ -42,12 +43,12 @@ function smtpConfigFromEnv() {
 
 function formatDateTimeRu(d: Date | null | undefined): string {
   if (!d) return "—";
-  return d.toLocaleString("ru-RU", { timeZone: "Europe/Moscow" });
+  return d.toLocaleString("ru-RU", { timeZone: APP_TIME_ZONE });
 }
 
 function formatDateRu(d: Date | null | undefined): string {
   if (!d) return "—";
-  return d.toLocaleDateString("ru-RU", { timeZone: "Europe/Moscow" });
+  return d.toLocaleDateString("ru-RU", { timeZone: APP_TIME_ZONE });
 }
 
 function formatRub(amount: number | null): string {

@@ -11,6 +11,7 @@ import {
 } from "@/features/admin/admin-overview-types";
 import { adminOverviewHref } from "@/features/admin/admin-search-params";
 import { formatRussianPhoneDisplay } from "@/lib/phone";
+import { formatInAppTimeZone } from "@/shared/lib/app-timezone";
 import { Button } from "@/shared/ui/button";
 
 function roleRu(role: string): string {
@@ -118,7 +119,7 @@ function ParticipantSectionBody({
               <span className="font-medium text-foreground">{adminActivityCategoryLabel(row.category)}</span>
               <span>{row.eventLabel}</span>
               <time dateTime={row.at}>
-                {new Date(row.at).toLocaleString("ru-RU", {
+                {formatInAppTimeZone(row.at, {
                   day: "2-digit",
                   month: "2-digit",
                   hour: "2-digit",
