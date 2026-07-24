@@ -1,4 +1,4 @@
-# Включить dev + hot-reload на :3001 (рекомендуется для локальной разработки).
+﻿# Включить dev + hot-reload на :3001 (рекомендуется для локальной разработки).
 # Запуск из корня: .\scripts\use-skiinstruct-dev-3001.ps1
 
 $ErrorActionPreference = "Stop"

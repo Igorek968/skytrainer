@@ -1,4 +1,4 @@
-# Постоянный публичный доступ: https://твойтренер.рф через Cloudflare Tunnel + reg.ru DNS.
+﻿# Постоянный публичный доступ: https://твойтренер.рф через Cloudflare Tunnel + reg.ru DNS.
 # Запуск из корня: .\scripts\setup-tvoytrener-public.ps1
 param(
   [string]$TunnelToken = "",

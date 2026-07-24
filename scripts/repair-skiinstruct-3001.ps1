@@ -1,4 +1,4 @@
-# Починка :3001: dev-режим + чистый кэш .next (если «Cannot find module ./NNNN.js» или белый экран).
+﻿# Починка :3001: dev-режим + чистый кэш .next (если «Cannot find module ./NNNN.js» или белый экран).
 # Запуск из корня: .\scripts\repair-skiinstruct-3001.ps1
 
 $ErrorActionPreference = "Stop"
@@ -9,7 +9,7 @@ $env:SKIINSTRUCT_USE_POLLING = "true"
 $env:SKIINSTRUCT_FORCE_REBUILD = "0"
 Remove-Item Env:SKIINSTRUCT_NODE_ENV -ErrorAction SilentlyContinue
 
-Write-Host "Utrainer repair: dev + чистый .next -> http://localhost:3001 ..."
+Write-Host "TvoyTrener.rf repair: dev + чистый .next -> http://localhost:3001 ..."
 
 docker compose stop skiinstruct | Out-Host
 docker compose rm -sf skiinstruct | Out-Host

@@ -4,7 +4,7 @@ import { getPublicProductName } from "@/shared/lib/product";
 
 const productName = getPublicProductName();
 
-/** Весь раздел /admin относится к приложению Utrainer (этот репозиторий Next.js). */
+/** Весь раздел /admin относится к приложению ТвойТренер.рф (этот репозиторий Next.js). */
 export const metadata: Metadata = {
   title: {
     default: `Администрирование · ${productName}`,

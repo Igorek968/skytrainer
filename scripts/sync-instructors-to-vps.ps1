@@ -1,4 +1,4 @@
-# Sync live instructor profiles from local DB to VPS (utrainer.ru).
+﻿# Sync live instructor profiles from local DB to VPS (tvoytrener.rf / xn--b1agaovdpdkd.xn--p1ai).
 param(
   [string]$SshHost = "vps",
   [string]$RemoteDir = "/opt/skytrainer",
@@ -84,4 +84,4 @@ if ($LASTEXITCODE -eq 0) {
   Write-Warning "Events export skipped (local export failed)"
 }
 
-Write-Host "Done. Check https://utrainer.ru/client (hard refresh)."
+Write-Host "Done. Check https://xn--b1agaovdpdkd.xn--p1ai/client (hard refresh)."

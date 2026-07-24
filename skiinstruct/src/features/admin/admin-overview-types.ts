@@ -1,6 +1,6 @@
 import type { OrderStatus, PaymentStatus, UserRole } from "@prisma/client";
 
-/** Домен приложения Utrainer (заказы, пользователи, чаты — одна БД Prisma). */
+/** Домен приложения ТвойТренер.рф (заказы, пользователи, чаты — одна БД Prisma). */
 export type AdminActivityCategory = "order" | "user" | "instructor" | "message";
 
 export type AdminActivityItem = {
@@ -56,7 +56,7 @@ export type AdminParticipantInsights = {
 };
 
 export type AdminOverview = {
-  /** Привязка сводки к продукту Utrainer */
+  /** Привязка сводки к продукту ТвойТренер.рф */
   context: {
     productName: string;
     generatedAt: string;

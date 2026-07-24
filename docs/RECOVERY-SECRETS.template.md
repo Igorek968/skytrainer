@@ -1,4 +1,4 @@
-# Шаблон восстановления доступа к Utrainer / Skytrainer
+# Шаблон восстановления доступа к ТвойТренер.рф / Skytrainer
 
 > **Не коммитьте заполненный файл с реальными значениями.**  
 > Скопируйте в менеджер паролей (1Password, Bitwarden и т.п.) или зашифрованный архив.  
@@ -23,11 +23,11 @@
 
 ---
 
-## 2. Домен и хостинг (прод: utrainer.ru)
+## 2. Домен и хостинг (прод: твойтренер.рф)
 
 | Что | Где | Значение |
 |-----|-----|----------|
-| Домен | регистратор | `utrainer.ru` |
+| Домен | регистратор | `твойтренер.рф` |
 | DNS-панель (логин) | | |
 | A-запись → IP VPS | | `___ . ___ . ___ . ___` |
 | VPS провайдер (логин) | | |
@@ -36,7 +36,7 @@
 | SSH пользователь | | `root` / `ubuntu` / … |
 | SSH ключ или пароль | менеджер паролей | |
 | Путь на сервере | | `/opt/skytrainer` |
-| Прод URL | | `https://utrainer.ru` |
+| Прод URL | | `https://твойтренер.рф` |
 
 Пример `~/.ssh/config`:
 
@@ -82,8 +82,8 @@ Host vps
 
 | Переменная | Назначение | Заполнено |
 |------------|------------|-----------|
-| `APP_DOMAIN` | | `utrainer.ru` |
-| `APP_PUBLIC_URL` | | `https://utrainer.ru` |
+| `APP_DOMAIN` | | `твойтренер.рф` |
+| `APP_PUBLIC_URL` | | `https://твойтренер.рф` |
 | `POSTGRES_PASSWORD` | БД на VPS | ☐ |
 | `SKIINSTRUCT_DATABASE_URL` | тот же пароль | ☐ |
 | `SKIINSTRUCT_AUTH_SECRET` | **должен совпадать** с тем, что был при выпуске сессий | ☐ |
@@ -91,12 +91,12 @@ Host vps
 | `ALLOW_MOCK_CHECKOUT` | `0` на проде | ☐ |
 | `REQUIRE_EMAIL_VERIFICATION` | `1` на проде | ☐ |
 | `YOOKASSA_*` | реальная касса | ☐ |
-| `SKIINSTRUCT_SMTP_*` | noreply@utrainer.ru | ☐ |
+| `SKIINSTRUCT_SMTP_*` | noreply@твойтренер.рф | ☐ |
 | `MAX_*` | поддержка | ☐ |
 | `NEXT_PUBLIC_YANDEX_MAPS_API_KEY` | нужен при `docker build` | ☐ |
 | `SKIINSTRUCT_VAPID_PUBLIC_KEY` | web push (клиент, build arg) | ☐ |
 | `SKIINSTRUCT_VAPID_PRIVATE_KEY` | web push (сервер) | ☐ |
-| `SKIINSTRUCT_VAPID_SUBJECT` | `mailto:noreply@utrainer.ru` | ☐ |
+| `SKIINSTRUCT_VAPID_SUBJECT` | `mailto:noreply@твойтренер.рф` | ☐ |
 
 ---
 
@@ -132,8 +132,8 @@ Host vps
 
 | Сервис | URL | Что сохранить |
 |--------|-----|---------------|
-| ЮKassa | https://yookassa.ru | shop_id, secret, webhook URL `https://utrainer.ru/api/webhooks/yookassa` |
-| Beget (почта) | https://beget.com | SMTP, ящик `noreply@utrainer.ru` |
+| ЮKassa | https://yookassa.ru | shop_id, secret, webhook URL `https://твойтренер.рф/api/webhooks/yookassa` |
+| Beget (почта) | https://beget.com | SMTP, ящик `noreply@твойтренер.рф` |
 | Яндекс.Карты | https://developer.tech.yandex.ru | API-ключ (JS + Геокодер) |
 | MAX (бот) | https://dev.max.ru | токен бота, webhook |
 | Google Cloud (OAuth) | https://console.cloud.google.com | Client ID / Secret, redirect URIs |
@@ -174,7 +174,7 @@ Host vps
 3. ☐ Восстановить `deploy/caddy-data/` или выпустить новые сертификаты  
 4. ☐ Настроить SSH `vps` и залить код на `/opt/skytrainer`  
 5. ☐ `docker compose --env-file .env.qa -f docker-compose.qa.yml up -d --build`  
-6. ☐ Проверить `curl -I https://utrainer.ru/api/health`  
+6. ☐ Проверить `curl -I https://твойтренер.рф/api/health`  
 7. ☐ При необходимости восстановить БД из `backups/postgres/`  
 8. ☐ Проверить webhook ЮKassa, MAX, SMTP (тестовое письмо / сброс пароля)  
 9. ☐ Локально: `docker compose up -d`, `.\scripts\refresh-skiinstruct-3001.ps1`

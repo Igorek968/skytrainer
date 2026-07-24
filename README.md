@@ -1,6 +1,6 @@
 # Skytrainer
 
-Монорепозиторий: **legacy HTTP API** (`api`), веб‑приложение **Utrainer** (`skiinstruct`, Next.js), общие **PostgreSQL** и **Redis** через Docker Compose.
+Монорепозиторий: **legacy HTTP API** (`api`), веб‑приложение **ТвойТренер.рф** (`skiinstruct`, Next.js), общие **PostgreSQL** и **Redis** через Docker Compose.
 
 ## Локальный запуск (Docker)
 
@@ -24,12 +24,12 @@
 
    | Сервис | URL |
    |--------|-----|
-   | Utrainer (основной веб‑интерфейс) | http://localhost:3001 |
+   | ТвойТренер.рф (основной веб‑интерфейс) | http://localhost:3001 |
    | Legacy API | http://localhost:3000 |
    | Проверка API | http://localhost:3000/health |
-   | Проверка Utrainer | http://localhost:3001/api/health |
+   | Проверка ТвойТренер.рф | http://localhost:3001/api/health |
 
-Подробности по Utrainer: [skiinstruct/README.md](skiinstruct/README.md).
+Подробности по ТвойТренер.рф: [skiinstruct/README.md](skiinstruct/README.md).
 
 ## Публичный QA-стенд (ссылка для тестировщиков)
 
@@ -58,4 +58,4 @@ docker compose --env-file .env.qa -f docker-compose.qa.yml up -d --build
 
 ## Legacy Vue‑фронтенд (порт 5173)
 
-Ранее использовался отдельный Vite‑фронтенд; он **удалён** из репозитория и из `docker-compose.yml`. Точка входа для пользователя в браузере — **Utrainer на порту 3001**.
+Ранее использовался отдельный Vite‑фронтенд; он **удалён** из репозитория и из `docker-compose.yml`. Точка входа для пользователя в браузере — **ТвойТренер.рф на порту 3001**.

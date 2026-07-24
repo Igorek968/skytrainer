@@ -1,6 +1,6 @@
 # Android TWA (Google Play)
 
-Обёртка для публикации PWA Utrainer в Google Play через [Bubblewrap](https://github.com/GoogleChromeLabs/bubblewrap).
+Обёртка для публикации PWA ТвойТренер.рф в Google Play через [Bubblewrap](https://github.com/GoogleChromeLabs/bubblewrap).
 
 ## Требования
 
@@ -16,11 +16,11 @@
 ```powershell
 npm install -g @bubblewrap/cli
 cd android-twa
-bubblewrap update --manifest=https://utrainer.ru/manifest.webmanifest
+bubblewrap update --manifest=https://твойтренер.рф/manifest.webmanifest
 bubblewrap build
 ```
 
-При первом `update`/`init` укажите тот же `packageId`: **ru.utrainer.app**.
+При первом `update`/`init` укажите тот же `packageId`: **ru.tvoytrener.app**.
 
 После `build` скопируйте SHA-256 отпечаток:
 
@@ -33,13 +33,13 @@ bubblewrap fingerprint list
 В `.env` на сервере:
 
 ```env
-ANDROID_PACKAGE_NAME=ru.utrainer.app
+ANDROID_PACKAGE_NAME=ru.tvoytrener.app
 ANDROID_SHA256_FINGERPRINTS=AA:BB:CC:...
 ```
 
 Несколько отпечатков (upload + Play App Signing) — через запятую.
 
-Проверка: `https://utrainer.ru/.well-known/assetlinks.json`
+Проверка: `https://твойтренер.рф/.well-known/assetlinks.json`
 
 Инструмент Google: https://developers.google.com/digital-asset-links/tools/generator
 

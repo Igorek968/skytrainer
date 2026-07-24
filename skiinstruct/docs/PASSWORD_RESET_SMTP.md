@@ -5,18 +5,18 @@
 ## Переменные (корневой `.env` → Docker `skiinstruct`)
 
 ```env
-SKIINSTRUCT_PUBLIC_APP_URL=https://utrainer.ru
-SKIINSTRUCT_AUTH_URL=https://utrainer.ru
+SKIINSTRUCT_PUBLIC_APP_URL=https://твойтренер.рф
+SKIINSTRUCT_AUTH_URL=https://твойтренер.рф
 SKIINSTRUCT_PASSWORD_RESET_DEBUG=0
 
 SKIINSTRUCT_SMTP_HOST=smtp.beget.com
 SKIINSTRUCT_SMTP_PORT=465
 SKIINSTRUCT_SMTP_SECURE=1
-SKIINSTRUCT_SMTP_USER=noreply@utrainer.ru
+SKIINSTRUCT_SMTP_USER=noreply@твойтренер.рф
 SKIINSTRUCT_SMTP_PASSWORD=пароль_ящика_из_beget
 
-SKIINSTRUCT_PASSWORD_RESET_EMAIL_FROM="Utrainer <noreply@utrainer.ru>"
-SKIINSTRUCT_PASSWORD_RESET_EMAIL_SUBJECT="восстановление пароля на Utrainer"
+SKIINSTRUCT_PASSWORD_RESET_EMAIL_FROM="ТвойТренер.рф <noreply@твойтренер.рф>"
+SKIINSTRUCT_PASSWORD_RESET_EMAIL_SUBJECT="восстановление пароля на ТвойТренер.рф"
 ```
 
 После правок: `docker compose restart skiinstruct` (или `refresh-skiinstruct-3001.ps1` локально).
@@ -24,7 +24,7 @@ SKIINSTRUCT_PASSWORD_RESET_EMAIL_SUBJECT="восстановление паро�
 ## Проверка
 
 1. Пользователь с email + паролем в БД.
-2. https://utrainer.ru/reset-password → ввести email → письмо на этот ящик.
+2. https://твойтренер.рф/reset-password → ввести email → письмо на этот ящик.
 3. Логи: `docker compose logs skiinstruct | grep password-reset`
 
 ### Тест SMTP на VPS
@@ -35,7 +35,7 @@ docker cp /opt/skytrainer/skiinstruct/scripts/test-smtp.mjs skiinstruct-qa-web:/
 docker exec skiinstruct-qa-web node /app/scripts/test-smtp.mjs ваш@email.ru
 ```
 
-Если **535 Incorrect authentication data** — пароль в `.env.qa` не совпадает с паролем ящика в Beget (Почта → `noreply@utrainer.ru` → сменить пароль → обновить `SKIINSTRUCT_SMTP_PASSWORD` → `docker compose restart skiinstruct`).
+Если **535 Incorrect authentication data** — пароль в `.env.qa` не совпадает с паролем ящика в Beget (Почта → `noreply@твойтренер.рф` → сменить пароль → обновить `SKIINSTRUCT_SMTP_PASSWORD` → `docker compose restart skiinstruct`).
 
 ## Локально без SMTP
 

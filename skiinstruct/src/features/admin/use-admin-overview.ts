@@ -5,7 +5,7 @@ import { toast } from "sonner";
 
 import type { AdminOverview } from "@/features/admin/admin-overview-types";
 import { devPollInterval } from "@/lib/query-poll";
-import { UTRAINER_PRODUCT_NAME } from "@/shared/lib/product";
+import { PRODUCT_NAME } from "@/shared/lib/product";
 
 export type AdminOverviewFilters = {
   user?: string | null;
@@ -44,7 +44,7 @@ async function fetchAdminOverview(filters: AdminOverviewFilters): Promise<AdminO
       ? {
           ...data,
           context: {
-            productName: UTRAINER_PRODUCT_NAME,
+            productName: PRODUCT_NAME,
             generatedAt: new Date().toISOString(),
           },
         }

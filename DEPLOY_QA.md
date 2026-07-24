@@ -29,7 +29,7 @@ cp .env.qa.example .env.qa
 
 Сертификаты Let's Encrypt лежат в `deploy/caddy-data/` (bind-mount в контейнер, не анонимный том).
 
-1. В `.env.qa`: `APP_DOMAIN=utrainer.ru`, `APP_PUBLIC_URL=https://utrainer.ru`, `CADDYFILE=Caddyfile`.
+1. В `.env.qa`: `APP_DOMAIN=твойтренер.рф`, `APP_PUBLIC_URL=https://твойтренер.рф`, `CADDYFILE=Caddyfile`.
 2. **A-запись** домена должна указывать на IP VPS (иначе ACME не пройдёт).
 3. После первого успешного выпуска на сервере:
 

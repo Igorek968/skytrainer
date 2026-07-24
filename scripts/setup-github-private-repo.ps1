@@ -1,9 +1,9 @@
-# Создать приватный репозиторий на GitHub и запушить ветки.
+﻿# Создать приватный репозиторий на GitHub и запушить ветки.
 # Требуется: GitHub CLI (winget install GitHub.cli) и gh auth login
 #
 # Из корня репозитория:
 #   .\scripts\setup-github-private-repo.ps1
-#   .\scripts\setup-github-private-repo.ps1 -RepoName utrainer
+#   .\scripts\setup-github-private-repo.ps1 -RepoName tvoytrener
 
 param(
   [string]$RepoName = "skytrainer",
@@ -31,7 +31,7 @@ if (-not $SkipCreate) {
   }
   else {
     Write-Host "[create] private repo: $RepoName"
-    & $gh repo create $RepoName --private --source=. --remote=origin --description "Utrainer / Skytrainer"
+    & $gh repo create $RepoName --private --source=. --remote=origin --description "TvoyTrener.rf / Skytrainer"
   }
 }
 

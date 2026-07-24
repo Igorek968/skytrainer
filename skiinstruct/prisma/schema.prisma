@@ -1,4 +1,4 @@
-// Utrainer — PostgreSQL schema (Supabase / Vercel compatible)
+// ТвойТренер.рф — PostgreSQL schema (Supabase / Vercel compatible)
 
 generator client {
   provider = "prisma-client-js"

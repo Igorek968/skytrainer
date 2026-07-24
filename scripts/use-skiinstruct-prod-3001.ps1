@@ -1,4 +1,4 @@
-# Быстрый Utrainer на :3001 (next start). Для разработки UI — npm run dev в skiinstruct/ без Docker.
+﻿# Быстрый TvoyTrener.rf на :3001 (next start). Для разработки UI — npm run dev в skiinstruct/ без Docker.
 # Запуск из корня: .\scripts\use-skiinstruct-prod-3001.ps1
 
 $ErrorActionPreference = "Stop"
@@ -27,7 +27,7 @@ if (Test-Path $envFile) {
   Add-Content -Path $envFile -Value ""
 }
 
-Write-Host "Utrainer -> prod (fast next start) on http://localhost:3001 ..."
+Write-Host "TvoyTrener.rf -> prod (fast next start) on http://localhost:3001 ..."
 docker compose up -d --force-recreate skiinstruct | Out-Host
 Write-Host ""
 Write-Host "First time or after code changes: build 5-15 min. Logs:"

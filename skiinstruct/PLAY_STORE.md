@@ -1,4 +1,4 @@
-# Публикация Utrainer в Google Play
+# Публикация ТвойТренер.рф в Google Play
 
 Сайт подготовлен как **PWA + TWA**: в Play загружается Android-обёртка, контент — ваш прод на HTTPS.
 
@@ -9,7 +9,7 @@
 - `public/sw.js` — service worker (push, офлайн-навигация по клику)
 - Регистрация SW при каждом визите (`PwaServiceWorkerRegister`)
 - `GET /.well-known/assetlinks.json` — Digital Asset Links для TWA
-- Шаблон `android-twa/twa-manifest.json` — package `ru.utrainer.app`
+- Шаблон `android-twa/twa-manifest.json` — package `ru.tvoytrener.app`
 
 ## Перед публикацией на проде
 
@@ -18,7 +18,7 @@
 3. В `.env` на сервере после сборки Android:
 
 ```env
-ANDROID_PACKAGE_NAME=ru.utrainer.app
+ANDROID_PACKAGE_NAME=ru.tvoytrener.app
 ANDROID_SHA256_FINGERPRINTS=ВАШ_SHA256_ИЗ_BUBBLEWRAP
 ```
 
@@ -36,7 +36,7 @@ npm run pwa:icons
 ```powershell
 npm install -g @bubblewrap/cli
 cd android-twa
-bubblewrap update --manifest=https://utrainer.ru/manifest.webmanifest
+bubblewrap update --manifest=https://твойтренер.рф/manifest.webmanifest
 bubblewrap build
 bubblewrap fingerprint list
 ```
@@ -47,10 +47,10 @@ AAB: `android-twa/app/build/outputs/bundle/release/app-release.aab`
 
 ## Шаг 3. Google Play Console
 
-1. [play.google.com/console](https://play.google.com/console) — создать приложение **Utrainer**
+1. [play.google.com/console](https://play.google.com/console) — создать приложение **ТвойТренер.рф**
 2. **Store listing**: описание, скриншоты (мин. 2), иконка 512×512, feature graphic 1024×500
 3. **App content**:
-   - Privacy policy: `https://utrainer.ru/privacy`
+   - Privacy policy: `https://твойтренер.рф/privacy`
    - Content rating (анкета IARC)
    - Data safety (геолокация, аккаунт, платежи)
    - App access — тестовый логин, если нужен вход
@@ -63,7 +63,7 @@ AAB: `android-twa/app/build/outputs/bundle/release/app-release.aab`
 Инструкторы рядом: карта, бронь и оплата тренировок онлайн.
 
 **Полное описание:**  
-Utrainer — маркетплейс персональных тренировок. Найдите инструктора на карте по виду спорта и цене, забронируйте занятие и оплатите через ЮKassa. Для инструкторов — заявки, расписание и выплаты в одном кабинете.
+ТвойТренер.рф — маркетплейс персональных тренировок. Найдите инструктора на карте по виду спорта и цене, забронируйте занятие и оплатите через ЮKassa. Для инструкторов — заявки, расписание и выплаты в одном кабинете.
 
 **Категория:** Спорт  
 **Email поддержки:** из `NEXT_PUBLIC_SUPPORT_EMAIL`

@@ -33,8 +33,8 @@ function GoogleAnalytics() {
     const sync = () => setEnabled(hasCookieConsent());
     sync();
 
-    window.addEventListener("utrainer:cookie-consent", sync);
-    return () => window.removeEventListener("utrainer:cookie-consent", sync);
+    window.addEventListener("tvoytrener:cookie-consent", sync);
+    return () => window.removeEventListener("tvoytrener:cookie-consent", sync);
   }, []);
 
   if (!enabled || !GA_ID) return null;

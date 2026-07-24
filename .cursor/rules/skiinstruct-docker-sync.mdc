@@ -3,7 +3,7 @@ description: После правок в skiinstruct — сразу показа�
 alwaysApply: true
 ---
 
-# Utrainer → localhost:3001 (обязательно)
+# ТвойТренер.рф → localhost:3001 (обязательно)
 
 Пользователь смотрит приложение на **http://localhost:3001** (Docker `skiinstruct-web`).
 

@@ -1,4 +1,4 @@
-# Apply skiinstruct changes to http://localhost:3001
+﻿# Apply skiinstruct changes to http://localhost:3001
 # Run from repo root: .\scripts\refresh-skiinstruct-3001.ps1
 
 $ErrorActionPreference = "Stop"
@@ -39,7 +39,7 @@ try {
   }
 
   $mode = Get-SkiinstructMode
-  Write-Host "Utrainer refresh (mode=$mode) -> http://localhost:3001 ..."
+  Write-Host "TvoyTrener.rf refresh (mode=$mode) -> http://localhost:3001 ..."
 
   $dirtyMarker = Join-Path $repoRoot ".cursor/.skiinstruct-dirty"
   $hadEdits = Test-Path $dirtyMarker

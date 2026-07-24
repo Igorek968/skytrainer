@@ -1,4 +1,4 @@
-# Utrainer
+# ТвойТренер.рф
 
 Веб‑приложение для вызова инструктора на горнолыжном курорте (цикл заказ → выполнение → оплата).  
 Стек: **Next.js 14 (App Router)**, **TypeScript (strict)**, **Tailwind CSS**, **Prisma**, **NextAuth.js (Auth.js v5)**, **React Query**, **Zustand**, **Leaflet**, **Stripe** (test).
@@ -55,13 +55,13 @@ npm run dev
 docker compose up --build skiinstruct
 ```
 
-Utrainer будет доступен на `http://localhost:3001`.
+ТвойТренер.рф будет доступен на `http://localhost:3001`.
 
 По умолчанию сервис использует Postgres-контейнер `postgres` и строку:
 
 `postgres://sky:sky@postgres:5432/skytrainer_new?schema=skiinstruct`
 
-То есть данные Utrainer изолированы в отдельной PostgreSQL-схеме `skiinstruct`.
+То есть данные ТвойТренер.рф изолированы в отдельной PostgreSQL-схеме `skiinstruct`.
 
 ### Вход в админку
 

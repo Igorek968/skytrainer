@@ -1,8 +1,8 @@
 /** Идентификатор Android-пакета для TWA / Google Play (Bubblewrap). */
-export const ANDROID_PACKAGE_NAME = "ru.utrainer.app";
+export const ANDROID_PACKAGE_NAME = "ru.tvoytrener.app";
 
-/** Продакшен-хост по умолчанию (без схемы). */
-export const ANDROID_TWA_HOST = "utrainer.ru";
+/** Punycode для твойтренер.рф (Android Digital Asset Links). */
+export const ANDROID_TWA_HOST = "xn--b1agaovdpdkd.xn--p1ai";
 
 export function parseAndroidSha256Fingerprints(raw: string | undefined): string[] {
   if (!raw?.trim()) return [];

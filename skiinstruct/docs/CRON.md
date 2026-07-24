@@ -22,7 +22,7 @@
 
 ```bash
 CRON_SECRET='ваш_секрет'
-APP='https://utrainer.ru'
+APP='https://твойтренер.рф'
 
 */5 * * * * curl -fsS "$APP/api/cron/expire-orders?secret=$CRON_SECRET" >/dev/null
 * * * * * curl -fsS "$APP/api/cron/lesson-reminders?secret=$CRON_SECRET" >/dev/null

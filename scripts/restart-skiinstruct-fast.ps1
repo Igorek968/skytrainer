@@ -1,4 +1,4 @@
-# Быстрый режим Utrainer (next start). Запуск из корня репозитория.
+﻿# Быстрый режим TvoyTrener.rf (next start). Запуск из корня репозитория.
 $ErrorActionPreference = "Stop"
 Set-Location $PSScriptRoot\..
 

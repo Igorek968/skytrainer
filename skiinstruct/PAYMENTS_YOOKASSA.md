@@ -1,4 +1,4 @@
-# Подключение ЮKassa к Utrainer
+# Подключение ЮKassa к ТвойТренер.рф
 
 Сейчас в **skiinstruct** оплата идёт через **Stripe** (или mock без ключа в dev).  
 В корневом **legacy API** (`api/`) уже есть черновик ЮKassa — для единого продакшена лучше перенести логику в Next.js.
@@ -29,7 +29,7 @@ YOOKASSA_SHOP_ID=...
 YOOKASSA_SECRET_KEY=...
 ```
 
-**Webhook в ЛК ЮKassa:** `https://utrainer.ru/api/webhooks/yookassa`  
+**Webhook в ЛК ЮKassa:** `https://твойтренер.рф/api/webhooks/yookassa`  
 **Событие:** `payment.succeeded`  
 **Чеки:** включить «Чеки от ЮKassa» (receipt передаётся при создании платежа в API).
 

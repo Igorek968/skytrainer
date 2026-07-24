@@ -1,4 +1,4 @@
-# Prod-сборка skiinstruct на http://localhost:3001 (медленно; для dev используйте refresh-skiinstruct-3001.ps1).
+﻿# Prod-сборка skiinstruct на http://localhost:3001 (медленно; для dev используйте refresh-skiinstruct-3001.ps1).
 # Запуск из корня: .\scripts\sync-skiinstruct.ps1
 
 $ErrorActionPreference = "Stop"

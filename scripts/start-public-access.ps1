@@ -1,4 +1,4 @@
-# Публичный HTTPS-доступ к локальному skiinstruct с любого телефона.
+﻿# Публичный HTTPS-доступ к локальному skiinstruct с любого телефона.
 # Быстрый режим (без настройки DNS): случайный *.trycloudflare.com
 # Постоянный домен: CLOUDFLARE_TUNNEL_TOKEN в .env + reg.ru CNAME (см. setup-tvoytrener-public.ps1)
 param(

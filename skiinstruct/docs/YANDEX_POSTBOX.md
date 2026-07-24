@@ -1,6 +1,6 @@
 # Отправка писем через Yandex Cloud Postbox
 
-Замена Beget SMTP (`smtp.beget.com` / `noreply@utrainer.ru`) на Postbox с From вида `no-reply@твойтренер.рф`.
+Замена Beget SMTP (`smtp.beget.com` / `noreply@твойтренер.рф`) на Postbox с From вида `no-reply@твойтренер.рф`.
 
 Postbox — только **исходящая** почта (сброс пароля, уведомления). Читать входящие в ящике нельзя — для этого нужен Яндекс 360.
 

@@ -1,8 +1,8 @@
 {
-  "packageId": "ru.utrainer.app",
-  "host": "utrainer.ru",
-  "name": "Utrainer",
-  "launcherName": "Utrainer",
+  "packageId": "ru.tvoytrener.app",
+  "host": "xn--b1agaovdpdkd.xn--p1ai",
+  "name": "ТвойТренер.рф",
+  "launcherName": "ТвойТренер.рф",
   "display": "standalone",
   "themeColor": "#0f172a",
   "themeColorDark": "#0f172a",
@@ -19,7 +19,7 @@
   "splashScreenFadeOutDuration": 300,
   "signingKey": {
     "path": "./android.keystore",
-    "alias": "utrainer"
+    "alias": "tvoytrener"
   },
   "appVersionName": "1.0.0",
   "appVersionCode": 1,
@@ -27,18 +27,18 @@
     {
       "name": "Найти инструктора",
       "shortName": "Карта",
-      "url": "https://utrainer.ru/client",
-      "chosenIconUrl": "https://utrainer.ru/icon-192.png"
+      "url": "https://xn--b1agaovdpdkd.xn--p1ai/client",
+      "chosenIconUrl": "https://xn--b1agaovdpdkd.xn--p1ai/icon-192.png"
     },
     {
       "name": "Мои заказы",
       "shortName": "Заказы",
-      "url": "https://utrainer.ru/client/orders",
-      "chosenIconUrl": "https://utrainer.ru/icon-192.png"
+      "url": "https://xn--b1agaovdpdkd.xn--p1ai/client/orders",
+      "chosenIconUrl": "https://xn--b1agaovdpdkd.xn--p1ai/icon-192.png"
     }
   ],
   "generatorApp": "bubblewrap-cli",
-  "webManifestUrl": "https://utrainer.ru/manifest.webmanifest",
+  "webManifestUrl": "https://xn--b1agaovdpdkd.xn--p1ai/manifest.webmanifest",
   "fallbackType": "customtabs",
   "features": {
     "playBilling": {

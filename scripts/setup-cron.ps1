@@ -1,4 +1,4 @@
-# Регистрация cron-задач Windows для skiinstruct (на VPS — crontab, см. skiinstruct/docs/CRON.md).
+﻿# Регистрация cron-задач Windows для skiinstruct (на VPS — crontab, см. skiinstruct/docs/CRON.md).
 # Требует SKIINSTRUCT_CRON_SECRET и SKIINSTRUCT_PUBLIC_APP_URL в .env.
 
 $ErrorActionPreference = "Stop"

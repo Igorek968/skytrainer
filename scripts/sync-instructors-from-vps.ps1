@@ -1,4 +1,4 @@
-# Pull live instructor profiles FROM VPS into local DB (reverse of sync-instructors-to-vps.ps1).
+﻿# Pull live instructor profiles FROM VPS into local DB (reverse of sync-instructors-to-vps.ps1).
 param(
   [string]$SshHost = "vps",
   [string]$RemoteDir = "/opt/skytrainer",

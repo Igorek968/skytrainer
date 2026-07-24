@@ -1,4 +1,4 @@
-# Deploy Utrainer to VPS (SSH host "vps" from ~/.ssh/config).
+﻿# Deploy TvoyTrener.rf to VPS (SSH host "vps" from ~/.ssh/config).
 param(
   [string]$SshHost = "vps",
   [string]$RemoteDir = "/opt/skytrainer",

@@ -5,8 +5,8 @@ AUTH=$(openssl rand -hex 32)
 CRON=$(openssl rand -hex 32)
 PGPASS=$(openssl rand -hex 16)
 cat > .env.qa <<EOF
-APP_DOMAIN=utrainer.ru
-APP_PUBLIC_URL=https://utrainer.ru
+APP_DOMAIN=твойтренер.рф
+APP_PUBLIC_URL=https://твойтренер.рф
 CADDYFILE=Caddyfile
 POSTGRES_USER=sky
 POSTGRES_PASSWORD=${PGPASS}
@@ -19,11 +19,11 @@ SKIINSTRUCT_ADMIN_PASSWORD=Admin12345!
 SKIINSTRUCT_ADMIN_NAME=Администратор
 ALLOW_MOCK_CHECKOUT=0
 SKIINSTRUCT_PASSWORD_RESET_DEBUG=0
-SKIINSTRUCT_SERVER_ACTIONS_ALLOWED_ORIGINS=utrainer.ru,www.utrainer.ru
+SKIINSTRUCT_SERVER_ACTIONS_ALLOWED_ORIGINS=твойтренер.рф,www.твойтренер.рф
 EOF
 chmod 600 .env.qa
 {
-  echo "APP=https://utrainer.ru"
+  echo "APP=https://твойтренер.рф"
   echo "ADMIN=admin@skiinstruct.local / Admin12345!"
   echo "POSTGRES_PASSWORD=${PGPASS}"
 } > /root/skytrainer-deploy-secrets.txt

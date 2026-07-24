@@ -56,7 +56,7 @@ const from =
 const info = await transport.sendMail({
   from,
   to,
-  subject: "Utrainer SMTP test",
+  subject: "ТвойТренер.рф SMTP test",
   text: "If you received this, SMTP works.",
 });
 
