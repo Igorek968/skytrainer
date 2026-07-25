@@ -3,6 +3,12 @@ import type { OrderStatus } from "@prisma/client";
 /** Промежуток между уроками (минуты). */
 export const LESSON_SCHEDULE_GAP_MINUTES = 60;
 
+/**
+ * Длительность занятости календаря на выход мероприятия (если нет отдельного «до»).
+ * Слот/eventAt задают только старт.
+ */
+export const EVENT_SCHEDULE_BLOCK_MINUTES = 120;
+
 export const SCHEDULE_GRID_HOUR_START = 6;
 export const SCHEDULE_GRID_HOUR_END = 24;
 
@@ -10,6 +16,7 @@ export type WeekScheduleHourCell = {
   hour: number;
   busy: boolean;
   orderIds: string[];
+  eventIds: string[];
 };
 
 export type WeekScheduleDay = {
@@ -30,6 +37,14 @@ export type InstructorWeekSchedule = {
     toHm: string;
     clientName: string | null;
     status: OrderStatus;
+  }>;
+  /** Занятость от мероприятий инструктора (выходы / eventAt). */
+  events: Array<{
+    eventId: string;
+    ymd: string;
+    fromHm: string;
+    toHm: string;
+    title: string;
   }>;
 };
 

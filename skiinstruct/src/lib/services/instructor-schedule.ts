@@ -1,9 +1,15 @@
-import type { LessonDuration, Order, OrderStatus } from "@prisma/client";
+import type {
+  InstructorEventModerationStatus,
+  LessonDuration,
+  Order,
+  OrderStatus,
+} from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 import { parseWallDateTime } from "@/shared/lib/lesson-wall-datetime";
 import { LESSON_TIMES_IN_NOTES } from "@/shared/lib/order-lesson-times";
 import {
+  EVENT_SCHEDULE_BLOCK_MINUTES,
   LESSON_SCHEDULE_GAP_MINUTES,
   SCHEDULE_GRID_HOUR_END,
   SCHEDULE_GRID_HOUR_START,
@@ -14,6 +20,7 @@ import {
 } from "@/shared/lib/instructor-schedule-types";
 
 export {
+  EVENT_SCHEDULE_BLOCK_MINUTES,
   LESSON_SCHEDULE_GAP_MINUTES,
   SCHEDULE_GRID_HOUR_END,
   SCHEDULE_GRID_HOUR_START,
@@ -34,10 +41,25 @@ export const SCHEDULE_BLOCKING_STATUSES: OrderStatus[] = [
   "LESSON_STARTED",
 ];
 
+/** Мероприятия, которые блокируют вызов на тренировку. */
+const EVENT_BOOKING_BLOCK_STATUSES: InstructorEventModerationStatus[] = ["PUBLISHED"];
+
+/** Мероприятия, которые показываем занятыми в календаре инструктора. */
+const EVENT_CALENDAR_STATUSES: InstructorEventModerationStatus[] = [
+  "DRAFT",
+  "PENDING_REVIEW",
+  "PUBLISHED",
+];
+
 export type DayTimeBlock = {
   ymd: string;
   fromMinutes: number;
   toMinutes: number;
+};
+
+type EventBusyBlock = DayTimeBlock & {
+  eventId: string;
+  title: string;
 };
 
 export type ScheduleConflict = {
@@ -221,6 +243,75 @@ export async function loadInstructorBlockingOrders(
   });
 }
 
+/** Старт мероприятия → блок занятости в календаре (длительность по умолчанию). */
+export function eventOccurrenceToDayBlock(
+  startsAt: Date,
+  durationMinutes = EVENT_SCHEDULE_BLOCK_MINUTES,
+): DayTimeBlock {
+  const ymd = localYmdFromDate(startsAt);
+  const fromMinutes = startsAt.getHours() * 60 + startsAt.getMinutes();
+  const toMinutes = Math.min(24 * 60, fromMinutes + Math.max(30, durationMinutes));
+  return { ymd, fromMinutes, toMinutes };
+}
+
+function eventOccurrenceStillActive(startsAt: Date, now = new Date()): boolean {
+  return startsAt.getTime() + EVENT_SCHEDULE_BLOCK_MINUTES * 60_000 > now.getTime();
+}
+
+async function loadInstructorEventsForSchedule(
+  instructorId: string,
+  statuses: InstructorEventModerationStatus[],
+) {
+  return prisma.instructorEvent.findMany({
+    where: {
+      instructorId,
+      moderationStatus: { in: statuses },
+    },
+    select: {
+      id: true,
+      title: true,
+      eventAt: true,
+      slots: {
+        select: { id: true, startsAt: true },
+        orderBy: { startsAt: "asc" },
+      },
+    },
+  });
+}
+
+export function instructorEventsToBusyBlocks(
+  events: Array<{
+    id: string;
+    title: string;
+    eventAt: Date | null;
+    slots: Array<{ startsAt: Date }>;
+  }>,
+  opts?: { onlyActive?: boolean; now?: Date },
+): EventBusyBlock[] {
+  const now = opts?.now ?? new Date();
+  const onlyActive = opts?.onlyActive ?? false;
+  const out: EventBusyBlock[] = [];
+
+  for (const event of events) {
+    const startsList =
+      event.slots.length > 0
+        ? event.slots.map((s) => s.startsAt)
+        : event.eventAt
+          ? [event.eventAt]
+          : [];
+    for (const startsAt of startsList) {
+      if (onlyActive && !eventOccurrenceStillActive(startsAt, now)) continue;
+      const block = eventOccurrenceToDayBlock(startsAt);
+      out.push({
+        ...block,
+        eventId: event.id,
+        title: event.title.trim() || "Мероприятие",
+      });
+    }
+  }
+  return out;
+}
+
 export async function findInstructorScheduleConflict(params: {
   instructorId: string;
   lessonDate: string;
@@ -247,6 +338,21 @@ export async function findInstructorScheduleConflict(params: {
     const hit = blocksConflict(proposed, blocks);
     if (hit) return hit;
   }
+
+  const events = await loadInstructorEventsForSchedule(
+    params.instructorId,
+    EVENT_BOOKING_BLOCK_STATUSES,
+  );
+  const eventBlocks = instructorEventsToBusyBlocks(events, { onlyActive: true });
+  for (const eb of eventBlocks) {
+    const hit = blocksConflict(proposed, [eb]);
+    if (hit) {
+      return {
+        ymd: hit.ymd,
+        message: `В это время у инструктора мероприятие «${eb.title}». Выберите другое время.`,
+      };
+    }
+  }
   return null;
 }
 
@@ -269,18 +375,30 @@ function mondayOfWeekContaining(ymd: string): string {
 function hourCellBusy(
   ymd: string,
   hour: number,
-  expandedBlocks: Array<DayTimeBlock & { orderId: string }>,
-): { busy: boolean; orderIds: string[] } {
+  expandedOrders: Array<DayTimeBlock & { orderId: string }>,
+  expandedEvents: Array<DayTimeBlock & { eventId: string }>,
+): { busy: boolean; orderIds: string[]; eventIds: string[] } {
   const from = hour * 60;
   const to = (hour + 1) * 60;
-  const ids = new Set<string>();
-  for (const b of expandedBlocks) {
+  const orderIds = new Set<string>();
+  const eventIds = new Set<string>();
+  for (const b of expandedOrders) {
     if (b.ymd !== ymd) continue;
     if (rangesOverlap(from, to, b.fromMinutes, b.toMinutes)) {
-      ids.add(b.orderId);
+      orderIds.add(b.orderId);
     }
   }
-  return { busy: ids.size > 0, orderIds: [...ids] };
+  for (const b of expandedEvents) {
+    if (b.ymd !== ymd) continue;
+    if (rangesOverlap(from, to, b.fromMinutes, b.toMinutes)) {
+      eventIds.add(b.eventId);
+    }
+  }
+  return {
+    busy: orderIds.size > 0 || eventIds.size > 0,
+    orderIds: [...orderIds],
+    eventIds: [...eventIds],
+  };
 }
 
 export function buildInstructorWeekSchedule(
@@ -290,16 +408,19 @@ export function buildInstructorWeekSchedule(
       client?: { name: string | null } | null;
     }
   >,
+  eventBlocks: EventBusyBlock[] = [],
 ): InstructorWeekSchedule {
   const weekEndYmd = addCalendarDays(weekStartYmd, 6);
-  const expanded: Array<DayTimeBlock & { orderId: string }> = [];
+  const expandedOrders: Array<DayTimeBlock & { orderId: string }> = [];
+  const expandedEvents: Array<DayTimeBlock & { eventId: string }> = [];
   const lessons: InstructorWeekSchedule["lessons"] = [];
+  const events: InstructorWeekSchedule["events"] = [];
 
   for (const o of orders) {
     if (!o.requestedStartDate) continue;
     const raw = orderToDayBlocks(o);
     for (const b of raw) {
-      expanded.push({ ...expandBlockWithGap(b), orderId: o.id });
+      expandedOrders.push({ ...expandBlockWithGap(b), orderId: o.id });
       lessons.push({
         orderId: o.id,
         ymd: b.ymd,
@@ -311,6 +432,19 @@ export function buildInstructorWeekSchedule(
     }
   }
 
+  for (const eb of eventBlocks) {
+    if (eb.ymd < weekStartYmd || eb.ymd > weekEndYmd) continue;
+    // Мероприятие блокирует слот целиком; 1 ч перерыв — как у уроков.
+    expandedEvents.push({ ...expandBlockWithGap(eb), eventId: eb.eventId });
+    events.push({
+      eventId: eb.eventId,
+      ymd: eb.ymd,
+      fromHm: minutesToHm(eb.fromMinutes),
+      toHm: minutesToHm(eb.toMinutes),
+      title: eb.title,
+    });
+  }
+
   const days: WeekScheduleDay[] = [];
   for (let i = 0; i < 7; i++) {
     const ymd = addCalendarDays(weekStartYmd, i);
@@ -318,8 +452,13 @@ export function buildInstructorWeekSchedule(
     const weekday = d.getDay();
     const hours: WeekScheduleHourCell[] = [];
     for (let hour = SCHEDULE_GRID_HOUR_START; hour < SCHEDULE_GRID_HOUR_END; hour++) {
-      const cell = hourCellBusy(ymd, hour, expanded);
-      hours.push({ hour, busy: cell.busy, orderIds: cell.orderIds });
+      const cell = hourCellBusy(ymd, hour, expandedOrders, expandedEvents);
+      hours.push({
+        hour,
+        busy: cell.busy,
+        orderIds: cell.orderIds,
+        eventIds: cell.eventIds,
+      });
     }
     days.push({
       ymd,
@@ -329,7 +468,7 @@ export function buildInstructorWeekSchedule(
     });
   }
 
-  return { weekStartYmd, weekEndYmd, days, lessons };
+  return { weekStartYmd, weekEndYmd, days, lessons, events };
 }
 
 export async function getInstructorWeekSchedule(
@@ -343,7 +482,11 @@ export async function getInstructorWeekSchedule(
     const blocks = orderToDayBlocks(o);
     return blocks.some((b) => b.ymd >= weekStartYmd && b.ymd <= weekEndYmd);
   });
-  return buildInstructorWeekSchedule(weekStartYmd, orders);
+  const eventRows = await loadInstructorEventsForSchedule(instructorId, EVENT_CALENDAR_STATUSES);
+  const eventBlocks = instructorEventsToBusyBlocks(eventRows).filter(
+    (b) => b.ymd >= weekStartYmd && b.ymd <= weekEndYmd,
+  );
+  return buildInstructorWeekSchedule(weekStartYmd, orders, eventBlocks);
 }
 
 /** Склеить занятые часы сетки в интервалы (без id заказов / имён клиентов). */

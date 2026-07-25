@@ -36,5 +36,20 @@ export async function POST() {
     },
   });
 
+  try {
+    const { emitAdminModerationProfileAlert } = await import("@/lib/services/admin-alerts");
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { name: true },
+    });
+    await emitAdminModerationProfileAlert({
+      userId,
+      displayName: user?.name?.trim() || "Инструктор",
+      kind: "NEW_ACCOUNT",
+    });
+  } catch (e) {
+    console.error("[admin-alert] resubmit", e instanceof Error ? e.message : e);
+  }
+
   return NextResponse.json({ ok: true, verificationStatus: "PENDING" });
 }

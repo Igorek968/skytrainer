@@ -140,5 +140,21 @@ export async function POST(req: Request) {
     },
   });
 
+  try {
+    const { emitAdminComplianceAlert } = await import("@/lib/services/admin-alerts");
+    const user = await prisma.user.findUnique({
+      where: { id: auth.userId },
+      select: { name: true, email: true },
+    });
+    await emitAdminComplianceAlert({
+      documentId: doc.id,
+      userId: auth.userId,
+      userLabel: user?.name?.trim() || user?.email || auth.userId,
+      docType: type,
+    });
+  } catch (e) {
+    console.error("[admin-alert] compliance", e instanceof Error ? e.message : e);
+  }
+
   return NextResponse.json({ document: doc });
 }

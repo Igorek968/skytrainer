@@ -146,6 +146,7 @@ export function InstructorCatalogJoinPanel({
   const invalidate = async () => {
     await qc.invalidateQueries({ queryKey: ["instructor-event-catalog"] });
     await qc.invalidateQueries({ queryKey: ["instructor-events"] });
+    await qc.invalidateQueries({ queryKey: ["instructor-week-schedule"] });
     await qc.invalidateQueries({ queryKey: ["client-events"] });
   };
 

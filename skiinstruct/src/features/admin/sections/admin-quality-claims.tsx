@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { toast } from "sonner";
 
 import { useAdminQualityClaims } from "@/features/admin/use-admin-quality-claims";
 import { LEGAL_ROUTES } from "@/lib/legal";
@@ -41,8 +42,33 @@ function refundStatusVariant(status: string): "default" | "secondary" | "outline
 
 export function AdminQualityClaimsSection() {
   const [failedOnly, setFailedOnly] = useState(false);
+  const [busyId, setBusyId] = useState<string | null>(null);
   const query = useAdminQualityClaims(failedOnly);
   const rows = query.data?.rows ?? [];
+
+  async function claimAction(orderId: string, action: "retry_refund" | "resolve") {
+    setBusyId(orderId);
+    try {
+      const r = await fetch(`/api/admin/quality-claims/${orderId}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action,
+          note: action === "resolve" ? "Рассмотрено" : undefined,
+        }),
+      });
+      const j = (await r.json()) as { error?: string; message?: string };
+      if (!r.ok) {
+        toast.error(typeof j.error === "string" ? j.error : "Ошибка");
+        return;
+      }
+      toast.success(j.message ?? "Готово");
+      await query.refetch();
+    } finally {
+      setBusyId(null);
+    }
+  }
 
   return (
     <Card>
@@ -97,7 +123,8 @@ export function AdminQualityClaimsSection() {
                   <th className="py-2 pr-3 font-medium">Причина</th>
                   <th className="py-2 pr-3 font-medium">Оценка</th>
                   <th className="py-2 pr-3 font-medium">Возврат</th>
-                  <th className="py-2 font-medium">Статус</th>
+                  <th className="py-2 pr-3 font-medium">Статус</th>
+                  <th className="py-2 font-medium">Действия</th>
                 </tr>
               </thead>
               <tbody>
@@ -137,7 +164,7 @@ export function AdminQualityClaimsSection() {
                         ? `${row.refundAmount} ₽ (${row.refundPercent ?? 0}%)`
                         : "—"}
                     </td>
-                    <td className="py-2">
+                    <td className="py-2 pr-3">
                       <Badge
                         variant={refundStatusVariant(row.refundStatus)}
                         className={cn("text-xs", row.refundStatus === "FAILED" && "border-destructive text-destructive")}
@@ -154,6 +181,37 @@ export function AdminQualityClaimsSection() {
                           {row.refundNote}
                         </p>
                       ) : null}
+                    </td>
+                    <td className="py-2">
+                      <div className="flex flex-col gap-1">
+                        {row.refundStatus === "FAILED" ? (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="accent"
+                            className="h-7 text-xs"
+                            disabled={busyId === row.orderId}
+                            onClick={() => void claimAction(row.orderId, "retry_refund")}
+                          >
+                            Повтор возврата
+                          </Button>
+                        ) : null}
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-xs"
+                          disabled={busyId === row.orderId}
+                          onClick={() => void claimAction(row.orderId, "resolve")}
+                        >
+                          Закрыть
+                        </Button>
+                        <Button type="button" size="sm" variant="ghost" className="h-7 text-xs" asChild>
+                          <Link href={`/admin/orders?q=${encodeURIComponent(row.orderId)}`}>
+                            Заказ
+                          </Link>
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ))}

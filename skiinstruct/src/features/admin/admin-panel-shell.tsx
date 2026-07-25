@@ -20,10 +20,18 @@ import {
 import { Suspense, useEffect, useState } from "react";
 
 import {
+  AdminAlertsBell,
+  AdminNavBadge,
+  useAdminAlertCounts,
+} from "@/features/admin/admin-alerts-bell";
+import { adminNavBadgeForHref } from "@/features/admin/admin-alerts-types";
+import {
   adminOverviewHref,
   adminSearchCanSubmit,
   appendAdminOverviewSearchParams,
 } from "@/features/admin/admin-search-params";
+import { PushEnableBanner } from "@/features/push/push-enable-banner";
+import { SitePushForegroundBridge } from "@/features/push/site-push-foreground-bridge";
 import { cn } from "@/lib/utils";
 import { SiteLogo } from "@/shared/brand/site-logo";
 import { getPublicProductName } from "@/shared/lib/product";
@@ -60,6 +68,7 @@ function AdminSidebarNav() {
   const userFilter = params.get("user")?.trim() || params.get("email")?.trim() || "";
   const activityFilter = params.get("activity")?.trim() || "";
   const participantFilter = params.get("participant")?.trim() || "";
+  const { data: alertsData } = useAdminAlertCounts();
 
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(userFilter);
@@ -98,27 +107,41 @@ function AdminSidebarNav() {
 
   return (
     <div className="space-y-3 lg:sticky lg:top-20">
-      <div className="flex items-center justify-between lg:block">
-        <div>
-          <Link href="/" className="inline-block hover:opacity-90">
-            <SiteLogo />
-          </Link>
-          <p className="mt-0.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            {product} · админка
-          </p>
+      <div className="flex items-center justify-between gap-2 lg:block">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-2">
+            <Link href="/" className="inline-block hover:opacity-90">
+              <SiteLogo />
+            </Link>
+            <div className="flex items-center gap-1 lg:hidden">
+              <AdminAlertsBell />
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                aria-label={open ? "Закрыть меню" : "Меню разделов"}
+                onClick={() => setOpen((v) => !v)}
+              >
+                {open ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+              </Button>
+            </div>
+          </div>
+          <div className="mt-0.5 flex items-center justify-between gap-2">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              {product} · админка
+            </p>
+            <div className="hidden lg:block">
+              <AdminAlertsBell />
+            </div>
+          </div>
           <h2 className="sr-only">Разделы администрирования</h2>
         </div>
-        <Button
-          type="button"
-          variant="outline"
-          size="icon"
-          className="lg:hidden"
-          aria-label={open ? "Закрыть меню" : "Меню разделов"}
-          onClick={() => setOpen((v) => !v)}
-        >
-          {open ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
-        </Button>
       </div>
+
+      <PushEnableBanner
+        audience="admin"
+        className="rounded-lg border border-amber-500/50 bg-amber-500/10 px-3 py-2.5 text-xs"
+      />
 
       <form onSubmit={applyFilter} className="space-y-2 rounded-lg border border-border bg-muted/15 p-2">
         <Label htmlFor="admin-user-search" className="text-[11px] font-medium text-muted-foreground">
@@ -179,6 +202,8 @@ function AdminSidebarNav() {
       >
         {nav.map(({ href, label, icon: Icon }) => {
           const active = pathname === href;
+          const badgeKey = adminNavBadgeForHref(href);
+          const badgeCount = badgeKey && alertsData?.counts ? alertsData.counts[badgeKey] : 0;
           return (
             <Link
               key={href}
@@ -193,7 +218,8 @@ function AdminSidebarNav() {
               )}
             >
               <Icon className="h-4 w-4 flex-shrink-0 opacity-80" aria-hidden />
-              {label}
+              <span className="min-w-0 flex-1 truncate">{label}</span>
+              <AdminNavBadge count={badgeCount} />
             </Link>
           );
         })}
@@ -218,6 +244,7 @@ function AdminSidebarNav() {
 export function AdminPanelShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-[calc(100dvh-5rem)] flex-col gap-0 lg:flex-row lg:gap-8">
+      <SitePushForegroundBridge />
       <aside className="w-full max-w-md lg:w-56 lg:max-w-none lg:flex-shrink-0">
         <Suspense fallback={<SidebarSkeleton />}>
           <AdminSidebarNav />

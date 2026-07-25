@@ -34,6 +34,7 @@ function notificationOptions(data) {
   const isInstructorChat = data.kind === "instructor-chat";
   const isClientChat = data.kind === "client-chat" && typeof data.orderId === "string";
   const isSupportChat = data.kind === "support-chat";
+  const isAdminAlert = data.kind === "admin-alert";
   const orderId =
     typeof data.orderId === "string"
       ? data.orderId
@@ -57,7 +58,12 @@ function notificationOptions(data) {
     silent: false,
     renotify: true,
     requireInteraction:
-      isInstructorOrder || isLessonReminder || isInstructorChat || isClientChat || isSupportChat,
+      isInstructorOrder ||
+      isLessonReminder ||
+      isInstructorChat ||
+      isClientChat ||
+      isSupportChat ||
+      isAdminAlert,
     tag,
     data: {
       url,

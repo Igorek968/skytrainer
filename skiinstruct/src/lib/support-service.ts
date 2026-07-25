@@ -158,5 +158,17 @@ export async function appendUserSupportMessage(
     console.error("[support] MAX bridge:", max.error);
   }
 
+  try {
+    const { emitAdminSupportAlert } = await import("@/lib/services/admin-alerts");
+    await emitAdminSupportAlert({
+      ticketId,
+      messageId: msg.id,
+      userLabel: label,
+      preview: body,
+    });
+  } catch (e) {
+    console.error("[admin-alert] support", e instanceof Error ? e.message : e);
+  }
+
   return msg;
 }

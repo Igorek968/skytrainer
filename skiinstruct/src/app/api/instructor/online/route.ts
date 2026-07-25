@@ -28,6 +28,19 @@ export async function POST(req: Request) {
 
   await ensureInstructorProfile(userId);
 
+  if (parsed.data.isOnline) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { suspendedAt: true },
+    });
+    if (user?.suspendedAt) {
+      return NextResponse.json(
+        { error: "Аккаунт временно заблокирован — выход на линию недоступен" },
+        { status: 403 },
+      );
+    }
+  }
+
   await prisma.instructorProfile.updateMany({
     where: { userId },
     data: { isOnline: parsed.data.isOnline },

@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { OrderStatus } from "@prisma/client";
 
+import { AdminOrderDetailSheet } from "@/features/admin/admin-order-detail-sheet";
 import type { AdminOverview } from "@/features/admin/admin-overview-types";
 import { adminMoney, adminOrderFlowLabel } from "@/features/admin/admin-overview-types";
 import { adminOverviewHref } from "@/features/admin/admin-search-params";
@@ -23,6 +24,7 @@ import { orderStatusLabel } from "@/shared/lib/order-status";
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
+import { Input } from "@/shared/ui/input";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/shared/ui/skeleton";
 
@@ -57,17 +59,19 @@ function OrdersTable({
   orders,
   selectedOrderId,
   onSelect,
+  onOpenDetail,
 }: {
   orders: AdminOverview["recentOrders"];
   selectedOrderId: string | null;
   onSelect: (orderId: string) => void;
+  onOpenDetail: (orderId: string) => void;
 }) {
   if (!orders.length) {
     return <p className="text-sm text-muted-foreground">Нет заказов в этой выборке.</p>;
   }
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[760px] border-collapse text-left text-sm">
+      <table className="w-full min-w-[820px] border-collapse text-left text-sm">
         <thead>
           <tr className="border-b border-border text-xs text-muted-foreground">
             <th className="w-10 py-2 pr-2 font-medium" aria-label="Выбор" />
@@ -78,7 +82,8 @@ function OrdersTable({
             <th className="py-2 pr-3 font-medium">Статус</th>
             <th className="py-2 pr-3 font-medium">Поток</th>
             <th className="py-2 pr-3 font-medium">Сумма</th>
-            <th className="py-2 font-medium">Оплата</th>
+            <th className="py-2 pr-3 font-medium">Оплата</th>
+            <th className="py-2 font-medium">Карточка</th>
           </tr>
         </thead>
         <tbody>
@@ -131,7 +136,18 @@ function OrdersTable({
                 <td className="py-2 pr-3 whitespace-nowrap">
                   {o.amountTotal != null ? adminMoney(o.amountTotal) : "—"}
                 </td>
-                <td className="py-2 text-xs">{o.paymentStatus}</td>
+                <td className="py-2 pr-3 text-xs">{o.paymentStatus}</td>
+                <td className="py-2" onClick={(e) => e.stopPropagation()}>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-xs"
+                    onClick={() => onOpenDetail(o.id)}
+                  >
+                    Открыть
+                  </Button>
+                </td>
               </tr>
             );
           })}
@@ -226,10 +242,12 @@ function PendingOrderActionModal({
 
 export function AdminOrdersDrilldownSection({ data }: { data: AdminOverview }) {
   const pathname = usePathname();
+  const router = useRouter();
   const params = useSearchParams();
   const focusUser = params.get("user")?.trim() || params.get("email")?.trim() || null;
   const focusActivity = params.get("activity")?.trim() || null;
   const focusParticipant = params.get("participant")?.trim() || null;
+  const qParam = params.get("q")?.trim() || "";
 
   const group = parseAdminOrderGroup(params.get("group"));
   const statusRaw = params.get("status")?.trim() ?? "";
@@ -243,6 +261,12 @@ export function AdminOrdersDrilldownSection({ data }: { data: AdminOverview }) {
 
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [detailOrderId, setDetailOrderId] = useState<string | null>(null);
+  const [searchDraft, setSearchDraft] = useState(qParam);
+
+  useEffect(() => {
+    setSearchDraft(qParam);
+  }, [qParam]);
 
   const preserve = {
     user: focusUser,
@@ -250,7 +274,11 @@ export function AdminOrdersDrilldownSection({ data }: { data: AdminOverview }) {
     participant: focusParticipant,
   };
 
-  const ordersFilterHref = (next: { group?: AdminOrderGroup | null; status?: OrderStatus | null }) => {
+  const ordersFilterHref = (next: {
+    group?: AdminOrderGroup | null;
+    status?: OrderStatus | null;
+    q?: string | null;
+  }) => {
     const groupInUrl = params.has("group") ? parseAdminOrderGroup(params.get("group")) : null;
     let nextGroup: AdminOrderGroup | null = null;
     if (next.status != null) {
@@ -260,11 +288,16 @@ export function AdminOrdersDrilldownSection({ data }: { data: AdminOverview }) {
     } else {
       nextGroup = groupInUrl;
     }
-    return adminOverviewHref(pathname, {
+    const href = adminOverviewHref(pathname, {
       ...preserve,
       group: nextGroup,
       status: next.status ?? null,
     });
+    const nextQ = next.q !== undefined ? next.q : qParam || null;
+    if (!nextQ) return href;
+    const u = new URL(href, "http://local");
+    u.searchParams.set("q", nextQ);
+    return `${u.pathname}?${u.searchParams.toString()}`;
   };
 
   const clearStatusFilterHref = ordersFilterHref({
@@ -388,6 +421,37 @@ export function AdminOrdersDrilldownSection({ data }: { data: AdminOverview }) {
             </Button>
           </div>
 
+          <form
+            className="flex flex-wrap gap-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              router.push(ordersFilterHref({ q: searchDraft.trim() || null }));
+            }}
+          >
+            <Input
+              className="max-w-sm"
+              placeholder="Поиск: id, email, имя…"
+              value={searchDraft}
+              onChange={(e) => setSearchDraft(e.target.value)}
+            />
+            <Button type="submit" size="sm" variant="secondary">
+              Найти
+            </Button>
+            {qParam ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setSearchDraft("");
+                  router.push(ordersFilterHref({ q: null }));
+                }}
+              >
+                Сбросить
+              </Button>
+            ) : null}
+          </form>
+
           <div
             className={cn(
               "rounded-md border px-3 py-2 text-sm",
@@ -432,10 +496,15 @@ export function AdminOrdersDrilldownSection({ data }: { data: AdminOverview }) {
               orders={orders}
               selectedOrderId={selectedOrderId}
               onSelect={setSelectedOrderId}
+              onOpenDetail={setDetailOrderId}
             />
           )}
         </CardContent>
       </Card>
+
+      {detailOrderId ? (
+        <AdminOrderDetailSheet orderId={detailOrderId} onClose={() => setDetailOrderId(null)} />
+      ) : null}
 
       {confirmOpen && selectedOrder && selectedIsPending ? (
         <PendingOrderActionModal

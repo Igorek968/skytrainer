@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { AdminEventEditorSheet } from "@/features/admin/admin-event-editor-sheet";
 import {
   EventCatalogNavShell,
   type CatalogNavPanelDef,
@@ -110,7 +111,14 @@ export function AdminEventCatalogSection() {
   const [attachForId, setAttachForId] = useState<string | null>(null);
   const [attachIds, setAttachIds] = useState<string[]>([]);
   const [offersForId, setOffersForId] = useState<string | null>(null);
+  const [editItem, setEditItem] = useState<EventCatalogItemDTO | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editBody, setEditBody] = useState("");
+  const [editCategory, setEditCategory] = useState("");
+  const [editEventAtLocal, setEditEventAtLocal] = useState("");
+  const [editVenue, setEditVenue] = useState<EventVenueValue>({ address: "", lat: null, lng: null });
   const [activePanel, setActivePanel] = useState<CatalogPanel | null>(null);
+  const [editEventId, setEditEventId] = useState<string | null>(null);
 
   useEffect(() => {
     const slug = readStoredCitySlug();
@@ -347,10 +355,69 @@ export function AdminEventCatalogSection() {
       toast.success(result.message ?? "Карточка удалена");
       setAttachForId(null);
       setOffersForId(null);
+      setEditItem(null);
       await invalidateAll();
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
+  const updateCatalog = useMutation({
+    mutationFn: async () => {
+      if (!editItem) throw new Error("Нет карточки");
+      if (!editTitle.trim() || !editBody.trim() || !editCategory.trim()) {
+        throw new Error("Заполните название, описание и категорию");
+      }
+      const venueAddress = editVenue.address.trim();
+      if (venueAddress && (editVenue.lat == null || editVenue.lng == null)) {
+        throw new Error("Для адреса укажите точку на карте");
+      }
+      const r = await fetch(`/api/admin/event-catalog/${editItem.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          title: editTitle.trim(),
+          body: editBody.trim(),
+          category: editCategory.trim(),
+          eventAt: editEventAtLocal ? new Date(editEventAtLocal).toISOString() : null,
+          venueAddress: venueAddress || null,
+          venueLat: editVenue.lat,
+          venueLng: editVenue.lng,
+          citySlug,
+        }),
+      });
+      const payload = await readJson(r);
+      if (!r.ok) throw new Error(parseApiError(payload, "Не удалось сохранить"));
+      return payload;
+    },
+    onSuccess: async () => {
+      toast.success("Карточка обновлена");
+      setEditItem(null);
+      await invalidateAll();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  function openEdit(item: EventCatalogItemDTO) {
+    setEditItem(item);
+    setEditTitle(item.title);
+    setEditBody(item.body);
+    setEditCategory(item.category ?? "");
+    if (item.eventAt) {
+      const d = new Date(item.eventAt);
+      if (Number.isFinite(d.getTime())) {
+        const pad = (n: number) => String(n).padStart(2, "0");
+        setEditEventAtLocal(
+          `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`,
+        );
+      } else setEditEventAtLocal("");
+    } else setEditEventAtLocal("");
+    setEditVenue({
+      address: item.venueAddress ?? "",
+      lat: item.venueLat ?? null,
+      lng: item.venueLng ?? null,
+    });
+  }
 
   const createFromEvent = useMutation({
     mutationFn: async (ev: PublishedEvent) => {
@@ -427,6 +494,10 @@ export function AdminEventCatalogSection() {
   }
 
   return (
+    <>
+      {editEventId ? (
+        <AdminEventEditorSheet eventId={editEventId} onClose={() => setEditEventId(null)} />
+      ) : null}
     <EventCatalogNavShell
       citySlug={citySlug}
       cityName={selectedCity.name}
@@ -681,6 +752,14 @@ export function AdminEventCatalogSection() {
                               type="button"
                               size="sm"
                               variant="secondary"
+                              onClick={() => openEdit(item)}
+                            >
+                              Редактировать
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="secondary"
                               onClick={() => {
                                 setAttachForId(item.id);
                                 setAttachIds([]);
@@ -733,6 +812,66 @@ export function AdminEventCatalogSection() {
                               Удалить
                             </Button>
                           </div>
+                          {editItem?.id === item.id ? (
+                            <div className="mt-3 space-y-3 rounded-md border border-accent/40 bg-accent/5 p-3">
+                              <p className="text-sm font-medium">Редактирование карточки</p>
+                              <EventVenuePicker value={editVenue} onChange={setEditVenue} mapFirst />
+                              <div className="space-y-1.5">
+                                <Label>Название</Label>
+                                <Input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} />
+                              </div>
+                              <div className="space-y-1.5">
+                                <Label>Категория</Label>
+                                <select
+                                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                                  value={editCategory}
+                                  onChange={(e) => setEditCategory(e.target.value)}
+                                >
+                                  <option value="">Выберите категорию</option>
+                                  {eventCategoryOptions().map((opt) => (
+                                    <option key={opt} value={opt}>
+                                      {opt}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                              <div className="space-y-1.5">
+                                <Label>Описание</Label>
+                                <textarea
+                                  className="min-h-[72px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                  value={editBody}
+                                  onChange={(e) => setEditBody(e.target.value)}
+                                />
+                              </div>
+                              <div className="space-y-1.5">
+                                <Label>Дата / время</Label>
+                                <Input
+                                  type="datetime-local"
+                                  value={editEventAtLocal}
+                                  onChange={(e) => setEditEventAtLocal(e.target.value)}
+                                />
+                              </div>
+                              <div className="flex flex-wrap gap-2">
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="accent"
+                                  disabled={updateCatalog.isPending}
+                                  onClick={() => updateCatalog.mutate()}
+                                >
+                                  Сохранить
+                                </Button>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => setEditItem(null)}
+                                >
+                                  Отмена
+                                </Button>
+                              </div>
+                            </div>
+                          ) : null}
                           {offersForId === item.id ? (
                             <div className="mt-3 space-y-2 rounded-md border border-dashed border-border p-2">
                               <p className="text-xs text-muted-foreground">
@@ -880,6 +1019,14 @@ export function AdminEventCatalogSection() {
                           <Button
                             type="button"
                             size="sm"
+                            variant="secondary"
+                            onClick={() => setEditEventId(ev.id)}
+                          >
+                            Редактировать
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
                             variant="outline"
                             disabled={unpublishEvent.isPending}
                             onClick={() => {
@@ -909,5 +1056,6 @@ export function AdminEventCatalogSection() {
               </>
             ) : null}
     </EventCatalogNavShell>
+    </>
   );
 }

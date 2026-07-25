@@ -80,6 +80,23 @@ export async function POST(_req: Request, ctx: Ctx) {
     await ensureUpcomingDailyCopy(row);
   }
 
+  if (!autoApprove) {
+    try {
+      const { emitAdminModerationEventAlert } = await import("@/lib/services/admin-alerts");
+      const instructor = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { name: true },
+      });
+      await emitAdminModerationEventAlert({
+        eventId: row.id,
+        title: row.title,
+        instructorName: instructor?.name,
+      });
+    } catch (e) {
+      console.error("[admin-alert] event submit", e instanceof Error ? e.message : e);
+    }
+  }
+
   return NextResponse.json({
     event: serializeInstructorEvent(row),
     autoApproveEnabled: autoApprove,

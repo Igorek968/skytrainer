@@ -145,6 +145,10 @@ model User {
 
   role UserRole @default(CLIENT)
 
+  /// Мягкая блокировка: скрыть из поиска, запретить онлайн (не удаление аккаунта).
+  suspendedAt   DateTime?
+  suspendedNote String?   @db.Text
+
   accounts Account[]
   sessions Session[]
 
@@ -875,4 +879,49 @@ model PushSubscription {
   auth     String
 
   createdAt DateTime @default(now())
+}
+
+enum AdminAlertCategory {
+  MODERATION
+  MESSAGES
+  COMPLIANCE
+  FINANCE
+  ORDERS
+  CATALOG
+  USERS
+}
+
+/// Журнал действий администратора.
+model AdminAuditLog {
+  id       String  @id @default(cuid())
+  actorId  String?
+  action   String
+  entity   String
+  entityId String?
+  summary  String  @db.Text
+  meta     Json?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([entity, entityId])
+  @@index([actorId, createdAt])
+}
+
+/// Оповещение для кабинета администратора (колокольчик + push).
+model AdminAlert {
+  id        String             @id @default(cuid())
+  category  AdminAlertCategory
+  title     String
+  body      String             @db.Text
+  /// Deep-link в раздел админки, напр. /admin/moderation
+  href      String
+  /// Уникальный ключ дедупликации (одна непрочитанная запись на событие).
+  dedupeKey String             @unique
+  entityId  String?
+  createdAt DateTime           @default(now())
+  readAt    DateTime?
+
+  @@index([createdAt])
+  @@index([category, readAt])
+  @@index([readAt, createdAt])
 }

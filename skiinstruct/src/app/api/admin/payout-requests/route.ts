@@ -11,7 +11,14 @@ export async function GET() {
     orderBy: { createdAt: "desc" },
     take: 100,
     include: {
-      instructor: { select: { id: true, name: true, email: true } },
+      instructor: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          instructorProfile: { select: { payoutAccountHint: true } },
+        },
+      },
       orders: { select: { id: true, instructorShareAmount: true } },
     },
   });
@@ -24,7 +31,12 @@ export async function GET() {
       adminNote: r.adminNote,
       processedAt: r.processedAt?.toISOString() ?? null,
       createdAt: r.createdAt.toISOString(),
-      instructor: r.instructor,
+      instructor: {
+        id: r.instructor.id,
+        name: r.instructor.name,
+        email: r.instructor.email,
+        payoutAccountHint: r.instructor.instructorProfile?.payoutAccountHint ?? null,
+      },
       orderCount: r.orders.length,
     })),
   });

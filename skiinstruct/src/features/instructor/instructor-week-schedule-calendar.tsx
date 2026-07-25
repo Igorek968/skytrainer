@@ -65,7 +65,7 @@ const TEMPLATE_WEEK_DAYS: { day: number; label: string }[] = [
 
 type CalendarTab = "week" | "template";
 
-type HourPick = { ymd: string; hour: number; orderIds: string[] };
+type HourPick = { ymd: string; hour: number; orderIds: string[]; eventIds: string[] };
 
 export function InstructorWeekScheduleCalendar({
   availabilitySlots,
@@ -175,6 +175,17 @@ export function InstructorWeekScheduleCalendar({
     return [...byOrder.values()].sort((a, b) => a.fromHm.localeCompare(b.fromHm));
   }, [schedule, selectedDay]);
 
+  const eventsForSelectedDay = useMemo(() => {
+    if (!schedule || !selectedDay) return [];
+    const byEvent = new Map<string, (typeof schedule.events)[0]>();
+    for (const e of schedule.events ?? []) {
+      if (e.ymd !== selectedDay) continue;
+      const key = `${e.eventId}:${e.fromHm}`;
+      if (!byEvent.has(key)) byEvent.set(key, e);
+    }
+    return [...byEvent.values()].sort((a, b) => a.fromHm.localeCompare(b.fromHm));
+  }, [schedule, selectedDay]);
+
   const lessonsForHourPick = useMemo(() => {
     if (!schedule || !hourPick?.orderIds.length) return [];
     const ids = new Set(hourPick.orderIds);
@@ -184,6 +195,18 @@ export function InstructorWeekScheduleCalendar({
       if (!byOrder.has(l.orderId)) byOrder.set(l.orderId, l);
     }
     return [...byOrder.values()].sort((a, b) => a.fromHm.localeCompare(b.fromHm));
+  }, [schedule, hourPick]);
+
+  const eventsForHourPick = useMemo(() => {
+    if (!schedule || !hourPick?.eventIds.length) return [];
+    const ids = new Set(hourPick.eventIds);
+    const byEvent = new Map<string, (typeof schedule.events)[0]>();
+    for (const e of schedule.events ?? []) {
+      if (e.ymd !== hourPick.ymd || !ids.has(e.eventId)) continue;
+      const key = `${e.eventId}:${e.fromHm}`;
+      if (!byEvent.has(key)) byEvent.set(key, e);
+    }
+    return [...byEvent.values()].sort((a, b) => a.fromHm.localeCompare(b.fromHm));
   }, [schedule, hourPick]);
 
   const templateEditor = (
@@ -280,8 +303,8 @@ export function InstructorWeekScheduleCalendar({
       <CardHeader>
         <CardTitle>Расписание</CardTitle>
         <CardDescription>
-          Одна сетка: шаблон доступности, уроки и перерыв 1 ч. Нажмите на красную ячейку — карточка
-          записи.
+          Одна сетка: шаблон доступности, уроки, мероприятия и перерыв 1 ч. Красная ячейка — урок,
+          фиолетовая — мероприятие.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -449,14 +472,18 @@ export function InstructorWeekScheduleCalendar({
                           {schedule.days.map((day) => {
                             const cell = day.hours.find((h) => h.hour === hour);
                             const dayLessons = schedule.lessons.filter((l) => l.ymd === day.ymd);
+                            const dayEvents = (schedule.events ?? []).filter((e) => e.ymd === day.ymd);
                             const visual = resolveCalendarCellVisual({
                               weekday: day.weekday,
                               hour,
                               scheduleCell: cell,
                               availabilitySlots,
                               lessonsOnDay: dayLessons,
+                              eventsOnDay: dayEvents,
                             });
-                            const clickable = visual.kind === "lesson" && visual.orderIds.length > 0;
+                            const clickable =
+                              (visual.kind === "lesson" && visual.orderIds.length > 0) ||
+                              (visual.kind === "event" && visual.eventIds.length > 0);
                             return (
                               <td
                                 key={`${day.ymd}-${hour}`}
@@ -472,17 +499,26 @@ export function InstructorWeekScheduleCalendar({
                                   <button
                                     type="button"
                                     className="flex h-5 w-full min-h-[1.25rem] items-center justify-center sm:h-6"
-                                    title={`Запись ${String(hour).padStart(2, "0")}:00`}
+                                    title={
+                                      visual.kind === "event"
+                                        ? `Мероприятие ${String(hour).padStart(2, "0")}:00`
+                                        : `Запись ${String(hour).padStart(2, "0")}:00`
+                                    }
                                     onClick={() => {
                                       setHourPick({
                                         ymd: day.ymd,
                                         hour,
                                         orderIds: visual.orderIds,
+                                        eventIds: visual.eventIds,
                                       });
                                       setSelectedDay(day.ymd);
                                     }}
                                   >
-                                    <span className="sr-only">Открыть запись</span>
+                                    <span className="sr-only">
+                                      {visual.kind === "event"
+                                        ? "Открыть мероприятие"
+                                        : "Открыть запись"}
+                                    </span>
                                   </button>
                                 ) : (
                                   <span className="block h-5 min-h-[1.25rem] sm:h-6" aria-hidden />
@@ -511,22 +547,46 @@ export function InstructorWeekScheduleCalendar({
                   <span className="inline-flex items-center gap-1">
                     <span className="inline-block h-3 w-6 rounded bg-red-500/90" /> урок (клик)
                   </span>
+                  <span className="inline-flex items-center gap-1">
+                    <span className="inline-block h-3 w-6 rounded bg-violet-500/90" /> мероприятие
+                  </span>
                 </div>
 
                 {selectedDay ? (
                   <div className="rounded-md border border-border bg-muted/30 p-3">
                     <p className="text-sm font-medium">
-                      Записи на{" "}
+                      Занятость на{" "}
                       {new Date(`${selectedDay}T12:00:00`).toLocaleDateString("ru-RU", {
                         weekday: "long",
                         day: "numeric",
                         month: "long",
                       })}
                     </p>
-                    {!lessonsForSelectedDay.length ? (
-                      <p className="mt-2 text-sm text-muted-foreground">Нет занятий в этот день</p>
+                    {!lessonsForSelectedDay.length && !eventsForSelectedDay.length ? (
+                      <p className="mt-2 text-sm text-muted-foreground">
+                        Нет занятий и мероприятий в этот день
+                      </p>
                     ) : (
                       <ul className="mt-2 space-y-2">
+                        {eventsForSelectedDay.map((e) => (
+                          <li
+                            key={`${e.eventId}-${e.fromHm}`}
+                            className="flex flex-wrap items-center justify-between gap-2 rounded border border-violet-300/60 bg-violet-50/50 px-2 py-2 text-sm dark:border-violet-800 dark:bg-violet-950/30"
+                          >
+                            <div>
+                              <span className="font-medium">
+                                {e.fromHm} — {e.toHm}
+                              </span>
+                              <span className="ml-2 text-muted-foreground">{e.title}</span>
+                              <span className="ml-2 text-xs text-violet-700 dark:text-violet-300">
+                                Мероприятие
+                              </span>
+                            </div>
+                            <Button asChild variant="outline" size="sm">
+                              <Link href="/instructor#events">К мероприятиям</Link>
+                            </Button>
+                          </li>
+                        ))}
                         {lessonsForSelectedDay.map((l) => (
                           <li
                             key={l.orderId}
@@ -564,7 +624,7 @@ export function InstructorWeekScheduleCalendar({
                   </div>
                 ) : (
                   <p className="text-sm text-muted-foreground">
-                    Выберите день в шапке таблицы или нажмите красную ячейку с уроком.
+                    Выберите день в шапке таблицы или нажмите цветную ячейку с занятостью.
                   </p>
                 )}
               </>
@@ -575,10 +635,10 @@ export function InstructorWeekScheduleCalendar({
 
       <Dialog open={hourPick != null} onOpenChange={(open) => !open && setHourPick(null)}>
         <DialogContent className="max-h-[85vh] overflow-y-auto p-4 sm:p-6">
-          {hourPick && lessonsForHourPick.length ? (
+          {hourPick && (lessonsForHourPick.length || eventsForHourPick.length) ? (
             <div className="space-y-4">
               <div>
-                <h2 className="text-lg font-semibold">Запись в календаре</h2>
+                <h2 className="text-lg font-semibold">Занятость в календаре</h2>
                 <p className="text-sm text-muted-foreground">
                   {new Date(`${hourPick.ymd}T12:00:00`).toLocaleDateString("ru-RU", {
                     weekday: "long",
@@ -588,42 +648,69 @@ export function InstructorWeekScheduleCalendar({
                   , около {String(hourPick.hour).padStart(2, "0")}:00
                 </p>
               </div>
-              <ul className="space-y-3">
-                {lessonsForHourPick.map((l) => (
-                  <li
-                    key={l.orderId}
-                    className="rounded-md border border-border bg-muted/30 p-3 space-y-3"
-                  >
-                    <div>
-                      <p className="font-medium">
-                        {l.fromHm} — {l.toHm}
-                      </p>
-                      <p className="text-sm text-muted-foreground">{l.clientName ?? "Клиент"}</p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {orderStatusLabel(l.status as OrderStatus)}
-                      </p>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      <Button asChild size="sm">
-                        <Link href={`/instructor/orders/${l.orderId}`}>Подробнее о заказе</Link>
+              {eventsForHourPick.length ? (
+                <ul className="space-y-3">
+                  {eventsForHourPick.map((e) => (
+                    <li
+                      key={`${e.eventId}-${e.fromHm}`}
+                      className="space-y-3 rounded-md border border-violet-300/60 bg-violet-50/40 p-3 dark:border-violet-800 dark:bg-violet-950/30"
+                    >
+                      <div>
+                        <p className="font-medium">
+                          {e.fromHm} — {e.toHm}
+                        </p>
+                        <p className="text-sm text-muted-foreground">{e.title}</p>
+                        <p className="mt-1 text-xs text-violet-700 dark:text-violet-300">
+                          Мероприятие · в это время нельзя вызвать на тренировку
+                        </p>
+                      </div>
+                      <Button asChild size="sm" variant="outline">
+                        <Link href="/instructor#events" onClick={() => setHourPick(null)}>
+                          К мероприятиям
+                        </Link>
                       </Button>
-                      <CancelOrderButton
-                        orderId={l.orderId}
-                        onCancelled={() => {
-                          setHourPick(null);
-                          void queryClient.invalidateQueries({
-                            queryKey: ["instructor-week-schedule"],
-                          });
-                          void queryClient.invalidateQueries({ queryKey: ["orders"] });
-                        }}
-                      />
-                    </div>
-                  </li>
-                ))}
-              </ul>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+              {lessonsForHourPick.length ? (
+                <ul className="space-y-3">
+                  {lessonsForHourPick.map((l) => (
+                    <li
+                      key={l.orderId}
+                      className="space-y-3 rounded-md border border-border bg-muted/30 p-3"
+                    >
+                      <div>
+                        <p className="font-medium">
+                          {l.fromHm} — {l.toHm}
+                        </p>
+                        <p className="text-sm text-muted-foreground">{l.clientName ?? "Клиент"}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {orderStatusLabel(l.status as OrderStatus)}
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <Button asChild size="sm">
+                          <Link href={`/instructor/orders/${l.orderId}`}>Подробнее о заказе</Link>
+                        </Button>
+                        <CancelOrderButton
+                          orderId={l.orderId}
+                          onCancelled={() => {
+                            setHourPick(null);
+                            void queryClient.invalidateQueries({
+                              queryKey: ["instructor-week-schedule"],
+                            });
+                            void queryClient.invalidateQueries({ queryKey: ["orders"] });
+                          }}
+                        />
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
             </div>
           ) : hourPick ? (
-            <p className="text-sm text-muted-foreground">Нет данных о записи</p>
+            <p className="text-sm text-muted-foreground">Нет данных о занятости</p>
           ) : null}
         </DialogContent>
       </Dialog>

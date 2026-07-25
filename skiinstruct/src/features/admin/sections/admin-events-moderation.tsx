@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { AdminEventEditorSheet } from "@/features/admin/admin-event-editor-sheet";
 import type { InstructorEventDTO } from "@/lib/instructor-events";
 import { formatEventDateRu, moderationStatusLabel } from "@/lib/instructor-events";
 import { Button } from "@/shared/ui/button";
@@ -30,6 +31,7 @@ export function AdminEventsModerationSection() {
   const qc = useQueryClient();
   const [rejectId, setRejectId] = useState<string | null>(null);
   const [rejectNote, setRejectNote] = useState("");
+  const [editEventId, setEditEventId] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["admin-pending-events"],
@@ -81,6 +83,9 @@ export function AdminEventsModerationSection() {
 
   return (
     <Card>
+      {editEventId ? (
+        <AdminEventEditorSheet eventId={editEventId} onClose={() => setEditEventId(null)} />
+      ) : null}
       <CardHeader>
         <CardTitle>Мероприятия инструкторов</CardTitle>
         <CardDescription>
@@ -153,6 +158,14 @@ export function AdminEventsModerationSection() {
                     onClick={() => setRejectId(ev.id)}
                   >
                     Отклонить…
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setEditEventId(ev.id)}
+                  >
+                    Редактировать
                   </Button>
                 </div>
                 {rejectId === ev.id ? (

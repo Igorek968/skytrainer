@@ -387,6 +387,24 @@ export async function PATCH(req: Request) {
       },
     });
 
+    try {
+      const { emitAdminModerationProfileAlert } = await import("@/lib/services/admin-alerts");
+      const displayName =
+        [merged.firstName, merged.lastName].filter(Boolean).join(" ").trim() ||
+        userRow?.name?.trim() ||
+        "Инструктор";
+      await emitAdminModerationProfileAlert({
+        userId,
+        displayName,
+        kind:
+          existingProfile.verificationStatus === "APPROVED"
+            ? "PROFILE_UPDATE"
+            : "NEW_ACCOUNT",
+      });
+    } catch (e) {
+      console.error("[admin-alert] profile draft", e instanceof Error ? e.message : e);
+    }
+
     const view = draftAsProfileView(merged);
     return NextResponse.json({
       profilePendingReview: true,

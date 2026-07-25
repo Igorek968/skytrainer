@@ -196,8 +196,9 @@ export async function createInstructorApplication(input: {
     nickname,
   };
 
+  let createdUserId: string;
   try {
-    await prisma.user.create({
+    const created = await prisma.user.create({
       data: {
         email,
         passwordHash,
@@ -222,7 +223,9 @@ export async function createInstructorApplication(input: {
           },
         },
       },
+      select: { id: true },
     });
+    createdUserId = created.id;
   } catch (e) {
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
       const target = e.meta?.target;
@@ -233,6 +236,23 @@ export async function createInstructorApplication(input: {
       return { ok: false, error: "Этот email уже зарегистрирован", status: 409 };
     }
     throw e;
+  }
+
+  try {
+    const { emitAdminNewInstructorAlert, emitAdminModerationProfileAlert } = await import(
+      "@/lib/services/admin-alerts"
+    );
+    await emitAdminNewInstructorAlert({
+      userId: createdUserId,
+      displayName: systemName,
+    });
+    await emitAdminModerationProfileAlert({
+      userId: createdUserId,
+      displayName: systemName,
+      kind: "NEW_ACCOUNT",
+    });
+  } catch (e) {
+    console.error("[admin-alert] instructor apply", e instanceof Error ? e.message : e);
   }
 
   return { ok: true, email };

@@ -9,6 +9,7 @@ import {
   AdminSendMessageModal,
   type AdminMessageTarget,
 } from "@/features/admin/admin-send-message-modal";
+import { AdminUserEditSheet } from "@/features/admin/admin-user-edit-sheet";
 import { adminOverviewHref } from "@/features/admin/admin-search-params";
 import { useAdminUsersList } from "@/features/admin/use-admin-users-list";
 import {
@@ -21,6 +22,7 @@ import { formatRussianPhoneDisplay } from "@/lib/phone";
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
+import { Input } from "@/shared/ui/input";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/shared/ui/skeleton";
 
@@ -67,11 +69,13 @@ export function AdminUsersSection() {
   const focusActivity = params.get("activity")?.trim() || null;
   const focusParticipant = params.get("participant")?.trim() || null;
   const [messageTarget, setMessageTarget] = useState<AdminMessageTarget | null>(null);
+  const [editUserId, setEditUserId] = useState<string | null>(null);
+  const [searchQ, setSearchQ] = useState("");
 
   const role = parseAdminUserRoleFilter(params.get("role"));
   const onlineOnly = parseAdminOnlineFilter(params.get("online"));
 
-  const { data, isLoading, error } = useAdminUsersList(role, onlineOnly);
+  const { data, isLoading, error } = useAdminUsersList(role, onlineOnly, searchQ);
 
   const href = (opts: { role?: AdminUserRoleFilter; online?: boolean }) => {
     const nextOnline = opts.online ?? onlineOnly;
@@ -92,12 +96,21 @@ export function AdminUsersSection() {
       {messageTarget ? (
         <AdminSendMessageModal target={messageTarget} onClose={() => setMessageTarget(null)} />
       ) : null}
+      {editUserId ? (
+        <AdminUserEditSheet userId={editUserId} onClose={() => setEditUserId(null)} />
+      ) : null}
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Фильтр пользователей</CardTitle>
           <CardDescription>Роль в системе и статус «на линии» у инструкторов.</CardDescription>
         </CardHeader>
-        <CardContent className="flex flex-wrap gap-2">
+        <CardContent className="space-y-3">
+        <Input
+          placeholder="Поиск: email, имя, телефон, id…"
+          value={searchQ}
+          onChange={(e) => setSearchQ(e.target.value)}
+        />
+        <div className="flex flex-wrap gap-2">
           <FilterChip
             active={role === "all" && !onlineOnly}
             href={href({ role: "all", online: false })}
@@ -128,6 +141,7 @@ export function AdminUsersSection() {
             label="Инструкторы онлайн"
             count={counts?.online}
           />
+        </div>
         </CardContent>
       </Card>
 
@@ -169,29 +183,45 @@ export function AdminUsersSection() {
                     <td className="py-2 pr-3 tabular-nums text-muted-foreground">{formatPhone(u.phone)}</td>
                     <td className="py-2 pr-3">{roleLabel(u.role)}</td>
                     <td className="py-2 pr-3">
-                      {u.role === "INSTRUCTOR" ? (
-                        <div className="flex flex-wrap gap-1">
-                          {u.isOnline ? (
-                            <Badge variant="default" className="text-[10px]">
-                              Онлайн
-                            </Badge>
-                          ) : (
-                            <Badge variant="outline" className="text-[10px]">
-                              Офлайн
-                            </Badge>
-                          )}
-                          {u.verificationStatus === "PENDING" ? (
-                            <Badge variant="secondary" className="text-[10px]">
-                              На модерации
-                            </Badge>
-                          ) : null}
-                        </div>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">—</span>
-                      )}
+                      <div className="flex flex-wrap gap-1">
+                        {u.suspendedAt ? (
+                          <Badge variant="outline" className="border-destructive text-[10px] text-destructive">
+                            Блок
+                          </Badge>
+                        ) : null}
+                        {u.role === "INSTRUCTOR" ? (
+                          <>
+                            {u.isOnline ? (
+                              <Badge variant="default" className="text-[10px]">
+                                Онлайн
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="text-[10px]">
+                                Офлайн
+                              </Badge>
+                            )}
+                            {u.verificationStatus === "PENDING" ? (
+                              <Badge variant="secondary" className="text-[10px]">
+                                На модерации
+                              </Badge>
+                            ) : null}
+                          </>
+                        ) : !u.suspendedAt ? (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        ) : null}
+                      </div>
                     </td>
                     <td className="py-2">
                       <div className="flex flex-wrap items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          className="h-7 text-xs"
+                          onClick={() => setEditUserId(u.id)}
+                        >
+                          Профиль
+                        </Button>
                         <Button
                           type="button"
                           variant="outline"

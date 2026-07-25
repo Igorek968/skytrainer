@@ -15,6 +15,7 @@ export const dynamic = "force-dynamic";
 const querySchema = z.object({
   role: z.string().optional(),
   online: z.string().optional(),
+  q: z.string().trim().max(120).optional(),
 });
 
 export async function GET(req: Request) {
@@ -29,6 +30,7 @@ export async function GET(req: Request) {
 
   const roleFilter = parseAdminUserRoleFilter(parsed.data.role);
   const onlineOnly = parseAdminOnlineFilter(parsed.data.online);
+  const q = parsed.data.q?.trim();
 
   const where: Prisma.UserWhereInput = {};
   if (roleFilter !== "all") {
@@ -37,6 +39,15 @@ export async function GET(req: Request) {
   if (onlineOnly) {
     where.role = "INSTRUCTOR";
     where.instructorProfile = { isOnline: true };
+    where.suspendedAt = null;
+  }
+  if (q) {
+    where.OR = [
+      { email: { contains: q, mode: "insensitive" } },
+      { name: { contains: q, mode: "insensitive" } },
+      { phone: { contains: q, mode: "insensitive" } },
+      { id: { contains: q, mode: "insensitive" } },
+    ];
   }
 
   const users = await prisma.user.findMany({
@@ -49,6 +60,7 @@ export async function GET(req: Request) {
       name: true,
       phone: true,
       role: true,
+      suspendedAt: true,
       createdAt: true,
       updatedAt: true,
       instructorProfile: {
@@ -89,6 +101,7 @@ export async function GET(req: Request) {
       name: u.name,
       phone: u.phone,
       role: u.role,
+      suspendedAt: u.suspendedAt?.toISOString() ?? null,
       createdAt: u.createdAt.toISOString(),
       updatedAt: u.updatedAt.toISOString(),
       isOnline: u.instructorProfile?.isOnline ?? false,

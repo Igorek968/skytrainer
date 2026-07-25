@@ -92,6 +92,19 @@ export async function cancelOrderWithRefund(params: {
     });
   }
 
+  if (refundStatus === "FAILED") {
+    try {
+      const { emitAdminRefundFailedAlert } = await import("@/lib/services/admin-alerts");
+      await emitAdminRefundFailedAlert({
+        orderId: params.orderId,
+        amountRub: refundAmount,
+        reason: refundNote,
+      });
+    } catch (e) {
+      console.error("[admin-alert] cancel refund failed", e instanceof Error ? e.message : e);
+    }
+  }
+
   return {
     order: updated,
     refundPercent: quote.percent,
@@ -143,6 +156,32 @@ export async function claimInstructorLateRefund(params: {
     });
   }
 
+  try {
+    const { emitAdminLateRefundAlert, emitAdminRefundFailedAlert } = await import(
+      "@/lib/services/admin-alerts"
+    );
+    const client = await prisma.user.findUnique({
+      where: { id: params.actorUserId },
+      select: { name: true, email: true },
+    });
+    const clientLabel = client?.name?.trim() || client?.email || "Клиент";
+    await emitAdminLateRefundAlert({
+      orderId: params.orderId,
+      clientLabel,
+      amountRub: refundAmount,
+      refundFailed: refundStatus === "FAILED",
+    });
+    if (refundStatus === "FAILED") {
+      await emitAdminRefundFailedAlert({
+        orderId: params.orderId,
+        amountRub: refundAmount,
+        reason: refundNote,
+      });
+    }
+  } catch (e) {
+    console.error("[admin-alert] late refund", e instanceof Error ? e.message : e);
+  }
+
   return { order: updated, refundPercent: 100, refundAmount };
 }
 
@@ -185,6 +224,19 @@ export async function applyRefundForExpiredOrder(orderId: string): Promise<void>
       refundNote,
     },
   });
+
+  if (refundStatus === "FAILED") {
+    try {
+      const { emitAdminRefundFailedAlert } = await import("@/lib/services/admin-alerts");
+      await emitAdminRefundFailedAlert({
+        orderId,
+        amountRub: refundAmount,
+        reason: refundNote,
+      });
+    } catch (e) {
+      console.error("[admin-alert] expired refund failed", e instanceof Error ? e.message : e);
+    }
+  }
 }
 
 export async function claimQualityRefund(params: {
@@ -262,11 +314,75 @@ export async function claimQualityRefund(params: {
     },
   });
 
+  try {
+    const { emitAdminQualityClaimAlert, emitAdminRefundFailedAlert } = await import(
+      "@/lib/services/admin-alerts"
+    );
+    const { qualityClaimCategoryLabels } = await import("@/lib/refund-policy");
+    const client = await prisma.user.findUnique({
+      where: { id: params.actorUserId },
+      select: { name: true, email: true },
+    });
+    await emitAdminQualityClaimAlert({
+      orderId: params.orderId,
+      categoryLabel: qualityClaimCategoryLabels[params.category] ?? params.category,
+      clientLabel: client?.name?.trim() || client?.email || "Клиент",
+    });
+    if (refundStatus === "FAILED") {
+      await emitAdminRefundFailedAlert({
+        orderId: params.orderId,
+        amountRub: refundAmount,
+        reason: refundNote,
+      });
+    }
+  } catch (e) {
+    console.error("[admin-alert] quality claim", e instanceof Error ? e.message : e);
+  }
+
   return {
     order: updated,
     refundPercent: quote.percent,
     refundAmount,
   };
+}
+
+/** Повтор неудачного возврата (админ). */
+export async function retryFailedOrderRefund(params: {
+  orderId: string;
+}): Promise<{ refundStatus: Order["refundStatus"]; refundNote: string | null }> {
+  const order = await prisma.order.findUnique({ where: { id: params.orderId } });
+  if (!order) throw new Error("ORDER_NOT_FOUND");
+  if (order.refundStatus !== "FAILED") {
+    throw new Error("Повтор доступен только для статуса FAILED");
+  }
+  const amount =
+    order.refundAmount != null
+      ? Number(order.refundAmount)
+      : order.amountTotal != null && order.refundPercent != null
+        ? refundAmountFromTotal(Number(order.amountTotal), order.refundPercent)
+        : 0;
+  if (!(amount > 0)) throw new Error("Нет суммы для возврата");
+
+  try {
+    await executePaymentRefund(order, amount);
+    const updated = await prisma.order.update({
+      where: { id: order.id },
+      data: {
+        refundStatus: "COMPLETED",
+        refundNote: `Повторный возврат ${amount} ₽ инициирован администратором.`,
+      },
+      select: { refundStatus: true, refundNote: true },
+    });
+    return updated;
+  } catch (e) {
+    const note = `Повтор возврата не удался: ${e instanceof Error ? e.message : "unknown"}`;
+    const updated = await prisma.order.update({
+      where: { id: order.id },
+      data: { refundStatus: "FAILED", refundNote: note },
+      select: { refundStatus: true, refundNote: true },
+    });
+    throw new Error(updated.refundNote ?? note);
+  }
 }
 
 async function executePaymentRefund(order: Order, amountRub: number): Promise<void> {

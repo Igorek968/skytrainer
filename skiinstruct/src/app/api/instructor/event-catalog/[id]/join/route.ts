@@ -100,6 +100,23 @@ export async function POST(req: Request, ctx: Ctx) {
       })
     : await prisma.instructorEvent.create({ data });
 
+  if (!autoApprove && nextStatus === "PENDING_REVIEW") {
+    try {
+      const { emitAdminCatalogJoinAlert } = await import("@/lib/services/admin-alerts");
+      const instructor = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { name: true },
+      });
+      await emitAdminCatalogJoinAlert({
+        eventId: row.id,
+        catalogTitle: catalog.title,
+        instructorName: instructor?.name,
+      });
+    } catch (e) {
+      console.error("[admin-alert] catalog join", e instanceof Error ? e.message : e);
+    }
+  }
+
   return NextResponse.json({
     offer: serializeMyCatalogOffer(row),
     autoApproveEnabled: autoApprove,

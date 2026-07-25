@@ -111,6 +111,7 @@ async function loadApprovedInstructors(
   return prisma.user.findMany({
     where: {
       role: "INSTRUCTOR",
+      suspendedAt: null,
       ...liveInstructorEmailWhere,
       instructorProfile: { verificationStatus: "APPROVED" },
       ...where,

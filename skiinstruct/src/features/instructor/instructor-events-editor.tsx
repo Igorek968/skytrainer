@@ -599,6 +599,7 @@ export function InstructorEventsEditor({
       setTemplatePhotoSourceId(null);
       toast.success(j.event.photoUrl ? "Черновик и фото сохранены" : "Черновик сохранён");
       await qc.invalidateQueries({ queryKey: ["instructor-events"] });
+      await qc.invalidateQueries({ queryKey: ["instructor-week-schedule"] });
     },
     onError: (e: Error) => toast.error(e.message === "save" ? "Не удалось сохранить" : e.message),
   });
@@ -621,6 +622,7 @@ export function InstructorEventsEditor({
       setPhotoFile(null);
       toast.success(j.message ?? "Отправлено на модерацию");
       await qc.invalidateQueries({ queryKey: ["instructor-events"] });
+      await qc.invalidateQueries({ queryKey: ["instructor-week-schedule"] });
     },
     onError: (e: Error) =>
       toast.error(
@@ -645,6 +647,7 @@ export function InstructorEventsEditor({
       loadFormFromEvent(j.event);
       toast.success(j.message ?? "Восстановлено в черновик");
       await qc.invalidateQueries({ queryKey: ["instructor-events"] });
+      await qc.invalidateQueries({ queryKey: ["instructor-week-schedule"] });
     },
     onError: (e: Error) =>
       toast.error(e.message === "restore" ? "Не удалось восстановить" : e.message),
@@ -663,6 +666,7 @@ export function InstructorEventsEditor({
       toast.success(j.message ?? "Мероприятие отменено");
       if (editingId) resetForm();
       await qc.invalidateQueries({ queryKey: ["instructor-events"] });
+      await qc.invalidateQueries({ queryKey: ["instructor-week-schedule"] });
       await qc.invalidateQueries({ queryKey: ["instructor-registrations"] });
     },
     onError: (e: Error) => toast.error(e.message === "cancel-event" ? "Не удалось отменить" : e.message),
@@ -680,6 +684,7 @@ export function InstructorEventsEditor({
       setPhotoFile(null);
       toast.success("Фото загружено");
       await qc.invalidateQueries({ queryKey: ["instructor-events"] });
+      await qc.invalidateQueries({ queryKey: ["instructor-week-schedule"] });
     },
     onError: (e: Error) =>
       toast.error(e.message === "upload" ? "Не удалось загрузить фото" : e.message),
@@ -701,6 +706,7 @@ export function InstructorEventsEditor({
       setPhotoFile(null);
       toast.success("Фото удалено");
       await qc.invalidateQueries({ queryKey: ["instructor-events"] });
+      await qc.invalidateQueries({ queryKey: ["instructor-week-schedule"] });
     },
     onError: (e: Error) =>
       toast.error(e.message === "remove-photo" ? "Не удалось удалить фото" : e.message),
@@ -725,6 +731,7 @@ export function InstructorEventsEditor({
       );
       if (j.event && editingId === j.event.id) loadFormFromEvent(j.event);
       await qc.invalidateQueries({ queryKey: ["instructor-events"] });
+      await qc.invalidateQueries({ queryKey: ["instructor-week-schedule"] });
     },
     onError: (e: Error) =>
       toast.error(e.message === "repeat-daily" ? "Не удалось изменить настройку" : e.message),
@@ -744,6 +751,7 @@ export function InstructorEventsEditor({
       toast.success(data.archived ? "Скрыто из ленты клиентов" : "Удалено");
       if (editingId === id) resetForm();
       await qc.invalidateQueries({ queryKey: ["instructor-events"] });
+      await qc.invalidateQueries({ queryKey: ["instructor-week-schedule"] });
     },
     onError: (e: Error) => {
       const msg = e.message === "delete" ? "Не удалось выполнить действие" : e.message;
@@ -991,6 +999,7 @@ export function InstructorEventsEditor({
       onRequestCreateView?.();
       toast.success(j.message ?? "Отправлено на модерацию — можно создать новое мероприятие");
       await qc.invalidateQueries({ queryKey: ["instructor-events"] });
+      await qc.invalidateQueries({ queryKey: ["instructor-week-schedule"] });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Не удалось отправить на модерацию");
     } finally {

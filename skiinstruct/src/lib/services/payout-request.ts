@@ -70,8 +70,8 @@ export async function createInstructorPayoutRequest(instructorId: string) {
     throw new Error(`Минимальная сумма к выводу — ${PAYOUT_MIN_WITHDRAWAL_RUB} ₽`);
   }
 
-  return prisma.$transaction(async (tx) => {
-    const request = await tx.instructorPayoutRequest.create({
+  const request = await prisma.$transaction(async (tx) => {
+    const created = await tx.instructorPayoutRequest.create({
       data: {
         instructorId,
         amountRub: netRub.toFixed(2),
@@ -81,7 +81,7 @@ export async function createInstructorPayoutRequest(instructorId: string) {
     });
     await tx.order.updateMany({
       where: { id: { in: orders.map((o) => o.id) } },
-      data: { payoutRequestId: request.id },
+      data: { payoutRequestId: created.id },
     });
 
     if (penaltyDeductedRub > 0) {
@@ -93,8 +93,26 @@ export async function createInstructorPayoutRequest(instructorId: string) {
       });
     }
 
-    return request;
+    return created;
   });
+
+  try {
+    const { emitAdminPayoutAlert } = await import("@/lib/services/admin-alerts");
+    const user = await prisma.user.findUnique({
+      where: { id: instructorId },
+      select: { name: true, email: true },
+    });
+    await emitAdminPayoutAlert({
+      requestId: request.id,
+      kind: "instructor",
+      amountRub: Number(request.amountRub),
+      userLabel: user?.name?.trim() || user?.email || instructorId,
+    });
+  } catch (e) {
+    console.error("[admin-alert] payout", e instanceof Error ? e.message : e);
+  }
+
+  return request;
 }
 
 export async function updatePayoutRequestStatus(params: {

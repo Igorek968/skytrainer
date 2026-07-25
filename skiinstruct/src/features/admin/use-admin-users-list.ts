@@ -12,6 +12,7 @@ export type AdminUserListRow = {
   name: string | null;
   phone: string | null;
   role: UserRole;
+  suspendedAt: string | null;
   createdAt: string;
   updatedAt: string;
   isOnline: boolean;
@@ -33,15 +34,21 @@ export type AdminUsersListResponse = {
   };
 };
 
-export function useAdminUsersList(role: AdminUserRoleFilter, onlineOnly: boolean) {
+export function useAdminUsersList(
+  role: AdminUserRoleFilter,
+  onlineOnly: boolean,
+  searchQ = "",
+) {
+  const q = searchQ.trim();
   return useQuery({
-    queryKey: ["admin-users-list", role, onlineOnly],
+    queryKey: ["admin-users-list", role, onlineOnly, q],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (role !== "all") params.set("role", role);
       if (onlineOnly) params.set("online", "1");
-      const q = params.toString();
-      const r = await fetch(`/api/admin/users${q ? `?${q}` : ""}`, {
+      if (q) params.set("q", q);
+      const qs = params.toString();
+      const r = await fetch(`/api/admin/users${qs ? `?${qs}` : ""}`, {
         credentials: "include",
         cache: "no-store",
       });

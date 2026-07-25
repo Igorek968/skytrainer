@@ -16,6 +16,7 @@ export const dynamic = "force-dynamic";
 const querySchema = z.object({
   group: z.string().optional(),
   status: z.nativeEnum(OrderStatus).optional(),
+  q: z.string().trim().max(120).optional(),
 });
 
 export async function GET(req: Request) {
@@ -30,13 +31,29 @@ export async function GET(req: Request) {
 
   const group = parseAdminOrderGroup(parsed.data.group);
   const status = parsed.data.status;
+  const q = parsed.data.q?.trim();
 
-  const where =
+  const baseWhere =
     status != null
       ? { status }
       : group !== "all" && ADMIN_ORDER_GROUPS[group]
         ? { status: { in: ADMIN_ORDER_GROUPS[group]! } }
         : {};
+
+  const where = {
+    ...baseWhere,
+    ...(q
+      ? {
+          OR: [
+            { id: { contains: q, mode: "insensitive" as const } },
+            { client: { email: { contains: q, mode: "insensitive" as const } } },
+            { client: { name: { contains: q, mode: "insensitive" as const } } },
+            { instructor: { email: { contains: q, mode: "insensitive" as const } } },
+            { instructor: { name: { contains: q, mode: "insensitive" as const } } },
+          ],
+        }
+      : {}),
+  };
 
   const [orders, countsByGroup] = await Promise.all([
     prisma.order.findMany({

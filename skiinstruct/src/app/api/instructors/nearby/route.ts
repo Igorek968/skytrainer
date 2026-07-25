@@ -116,6 +116,7 @@ export async function GET(req: Request) {
     where: {
       role: "INSTRUCTOR",
       ...liveInstructorEmailWhere,
+      suspendedAt: null,
       instructorProfile: {
         verificationStatus: "APPROVED",
         ...(includeOffline

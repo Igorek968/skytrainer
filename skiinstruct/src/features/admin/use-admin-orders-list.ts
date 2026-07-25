@@ -39,15 +39,17 @@ export function useAdminOrdersListFromUrl() {
   const params = useSearchParams();
   const group = parseAdminOrderGroup(params.get("group"));
   const status = parseStatusParam(params.get("status"));
+  const q = params.get("q")?.trim() || "";
 
   return useQuery({
-    queryKey: ["admin-orders-list", group, status],
+    queryKey: ["admin-orders-list", group, status, q],
     queryFn: async () => {
       const search = new URLSearchParams();
       if (status) search.set("status", status);
       else if (group !== "all") search.set("group", group);
-      const q = search.toString();
-      const r = await fetch(`/api/admin/orders${q ? `?${q}` : ""}`, {
+      if (q) search.set("q", q);
+      const qs = search.toString();
+      const r = await fetch(`/api/admin/orders${qs ? `?${qs}` : ""}`, {
         credentials: "include",
         cache: "no-store",
       });

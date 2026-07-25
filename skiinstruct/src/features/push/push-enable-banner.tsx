@@ -14,8 +14,8 @@ import {
 import { Button } from "@/shared/ui/button";
 
 type Props = {
-  /** Короткий контекст: кабинет инструктора / клиента */
-  audience?: "instructor" | "client";
+  /** Короткий контекст: кабинет инструктора / клиента / админа */
+  audience?: "instructor" | "client" | "admin";
   className?: string;
 };
 
@@ -44,7 +44,11 @@ export function PushEnableBanner({ audience = "instructor", className }: Props) 
   const [dismissed, setDismissed] = useState(false);
 
   const storageKey =
-    audience === "instructor" ? "instructor_push_banner_dismissed_v2" : "client_push_banner_dismissed_v2";
+    audience === "admin"
+      ? "admin_push_banner_dismissed_v1"
+      : audience === "instructor"
+        ? "instructor_push_banner_dismissed_v2"
+        : "client_push_banner_dismissed_v2";
 
   const refresh = useCallback(async () => {
     setMode(await resolveMode());
@@ -79,7 +83,9 @@ export function PushEnableBanner({ audience = "instructor", className }: Props) 
         toast.success(
           audience === "instructor"
             ? "Уведомления включены — заявки и сообщения придут даже при закрытом приложении"
-            : "Уведомления включены",
+            : audience === "admin"
+              ? "Уведомления админа включены — модерация, выплаты и поддержка придут на устройство"
+              : "Уведомления включены",
         );
         setMode("ready");
         return;
@@ -166,7 +172,9 @@ export function PushEnableBanner({ audience = "instructor", className }: Props) 
       ? "Уведомления заблокированы. Настройки → уведомления → ТвойТренер → разрешите."
       : audience === "instructor"
         ? "Включите уведомления: заявки и сообщения придут со звуком, даже когда приложение закрыто."
-        : "Включите уведомления, чтобы не пропускать сообщения и напоминания.";
+        : audience === "admin"
+          ? "Включите push: модерация, выплаты, поддержка и претензии — даже когда кабинет закрыт."
+          : "Включите уведомления, чтобы не пропускать сообщения и напоминания.";
 
   return (
     <div className={className ?? "mb-4 rounded-lg border border-amber-500/50 bg-amber-500/10 px-4 py-3 text-sm"}>

@@ -93,6 +93,7 @@ export async function assignInstructorByQueue(orderId: string, reason: "initial"
       where: {
         id: nextInstructorId,
         role: "INSTRUCTOR",
+        suspendedAt: null,
         instructorProfile: {
           verificationStatus: "APPROVED",
           ...(requireOnline ? { isOnline: true } : {}),
@@ -161,6 +162,33 @@ export async function assignInstructorByQueue(orderId: string, reason: "initial"
 
   if (result?.status === "EXPIRED") {
     await applyRefundForExpiredOrder(orderId);
+    try {
+      const expired = await prisma.order.findUnique({
+        where: { id: orderId },
+        select: {
+          paymentStatus: true,
+          cancelledBy: true,
+          client: { select: { name: true, email: true } },
+        },
+      });
+      if (expired) {
+        const { emitAdminOrderExpiredAlert } = await import("@/lib/services/admin-alerts");
+        const expireReason: "timeout" | "reject" | "unavailable" =
+          reason === "reject"
+            ? "reject"
+            : reason === "timeout"
+              ? "timeout"
+              : "unavailable";
+        await emitAdminOrderExpiredAlert({
+          orderId,
+          reason: expireReason,
+          clientLabel: expired.client?.name?.trim() || expired.client?.email || null,
+          paid: expired.paymentStatus === "PAID",
+        });
+      }
+    } catch (e) {
+      console.error("[admin-alert] order expired", e instanceof Error ? e.message : e);
+    }
   }
 
   if (result?.status === "PENDING_INSTRUCTOR") {

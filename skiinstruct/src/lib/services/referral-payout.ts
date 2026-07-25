@@ -19,10 +19,10 @@ export async function createReferralPayoutRequest(userId: string, role: string) 
     throw new Error("Укажите реквизиты для выплат");
   }
 
-  return prisma.$transaction(async (tx) => {
+  const request = await prisma.$transaction(async (tx) => {
     const user = await tx.user.findUnique({
       where: { id: userId },
-      select: { referralBalanceRub: true },
+      select: { referralBalanceRub: true, name: true, email: true },
     });
     if (!user) throw new Error("Пользователь не найден");
 
@@ -36,14 +36,29 @@ export async function createReferralPayoutRequest(userId: string, role: string) 
       data: { referralBalanceRub: { decrement: amountRub } },
     });
 
-    return tx.referralPayoutRequest.create({
+    const created = await tx.referralPayoutRequest.create({
       data: {
         userId,
         amountRub: amountRub.toFixed(2),
         status: "PENDING",
       },
     });
+    return { created, userLabel: user.name?.trim() || user.email || userId, amountRub };
   });
+
+  try {
+    const { emitAdminPayoutAlert } = await import("@/lib/services/admin-alerts");
+    await emitAdminPayoutAlert({
+      requestId: request.created.id,
+      kind: "referral",
+      amountRub: request.amountRub,
+      userLabel: request.userLabel,
+    });
+  } catch (e) {
+    console.error("[admin-alert] referral payout", e instanceof Error ? e.message : e);
+  }
+
+  return request.created;
 }
 
 export async function updateReferralPayoutRequestStatus(params: {

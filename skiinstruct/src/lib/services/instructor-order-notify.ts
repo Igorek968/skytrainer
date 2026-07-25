@@ -259,8 +259,22 @@ export async function notifyInstructorOfPendingOrder(orderId: string): Promise<b
       where: { id: orderId, instructorPendingNotifiedAt: null },
       data: { instructorPendingNotifiedAt: new Date() },
     });
-    return true;
   }
 
-  return false;
+  try {
+    if (order.paymentStatus === "PAID" || urgent) {
+      const { emitAdminPendingOrderAlert } = await import("@/lib/services/admin-alerts");
+      await emitAdminPendingOrderAlert({
+        orderId,
+        clientLabel: clientName,
+        instructorLabel: order.instructor.name?.trim() || order.instructor.email,
+        urgent,
+        amountRub,
+      });
+    }
+  } catch (e) {
+    console.error("[admin-alert] pending order", e instanceof Error ? e.message : e);
+  }
+
+  return pushSent > 0 || emailSent;
 }

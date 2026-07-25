@@ -68,6 +68,26 @@ export const updateInstructorEventSchema = z.object({
   maxRegistrations: maxRegistrationsField,
 });
 
+/** Полное редактирование мероприятия администратором (в т.ч. опубликованных). */
+export const adminUpdateInstructorEventSchema = z.object({
+  title: z.string().trim().min(1).max(120).optional(),
+  body: z.string().trim().min(1).max(1000).optional(),
+  category: requiredEventCategorySchema.optional(),
+  eventAt: z.string().max(40).optional().nullable(),
+  eventDay: z.string().max(40).optional().nullable(),
+  orderId: z.string().cuid().optional().nullable(),
+  priceRub: priceRubField,
+  maxRegistrations: maxRegistrationsField,
+  photoUrl: z.string().trim().max(2000).optional().nullable(),
+  venueAddress: z.string().trim().max(500).optional().nullable(),
+  venueLat: venueCoordField,
+  venueLng: venueCoordField,
+  slots: z.array(eventSlotInputSchema).optional(),
+  repeatDaily: z.boolean().optional(),
+  /** false — после правок снять с публикации в DRAFT; по умолчанию статус не трогаем. */
+  keepPublished: z.boolean().optional(),
+});
+
 export const adminEventReviewSchema = z.object({
   action: z.enum(["approve", "reject"]),
   rejectNote: z.string().trim().max(2000).optional(),
