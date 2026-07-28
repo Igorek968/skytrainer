@@ -30,6 +30,7 @@ function notificationOptions(data) {
   const url = typeof data.url === "string" ? data.url : "/";
   const tag = typeof data.tag === "string" ? data.tag : "skiinstruct";
   const isInstructorOrder = data.kind === "instructor-order" && typeof data.orderId === "string";
+  const isEventRegistration = data.kind === "event-registration";
   const isLessonReminder = data.kind === "lesson-reminder";
   const isInstructorChat = data.kind === "instructor-chat";
   const isClientChat = data.kind === "client-chat" && typeof data.orderId === "string";
@@ -59,6 +60,7 @@ function notificationOptions(data) {
     renotify: true,
     requireInteraction:
       isInstructorOrder ||
+      isEventRegistration ||
       isLessonReminder ||
       isInstructorChat ||
       isClientChat ||

@@ -29,6 +29,7 @@ export type PushPayload = {
   /** Тип push для service worker (кнопки, приоритет). */
   kind?:
     | "instructor-order"
+    | "event-registration"
     | "lesson-reminder"
     | "instructor-chat"
     | "client-chat"

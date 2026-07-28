@@ -1,7 +1,9 @@
 import nodemailer from "nodemailer";
 
 import { formatEventDateRu, formatSlotTimeRu } from "@/lib/instructor-events";
+import { publicSiteHostLabel } from "@/lib/app-origin";
 import { prisma } from "@/lib/prisma";
+import { sendWebPushToUser } from "@/lib/push-web";
 import { getPublicProductName } from "@/shared/lib/product";
 
 function envSecret(value: string | undefined): string {
@@ -120,7 +122,7 @@ export async function notifyInstructorOfEventRegistration(registrationId: string
           title: true,
           body: true,
           eventAt: true,
-          instructor: { select: { name: true, email: true } },
+          instructor: { select: { id: true, name: true, email: true } },
           slots: { select: { id: true } },
         },
       },
@@ -137,6 +139,8 @@ export async function notifyInstructorOfEventRegistration(registrationId: string
 
   const origin = process.env.NEXT_PUBLIC_APP_URL?.trim() || "http://localhost:3001";
   const panelUrl = `${origin}/instructor`;
+  const registrationUrl = `${origin}/instructor/registrations/${registrationId}`;
+  const siteHost = publicSiteHostLabel();
 
   const paidCount = reg.slotId
     ? await prisma.eventRegistration.count({
@@ -169,11 +173,36 @@ export async function notifyInstructorOfEventRegistration(registrationId: string
   });
 
   const appName = getPublicProductName();
+  const clientLabel = reg.client.name?.trim() || reg.client.email?.trim() || "Клиент";
+  const pushTitle = `${appName}: новая запись на мероприятие`;
+  const pushBody = `${clientLabel} · ${reg.event.title}. Откройте кабинет: ${siteHost}`;
   const from =
     process.env.SMTP_FROM?.trim() ||
     process.env.PASSWORD_RESET_EMAIL_FROM?.trim() ||
     `${appName} <noreply@localhost>`;
 
+  let pushSent = 0;
+  try {
+    const pushResult = await sendWebPushToUser(reg.event.instructor.id, {
+      title: pushTitle,
+      body: pushBody,
+      url: registrationUrl,
+      tag: `event-registration-${registrationId}`,
+      kind: "event-registration",
+      sound: "order",
+    });
+    pushSent = pushResult.sent;
+    if (pushResult.sent === 0 && pushResult.errors === 0) {
+      console.info(
+        "[event-registration-notify] no push subscriptions for instructor",
+        reg.event.instructor.id,
+      );
+    }
+  } catch (e) {
+    console.error("[event-registration-notify] push", e instanceof Error ? e.message : e);
+  }
+
+  let emailSent = false;
   try {
     const transport = nodemailer.createTransport({
       host: cfg.host,
@@ -189,9 +218,9 @@ export async function notifyInstructorOfEventRegistration(registrationId: string
       text,
       html,
     });
-    return true;
+    emailSent = true;
   } catch (e) {
     console.error("[event-registration-notify]", e instanceof Error ? e.message : e);
-    return false;
   }
+  return pushSent > 0 || emailSent;
 }

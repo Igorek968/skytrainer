@@ -1,6 +1,7 @@
 "use client";
 
 import { InstructorChatMessagePrompt } from "@/features/instructor/instructor-chat-message-prompt";
+import { InstructorEventRegistrationPrompt } from "@/features/instructor/instructor-event-registration-prompt";
 import { InstructorLessonSoonPrompt } from "@/features/instructor/instructor-lesson-soon-prompt";
 import { InstructorPendingOrderPrompt } from "@/features/instructor/instructor-pending-order-prompt";
 import { InstructorPushAlertsBanner } from "@/features/instructor/instructor-push-alerts-banner";
@@ -21,6 +22,7 @@ export function InstructorPanelShell({ children }: { children: React.ReactNode }
   useVisibilityInvalidate([
     ["instructor-order-alerts"],
     ["instructor-chat-alerts"],
+    ["instructor-registration-alerts"],
   ]);
 
   useEffect(() => {
@@ -52,6 +54,7 @@ export function InstructorPanelShell({ children }: { children: React.ReactNode }
       <InstructorPushAlertsBanner audience="instructor" />
       {children}
       <InstructorPendingOrderPrompt />
+      <InstructorEventRegistrationPrompt />
       <InstructorChatMessagePrompt />
       <InstructorLessonSoonPrompt />
       <OrderLessonRemindersPrompt role="instructor" />
