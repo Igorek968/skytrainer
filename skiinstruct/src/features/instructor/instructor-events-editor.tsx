@@ -32,6 +32,7 @@ import { Label } from "@/shared/ui/label";
 import { EventRegistrantsPanel } from "@/features/instructor/event-registrants-panel";
 import { EventVenuePicker, type EventVenueValue } from "@/features/instructor/event-venue-picker";
 import { compressImageFile } from "@/lib/compress-image-client";
+import { parseApiErrorPayload, userFacingErrorMessage } from "@/lib/user-facing-error";
 import { cn } from "@/lib/utils";
 
 type ActiveOrderOption = { id: string; label: string };
@@ -233,6 +234,7 @@ export function InstructorEventsEditor({
   const [useSlots, setUseSlots] = useState(true);
   const [slotRows, setSlotRows] = useState<SlotFormRow[]>(() => defaultSlotsForToday());
   const [draftSlotDate, setDraftSlotDate] = useState(() => todayYmd());
+  const [draftSlotEndDate, setDraftSlotEndDate] = useState(() => todayYmd());
   const [draftSlotTime, setDraftSlotTime] = useState("10:00");
   const [draftSlotPrice, setDraftSlotPrice] = useState("");
   const [draftSlotSeats, setDraftSlotSeats] = useState("4");
@@ -250,6 +252,7 @@ export function InstructorEventsEditor({
   const [previewCard, setPreviewCard] = useState<ClientEventFeedCardDTO | null>(null);
   const [sendToModerationPending, setSendToModerationPending] = useState(false);
   const formSnapshotRef = useRef("");
+  const eventBodyRef = useRef<HTMLTextAreaElement | null>(null);
 
   function captureFormSnapshot(next?: {
     title: string;
@@ -356,8 +359,8 @@ export function InstructorEventsEditor({
       method: "POST",
       body: fd,
     });
-    const j = (await r.json().catch(() => ({}))) as { error?: string; event?: InstructorEventApi };
-    if (!r.ok) throw new Error(typeof j.error === "string" ? j.error : "upload");
+    const j = (await r.json().catch(() => ({}))) as { error?: unknown; event?: InstructorEventApi };
+    if (!r.ok) throw new Error(parseApiErrorPayload(j, "Не удалось загрузить фото"));
     return j.event ?? null;
   }, []);
 
@@ -482,6 +485,7 @@ export function InstructorEventsEditor({
     setUseSlots(true);
     setSlotRows(defaultSlotsForToday());
     setDraftSlotDate(todayYmd());
+    setDraftSlotEndDate(todayYmd());
     setDraftSlotTime("10:00");
     setDraftSlotPrice("");
     setDraftSlotSeats("4");
@@ -583,37 +587,66 @@ export function InstructorEventsEditor({
         body: JSON.stringify(payload),
       });
       if (!r.ok) {
-        const err = (await r.json().catch(() => ({}))) as { error?: string };
-        throw new Error(typeof err.error === "string" ? err.error : "save");
+        const err = await r.json().catch(() => ({}));
+        throw new Error(parseApiErrorPayload(err, "Не удалось сохранить черновик"));
       }
-      let result = (await r.json()) as { event: InstructorEventApi };
+      let result = (await r.json()) as { event: InstructorEventApi; photoWarning?: string };
+      // Сразу фиксируем id — иначе при сбое фото каждый клик создаёт новый черновик.
+      setEditingId(result.event.id);
       if (photoFile && result.event.id) {
-        const withPhoto = await uploadPhotoForEvent(result.event.id, photoFile);
-        if (withPhoto) result = { event: withPhoto };
+        try {
+          const withPhoto = await uploadPhotoForEvent(result.event.id, photoFile);
+          if (withPhoto) result = { event: withPhoto };
+        } catch (photoErr) {
+          result = {
+            ...result,
+            photoWarning: userFacingErrorMessage(
+              photoErr,
+              "Черновик сохранён, но фото не загрузилось. Можно отправить без фото или повторить загрузку",
+            ),
+          };
+        }
       }
       return result;
     },
     onSuccess: async (j) => {
       loadFormFromEvent(j.event);
-      setPhotoFile(null);
-      setTemplatePhotoSourceId(null);
-      toast.success(j.event.photoUrl ? "Черновик и фото сохранены" : "Черновик сохранён");
+      if (!j.photoWarning) {
+        setPhotoFile(null);
+        setTemplatePhotoSourceId(null);
+      }
+      if (j.photoWarning) {
+        toast.success("Черновик сохранён");
+        toast.error(j.photoWarning);
+      } else {
+        toast.success(j.event.photoUrl ? "Черновик и фото сохранены" : "Черновик сохранён");
+      }
       await qc.invalidateQueries({ queryKey: ["instructor-events"] });
       await qc.invalidateQueries({ queryKey: ["instructor-week-schedule"] });
     },
-    onError: (e: Error) => toast.error(e.message === "save" ? "Не удалось сохранить" : e.message),
+    onError: (e: Error) =>
+      toast.error(userFacingErrorMessage(e, "Не удалось сохранить черновик")),
   });
 
   const submitModeration = useMutation({
     mutationFn: async (id: string) => {
       if (photoFile) {
-        const uploaded = await uploadPhotoForEvent(id, photoFile);
-        if (!uploaded) throw new Error("upload");
+        try {
+          await uploadPhotoForEvent(id, photoFile);
+          setPhotoFile(null);
+        } catch (photoErr) {
+          toast.error(
+            userFacingErrorMessage(
+              photoErr,
+              "Фото не загрузилось — отправляем на модерацию без нового фото",
+            ),
+          );
+        }
       }
       const r = await instructorFetch(`/api/instructor/events/${id}/submit`, { method: "POST" });
       if (!r.ok) {
-        const err = (await r.json().catch(() => ({}))) as { error?: string };
-        throw new Error(typeof err.error === "string" ? err.error : "submit");
+        const err = await r.json().catch(() => ({}));
+        throw new Error(parseApiErrorPayload(err, "Не удалось отправить на модерацию"));
       }
       return r.json() as Promise<{ event: InstructorEventApi; message?: string }>;
     },
@@ -625,21 +658,15 @@ export function InstructorEventsEditor({
       await qc.invalidateQueries({ queryKey: ["instructor-week-schedule"] });
     },
     onError: (e: Error) =>
-      toast.error(
-        e.message === "submit"
-          ? "Не удалось отправить"
-          : e.message === "upload"
-            ? "Не удалось загрузить фото перед отправкой"
-            : e.message,
-      ),
+      toast.error(userFacingErrorMessage(e, "Не удалось отправить на модерацию")),
   });
 
   const restoreDraft = useMutation({
     mutationFn: async (id: string) => {
       const r = await instructorFetch(`/api/instructor/events/${id}/restore`, { method: "POST" });
       if (!r.ok) {
-        const err = (await r.json().catch(() => ({}))) as { error?: string };
-        throw new Error(typeof err.error === "string" ? err.error : "restore");
+        const err = await r.json().catch(() => ({}));
+        throw new Error(parseApiErrorPayload(err, "Не удалось восстановить"));
       }
       return r.json() as Promise<{ event: InstructorEventApi; message?: string }>;
     },
@@ -650,7 +677,7 @@ export function InstructorEventsEditor({
       await qc.invalidateQueries({ queryKey: ["instructor-week-schedule"] });
     },
     onError: (e: Error) =>
-      toast.error(e.message === "restore" ? "Не удалось восстановить" : e.message),
+      toast.error(userFacingErrorMessage(e, "Не удалось восстановить")),
   });
 
   const cancelEvent = useMutation({
@@ -658,9 +685,9 @@ export function InstructorEventsEditor({
       const r = await instructorFetch(`/api/instructor/events/${eventId}/cancel`, {
         method: "POST",
       });
-      const j = (await r.json().catch(() => ({}))) as { error?: string; message?: string };
-      if (!r.ok) throw new Error(typeof j.error === "string" ? j.error : "cancel-event");
-      return j;
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(parseApiErrorPayload(j, "Не удалось отменить"));
+      return j as { message?: string };
     },
     onSuccess: async (j) => {
       toast.success(j.message ?? "Мероприятие отменено");
@@ -669,14 +696,14 @@ export function InstructorEventsEditor({
       await qc.invalidateQueries({ queryKey: ["instructor-week-schedule"] });
       await qc.invalidateQueries({ queryKey: ["instructor-registrations"] });
     },
-    onError: (e: Error) => toast.error(e.message === "cancel-event" ? "Не удалось отменить" : e.message),
+    onError: (e: Error) => toast.error(userFacingErrorMessage(e, "Не удалось отменить")),
   });
 
   const uploadPhoto = useMutation({
     mutationFn: async () => {
-      if (!editingId || !photoFile) throw new Error("no-file");
+      if (!editingId || !photoFile) throw new Error("Выберите файл фото");
       const event = await uploadPhotoForEvent(editingId, photoFile);
-      if (!event) throw new Error("upload");
+      if (!event) throw new Error("Не удалось загрузить фото");
       return { event };
     },
     onSuccess: async (j) => {
@@ -687,17 +714,17 @@ export function InstructorEventsEditor({
       await qc.invalidateQueries({ queryKey: ["instructor-week-schedule"] });
     },
     onError: (e: Error) =>
-      toast.error(e.message === "upload" ? "Не удалось загрузить фото" : e.message),
+      toast.error(userFacingErrorMessage(e, "Не удалось загрузить фото")),
   });
 
   const removePhoto = useMutation({
     mutationFn: async () => {
-      if (!editingId) throw new Error("no-event");
+      if (!editingId) throw new Error("Сначала сохраните черновик");
       const r = await instructorFetch(`/api/instructor/events/${editingId}/photo`, {
         method: "DELETE",
       });
-      const j = (await r.json().catch(() => ({}))) as { error?: string; event?: InstructorEventApi };
-      if (!r.ok) throw new Error(typeof j.error === "string" ? j.error : "remove-photo");
+      const j = (await r.json().catch(() => ({}))) as { error?: unknown; event?: InstructorEventApi };
+      if (!r.ok) throw new Error(parseApiErrorPayload(j, "Не удалось удалить фото"));
       return j;
     },
     onSuccess: async (j) => {
@@ -709,7 +736,7 @@ export function InstructorEventsEditor({
       await qc.invalidateQueries({ queryKey: ["instructor-week-schedule"] });
     },
     onError: (e: Error) =>
-      toast.error(e.message === "remove-photo" ? "Не удалось удалить фото" : e.message),
+      toast.error(userFacingErrorMessage(e, "Не удалось удалить фото")),
   });
 
   const setRepeatDailyMutation = useMutation({
@@ -719,8 +746,8 @@ export function InstructorEventsEditor({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ repeatDaily: next }),
       });
-      const j = (await r.json().catch(() => ({}))) as { error?: string; event?: InstructorEventApi };
-      if (!r.ok) throw new Error(typeof j.error === "string" ? j.error : "repeat-daily");
+      const j = (await r.json().catch(() => ({}))) as { error?: unknown; event?: InstructorEventApi };
+      if (!r.ok) throw new Error(parseApiErrorPayload(j, "Не удалось изменить настройку"));
       return j;
     },
     onSuccess: async (j, { repeatDaily: next }) => {
@@ -734,7 +761,7 @@ export function InstructorEventsEditor({
       await qc.invalidateQueries({ queryKey: ["instructor-week-schedule"] });
     },
     onError: (e: Error) =>
-      toast.error(e.message === "repeat-daily" ? "Не удалось изменить настройку" : e.message),
+      toast.error(userFacingErrorMessage(e, "Не удалось изменить настройку")),
   });
 
   const remove = useMutation({
@@ -742,8 +769,8 @@ export function InstructorEventsEditor({
       const qs = hard ? "?hard=1" : "";
       const r = await instructorFetch(`/api/instructor/events/${id}${qs}`, { method: "DELETE" });
       if (!r.ok) {
-        const err = (await r.json().catch(() => ({}))) as { error?: string };
-        throw new Error(typeof err.error === "string" ? err.error : "delete");
+        const err = await r.json().catch(() => ({}));
+        throw new Error(parseApiErrorPayload(err, "Не удалось выполнить действие"));
       }
       return r.json() as Promise<{ archived?: boolean }>;
     },
@@ -754,7 +781,7 @@ export function InstructorEventsEditor({
       await qc.invalidateQueries({ queryKey: ["instructor-week-schedule"] });
     },
     onError: (e: Error) => {
-      const msg = e.message === "delete" ? "Не удалось выполнить действие" : e.message;
+      const msg = userFacingErrorMessage(e, "Не удалось выполнить действие");
       if (msg.includes("напоминания")) {
         toast.message(msg, { duration: 8000 });
       } else {
@@ -876,21 +903,70 @@ export function InstructorEventsEditor({
       toast.error("Укажите дату и время выхода");
       return;
     }
-    const newRow: SlotFormRow = {
-      id: newLocalSlotId(),
-      date: draftSlotDate.trim(),
-      time: draftSlotTime.trim(),
-      title: "",
-      maxSeats: draftSlotSeats.trim(),
-      priceRub: draftSlotPrice.trim(),
-    };
-    setSlotRows((rows) =>
-      [...rows, newRow].sort((a, b) =>
-        `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`),
-      ),
-    );
-    setDraftSlotDate(addDaysYmd(draftSlotDate.trim(), 1));
-    toast.success("День добавлен в список ниже");
+    const startDate = draftSlotDate.trim();
+    const endDate = (draftSlotEndDate.trim() || startDate).trim();
+    const time = draftSlotTime.trim();
+    if (endDate < startDate) {
+      toast.error("День окончания не может быть раньше дня начала");
+      return;
+    }
+
+    const dates: string[] = [];
+    let cursor = startDate;
+    let guard = 0;
+    while (cursor <= endDate && guard < 370) {
+      dates.push(cursor);
+      cursor = addDaysYmd(cursor, 1);
+      guard += 1;
+    }
+    if (!dates.length) {
+      toast.error("Не удалось добавить дни тура");
+      return;
+    }
+
+    let addedCount = 0;
+    setSlotRows((rows) => {
+      const existing = new Set(rows.map((r) => `${r.date}T${r.time}`));
+      const nextRows = [...rows];
+      for (const date of dates) {
+        const key = `${date}T${time}`;
+        if (existing.has(key)) continue;
+        addedCount += 1;
+        existing.add(key);
+        nextRows.push({
+          id: newLocalSlotId(),
+          date,
+          time,
+          title: "",
+          maxSeats: draftSlotSeats.trim(),
+          priceRub: draftSlotPrice.trim(),
+        });
+      }
+      return nextRows.sort((a, b) => `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`));
+    });
+
+    const nextDate = addDaysYmd(endDate, 1);
+    setDraftSlotDate(nextDate);
+    setDraftSlotEndDate(nextDate);
+    if (addedCount > 0) {
+      toast.success(addedCount === 1 ? "День добавлен в список ниже" : `Добавлено дней: ${addedCount}`);
+    } else {
+      toast.message("Эти даты и время уже есть в списке");
+    }
+  }
+
+  function insertBodyToken(token: string) {
+    const textarea = eventBodyRef.current;
+    if (!textarea || formLocked) return;
+    const start = textarea.selectionStart ?? body.length;
+    const end = textarea.selectionEnd ?? start;
+    const next = `${body.slice(0, start)}${token}${body.slice(end)}`;
+    setBody(next);
+    requestAnimationFrame(() => {
+      textarea.focus();
+      const caret = start + token.length;
+      textarea.setSelectionRange(caret, caret);
+    });
   }
 
   function buildPreviewFeedCard(): ClientEventFeedCardDTO | null {
@@ -986,22 +1062,28 @@ export function InstructorEventsEditor({
     }
     setSendToModerationPending(true);
     try {
+      // saveDraft сам грузит фото; при сбое сети черновик всё равно сохраняется с id.
+      // Ошибки сохранения уже показывает onError у saveDraft — здесь не дублируем.
       const saved = await saveDraft.mutateAsync();
-      const r = await instructorFetch(`/api/instructor/events/${saved.event.id}/submit`, {
-        method: "POST",
-      });
-      if (!r.ok) {
-        const j = (await r.json().catch(() => ({}))) as { error?: string };
-        throw new Error(typeof j.error === "string" ? j.error : "Не удалось отправить на модерацию");
+      try {
+        const r = await instructorFetch(`/api/instructor/events/${saved.event.id}/submit`, {
+          method: "POST",
+        });
+        if (!r.ok) {
+          const j = await r.json().catch(() => ({}));
+          throw new Error(parseApiErrorPayload(j, "Не удалось отправить на модерацию"));
+        }
+        const j = (await r.json()) as { message?: string };
+        resetForm();
+        onRequestCreateView?.();
+        toast.success(j.message ?? "Отправлено на модерацию — можно создать новое мероприятие");
+        await qc.invalidateQueries({ queryKey: ["instructor-events"] });
+        await qc.invalidateQueries({ queryKey: ["instructor-week-schedule"] });
+      } catch (e) {
+        toast.error(userFacingErrorMessage(e, "Не удалось отправить на модерацию"));
       }
-      const j = (await r.json()) as { message?: string };
-      resetForm();
-      onRequestCreateView?.();
-      toast.success(j.message ?? "Отправлено на модерацию — можно создать новое мероприятие");
-      await qc.invalidateQueries({ queryKey: ["instructor-events"] });
-      await qc.invalidateQueries({ queryKey: ["instructor-week-schedule"] });
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Не удалось отправить на модерацию");
+    } catch {
+      /* saveDraft.onError */
     } finally {
       setSendToModerationPending(false);
     }
@@ -1148,6 +1230,7 @@ export function InstructorEventsEditor({
               <Label htmlFor="event-body">Текст</Label>
               <textarea
                 id="event-body"
+                ref={eventBodyRef}
                 className="flex min-h-[72px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm disabled:opacity-60"
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
@@ -1155,6 +1238,27 @@ export function InstructorEventsEditor({
                 maxLength={1000}
                 required
               />
+              {!formLocked ? (
+                <div className="flex flex-wrap items-center gap-1">
+                  <span className="text-[11px] text-muted-foreground">Быстрая вставка:</span>
+                  {[
+                    { label: ":", value: ":" },
+                    { label: "•", value: "• " },
+                    { label: "-", value: "- " },
+                  ].map((item) => (
+                    <Button
+                      key={item.label}
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-7 px-2 text-xs"
+                      onClick={() => insertBodyToken(item.value)}
+                    >
+                      {item.label}
+                    </Button>
+                  ))}
+                </div>
+              ) : null}
             </div>
 
             <div className="space-y-2 sm:w-52">
@@ -1273,16 +1377,35 @@ export function InstructorEventsEditor({
                 {!formLocked ? (
                   <div className="space-y-2 rounded-md border border-dashed border-border/80 bg-muted/20 p-3">
                     <Label>Добавить день выхода</Label>
-                    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
                       <div className="space-y-1">
                         <Label htmlFor="draft-slot-date" className="text-xs text-muted-foreground">
-                          Дата
+                          День начала
                         </Label>
                         <Input
                           id="draft-slot-date"
                           type="date"
                           value={draftSlotDate}
-                          onChange={(e) => setDraftSlotDate(e.target.value)}
+                          onChange={(e) => {
+                            const nextStart = e.target.value;
+                            setDraftSlotDate(nextStart);
+                            if (draftSlotEndDate && draftSlotEndDate < nextStart) {
+                              setDraftSlotEndDate(nextStart);
+                            }
+                          }}
+                          className="h-9"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor="draft-slot-end-date" className="text-xs text-muted-foreground">
+                          День окончания
+                        </Label>
+                        <Input
+                          id="draft-slot-end-date"
+                          type="date"
+                          min={draftSlotDate || undefined}
+                          value={draftSlotEndDate}
+                          onChange={(e) => setDraftSlotEndDate(e.target.value)}
                           className="h-9"
                         />
                       </div>

@@ -173,7 +173,7 @@ export async function POST(req: Request) {
   try {
     json = await req.json();
   } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+    return NextResponse.json({ error: "Некорректные данные запроса" }, { status: 400 });
   }
 
   const parsed = createInstructorEventSchema.safeParse(json);

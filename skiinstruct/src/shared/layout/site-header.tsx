@@ -283,10 +283,8 @@ export function SiteHeader() {
               <Link
                 className="rounded-md px-3 py-2 hover:bg-muted"
                 href="/login?callbackUrl=%2Fclient"
-                onClick={(e) => {
-                  e.preventDefault();
+                onClick={() => {
                   setOpen(false);
-                  router.push("/login?callbackUrl=%2Fclient");
                 }}
               >
                 Войти
@@ -294,10 +292,8 @@ export function SiteHeader() {
               <Link
                 className="rounded-md px-3 py-2 hover:bg-muted"
                 href="/instructor/login"
-                onClick={(e) => {
-                  e.preventDefault();
+                onClick={() => {
                   setOpen(false);
-                  router.push("/instructor/login");
                 }}
               >
                 Инструктору

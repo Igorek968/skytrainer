@@ -1,30 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import { signIn } from "next-auth/react";
 import { useSession } from "next-auth/react";
-import { useMemo } from "react";
-import { useFormState, useFormStatus } from "react-dom";
-
-import {
-  signInInstructorCredentialsAction,
-  type CredentialsSignInState,
-} from "@/app/actions/credentials-sign-in";
+import { useMemo, useState, type FormEvent } from "react";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Input } from "@/shared/ui/input";
 import { PasswordInput } from "@/shared/ui/password-input";
 import { Label } from "@/shared/ui/label";
-
-const initialState: CredentialsSignInState = { error: null };
-
-function SubmitButton() {
-  const { pending } = useFormStatus();
-  return (
-    <Button className="w-full" type="submit" disabled={pending} aria-busy={pending}>
-      Войти
-    </Button>
-  );
-}
 
 export function InstructorLoginForm({
   applied = false,
@@ -38,9 +22,52 @@ export function InstructorLoginForm({
   callbackUrl?: string;
 }) {
   const { data: session } = useSession();
-  const [state, formAction] = useFormState(signInInstructorCredentialsAction, initialState);
+  const [email, setEmail] = useState(prefilledEmail);
+  const [password, setPassword] = useState("");
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const signedInAsOther = Boolean(session?.user?.role && session.user.role !== "INSTRUCTOR");
   const safeCallback = useMemo(() => callbackUrl.trim() || "/instructor/pending", [callbackUrl]);
+
+  async function onSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setError(null);
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail.includes("@")) {
+      setError("Введите email инструктора");
+      return;
+    }
+    if (!password) {
+      setError("Введите пароль");
+      return;
+    }
+    setPending(true);
+    try {
+      const result = await signIn("credentials", {
+        email: trimmedEmail,
+        password,
+        redirect: false,
+      });
+      if (result?.error) {
+        setError(
+          result.error === "Configuration"
+            ? "Сбой настройки входа. Откройте сайт по тому же адресу, что в приложении, и перезапустите контейнер."
+            : "Неверный email или пароль.",
+        );
+        setPending(false);
+        return;
+      }
+      if (result?.ok === false) {
+        setError("Неверный email или пароль.");
+        setPending(false);
+        return;
+      }
+      window.location.assign(safeCallback);
+    } catch {
+      setError("Не удалось выполнить вход. Попробуйте ещё раз.");
+      setPending(false);
+    }
+  }
 
   return (
     <div className="mx-auto max-w-md space-y-6">
@@ -68,28 +95,31 @@ export function InstructorLoginForm({
             </p>
           ) : null}
 
-          <form className="space-y-4" action={formAction} noValidate>
-            <input type="hidden" name="redirectTo" value={safeCallback} />
+          <form className="space-y-4" onSubmit={onSubmit} noValidate>
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
                 id="email"
-                name="email"
                 type="email"
+                inputMode="email"
                 autoComplete="email"
-                defaultValue={prefilledEmail}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 required
-                aria-invalid={Boolean(state.error)}
+                disabled={pending}
+                aria-invalid={Boolean(error)}
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">Пароль</Label>
               <PasswordInput
                 id="password"
-                name="password"
                 autoComplete="current-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
                 required
-                aria-invalid={Boolean(state.error)}
+                disabled={pending}
+                aria-invalid={Boolean(error)}
               />
             </div>
 
@@ -102,9 +132,11 @@ export function InstructorLoginForm({
               </Link>
             </div>
 
-            {state.error ? <p className="text-sm text-destructive">{state.error}</p> : null}
+            {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
-            <SubmitButton />
+            <Button className="w-full" type="submit" disabled={pending} aria-busy={pending}>
+              {pending ? "Вход…" : "Войти"}
+            </Button>
           </form>
 
           <Button variant="outline" className="w-full" asChild>

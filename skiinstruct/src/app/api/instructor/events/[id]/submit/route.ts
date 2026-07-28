@@ -26,7 +26,7 @@ export async function POST(_req: Request, ctx: Ctx) {
     include: { slots: true },
   });
   if (!existing) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
+    return NextResponse.json({ error: "Мероприятие не найдено" }, { status: 404 });
   }
 
   if (existing.moderationStatus === "PENDING_REVIEW") {

@@ -55,30 +55,30 @@ export function guardApiRequest(
 
   if (pathname.startsWith("/api/admin")) {
     if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: "Войдите в аккаунт" }, { status: 401 });
     }
     if (role !== "ADMIN") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      return NextResponse.json({ error: "Недостаточно прав" }, { status: 403 });
     }
     return null;
   }
 
   if (pathname.startsWith("/api/referral")) {
     if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: "Войдите в аккаунт" }, { status: 401 });
     }
     if (role !== "CLIENT" && role !== "INSTRUCTOR") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      return NextResponse.json({ error: "Недостаточно прав" }, { status: 403 });
     }
     return null;
   }
 
   if (isInstructorPrivateApiPath(pathname)) {
     if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: "Войдите в аккаунт" }, { status: 401 });
     }
     if (role !== "INSTRUCTOR") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      return NextResponse.json({ error: "Недостаточно прав" }, { status: 403 });
     }
     return null;
   }
@@ -92,27 +92,27 @@ export function guardApiRequest(
   ];
   if (clientOnlyPrefixes.some((p) => pathname === p || pathname.startsWith(`${p}/`))) {
     if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: "Войдите в аккаунт" }, { status: 401 });
     }
     if (role !== "CLIENT") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      return NextResponse.json({ error: "Недостаточно прав" }, { status: 403 });
     }
     return null;
   }
 
   if (pathname.match(/^\/api\/client\/events\/[^/]+\/register$/)) {
     if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: "Войдите в аккаунт" }, { status: 401 });
     }
     if (role !== "CLIENT") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      return NextResponse.json({ error: "Недостаточно прав" }, { status: 403 });
     }
     return null;
   }
 
   if (pathname.startsWith("/api/private-media")) {
     if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: "Войдите в аккаунт" }, { status: 401 });
     }
     return null;
   }
@@ -123,7 +123,7 @@ export function guardApiRequest(
       return null;
     }
     if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: "Войдите в аккаунт" }, { status: 401 });
     }
   }
 
