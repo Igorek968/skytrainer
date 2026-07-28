@@ -27,7 +27,7 @@ export function SitePushForegroundBridge() {
 
       const sound =
         data.sound ??
-        (data.tag?.startsWith("instructor-order")
+        (data.tag?.startsWith("instructor-order") || data.tag?.startsWith("event-registration")
           ? "order"
           : data.tag?.startsWith("instructor-verification-approved")
             ? "order"
@@ -51,6 +51,7 @@ export function SitePushForegroundBridge() {
         skipNotification: true,
         requireInteraction: Boolean(
           data.tag?.startsWith("instructor-order") ||
+            data.tag?.startsWith("event-registration") ||
             data.tag?.startsWith("lesson-") ||
             data.tag?.startsWith("instructor-chat") ||
             data.tag?.startsWith("client-chat") ||

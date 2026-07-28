@@ -47,7 +47,7 @@ export function PushEnableBanner({ audience = "instructor", className }: Props) 
     audience === "admin"
       ? "admin_push_banner_dismissed_v1"
       : audience === "instructor"
-        ? "instructor_push_banner_dismissed_v2"
+        ? "instructor_push_banner_dismissed_v3"
         : "client_push_banner_dismissed_v2";
 
   const refresh = useCallback(async () => {
@@ -65,11 +65,20 @@ export function PushEnableBanner({ audience = "instructor", className }: Props) 
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
-      if (window.sessionStorage.getItem(storageKey) === "1") setDismissed(true);
+      const raw = window.localStorage.getItem(storageKey);
+      if (!raw) return;
+      // Instructors: dismiss only for 12h — otherwise they hide the banner and never get push on iOS.
+      if (audience === "instructor") {
+        const until = Number(raw);
+        if (Number.isFinite(until) && Date.now() < until) setDismissed(true);
+        else window.localStorage.removeItem(storageKey);
+        return;
+      }
+      if (raw === "1") setDismissed(true);
     } catch {
       /* ignore */
     }
-  }, [storageKey]);
+  }, [storageKey, audience]);
 
   if (dismissed || mode === "loading" || mode === "ready" || mode === "no-vapid") {
     return null;
@@ -108,7 +117,11 @@ export function PushEnableBanner({ audience = "instructor", className }: Props) 
   const onDismiss = () => {
     setDismissed(true);
     try {
-      window.sessionStorage.setItem(storageKey, "1");
+      if (audience === "instructor") {
+        window.localStorage.setItem(storageKey, String(Date.now() + 12 * 60 * 60 * 1000));
+      } else {
+        window.sessionStorage.setItem(storageKey, "1");
+      }
     } catch {
       /* ignore */
     }
@@ -129,14 +142,14 @@ export function PushEnableBanner({ audience = "instructor", className }: Props) 
               <p className="font-medium text-sky-950 dark:text-sky-100">Уведомления на iPhone</p>
               <ol className="mt-2 list-decimal space-y-1 pl-4 text-sky-950/90 dark:text-sky-100/90">
                 <li>
-                  Нажмите «Поделиться» <span className="whitespace-nowrap">(□↑)</span> внизу Safari
+                  В Safari нажмите «Поделиться» <span className="whitespace-nowrap">(□↑)</span>
                 </li>
-                <li>Выберите «На экран „Домой“»</li>
-                <li>Откройте ярлык и нажмите «Включить уведомления»</li>
+                <li>Выберите «На экран „Домой“» и откройте ярлык</li>
+                <li>В кабинете нажмите «Включить уведомления» и разрешите в системном окне</li>
               </ol>
               <p className="mt-2 text-xs text-sky-900/80 dark:text-sky-100/70">
-                На iOS нельзя ответить прямо из уведомления (ограничение Apple) — нажмите на него, чтобы
-                открыть чат. Работает iOS 16.4 и новее.
+                Без этого шага iPhone не доставляет push (ограничение Apple, iOS 16.4+). Из уведомления
+                нельзя ответить кнопкой — только открыть приложение тапом.
               </p>
             </div>
           </div>
@@ -171,7 +184,7 @@ export function PushEnableBanner({ audience = "instructor", className }: Props) 
     mode === "denied"
       ? "Уведомления заблокированы. Настройки → уведомления → ТвойТренер → разрешите."
       : audience === "instructor"
-        ? "Включите уведомления: заявки и сообщения придут со звуком, даже когда приложение закрыто."
+        ? "Нажмите «Включить уведомления» и разрешите в системном окне iPhone — иначе заявки на мероприятия не придут, пока кабинет закрыт."
         : audience === "admin"
           ? "Включите push: модерация, выплаты, поддержка и претензии — даже когда кабинет закрыт."
           : "Включите уведомления, чтобы не пропускать сообщения и напоминания.";

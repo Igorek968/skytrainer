@@ -8,12 +8,20 @@ import { instructorAlertPollInterval } from "@/lib/query-poll";
 import { fireSiteAlert, siteAlertTitle } from "@/lib/site-alert";
 import { Button } from "@/shared/ui/button";
 
+/** Показывать popup для записей за последние N мс при первом открытии кабинета. */
+const RECENT_REGISTRATION_MS = 30 * 60 * 1000;
+
 type RegistrationAlertRow = {
   id: string;
   createdAt: string;
   client: { name: string | null; email: string | null };
   event: { title: string };
 };
+
+function isRecentRegistration(row: RegistrationAlertRow): boolean {
+  const createdMs = new Date(row.createdAt).getTime();
+  return Number.isFinite(createdMs) && Date.now() - createdMs <= RECENT_REGISTRATION_MS;
+}
 
 function notifyInstructorAboutRegistration(reg: RegistrationAlertRow) {
   const clientLabel = reg.client.name?.trim() || reg.client.email?.trim() || "Клиент";
@@ -61,7 +69,18 @@ export function InstructorEventRegistrationPrompt() {
 
     if (!initializedRef.current) {
       initializedRef.current = true;
-      for (const row of registrations) seenIdsRef.current.add(row.id);
+      const recent = registrations.filter(isRecentRegistration);
+      for (const row of registrations) {
+        if (!isRecentRegistration(row)) seenIdsRef.current.add(row.id);
+      }
+      const newestRecent = recent[0] ?? null;
+      if (newestRecent && viewingRegistrationId !== newestRecent.id) {
+        for (const row of recent) seenIdsRef.current.add(row.id);
+        notifyInstructorAboutRegistration(newestRecent);
+        setActiveAlert(newestRecent);
+      } else {
+        for (const row of registrations) seenIdsRef.current.add(row.id);
+      }
       return;
     }
 
@@ -84,7 +103,7 @@ export function InstructorEventRegistrationPrompt() {
 
   return (
     <div
-      className="fixed bottom-4 right-4 z-[9998] w-[min(100vw-1.5rem,24rem)] rounded-lg border border-border bg-background p-4 shadow-xl"
+      className="fixed inset-x-3 bottom-4 z-[9998] mx-auto w-[min(100vw-1.5rem,24rem)] rounded-lg border border-border bg-background p-4 shadow-xl sm:inset-x-auto sm:right-4 sm:left-auto"
       role="alertdialog"
       aria-labelledby="instructor-event-registration-alert-title"
       aria-describedby="instructor-event-registration-alert-body"

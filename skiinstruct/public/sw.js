@@ -1,5 +1,5 @@
 /* eslint-disable no-restricted-globals */
-/* build: 20260721-logo-unified-v8 */
+/* build: 20260728-event-registration-push-v9 */
 
 /** Цветной логотип как на сайте — только для iOS/desktop (на Android даёт картинку справа). */
 const NOTIFICATION_ICON = "/notification-icon.png?v=brand8";

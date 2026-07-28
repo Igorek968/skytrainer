@@ -61,12 +61,14 @@ export type WebPushUiMode =
 /** Что показать пользователю в UI (кнопка / инструкция для iPhone). */
 export function getWebPushUiMode(): WebPushUiMode {
   if (typeof window === "undefined") return "unsupported";
-  const vapid = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY?.trim();
-  if (!vapid) return "no-vapid";
 
+  // Сначала iOS: без ярлыка на «Домой» Push API недоступен — не маскировать это под «нет VAPID».
   if (isIosDevice() && !isIosHomeScreenPwa()) {
     return "needs-ios-homescreen";
   }
+
+  const vapid = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY?.trim();
+  if (!vapid) return "no-vapid";
 
   if (!("Notification" in window) || !("serviceWorker" in navigator) || !("PushManager" in window)) {
     return "unsupported";

@@ -20,6 +20,7 @@ import { fireSiteAlert, siteAlertTitle } from "@/lib/site-alert";
 import {
   getWebPushUiMode,
   isIosDevice,
+  isIosHomeScreenPwa,
 } from "@/features/push/web-push-client";
 import { InstructorWeekScheduleCalendar } from "@/features/instructor/instructor-week-schedule-calendar";
 import {
@@ -460,14 +461,17 @@ export default function InstructorHomePage() {
 
   const requestNotifications = async () => {
     if (typeof window === "undefined") return;
-    if (isIosDevice() && getWebPushUiMode() === "needs-ios-homescreen") {
+    // iOS: API уведомлений есть только у PWA с экрана «Домой» (не у вкладки Safari).
+    if (isIosDevice() && !isIosHomeScreenPwa()) {
       toast.message("Сначала добавьте приложение на экран «Домой»", {
         description: "Safari → Поделиться → На экран «Домой», затем откройте ярлык и включите уведомления.",
       });
       return;
     }
     if (!("Notification" in window)) {
-      toast.error("Уведомления недоступны в этом браузере. На iPhone используйте Safari и ярлык на экране «Домой».");
+      toast.error(
+        "Уведомления недоступны. Нужен iOS 16.4+, Safari и открытие с ярлыка на экране «Домой» (не из вкладки Safari).",
+      );
       return;
     }
     if (!window.isSecureContext) {

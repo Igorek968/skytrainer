@@ -9,12 +9,7 @@ import { OrderLessonRemindersPrompt } from "@/features/orders/order-lesson-remin
 import { useAutoWebPushSubscribe } from "@/features/push/use-auto-web-push-subscribe";
 import { useVisibilityInvalidate } from "@/features/push/use-visibility-invalidate";
 import { unlockSiteAlertSound } from "@/lib/site-alert";
-import {
-  canRequestWebPushOnThisDevice,
-  isWebPushAvailable,
-  subscribeWebPush,
-  syncWebPushSubscription,
-} from "@/features/push/web-push-client";
+import { isWebPushAvailable, subscribeWebPush, syncWebPushSubscription } from "@/features/push/web-push-client";
 import { useEffect } from "react";
 
 export function InstructorPanelShell({ children }: { children: React.ReactNode }) {
@@ -30,16 +25,9 @@ export function InstructorPanelShell({ children }: { children: React.ReactNode }
     window.addEventListener("pointerdown", unlock, { once: true });
     window.addEventListener("keydown", unlock, { once: true });
 
-    if (
-      typeof window !== "undefined" &&
-      "Notification" in window &&
-      Notification.permission === "default" &&
-      canRequestWebPushOnThisDevice()
-    ) {
-      void Notification.requestPermission().catch(() => {});
-    }
-
-    if (isWebPushAvailable() && Notification.permission === "granted") {
+    // Не вызываем requestPermission() без жеста — на iOS PWA это молча ломает push.
+    // Баннер «Включить уведомления» запрашивает разрешение по тапу.
+    if (isWebPushAvailable() && typeof Notification !== "undefined" && Notification.permission === "granted") {
       void syncWebPushSubscription();
     }
 

@@ -280,24 +280,26 @@ export function SiteHeader() {
                 <SupportLauncher className="w-full justify-center" />
               </div>
               <PwaInstallMenuItem onNavigate={() => setOpen(false)} />
-              <Link
-                className="rounded-md px-3 py-2 hover:bg-muted"
-                href="/login?callbackUrl=%2Fclient"
+              <button
+                type="button"
+                className="rounded-md px-3 py-2 text-left hover:bg-muted"
                 onClick={() => {
                   setOpen(false);
+                  window.location.assign("/login?callbackUrl=%2Fclient");
                 }}
               >
                 Войти
-              </Link>
-              <Link
-                className="rounded-md px-3 py-2 hover:bg-muted"
-                href="/instructor/login"
+              </button>
+              <button
+                type="button"
+                className="rounded-md px-3 py-2 text-left hover:bg-muted"
                 onClick={() => {
                   setOpen(false);
+                  window.location.assign("/instructor/login");
                 }}
               >
                 Инструктору
-              </Link>
+              </button>
             </>
           )}
         </div>

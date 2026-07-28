@@ -110,6 +110,9 @@ export function buildEventRegistrationEmailContent(p: EventRegistrationNotifyPay
   return { subject, text, html };
 }
 
+/**
+ * Push всегда (даже без SMTP/email). Email — дополнительный канал.
+ */
 export async function notifyInstructorOfEventRegistration(registrationId: string): Promise<boolean> {
   const reg = await prisma.eventRegistration.findUnique({
     where: { id: registrationId },
@@ -129,13 +132,7 @@ export async function notifyInstructorOfEventRegistration(registrationId: string
     },
   });
 
-  if (!reg?.event.instructor.email) return false;
-
-  const cfg = smtpConfigFromEnv();
-  if (!cfg) {
-    console.info("[event-registration-notify] SMTP not configured, skip email");
-    return false;
-  }
+  if (!reg?.event.instructor.id) return false;
 
   const origin = process.env.NEXT_PUBLIC_APP_URL?.trim() || "http://localhost:3001";
   const panelUrl = `${origin}/instructor`;
@@ -156,30 +153,10 @@ export async function notifyInstructorOfEventRegistration(registrationId: string
         },
       });
 
-  const { subject, text, html } = buildEventRegistrationEmailContent({
-    instructorEmail: reg.event.instructor.email,
-    instructorName: reg.event.instructor.name,
-    clientName: reg.client.name,
-    clientEmail: reg.client.email,
-    eventTitle: reg.event.title,
-    eventBody: reg.event.body,
-    eventAt: reg.event.eventAt,
-    slotStartsAt: reg.slot?.startsAt ?? null,
-    slotTitle: reg.slot?.title ?? null,
-    amountRub: Number(reg.amountRub),
-    paidCount,
-    maxSeats: reg.slot?.maxSeats ?? null,
-    panelUrl,
-  });
-
   const appName = getPublicProductName();
   const clientLabel = reg.client.name?.trim() || reg.client.email?.trim() || "Клиент";
   const pushTitle = `${appName}: новая запись на мероприятие`;
   const pushBody = `${clientLabel} · ${reg.event.title}. Откройте кабинет: ${siteHost}`;
-  const from =
-    process.env.SMTP_FROM?.trim() ||
-    process.env.PASSWORD_RESET_EMAIL_FROM?.trim() ||
-    `${appName} <noreply@localhost>`;
 
   let pushSent = 0;
   try {
@@ -203,24 +180,52 @@ export async function notifyInstructorOfEventRegistration(registrationId: string
   }
 
   let emailSent = false;
-  try {
-    const transport = nodemailer.createTransport({
-      host: cfg.host,
-      port: cfg.port,
-      secure: cfg.secure,
-      requireTLS: cfg.requireTLS,
-      auth: { user: cfg.user, pass: cfg.pass },
+  const instructorEmail = reg.event.instructor.email?.trim();
+  const cfg = smtpConfigFromEnv();
+  if (instructorEmail && cfg) {
+    const { subject, text, html } = buildEventRegistrationEmailContent({
+      instructorEmail,
+      instructorName: reg.event.instructor.name,
+      clientName: reg.client.name,
+      clientEmail: reg.client.email,
+      eventTitle: reg.event.title,
+      eventBody: reg.event.body,
+      eventAt: reg.event.eventAt,
+      slotStartsAt: reg.slot?.startsAt ?? null,
+      slotTitle: reg.slot?.title ?? null,
+      amountRub: Number(reg.amountRub),
+      paidCount,
+      maxSeats: reg.slot?.maxSeats ?? null,
+      panelUrl,
     });
-    await transport.sendMail({
-      from,
-      to: reg.event.instructor.email,
-      subject,
-      text,
-      html,
-    });
-    emailSent = true;
-  } catch (e) {
-    console.error("[event-registration-notify]", e instanceof Error ? e.message : e);
+
+    const from =
+      process.env.SMTP_FROM?.trim() ||
+      process.env.PASSWORD_RESET_EMAIL_FROM?.trim() ||
+      `${appName} <noreply@localhost>`;
+
+    try {
+      const transport = nodemailer.createTransport({
+        host: cfg.host,
+        port: cfg.port,
+        secure: cfg.secure,
+        requireTLS: cfg.requireTLS,
+        auth: { user: cfg.user, pass: cfg.pass },
+      });
+      await transport.sendMail({
+        from,
+        to: instructorEmail,
+        subject,
+        text,
+        html,
+      });
+      emailSent = true;
+    } catch (e) {
+      console.error("[event-registration-notify] email", e instanceof Error ? e.message : e);
+    }
+  } else if (!cfg) {
+    console.info("[event-registration-notify] SMTP not configured, skip email");
   }
+
   return pushSent > 0 || emailSent;
 }
