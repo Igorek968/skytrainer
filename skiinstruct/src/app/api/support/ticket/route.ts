@@ -7,7 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { appendUserSupportMessage } from "@/lib/support-service";
 import { ticketShortId } from "@/lib/support-ticket-access";
 import { isMaxBridgeEnabled } from "@/lib/max-support";
-import { SUPPORT_TICKET_COOKIE, supportEmail, supportMaxUrl } from "@/lib/support-config";
+import { SUPPORT_TICKET_COOKIE, supportEmail, supportMaxUrl, supportTelegramUrl } from "@/lib/support-config";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
 import { verifyTurnstileToken } from "@/lib/security/turnstile";
 
@@ -60,6 +60,7 @@ function supportMetaResponse() {
   return {
     maxConfigured: isMaxBridgeEnabled(),
     maxUrl: supportMaxUrl(),
+    telegramUrl: supportTelegramUrl(),
     supportEmail: supportEmail(),
   };
 }

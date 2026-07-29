@@ -9,6 +9,7 @@ import { publicSiteHostLabel } from "@/lib/app-origin";
 import { orderIsUrgent, URGENT_INSTRUCTOR_DEADLINE_MIN } from "@/shared/lib/order-flex";
 import { getPublicProductName } from "@/shared/lib/product";
 import { APP_TIME_ZONE } from "@/shared/lib/app-timezone";
+import { smtpReplyTo } from "@/lib/support-config";
 
 function envSecret(value: string | undefined): string {
   const v = value?.trim() ?? "";
@@ -241,6 +242,7 @@ export async function notifyInstructorOfPendingOrder(orderId: string): Promise<b
         await transport.sendMail({
           from,
           to: order.instructor.email,
+          replyTo: smtpReplyTo(),
           subject,
           text,
           html,

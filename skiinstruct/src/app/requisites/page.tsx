@@ -11,7 +11,7 @@ export default function RequisitesPage() {
   return (
     <LegalDocLayout title="Реквизиты">
       <p className="text-muted-foreground">
-        Реквизиты агента (оператора сервиса ТвойТренер.рф) для оплаты и договорных отношений.
+        Реквизиты исполнителя (оператора сервиса ТвойТренер.рф) для оплаты и договорных отношений.
       </p>
       <LegalRequisitesBlock />
       <p className="text-xs text-muted-foreground">Редакция от {formatLegalEditionDate()}.</p>

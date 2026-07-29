@@ -1,5 +1,7 @@
 import nodemailer from "nodemailer";
 
+import { smtpReplyTo } from "@/lib/support-config";
+
 export type PasswordResetEmailPayload = {
   to: string;
   from: string;
@@ -115,6 +117,7 @@ export async function sendPasswordResetEmailViaSmtp(payload: PasswordResetEmailP
       const info = await transport.sendMail({
         from: payload.from,
         to: payload.to,
+        replyTo: smtpReplyTo(),
         subject: payload.subject,
         text: payload.text,
         html: payload.html,

@@ -8,6 +8,9 @@ import {
 import { LEGAL_ROUTES, legalOperatorName } from "@/lib/legal";
 import {
   AGENCY_OFFER_VERSION,
+  CANCEL_CLIENT_FULL_REFUND_HOURS,
+  CANCEL_CLIENT_PARTIAL_PERCENT,
+  CANCEL_CLIENT_PARTIAL_REFUND_HOURS,
   CLIENT_OFFER_VERSION,
   EVENT_CANCEL_FULL_REFUND_HOURS,
   INSTRUCTOR_CANCEL_NOTICE_HOURS,
@@ -104,7 +107,7 @@ export function renderYookassaCoverLetterHtml(generatedAt: string): string {
   <h2>1. Оператор платформы (получатель платежей)</h2>
   <p>
     <strong>${escapeHtml(agent.fullName)}</strong><br />
-    ИНН ${escapeHtml(agent.inn)}, ОГРНИП ${escapeHtml(agent.ogrn)}<br />
+    ИНН ${escapeHtml(agent.inn)}, КПП ${escapeHtml(agent.kpp)}, ОГРН ${escapeHtml(agent.ogrn)}<br />
     Сайт: ${escapeHtml(site)}
   </p>
 
@@ -133,14 +136,15 @@ export function renderYookassaCoverLetterHtml(generatedAt: string): string {
     при регистрации в сервисе (дата и версия — в реестре и справках, приложенных к пакету).
   </p>
   <p>
-    Для клиентов действует договор-оферта: ${escapeHtml(site)}${LEGAL_ROUTES.oferta}.
+    Для клиентов действует договор бронирования услуг (публичная оферта) с агентской моделью расчётов:
+    ${escapeHtml(site)}${LEGAL_ROUTES.oferta}. Чек на обучение выставляет Инструктор (НПД/ИП).
   </p>
 
   <h2>5. Состав пакета</h2>
   <ol>
     <li>Агентский договор (публичная оферта для инструкторов)</li>
-    <li>Договор-оферта для клиентов</li>
-    <li>Реквизиты Агента</li>
+    <li>Договор бронирования услуг (оферта для клиентов)</li>
+    <li>Реквизиты Агента (ООО)</li>
     <li>Реестр инструкторов, акцептовавших агентскую оферту</li>
     <li>Справки об акцепте агентского договора по каждому инструктору из реестра</li>
   </ol>
@@ -160,10 +164,10 @@ export function renderRequisitesHtml(): string {
   const address = legalRegisteredAddress();
 
   const body = `
-  <h1>Реквизиты Агента (оператора сервиса)</h1>
+  <h1>Реквизиты Исполнителя (оператора сервиса)</h1>
   <p class="muted">Реквизиты для оплаты и договорных отношений на ${escapeHtml(LEGAL_SITE_URL)}</p>
   <p><strong>${escapeHtml(agent.fullName)}</strong></p>
-  <p>ИНН ${escapeHtml(agent.inn)}<br />ОГРНИП ${escapeHtml(agent.ogrn)}</p>
+  <p>ИНН ${escapeHtml(agent.inn)}<br />КПП ${escapeHtml(agent.kpp)}<br />ОГРН ${escapeHtml(agent.ogrn)}</p>
   <p>
     Расчётный счёт: <strong>${escapeHtml(agent.bankAccount)}</strong><br />
     Банк: ${escapeHtml(agent.bankName)}<br />
@@ -174,90 +178,81 @@ export function renderRequisitesHtml(): string {
   <p>Email: ${escapeHtml(agent.email)}</p>
   `;
 
-  return wrapHtmlDocument("Реквизиты Агента", body);
+  return wrapHtmlDocument("Реквизиты Исполнителя", body);
 }
 
 export function renderClientOfferHtml(): string {
   const agent = LEGAL_AGENT;
   const site = LEGAL_SITE_URL;
-  const payoutHint = formatPayoutWindowHint();
 
   const body = `
-  <h1>Договор-оферта на оказание услуг по подбору инструктора</h1>
+  <h1>Договор бронирования услуг (публичная оферта)</h1>
   <p class="muted">Редакция от ${CLIENT_OFFER_VERSION.replace(/-/g, ".")}</p>
   <p>
-    <strong>${escapeHtml(agent.fullName)}</strong> (ИНН ${escapeHtml(agent.inn)}, ОГРНИП ${escapeHtml(agent.ogrn)}),
-    публикует настоящий Договор-оферту (далее — «Оферта»).
+    <strong>${escapeHtml(agent.fullName)}</strong> (ИНН ${escapeHtml(agent.inn)}, КПП ${escapeHtml(agent.kpp)},
+    ОГРН ${escapeHtml(agent.ogrn)}) — Исполнитель (Агент), оператор Платформы
+    <a href="${escapeHtml(site)}">${escapeHtml(site)}</a>.
   </p>
 
   <h2>1. Термины</h2>
   <p>
-    <strong>Сайт</strong> — ${escapeHtml(site)}.<br />
-    <strong>Агент</strong> — ${escapeHtml(agent.shortName)}, услуги по подбору инструктора и приёму оплаты.<br />
-    <strong>Инструктор</strong> — самозанятый (НПД) или ИП, оказывающий услуги по обучению и тренировкам в направлениях из профиля.<br />
-    <strong>Клиент</strong> — физическое лицо, заказывающее услуги Инструктора.<br />
-    <strong>Услуги Агента</strong> — информационное сопровождение, бронирование, приём оплаты, урегулирование споров.<br />
-    <strong>Услуги Инструктора</strong> — непосредственное проведение занятий и обучение в выбранном виде спорта.
+    <strong>Исполнитель / Агент</strong> — ${escapeHtml(agent.shortName)}: поиск Инструктора, бронирование, приём оплаты;
+    не является исполнителем услуг обучения.<br />
+    <strong>Инструктор</strong> — самозанятый (НПД) или ИП, оказывает занятие лично.<br />
+    <strong>Клиент</strong> — физическое лицо, бронирующее занятие.<br />
+    <strong>Комиссия Агента</strong> — ${PLATFORM_FEE_PERCENT}% от стоимости занятия / участия в мероприятии.<br />
+    <strong>Услуга инструктора</strong> — обучение и проведение занятия; договор на неё — между Клиентом и Инструктором.
   </p>
 
-  <h2>2. Предмет</h2>
+  <h2>2. Предмет и акцепт</h2>
   <p>
-    2.1. Агент подбирает Инструктора, бронирует время, принимает оплату; Клиент оплачивает услуги в порядке Оферты.<br />
-    2.2. Фактическим исполнителем является Инструктор. Агент не оказывает обучающие услуги.<br />
-    2.4–2.5. Договор на обучение — между Клиентом и Инструктором (с принятия заказа).<br />
-    2.6. Сайт — информационная площадка; Агент не контролирует занятие на месте его проведения.
+    2.1. Агент оказывает услугу по бронированию и приёму оплаты; фактический исполнитель обучения — Инструктор.<br />
+    2.2. Акцепт — оплата / «Оплатить» / «Заказать» / «Записаться» и согласие с Офертой, Политикой ПДн и Правилами возврата.<br />
+    2.3. Чек на обучение выставляет Инструктор (НПД/ИП). Подтверждение оплаты через ЮKassa — у Агента.
   </p>
 
-  <h2>3. Акцепт</h2>
+  <h2>3. Стоимость и оплата</h2>
   <p>
-    Оферта считается принятой при нажатии «Оплатить» / «Заказать» / «Записаться» и согласии с условиями Оферты,
-    Политикой ПДн и Правилами возврата. Чек на обучение выставляет Инструктор (НПД/ИП).
+    Итоговая сумма включает вознаграждение Инструктору и Комиссию Агента (${PLATFORM_FEE_PERCENT}%).
+    Оплата — в рублях через ЮKassa на р/с Агента ${escapeHtml(agent.bankAccount)} в ${escapeHtml(agent.bankName)},
+    БИК ${escapeHtml(agent.bik)}.
   </p>
 
-  <h2>4. Стоимость и оплата</h2>
+  <h2>4. Возвраты (отмена клиентом)</h2>
+  <table>
+    <tr><th>Срок до занятия</th><th>Возврат</th></tr>
+    <tr><td>Более ${CANCEL_CLIENT_FULL_REFUND_HOURS} ч</td><td>100%</td></tr>
+    <tr><td>От ${CANCEL_CLIENT_PARTIAL_REFUND_HOURS} до ${CANCEL_CLIENT_FULL_REFUND_HOURS} ч</td><td>${CANCEL_CLIENT_PARTIAL_PERCENT}%</td></tr>
+    <tr><td>Менее ${CANCEL_CLIENT_PARTIAL_REFUND_HOURS} ч</td><td>Без возврата</td></tr>
+  </table>
   <p>
-    Стоимость включает вознаграждение Инструктору и комиссию Агента (${PLATFORM_FEE_PERCENT}% от стоимости занятия),
-    удерживаемую Агентом. Оплата — в рублях через ЮKassa. Средства поступают на расчётный счёт Агента
-    ${escapeHtml(agent.bankAccount)} в ${escapeHtml(agent.bankName)}.
+    Отмена инструктором — 100% клиенту; менее чем за ${INSTRUCTOR_CANCEL_NOTICE_HOURS} ч или неявка —
+    также штраф ${INSTRUCTOR_NO_SHOW_PENALTY_PERCENT}% с инструктора. Опоздание инструктора более
+    ${INSTRUCTOR_LATE_GRACE_MINUTES} мин от ETA — право на полный возврат.
+    Подробности: ${escapeHtml(site)}${LEGAL_ROUTES.returns}.
   </p>
 
-  <h2>5. Обязанности</h2>
-  <p>Агент обеспечивает работу Сайта, передаёт заявку Инструктору, организует возвраты.</p>
-  <p>Инструктор проводит занятие, имеет статус НПД/ИП и по требованию выставляет чек клиенту.</p>
+  <h2>5. Мероприятия</h2>
+  <p>
+    Комиссия Агента ${PLATFORM_FEE_PERCENT}%. Отмена клиентом за ${EVENT_CANCEL_FULL_REFUND_HOURS} ч и более — 100%;
+    позже — без возврата. Отмена инструктором — полный возврат участникам.
+  </p>
 
   <h2>6. Ответственность</h2>
   <p>
-    6.1–6.3. Платформа — поиск и бронирование; Агент не отвечает за качество урока.<br />
-    6.4. Агент не несёт ответственности за травмы и вред при занятиях (риски при занятиях — на Клиенте).<br />
-    6.5–6.6. Ответственность за занятие — у Инструктора; у инструкторов требуется страхование.
-  </p>
-  <p>4.5. Подтверждение оплаты через ЮKassa — у Агента; чек на обучение — у Инструктора.</p>
-
-  <h2>7–8. Возвраты и мероприятия</h2>
-  <p>
-    Возвраты — по Правилам возврата на Сайте. Отмена инструктором менее чем за ${INSTRUCTOR_CANCEL_NOTICE_HOURS} ч —
-    полный возврат клиенту. Опоздание инструктора более ${INSTRUCTOR_LATE_GRACE_MINUTES} мин — право клиента на полный возврат.
-    По мероприятиям: отмена клиентом за ${EVENT_CANCEL_FULL_REFUND_HOURS} ч и более — полный возврат.
+    Платформа — информационная площадка. Агент не отвечает за качество занятия и травмы при оказании Услуг Инструктора.
+    Ответственность за занятие — у Инструктора; требуется страхование (см. оферту инструктора).
   </p>
 
-  <h2>9. Реферальная программа</h2>
+  <h2>7. Реквизиты Агента</h2>
   <p>
-    Вознаграждение ${REFERRAL_REWARD_RUB} ₽ за каждый из первых ${REFERRAL_MAX_ORDERS_PER_CLIENT} оплаченных заказов
-    приглашённого клиента; cookie реферала — ${REFERRAL_COOKIE_MAX_AGE_DAYS} дней. Минимальный вывод — ${PAYOUT_MIN_WITHDRAWAL_RUB} ₽.
-  </p>
-
-  <h2>10. Прочее</h2>
-  <p>Оферта регулируется законодательством РФ. Споры — по месту регистрации Агента.</p>
-
-  <h2>11. Реквизиты Агента</h2>
-  <p>
-    ${escapeHtml(agent.fullName)}, ИНН ${escapeHtml(agent.inn)}, ${escapeHtml(agent.email)}.
-    Выплаты инструкторам: ${escapeHtml(payoutHint)}.
+    ${escapeHtml(agent.fullName)}, ИНН ${escapeHtml(agent.inn)}, КПП ${escapeHtml(agent.kpp)},
+    ОГРН ${escapeHtml(agent.ogrn)}, email ${escapeHtml(agent.email)}.
   </p>
   <p class="muted">Полный текст на Сайте: ${escapeHtml(site)}${LEGAL_ROUTES.oferta}</p>
   `;
 
-  return wrapHtmlDocument("Договор-оферта для клиентов", body);
+  return wrapHtmlDocument("Договор бронирования услуг (оферта) для клиентов", body);
 }
 
 export function renderInstructorAgencyOfferHtml(): string {
@@ -321,7 +316,7 @@ export function renderInstructorAgencyOfferHtml(): string {
     Реферальная программа — на условиях клиентской оферты. Обработка ПДн — по политике на Сайте.
   </p>
   <p>
-    <strong>Агент:</strong> ${escapeHtml(agent.fullName)}, ИНН ${escapeHtml(agent.inn)}, ОГРНИП ${escapeHtml(agent.ogrn)},
+    <strong>Агент:</strong> ${escapeHtml(agent.fullName)}, ИНН ${escapeHtml(agent.inn)}, ОГРН ${escapeHtml(agent.ogrn)},
     р/с ${escapeHtml(agent.bankAccount)}, ${escapeHtml(agent.bankName)}, БИК ${escapeHtml(agent.bik)}.
   </p>
   <p class="muted">Полный текст на Сайте: ${escapeHtml(site)}${LEGAL_ROUTES.ofertaInstructor}</p>
@@ -495,7 +490,7 @@ export async function buildYookassaPackageFiles(
 - 00-soprovoditelnoe-pismo-*.html — сопроводительное письмо
 - 01-agentskiy-dogovor-oferta-*.html — агентский договор для инструкторов
 - 02-dogovor-oferta-klient-*.html — оферта для клиентов
-- 03-rekvizity-*.html — реквизиты ИП
+- 03-rekvizity-*.html — реквизиты ООО (Агента)
 - 04-reestr-instruktorov-*.csv — реестр акцептов (Excel / Google Sheets)
 - 05-spravki/*.html — справка об акцепте по каждому инструктору
 

@@ -91,7 +91,7 @@ export async function createInstructorApplication(input: {
   if (!input.acceptAgencyOffer || !input.acceptPrivacy) {
     return {
       ok: false,
-      error: "Необходимо принять агентский договор и политику обработки персональных данных",
+      error: "Необходимо принять договор для инструктора и политику обработки персональных данных",
       status: 400,
     };
   }

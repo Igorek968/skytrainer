@@ -1,5 +1,5 @@
 /** Единая дата редакции всех юридических документов (оферты, ПДн, возвраты, реквизиты). */
-export const LEGAL_DOCS_VERSION = "2026-06-12";
+export const LEGAL_DOCS_VERSION = "2026-07-29";
 
 /** Версия агентской оферты для инструкторов (акцепт в БД). */
 export const AGENCY_OFFER_VERSION = LEGAL_DOCS_VERSION;
@@ -16,9 +16,9 @@ export function formatLegalEditionDate(version: string = LEGAL_DOCS_VERSION): st
 
 export const PLATFORM_FEE_PERCENT = 15;
 
-/** До принятия инструктором — полный возврат; после принятия клиентом — 0% (refund-policy.ts). */
+/** Отмена клиентом: более N ч до занятия — полный возврат (refund-policy.ts, оферта п. 5.6). */
 export const CANCEL_CLIENT_FULL_REFUND_HOURS = 24;
-/** Устаревшие пороги частичного возврата — не используются в текущей оферте; оставлены для совместимости расчёта. */
+/** Отмена клиентом: от N до FULL ч — частичный возврат PARTIAL_PERCENT%. */
 export const CANCEL_CLIENT_PARTIAL_REFUND_HOURS = 2;
 export const CANCEL_CLIENT_PARTIAL_PERCENT = 50;
 

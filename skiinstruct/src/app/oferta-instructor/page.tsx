@@ -3,6 +3,9 @@ import Link from "next/link";
 
 import {
   AGENCY_OFFER_VERSION,
+  CANCEL_CLIENT_FULL_REFUND_HOURS,
+  CANCEL_CLIENT_PARTIAL_PERCENT,
+  CANCEL_CLIENT_PARTIAL_REFUND_HOURS,
   formatLegalEditionDate,
   INSTRUCTOR_CANCEL_NOTICE_HOURS,
   INSTRUCTOR_LATE_GRACE_MINUTES,
@@ -26,31 +29,37 @@ export default function InstructorAgencyOfferPage() {
   const payoutHint = formatPayoutWindowHint();
 
   return (
-    <LegalDocLayout title="Агентский договор (публичная оферта) для инструктора">
+    <LegalDocLayout title="Договор (публичная оферта) для инструктора">
       <p className="text-muted-foreground">
         Настоящий договор является публичной офертой (ст. 437 ГК РФ) для дееспособных физических лиц,
         зарегистрированных как самозанятые или индивидуальные предприниматели (далее — «Инструктор»,
         «Принципал»). Акцепт — регистрация в сервисе с отметкой о согласии (версия {AGENCY_OFFER_VERSION}).
+        Исполнитель Платформы — {LEGAL_AGENT.shortName} (ИНН {LEGAL_AGENT.inn}, ОГРН {LEGAL_AGENT.ogrn}).
       </p>
 
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">1. Термины</h2>
         <ul className="list-inside list-disc space-y-1 text-muted-foreground">
           <li>
-            <span className="font-medium text-foreground">Агент</span> — {LEGAL_AGENT.shortName} (ИНН {LEGAL_AGENT.inn}
-            ), действующий за вознаграждение в интересах Инструктора.
+            <span className="font-medium text-foreground">Исполнитель / Агент</span> — {LEGAL_AGENT.shortName} (ИНН{" "}
+            {LEGAL_AGENT.inn}), оператор Платформы, привлекающий Клиентов и организующий бронирование и расчёты.
           </li>
           <li>
-            <span className="font-medium text-foreground">Клиент</span> — пользователь, бронирующий
-            занятие через платформу.
+            <span className="font-medium text-foreground">Клиент</span> — пользователь, бронирующий занятие через
+            платформу.
           </li>
           <li>
-            <span className="font-medium text-foreground">Услуга</span> — занятие, оказываемое
-            Инструктором лично. Договор на услугу — между Клиентом и Инструктором.
+            <span className="font-medium text-foreground">Услуга</span> — занятие, оказываемое Инструктором лично.
+            Договор на услугу обучения — между Клиентом и Инструктором; Исполнитель оказывает услугу по бронированию
+            на условиях{" "}
+            <Link href={LEGAL_ROUTES.oferta} className="text-accent underline">
+              клиентской оферты
+            </Link>
+            .
           </li>
           <li>
-            <span className="font-medium text-foreground">Комиссия Агента</span> —{" "}
-            {PLATFORM_FEE_PERCENT}% от стоимости услуги (удерживается при расчётах через платформу).
+            <span className="font-medium text-foreground">Комиссия</span> — {PLATFORM_FEE_PERCENT}% от стоимости услуги
+            (удерживается при расчётах через платформу).
           </li>
         </ul>
       </section>
@@ -58,10 +67,9 @@ export default function InstructorAgencyOfferPage() {
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">2. Предмет</h2>
         <p className="text-muted-foreground">
-          Агент предоставляет доступ к платформе, привлекает Клиентов, принимает оплату и перечисляет
-          Инструктору сумму за вычетом Комиссии. Агент не оказывает услуги Клиентам самостоятельно.
-          Отношения не являются трудовыми: Инструктор сам определяет режим работы и несёт налоговые
-          обязательства.
+          Исполнитель предоставляет доступ к платформе, привлекает Клиентов, принимает оплату и перечисляет
+          Инструктору сумму за вычетом Комиссии. Исполнитель не оказывает обучающие услуги Клиентам самостоятельно.
+          Отношения не являются трудовыми: Инструктор сам определяет режим работы и несёт налоговые обязательства.
         </p>
       </section>
 
@@ -79,19 +87,18 @@ export default function InstructorAgencyOfferPage() {
         <ul className="list-inside list-disc space-y-1 text-muted-foreground">
           <li>Оплата Клиентом — только через платформу.</li>
           <li>
-            Комиссия Агента по занятиям: {PLATFORM_FEE_PERCENT}% от стоимости заказа (удерживается из суммы, оплаченной
+            Комиссия по занятиям: {PLATFORM_FEE_PERCENT}% от стоимости заказа (удерживается из суммы, оплаченной
             Клиентом).
           </li>
           <li>
-            Комиссия Агента по мероприятиям: {PLATFORM_FEE_PERCENT}% от стоимости участия каждого клиента, оплатившего
-            запись после проведения мероприятия; Инструктору перечисляется {100 - PLATFORM_FEE_PERCENT}% от суммы
-            каждого такого участника.
+            Комиссия по мероприятиям: {PLATFORM_FEE_PERCENT}% от стоимости участия каждого клиента, оплатившего запись
+            после проведения мероприятия; Инструктору перечисляется {100 - PLATFORM_FEE_PERCENT}% от суммы каждого
+            такого участника.
           </li>
           <li>Выплата Инструктору: {payoutHint}.</li>
           <li>Минимальная сумма к выводу: {PAYOUT_MIN_WITHDRAWAL_RUB} ₽ (на реквизиты в личном кабинете).</li>
           <li>
-            Чек в «Мой налог» (или ККТ) — загрузка в заказ в течение {NPD_RECEIPT_DEADLINE_HOURS} ч после
-            занятия.
+            Чек в «Мой налог» (или ККТ) — загрузка в заказ в течение {NPD_RECEIPT_DEADLINE_HOURS} ч после занятия.
           </li>
         </ul>
       </section>
@@ -100,12 +107,21 @@ export default function InstructorAgencyOfferPage() {
         <h2 className="text-lg font-semibold">5. Отмена и опоздание</h2>
         <ul className="list-inside list-disc space-y-1 text-muted-foreground">
           <li>
+            Отмена Клиентом — по таблице из{" "}
+            <Link href={LEGAL_ROUTES.oferta} className="text-accent underline">
+              клиентской оферты
+            </Link>
+            : более {CANCEL_CLIENT_FULL_REFUND_HOURS} ч — 100%; от {CANCEL_CLIENT_PARTIAL_REFUND_HOURS} до{" "}
+            {CANCEL_CLIENT_FULL_REFUND_HOURS} ч — {CANCEL_CLIENT_PARTIAL_PERCENT}%; менее{" "}
+            {CANCEL_CLIENT_PARTIAL_REFUND_HOURS} ч — без возврата.
+          </li>
+          <li>
             Отмена Инструктором не позднее <strong>{INSTRUCTOR_CANCEL_NOTICE_HOURS} ч</strong> до занятия — полный
             возврат Клиенту без штрафа для Инструктора.
           </li>
           <li>
             Отмена менее чем за <strong>{INSTRUCTOR_CANCEL_NOTICE_HOURS} ч</strong> до занятия или неявка на занятие /
-            мероприятие — полный возврат Клиенту за счёт Агента и штраф{" "}
+            мероприятие — полный возврат Клиенту и штраф{" "}
             <strong>{INSTRUCTOR_NO_SHOW_PENALTY_PERCENT}%</strong> от суммы заявки в пользу платформы (удерживается из
             будущих выплат Инструктору).
           </li>
@@ -128,12 +144,12 @@ export default function InstructorAgencyOfferPage() {
             разумные меры безопасности в рамках занятия.
           </li>
           <li>
-            Агент не несёт ответственности за травмы, вред здоровью и иные последствия занятия; претензии по существу
-            услуги — к Инструктору. Агент содействует в коммуникации и расчётах в рамках Платформы.
+            Исполнитель не несёт ответственности за травмы, вред здоровью и иные последствия занятия; претензии по
+            существу услуги — к Инструктору. Исполнитель содействует в коммуникации и расчётах в рамках Платформы.
           </li>
           <li>
             Страхование ответственности (раздел 3) не освобождает Инструктора от обязанностей перед Клиентом и не
-            переводит ответственность на Агента.
+            переводит ответственность на Исполнителя.
           </li>
         </ul>
       </section>
@@ -141,12 +157,9 @@ export default function InstructorAgencyOfferPage() {
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">7. Реферальная программа</h2>
         <p className="text-muted-foreground">
-          Инструктор вправе участвовать в реферальной программе на условиях{" "}
-          <Link href={LEGAL_ROUTES.oferta} className="text-accent underline">
-            клиентской оферты
-          </Link>{" "}
-          (раздел 9): {REFERRAL_REWARD_RUB} ₽ за каждый из первых {REFERRAL_MAX_ORDERS_PER_CLIENT} завершённых
-          оплаченных заказов приглашённого клиента, вывод реферального баланса от {PAYOUT_MIN_WITHDRAWAL_RUB} ₽.
+          Инструктор вправе участвовать в реферальной программе: {REFERRAL_REWARD_RUB} ₽ за каждый из первых{" "}
+          {REFERRAL_MAX_ORDERS_PER_CLIENT} завершённых оплаченных заказов приглашённого клиента, вывод реферального
+          баланса от {PAYOUT_MIN_WITHDRAWAL_RUB} ₽. Условия могут уточняться на Сайте.
         </p>
       </section>
 
@@ -162,14 +175,14 @@ export default function InstructorAgencyOfferPage() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold">9. Реквизиты Агента</h2>
+        <h2 className="text-lg font-semibold">9. Реквизиты Исполнителя</h2>
         <LegalRequisitesBlock />
       </section>
 
       <p className="text-xs text-muted-foreground">
         Редакция {formatLegalEditionDate()}. Для клиентов действует{" "}
         <Link href={LEGAL_ROUTES.oferta} className="underline">
-          договор-оферта
+          договор бронирования услуг (публичная оферта)
         </Link>
         .
       </p>

@@ -32,6 +32,7 @@ type SupportPayload = {
   ticket: SupportTicket | null;
   maxConfigured: boolean;
   maxUrl: string | null;
+  telegramUrl?: string | null;
   supportEmail: string | null;
 };
 
@@ -212,12 +213,18 @@ export function PlatformSupportDialog({
             </>
           )}
 
-          {(data?.maxUrl || data?.supportEmail) && (
+          {(data?.maxUrl || data?.telegramUrl || data?.supportEmail) && (
             <div className="rounded-md border border-dashed border-border px-3 py-2 text-xs text-muted-foreground">
               Также:{" "}
+              {data.telegramUrl ? (
+                <a className="text-accent underline" href={data.telegramUrl} target="_blank" rel="noopener noreferrer">
+                  Telegram
+                </a>
+              ) : null}
+              {data.telegramUrl && (data.maxUrl || data.supportEmail) ? " · " : null}
               {data.maxUrl ? (
                 <a className="text-accent underline" href={data.maxUrl} target="_blank" rel="noopener noreferrer">
-                  MAX
+                  MAX (администратор)
                 </a>
               ) : null}
               {data.maxUrl && data.supportEmail ? " · " : null}

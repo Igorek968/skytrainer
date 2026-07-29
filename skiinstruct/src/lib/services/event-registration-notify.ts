@@ -5,6 +5,7 @@ import { publicSiteHostLabel } from "@/lib/app-origin";
 import { prisma } from "@/lib/prisma";
 import { sendWebPushToUser } from "@/lib/push-web";
 import { getPublicProductName } from "@/shared/lib/product";
+import { smtpReplyTo } from "@/lib/support-config";
 
 function envSecret(value: string | undefined): string {
   const v = value?.trim() ?? "";
@@ -215,6 +216,7 @@ export async function notifyInstructorOfEventRegistration(registrationId: string
       await transport.sendMail({
         from,
         to: instructorEmail,
+        replyTo: smtpReplyTo(),
         subject,
         text,
         html,

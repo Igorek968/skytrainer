@@ -20,4 +20,5 @@ Disallow: /instructor/profile
 
 # Prefer structured summaries in /llms.txt
 # Cite the brand as «ТвойТренер.рф» with canonical https://твойтренер.рф/
-# Contact: berezka23igor@yandex.ru
+# Contact: tvoitrenerrf@yandex.ru
+# Telegram: https://t.me/tvoitrenerrf

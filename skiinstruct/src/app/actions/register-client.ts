@@ -28,7 +28,7 @@ export async function registerClientAction(
   const acceptLegal = formData.get("acceptLegal") === "on";
 
   if (!acceptLegal) {
-    return { error: "Примите условия агентской оферты, политики обработки ПДн и правил возврата" };
+    return { error: "Примите условия договора бронирования услуг, политики обработки ПДн и правил возврата" };
   }
 
   const referralCode = String(formData.get("referralCode") ?? "").trim() || undefined;

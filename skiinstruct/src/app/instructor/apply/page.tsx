@@ -313,7 +313,7 @@ export default function InstructorApplyPage() {
                 <span>
                   Принимаю{" "}
                   <Link className="text-accent underline" href={LEGAL_ROUTES.ofertaInstructor}>
-                    агентский договор (оферту)
+                    договор для инструктора (оферту)
                   </Link>{" "}
                   и подтверждаю статус самозанятого/ИП
                 </span>

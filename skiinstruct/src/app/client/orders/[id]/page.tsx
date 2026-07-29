@@ -608,7 +608,7 @@ function ClientOrderDetailContent({
                   <span>
                     Я принимаю условия{" "}
                     <Link className="text-accent underline" href={LEGAL_ROUTES.oferta}>
-                      Договора-оферты
+                      Договора бронирования услуг
                     </Link>
                     , даю согласие на обработку{" "}
                     <Link className="text-accent underline" href={LEGAL_ROUTES.privacy}>

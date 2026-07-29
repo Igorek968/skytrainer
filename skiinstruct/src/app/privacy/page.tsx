@@ -27,7 +27,7 @@ export default function PrivacyPolicyPage() {
         <h2 className="text-lg font-semibold">1. Общие положения</h2>
         <p className="text-muted-foreground">
           1.1. Оператором персональных данных является <strong>{LEGAL_AGENT.fullName}</strong> (ИНН {LEGAL_AGENT.inn},
-          ОГРНИП {LEGAL_AGENT.ogrn}), адрес: {address}.
+          ОГРН {LEGAL_AGENT.ogrn}), адрес: {address}.
         </p>
         <p className="text-muted-foreground">
           1.2. Настоящая Политика действует в отношении всех персональных данных, которые Оператор может получить от

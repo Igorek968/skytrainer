@@ -72,7 +72,7 @@ export function LegalConsentCheckbox({
           onClick={stopBubble}
           onPointerDown={stopBubble}
         >
-          Договора-оферты
+          Договора бронирования услуг
         </Link>
         ,{" "}
         <Link

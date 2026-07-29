@@ -11,10 +11,14 @@ export function LegalRequisitesBlock() {
       <p>
         ИНН {LEGAL_AGENT.inn}
         <br />
+        КПП {LEGAL_AGENT.kpp}
+        <br />
         ОГРН {LEGAL_AGENT.ogrn}
       </p>
       <p>
-        Расчётный счёт: <strong className="text-foreground">{LEGAL_AGENT.bankAccount}</strong> в {LEGAL_AGENT.bankName}
+        Расчётный счёт: <strong className="text-foreground">{LEGAL_AGENT.bankAccount}</strong>
+        <br />
+        Банк: {LEGAL_AGENT.bankName}
         <br />
         БИК {LEGAL_AGENT.bik}
         <br />
