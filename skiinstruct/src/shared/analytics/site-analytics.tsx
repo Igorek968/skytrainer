@@ -1,9 +1,11 @@
 "use client";
 
 import Script from "next/script";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { hasCookieConsent } from "@/lib/cookie-consent";
+import { trackYandexHit } from "@/shared/analytics/yandex-metrika-client";
 
 const YANDEX_ID = process.env.NEXT_PUBLIC_YANDEX_METRIKA_ID?.trim() || "";
 const GA_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID?.trim() || "";
@@ -14,10 +16,28 @@ function yandexMetrikaSnippet(counterId: string): string {
 
 /** Яндекс.Метрика — сразу при загрузке страницы (как в стандартном коде счётчика). */
 function YandexMetrika() {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const [previousUrl, setPreviousUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!YANDEX_ID) return;
+    const query = searchParams.toString();
+    const nextUrl = `${pathname}${query ? `?${query}` : ""}`;
+    if (previousUrl === null) {
+      setPreviousUrl(nextUrl);
+      return;
+    }
+    if (previousUrl !== nextUrl) {
+      trackYandexHit(nextUrl, previousUrl);
+      setPreviousUrl(nextUrl);
+    }
+  }, [pathname, previousUrl, searchParams]);
+
   if (!YANDEX_ID) return null;
 
   return (
-    <Script id="yandex-metrika" strategy="lazyOnload">
+    <Script id="yandex-metrika" strategy="afterInteractive">
       {yandexMetrikaSnippet(YANDEX_ID)}
     </Script>
   );

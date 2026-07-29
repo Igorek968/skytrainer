@@ -9,6 +9,7 @@ import { LEGAL_ROUTES } from "@/lib/legal";
 import { instructorActivityLabelsAlphabetical } from "@/lib/services/instructor-match";
 import { useFormDraft } from "@/shared/hooks/use-form-draft";
 import { useDisplayNameDuplicateCheck } from "@/shared/hooks/use-display-name-duplicate-check";
+import { YM_GOALS, trackYandexGoal } from "@/shared/analytics/yandex-metrika-client";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Input } from "@/shared/ui/input";
@@ -93,6 +94,7 @@ export default function InstructorApplyPage() {
             className="space-y-4"
             action={formAction}
             noValidate
+            onSubmitCapture={() => trackYandexGoal(YM_GOALS.instructorApplySubmit)}
           >
             <div className="space-y-2">
               <Label htmlFor="lastName">Фамилия</Label>

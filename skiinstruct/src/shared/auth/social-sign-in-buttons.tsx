@@ -3,6 +3,7 @@
 import { signIn } from "next-auth/react";
 import { useEffect, useState } from "react";
 
+import { YM_GOALS, trackYandexGoal } from "@/shared/analytics/yandex-metrika-client";
 import { Button } from "@/shared/ui/button";
 
 export function SocialSignInButtons({ callbackUrl }: { callbackUrl: string }) {
@@ -26,7 +27,10 @@ export function SocialSignInButtons({ callbackUrl }: { callbackUrl: string }) {
         type="button"
         variant="outline"
         className="w-full"
-        onClick={() => signIn("google", { callbackUrl })}
+        onClick={() => {
+          trackYandexGoal(YM_GOALS.googleAuthStart);
+          void signIn("google", { callbackUrl });
+        }}
       >
         Войти через Google
       </Button>

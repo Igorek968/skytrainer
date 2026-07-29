@@ -7,6 +7,7 @@ import { Suspense, useEffect, useMemo, useState, type FormEvent } from "react";
 
 import { validateClientLoginEmail } from "@/app/actions/credentials-sign-in";
 import { SocialSignInButtons } from "@/shared/auth/social-sign-in-buttons";
+import { YM_GOALS, trackYandexGoal } from "@/shared/analytics/yandex-metrika-client";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Input } from "@/shared/ui/input";
@@ -64,6 +65,7 @@ function LoginFormInner() {
       setEmail(trimmed);
       setPassword("");
       setStep("password");
+      trackYandexGoal(YM_GOALS.loginStepEmail);
     } catch {
       setError("Не удалось проверить email. Попробуйте ещё раз.");
     } finally {
@@ -84,6 +86,7 @@ function LoginFormInner() {
     }
 
     try {
+      trackYandexGoal(YM_GOALS.loginSubmit);
       const result = await signIn("credentials", {
         email: trimmedEmail,
         password,

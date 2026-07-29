@@ -18,6 +18,7 @@ import { CLIENT_BOOKING_RETURN_PATH } from "@/lib/client-pending-checkout";
 import { LEGAL_ROUTES } from "@/lib/legal";
 import { InstructorServiceExecutorNotice } from "@/shared/legal/instructor-service-executor-notice";
 import { LegalConsentCheckbox } from "@/shared/legal/legal-consent-checkbox";
+import { YM_GOALS, trackYandexGoal } from "@/shared/analytics/yandex-metrika-client";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { PasswordInput } from "@/shared/ui/password-input";
@@ -189,6 +190,7 @@ export function ClientOrderCheckoutDialog({ open, onOpenChange, instructor, onCr
         setStep("pay");
         return;
       }
+      trackYandexGoal(YM_GOALS.orderCreate);
       clearClientCheckoutDraft();
       closeAll();
       router.push(`/client/orders/${orderId}?pay=1`);

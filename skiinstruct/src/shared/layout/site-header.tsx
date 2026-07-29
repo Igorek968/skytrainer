@@ -18,6 +18,7 @@ import { PwaInstallMenuItem } from "@/features/share/pwa-install-hint";
 import { SupportLauncher } from "@/features/support/support-launcher";
 import { SiteLogo } from "@/shared/brand/site-logo";
 import { HeaderAccountHint } from "@/shared/layout/header-account-hint";
+import { YM_GOALS, trackYandexGoal } from "@/shared/analytics/yandex-metrika-client";
 
 function signOutAndClearCache(
   queryClient: ReturnType<typeof useQueryClient>,
@@ -139,10 +140,18 @@ export function SiteHeader() {
               )
             ) : (
               <>
-                <Link href="/login?callbackUrl=%2Fclient" className={navLinkClass}>
+                <Link
+                  href="/login?callbackUrl=%2Fclient"
+                  className={navLinkClass}
+                  onClick={() => trackYandexGoal(YM_GOALS.clientLoginOpen)}
+                >
                   Войти
                 </Link>
-                <Link href="/instructor/login" className={navLinkOutlineClass}>
+                <Link
+                  href="/instructor/login"
+                  className={navLinkOutlineClass}
+                  onClick={() => trackYandexGoal(YM_GOALS.instructorLoginOpen)}
+                >
                   Инструктору
                 </Link>
               </>
@@ -285,6 +294,7 @@ export function SiteHeader() {
                 className="rounded-md px-3 py-2 text-left hover:bg-muted"
                 onClick={() => {
                   setOpen(false);
+                  trackYandexGoal(YM_GOALS.clientLoginOpen);
                   window.location.assign("/login?callbackUrl=%2Fclient");
                 }}
               >
@@ -295,6 +305,7 @@ export function SiteHeader() {
                 className="rounded-md px-3 py-2 text-left hover:bg-muted"
                 onClick={() => {
                   setOpen(false);
+                  trackYandexGoal(YM_GOALS.instructorLoginOpen);
                   window.location.assign("/instructor/login");
                 }}
               >

@@ -56,6 +56,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Input } from "@/shared/ui/input";
 import { Skeleton } from "@/shared/ui/skeleton";
 import type { LessonDuration, Order, OrderStatus, SkillLevel } from "@prisma/client";
+import { YM_GOALS, trackYandexGoal } from "@/shared/analytics/yandex-metrika-client";
 
 type RoutingMember = { userId: string; name: string | null };
 
@@ -988,6 +989,7 @@ export default function ClientOrderPage() {
       const isMock = Boolean(searchParams.get("mock"));
       const isBalance = Boolean(searchParams.get("balance"));
       const isAutopay = Boolean(searchParams.get("autopay"));
+      trackYandexGoal(YM_GOALS.orderPaid, { mock: isMock, balance: isBalance, autopay: isAutopay });
       void (async () => {
         if (!isMock && !isBalance && !isAutopay) {
           try {
