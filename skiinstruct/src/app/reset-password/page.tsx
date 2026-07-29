@@ -13,6 +13,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/sha
 import { Input } from "@/shared/ui/input";
 import { PasswordInput } from "@/shared/ui/password-input";
 import { Label } from "@/shared/ui/label";
+import { TurnstileWidget } from "@/shared/security/turnstile-widget";
 
 function homeForRole(role: UserRole | undefined): string {
   return cabinetPathForRole(role) ?? "/login";
@@ -44,15 +45,17 @@ function ResetPasswordForm() {
     }
   }, [linkError]);
 
-  const onSubmit = async (e: FormEvent) => {
+  const onSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
     setDebugToken(null);
+    const formData = new FormData(e.currentTarget);
+    const captchaToken = String(formData.get("captchaToken") ?? "");
     try {
       const r = await fetch("/api/auth/password-reset/request", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, captchaToken }),
       });
 
       const data = (await r.json().catch(() => ({}))) as {
@@ -184,6 +187,7 @@ function ResetPasswordForm() {
                     required
                   />
                 </div>
+                <TurnstileWidget />
                 <Button className="w-full" type="submit" disabled={loading}>
                   {loading ? "Отправка..." : "Отправить ссылку"}
                 </Button>

@@ -8,6 +8,7 @@ import { useFormState, useFormStatus } from "react-dom";
 import { registerClientAction, type RegisterClientState } from "@/app/actions/register-client";
 import { FORM_DRAFT_KEYS } from "@/lib/form-draft-storage";
 import { YM_GOALS, trackYandexGoal } from "@/shared/analytics/yandex-metrika-client";
+import { TurnstileWidget } from "@/shared/security/turnstile-widget";
 import { Button } from "@/shared/ui/button";
 import { LegalConsentCheckbox } from "@/shared/legal/legal-consent-checkbox";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
@@ -167,6 +168,7 @@ function RegisterForm() {
               onChange={(checked) => setField("acceptLegal", checked)}
               includeReturns
             />
+            <TurnstileWidget />
 
             {state.error ? <p className="text-sm text-destructive">{state.error}</p> : null}
 

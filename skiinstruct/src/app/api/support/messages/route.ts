@@ -6,11 +6,14 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { appendUserSupportMessage } from "@/lib/support-service";
 import { SUPPORT_TICKET_COOKIE } from "@/lib/support-config";
+import { clientIp, rateLimit } from "@/lib/rate-limit";
+import { verifyTurnstileToken } from "@/lib/security/turnstile";
 
 export const dynamic = "force-dynamic";
 
 const bodySchema = z.object({
   body: z.string().trim().min(1).max(4000),
+  captchaToken: z.string().trim().optional(),
 });
 
 async function resolveTicket(userId: string | null, token: string | null) {
@@ -29,8 +32,15 @@ async function resolveTicket(userId: string | null, token: string | null) {
 }
 
 export async function POST(req: Request) {
+  const ip = clientIp(req.headers);
   const session = await auth();
   const userId = session?.user?.id?.trim() ?? null;
+  const rateKey = userId ? `support-message:user:${userId}` : `support-message:ip:${ip}`;
+  const maxPerMinute = userId ? 40 : 12;
+  if (!rateLimit(rateKey, maxPerMinute, 60_000)) {
+    return NextResponse.json({ error: "Слишком много сообщений. Подождите немного." }, { status: 429 });
+  }
+
   const jar = await cookies();
   const token = jar.get(SUPPORT_TICKET_COOKIE)?.value?.trim() ?? null;
 
@@ -43,6 +53,10 @@ export async function POST(req: Request) {
   const parsed = bodySchema.safeParse(json);
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+  }
+  const humanOk = await verifyTurnstileToken(parsed.data.captchaToken, ip);
+  if (!humanOk) {
+    return NextResponse.json({ error: "Подтвердите, что вы не робот." }, { status: 400 });
   }
 
   const ticket = await resolveTicket(userId, userId ? null : token);

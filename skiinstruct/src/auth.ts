@@ -2,11 +2,13 @@ import NextAuth from "next-auth";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import Credentials from "next-auth/providers/credentials";
 import { compare } from "bcryptjs";
+import { headers } from "next/headers";
 import { z } from "zod";
 
 import { authConfig } from "@/auth.config";
 import { prisma } from "@/lib/prisma";
-import { rateLimit } from "@/lib/rate-limit";
+import { clientIp, rateLimit } from "@/lib/rate-limit";
+import { verifyTurnstileToken } from "@/lib/security/turnstile";
 import { validatePasswordResetToken } from "@/lib/services/password-reset";
 import { bindReferralFromCookie, ensureUserReferralCode } from "@/lib/services/referral";
 
@@ -15,6 +17,7 @@ const credentialsSchema = z
     email: z.string().optional(),
     password: z.string().optional(),
     resetToken: z.string().optional(),
+    captchaToken: z.string().optional(),
   })
   .refine((d) => Boolean(d.resetToken?.trim().length || d.password?.length), {
     message: "password or resetToken required",
@@ -36,7 +39,13 @@ const credentialsProvider = Credentials({
     resetToken: { label: "Токен сброса пароля", type: "text" },
   },
   authorize: async (raw: Record<string, unknown> | undefined) => {
+    const requestHeaders = await headers();
+    const ip = clientIp(requestHeaders);
     const resetToken = typeof raw?.resetToken === "string" ? raw.resetToken.trim() : "";
+    const captchaToken = typeof raw?.captchaToken === "string" ? raw.captchaToken.trim() : "";
+    const humanOk = await verifyTurnstileToken(captchaToken, ip);
+    if (!humanOk) return null;
+
     if (resetToken) {
       if (!rateLimit(`password-reset:signin:${resetToken.slice(0, 16)}`, 8, 900_000)) {
         return null;
@@ -57,6 +66,7 @@ const credentialsProvider = Credentials({
       email: typeof raw?.email === "string" ? raw.email.trim() : "",
       password: typeof raw?.password === "string" ? raw.password : "",
       resetToken: "",
+      captchaToken,
     };
     const parsed = credentialsSchema.safeParse(normalized);
     if (!parsed.success) return null;
@@ -64,7 +74,7 @@ const credentialsProvider = Credentials({
     if (!identifier || !password) return null;
 
     const loginKey = identifier.trim().toLowerCase();
-    if (!rateLimit(`login:${loginKey}`, 12, 900_000)) {
+    if (!rateLimit(`login-ip:${ip}`, 30, 900_000) || !rateLimit(`login:${loginKey}`, 12, 900_000)) {
       return null;
     }
 

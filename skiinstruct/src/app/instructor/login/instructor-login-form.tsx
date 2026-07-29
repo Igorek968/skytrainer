@@ -4,6 +4,7 @@ import Link from "next/link";
 import { signIn } from "next-auth/react";
 import { useSession } from "next-auth/react";
 import { useMemo, useState, type FormEvent } from "react";
+import { TurnstileWidget } from "@/shared/security/turnstile-widget";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Input } from "@/shared/ui/input";
@@ -43,9 +44,12 @@ export function InstructorLoginForm({
     }
     setPending(true);
     try {
+      const formData = new FormData(e.currentTarget);
+      const captchaToken = String(formData.get("captchaToken") ?? "");
       const result = await signIn("credentials", {
         email: trimmedEmail,
         password,
+        captchaToken,
         redirect: false,
       });
       if (result?.error) {
@@ -131,6 +135,7 @@ export function InstructorLoginForm({
                 Забыли пароль?
               </Link>
             </div>
+            <TurnstileWidget />
 
             {error ? <p className="text-sm text-destructive">{error}</p> : null}
 

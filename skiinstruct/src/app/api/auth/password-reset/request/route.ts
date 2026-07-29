@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { prisma } from "@/lib/prisma";
 import { rateLimit, clientIp } from "@/lib/rate-limit";
+import { verifyTurnstileToken } from "@/lib/security/turnstile";
 import {
   buildPasswordResetEnterLink,
   generatePasswordResetToken,
@@ -13,6 +14,7 @@ import {
 
 const requestSchema = z.object({
   email: z.string().email(),
+  captchaToken: z.string().optional(),
 });
 
 export async function POST(req: Request) {
@@ -34,6 +36,14 @@ export async function POST(req: Request) {
   }
 
   const email = parsed.data.email.trim().toLowerCase();
+  const captchaToken = parsed.data.captchaToken?.trim() || "";
+  if (!rateLimit(`password-reset:request:${ip}:${email}`, 4, 60_000)) {
+    return NextResponse.json({ error: "Слишком много запросов" }, { status: 429 });
+  }
+  const humanOk = await verifyTurnstileToken(captchaToken, ip);
+  if (!humanOk) {
+    return NextResponse.json({ error: "Подтвердите, что вы не робот." }, { status: 400 });
+  }
 
   const user = await prisma.user.findFirst({
     where: { email: { equals: email, mode: "insensitive" } },

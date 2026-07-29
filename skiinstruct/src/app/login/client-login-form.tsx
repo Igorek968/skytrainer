@@ -8,6 +8,7 @@ import { Suspense, useEffect, useMemo, useState, type FormEvent } from "react";
 import { validateClientLoginEmail } from "@/app/actions/credentials-sign-in";
 import { SocialSignInButtons } from "@/shared/auth/social-sign-in-buttons";
 import { YM_GOALS, trackYandexGoal } from "@/shared/analytics/yandex-metrika-client";
+import { TurnstileWidget } from "@/shared/security/turnstile-widget";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Input } from "@/shared/ui/input";
@@ -86,10 +87,13 @@ function LoginFormInner() {
     }
 
     try {
+      const formData = new FormData(e.currentTarget);
+      const captchaToken = String(formData.get("captchaToken") ?? "");
       trackYandexGoal(YM_GOALS.loginSubmit);
       const result = await signIn("credentials", {
         email: trimmedEmail,
         password,
+        captchaToken,
         redirect: false,
       });
 
@@ -232,6 +236,7 @@ function LoginFormInner() {
                   Забыли пароль?
                 </Link>
               </div>
+              <TurnstileWidget />
 
               {error ? <p className="text-sm text-destructive">{error}</p> : null}
 

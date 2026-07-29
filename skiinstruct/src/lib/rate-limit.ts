@@ -1,9 +1,19 @@
 type Bucket = { count: number; resetAt: number };
 
 const store = new Map<string, Bucket>();
+let opsSinceCleanup = 0;
 
 const WINDOW_MS = 60_000;
 const MAX = 100;
+const CLEANUP_EVERY_OPS = 500;
+
+function cleanupExpired(now: number): void {
+  for (const [key, bucket] of store.entries()) {
+    if (now > bucket.resetAt) {
+      store.delete(key);
+    }
+  }
+}
 
 /**
  * Simple in-memory rate limiter (per server instance).
@@ -11,6 +21,11 @@ const MAX = 100;
  */
 export function rateLimit(key: string, max: number = MAX, windowMs: number = WINDOW_MS): boolean {
   const now = Date.now();
+  opsSinceCleanup += 1;
+  if (opsSinceCleanup >= CLEANUP_EVERY_OPS) {
+    cleanupExpired(now);
+    opsSinceCleanup = 0;
+  }
   const b = store.get(key);
   if (!b || now > b.resetAt) {
     store.set(key, { count: 1, resetAt: now + windowMs });

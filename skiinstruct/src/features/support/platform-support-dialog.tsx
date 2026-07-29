@@ -8,6 +8,7 @@ import { toast } from "sonner";
 
 import { LEGAL_ROUTES } from "@/lib/legal";
 import { devPollInterval } from "@/lib/query-poll";
+import { TurnstileWidget } from "@/shared/security/turnstile-widget";
 import { Button } from "@/shared/ui/button";
 import { Dialog, DialogContent } from "@/shared/ui/dialog";
 import { Input } from "@/shared/ui/input";
@@ -80,7 +81,7 @@ export function PlatformSupportDialog({
   }, [data?.ticket]);
 
   const startChat = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (captchaToken?: string) => {
       const r = await fetch("/api/support/ticket", {
         method: "POST",
         credentials: "include",
@@ -88,6 +89,7 @@ export function PlatformSupportDialog({
         body: JSON.stringify({
           guestEmail: loggedIn ? undefined : guestEmail.trim(),
           guestName: loggedIn ? undefined : guestName.trim() || undefined,
+          captchaToken: captchaToken?.trim() || undefined,
         }),
       });
       const j = (await r.json().catch(() => ({}))) as SupportPayload & { error?: string };
@@ -102,12 +104,12 @@ export function PlatformSupportDialog({
   });
 
   const send = useMutation({
-    mutationFn: async (body: string) => {
+    mutationFn: async ({ body, captchaToken }: { body: string; captchaToken?: string }) => {
       const r = await fetch("/api/support/messages", {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ body }),
+        body: JSON.stringify({ body, captchaToken: captchaToken?.trim() || undefined }),
       });
       const j = (await r.json().catch(() => ({}))) as { error?: string };
       if (!r.ok) throw new Error(typeof j.error === "string" ? j.error : "send");
@@ -230,41 +232,54 @@ export function PlatformSupportDialog({
 
         <div className="shrink-0 border-t border-border px-5 py-4">
           {!started && !ticket ? (
-            <Button
-              type="button"
-              variant="accent"
-              className="w-full"
-              disabled={startChat.isPending || (!loggedIn && !guestEmail.trim())}
-              onClick={() => startChat.mutate()}
+            <form
+              className="space-y-2"
+              onSubmit={(e) => {
+                e.preventDefault();
+                const captchaToken = String(new FormData(e.currentTarget).get("captchaToken") ?? "");
+                startChat.mutate(captchaToken);
+              }}
             >
-              {startChat.isPending ? "Открываем…" : "Начать диалог"}
-            </Button>
+              <TurnstileWidget />
+              <Button
+                type="submit"
+                variant="accent"
+                className="w-full"
+                disabled={startChat.isPending || (!loggedIn && !guestEmail.trim())}
+              >
+                {startChat.isPending ? "Открываем…" : "Начать диалог"}
+              </Button>
+            </form>
           ) : (
             <form
-              className="flex gap-2"
+              className="space-y-2"
               onSubmit={(e) => {
                 e.preventDefault();
                 const t = text.trim();
                 if (!t) return;
+                const captchaToken = String(new FormData(e.currentTarget).get("captchaToken") ?? "");
                 if (!ticket) {
-                  startChat.mutate(undefined, {
-                    onSuccess: () => send.mutate(t),
+                  startChat.mutate(captchaToken, {
+                    onSuccess: () => send.mutate({ body: t, captchaToken }),
                   });
                   return;
                 }
-                send.mutate(t);
+                send.mutate({ body: t, captchaToken });
               }}
             >
-              <Input
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-                placeholder="Опишите проблему…"
-                disabled={send.isPending}
-                aria-label="Сообщение в поддержку"
-              />
-              <Button type="submit" variant="accent" disabled={send.isPending || !text.trim()}>
-                Отправить
-              </Button>
+              <div className="flex gap-2">
+                <Input
+                  value={text}
+                  onChange={(e) => setText(e.target.value)}
+                  placeholder="Опишите проблему…"
+                  disabled={send.isPending}
+                  aria-label="Сообщение в поддержку"
+                />
+                <Button type="submit" variant="accent" disabled={send.isPending || !text.trim()}>
+                  Отправить
+                </Button>
+              </div>
+              <TurnstileWidget />
             </form>
           )}
           <Button type="button" variant="ghost" className="mt-2 w-full" onClick={() => onOpenChange(false)}>

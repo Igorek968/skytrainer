@@ -1,4 +1,4 @@
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -8,6 +8,8 @@ import { appendUserSupportMessage } from "@/lib/support-service";
 import { ticketShortId } from "@/lib/support-ticket-access";
 import { isMaxBridgeEnabled } from "@/lib/max-support";
 import { SUPPORT_TICKET_COOKIE, supportEmail, supportMaxUrl } from "@/lib/support-config";
+import { clientIp, rateLimit } from "@/lib/rate-limit";
+import { verifyTurnstileToken } from "@/lib/security/turnstile";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +17,7 @@ const createSchema = z.object({
   guestEmail: z.string().email().max(120).optional(),
   guestName: z.string().trim().max(120).optional(),
   body: z.string().trim().min(1).max(4000).optional(),
+  captchaToken: z.string().trim().optional(),
 });
 
 function serializeTicket(
@@ -85,6 +88,11 @@ async function findOpenTicket(userId: string | null, accessToken: string | null)
 }
 
 export async function GET() {
+  const ip = clientIp((await headers()));
+  if (!rateLimit(`support-ticket:get:${ip}`, 90, 60_000)) {
+    return NextResponse.json({ error: "Слишком много запросов" }, { status: 429 });
+  }
+
   const session = await auth();
   const userId = session?.user?.id?.trim() ?? null;
   const jar = await cookies();
@@ -99,8 +107,15 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  const ip = clientIp(req.headers);
   const session = await auth();
   const userId = session?.user?.id?.trim() ?? null;
+  const baseRateKey = userId ? `support-ticket:post:user:${userId}` : `support-ticket:post:ip:${ip}`;
+  const maxPerWindow = userId ? 30 : 8;
+  if (!rateLimit(baseRateKey, maxPerWindow, 10 * 60_000)) {
+    return NextResponse.json({ error: "Слишком много запросов. Попробуйте позже." }, { status: 429 });
+  }
+
   const jar = await cookies();
   const existingToken = jar.get(SUPPORT_TICKET_COOKIE)?.value?.trim() ?? null;
 
@@ -113,6 +128,10 @@ export async function POST(req: Request) {
   const parsed = createSchema.safeParse(json);
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+  }
+  const humanOk = await verifyTurnstileToken(parsed.data.captchaToken, ip);
+  if (!humanOk) {
+    return NextResponse.json({ error: "Подтвердите, что вы не робот." }, { status: 400 });
   }
 
   const existing = await findOpenTicket(userId, userId ? null : existingToken);
