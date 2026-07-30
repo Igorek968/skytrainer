@@ -18,7 +18,7 @@ export const LEGAL_AGENT = {
 
 /** Юридический адрес оператора; переопределяется через NEXT_PUBLIC_LEGAL_ADDRESS. */
 export const LEGAL_REGISTERED_ADDRESS_DEFAULT =
-  "167000, Республика Коми, г. Сыктывкар, ул. Коммунистическая, д. 85, кв. 3";
+  "354375, Краснодарский край, Сочи, Урожайная улица, 35/2";
 
 export function legalRegisteredAddress(): string {
   return process.env.NEXT_PUBLIC_LEGAL_ADDRESS?.trim() || LEGAL_REGISTERED_ADDRESS_DEFAULT;
