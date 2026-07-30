@@ -12,7 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/sha
 import { Input } from "@/shared/ui/input";
 import { Skeleton } from "@/shared/ui/skeleton";
 import { cn } from "@/lib/utils";
-import { devPollInterval } from "@/lib/query-poll";
+import { devPollInterval, supportChatPollInterval } from "@/lib/query-poll";
 
 type TicketListItem = {
   id: string;
@@ -94,7 +94,7 @@ export function AdminSupportInboxSection() {
       if (!r.ok) throw new Error(`ticket-${r.status}`);
       return r.json() as Promise<{ ticket: TicketDetail }>;
     },
-    refetchInterval: selectedId ? devPollInterval(10_000) : false,
+    refetchInterval: selectedId ? supportChatPollInterval(10_000) : false,
   });
 
   const action = useMutation({

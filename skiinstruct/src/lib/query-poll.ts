@@ -10,3 +10,8 @@ export function devPollInterval(ms: number): number | false {
 export function instructorAlertPollInterval(ms = 5000): number {
   return ms;
 }
+
+/** Чат поддержки: ответы админа / MAX должны приходить при открытом диалоге. */
+export function supportChatPollInterval(ms = 4000): number {
+  return ms;
+}

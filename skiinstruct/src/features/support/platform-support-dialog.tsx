@@ -7,7 +7,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { LEGAL_ROUTES } from "@/lib/legal";
-import { devPollInterval } from "@/lib/query-poll";
+import { supportChatPollInterval } from "@/lib/query-poll";
 import { TurnstileWidget } from "@/shared/security/turnstile-widget";
 import { Button } from "@/shared/ui/button";
 import { Dialog, DialogContent } from "@/shared/ui/dialog";
@@ -32,7 +32,6 @@ type SupportPayload = {
   ticket: SupportTicket | null;
   maxConfigured: boolean;
   maxUrl: string | null;
-  telegramUrl?: string | null;
   supportEmail: string | null;
 };
 
@@ -66,7 +65,10 @@ export function PlatformSupportDialog({
       if (!r.ok) throw new Error("support");
       return r.json() as Promise<SupportPayload>;
     },
-    refetchInterval: open ? devPollInterval(5000) : false,
+    // Ответы админа / MAX должны появляться без перезагрузки (не через disableDevPoll).
+    refetchInterval: open ? supportChatPollInterval(4000) : false,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: true,
     staleTime: 0,
   });
 
@@ -213,15 +215,9 @@ export function PlatformSupportDialog({
             </>
           )}
 
-          {(data?.maxUrl || data?.telegramUrl || data?.supportEmail) && (
+          {(data?.maxUrl || data?.supportEmail) && (
             <div className="rounded-md border border-dashed border-border px-3 py-2 text-xs text-muted-foreground">
               Также:{" "}
-              {data.telegramUrl ? (
-                <a className="text-accent underline" href={data.telegramUrl} target="_blank" rel="noopener noreferrer">
-                  Telegram
-                </a>
-              ) : null}
-              {data.telegramUrl && (data.maxUrl || data.supportEmail) ? " · " : null}
               {data.maxUrl ? (
                 <a className="text-accent underline" href={data.maxUrl} target="_blank" rel="noopener noreferrer">
                   MAX (администратор)
