@@ -3,9 +3,8 @@
 import Link from "next/link";
 import { signIn } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useMemo, useState, type FormEvent } from "react";
+import { Suspense, useMemo, useState, type FormEvent } from "react";
 
-import { validateClientLoginEmail } from "@/app/actions/credentials-sign-in";
 import { SocialSignInButtons } from "@/shared/auth/social-sign-in-buttons";
 import { YM_GOALS, trackYandexGoal } from "@/shared/analytics/yandex-metrika-client";
 import { TurnstileWidget } from "@/shared/security/turnstile-widget";
@@ -14,8 +13,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/sha
 import { Input } from "@/shared/ui/input";
 import { PasswordInput } from "@/shared/ui/password-input";
 import { Label } from "@/shared/ui/label";
-
-type Step = "email" | "password";
 
 function LoginFormInner() {
   const params = useSearchParams();
@@ -30,49 +27,10 @@ function LoginFormInner() {
     [callbackUrl],
   );
 
-  const [step, setStep] = useState<Step>(prefilledEmail ? "password" : "email");
   const [email, setEmail] = useState(prefilledEmail);
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
-
-  useEffect(() => {
-    if (prefilledEmail) {
-      setEmail(prefilledEmail);
-      setStep("password");
-    }
-  }, [prefilledEmail]);
-
-  async function onEmailContinue(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setError(null);
-    const trimmed = email.trim();
-    if (!trimmed) {
-      setError("Введите email");
-      return;
-    }
-    if (!trimmed.includes("@")) {
-      setError("Укажите корректный email");
-      return;
-    }
-
-    setPending(true);
-    try {
-      const roleCheck = await validateClientLoginEmail(trimmed);
-      if (roleCheck.error) {
-        setError(roleCheck.error);
-        return;
-      }
-      setEmail(trimmed);
-      setPassword("");
-      setStep("password");
-      trackYandexGoal(YM_GOALS.loginStepEmail);
-    } catch {
-      setError("Не удалось проверить email. Попробуйте ещё раз.");
-    } finally {
-      setPending(false);
-    }
-  }
 
   async function onPasswordSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -81,7 +39,7 @@ function LoginFormInner() {
 
     const trimmedEmail = email.trim();
     if (!trimmedEmail || !password) {
-      setError("Введите пароль");
+      setError(!trimmedEmail ? "Введите email" : "Введите пароль");
       setPending(false);
       return;
     }
@@ -131,11 +89,7 @@ function LoginFormInner() {
               администратора и не инструктора.
             </CardDescription>
           ) : (
-            <CardDescription>
-              {step === "email"
-                ? "Сначала укажите email — затем введите пароль."
-                : "Введите пароль для входа."}
-            </CardDescription>
+            <CardDescription>Введите email и пароль для входа.</CardDescription>
           )}
         </CardHeader>
         <CardContent className="space-y-4">
@@ -151,100 +105,56 @@ function LoginFormInner() {
             </p>
           ) : null}
 
-          {step === "email" ? (
-            <form className="space-y-4" onSubmit={onEmailContinue} noValidate>
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  name="email"
-                  type="email"
-                  inputMode="email"
-                  autoComplete="email"
-                  autoFocus
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  disabled={pending}
-                  aria-invalid={Boolean(error)}
-                />
-              </div>
+          <form className="space-y-4" onSubmit={onPasswordSubmit} noValidate>
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                name="email"
+                type="email"
+                inputMode="email"
+                autoComplete="username"
+                autoFocus
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                disabled={pending}
+                aria-invalid={Boolean(error)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="password">Пароль</Label>
+              <PasswordInput
+                id="password"
+                name="password"
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                disabled={pending}
+                aria-invalid={Boolean(error)}
+              />
+            </div>
 
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <Link className="text-sm text-accent underline" href={registerHref}>
-                  Создать аккаунт
-                </Link>
-                <Link
-                  className="text-sm text-muted-foreground underline decoration-muted-foreground/40 hover:decoration-muted-foreground"
-                  href="/reset-password"
-                >
-                  Забыли пароль?
-                </Link>
-              </div>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <Link className="text-sm text-accent underline" href={registerHref}>
+                Создать аккаунт
+              </Link>
+              <Link
+                className="text-sm text-muted-foreground underline decoration-muted-foreground/40 hover:decoration-muted-foreground"
+                href="/reset-password"
+              >
+                Забыли пароль?
+              </Link>
+            </div>
+            <TurnstileWidget />
 
-              {error ? <p className="text-sm text-destructive">{error}</p> : null}
+            {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
-              <Button className="w-full" type="submit" disabled={pending} aria-busy={pending}>
-                {pending ? "Проверка…" : "Далее"}
-              </Button>
-            </form>
-          ) : (
-            <form className="space-y-4" onSubmit={onPasswordSubmit} noValidate>
-              <div className="space-y-2">
-                <Label htmlFor="email-confirm">Email</Label>
-                <Input
-                  id="email-confirm"
-                  type="email"
-                  value={email}
-                  readOnly
-                  className="bg-muted/40"
-                  autoComplete="username"
-                />
-                <button
-                  type="button"
-                  className="text-sm text-accent underline"
-                  onClick={() => {
-                    setStep("email");
-                    setPassword("");
-                    setError(null);
-                  }}
-                  disabled={pending}
-                >
-                  Изменить email
-                </button>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="password">Пароль</Label>
-                <PasswordInput
-                  id="password"
-                  name="password"
-                  autoComplete="current-password"
-                  autoFocus
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  disabled={pending}
-                  aria-invalid={Boolean(error)}
-                />
-              </div>
-
-              <div className="flex justify-end">
-                <Link
-                  className="text-sm text-muted-foreground underline decoration-muted-foreground/40 hover:decoration-muted-foreground"
-                  href="/reset-password"
-                >
-                  Забыли пароль?
-                </Link>
-              </div>
-              <TurnstileWidget />
-
-              {error ? <p className="text-sm text-destructive">{error}</p> : null}
-
-              <Button className="w-full" type="submit" disabled={pending} aria-busy={pending}>
-                {pending ? "Вход…" : "Войти"}
-              </Button>
-            </form>
-          )}
+            <Button className="w-full" type="submit" disabled={pending} aria-busy={pending}>
+              {pending ? "Вход…" : "Войти"}
+            </Button>
+          </form>
 
           <SocialSignInButtons callbackUrl={callbackUrl} />
 
