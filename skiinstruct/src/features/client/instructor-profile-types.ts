@@ -10,6 +10,7 @@ export type ClientInstructorListItem = {
   photoUrl?: string | null;
   age?: number | null;
   isOnline?: boolean;
+  workDistrict?: string | null;
   hourlyRate: number;
   lessonsForDiscipline?: number | null;
   ratingAvg: number;
@@ -46,6 +47,8 @@ export type ClientInstructorProfileInstructor = {
     taxStatus?: InstructorTaxStatus | null;
     ratingAvg: number;
     reviewCount: number;
+    workDistrict?: string | null;
+    isOnline?: boolean;
   };
   stats: {
     completedLessons: number;

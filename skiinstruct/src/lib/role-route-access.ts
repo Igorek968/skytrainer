@@ -25,7 +25,8 @@ export function isInstructorPanelPath(pathname: string): boolean {
   return (
     pathname.startsWith("/instructor") &&
     pathname !== "/instructor/login" &&
-    pathname !== "/instructor/apply"
+    pathname !== "/instructor/apply" &&
+    !pathname.startsWith("/landings/")
   );
 }
 

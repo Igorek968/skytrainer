@@ -135,15 +135,24 @@ export function InstructorNearbyVirtualList({
                         <span className="block font-medium">{i.name || "Имя Фамилия не указаны"}</span>
                         <span className="block text-xs text-muted-foreground">
                           Возраст: {i.age ?? "—"}
-                          {i.isOnline === false ? (
+                          {i.isOnline ? (
+                            <span className="ml-2 rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200">
+                              на линии
+                            </span>
+                          ) : (
                             <span className="ml-2 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
                               офлайн
                             </span>
-                          ) : null}
+                          )}
                           {i.distanceKm >= 9000 ? (
                             <span className="ml-2 text-[10px] text-muted-foreground">нет координат</span>
                           ) : null}
                         </span>
+                        {i.workDistrict ? (
+                          <span className="mt-0.5 block text-[11px] text-muted-foreground">
+                            Район · {i.workDistrict}
+                          </span>
+                        ) : null}
                       </span>
                     </span>
                     <span className="text-muted-foreground">

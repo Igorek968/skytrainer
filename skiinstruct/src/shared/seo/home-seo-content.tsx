@@ -1,76 +1,86 @@
 import Link from "next/link";
 
-import { SEO_CITIES, SEO_SPORTS, cityPath, sportPath } from "@/lib/seo-landings";
+import { SEO_CITIES, SEO_SPORTS, cityPath, citySportPath } from "@/lib/seo-landings";
 import { SITE_FAQS, faqPageJsonLd } from "@/lib/seo-schema";
 
-/** SSR-блок для роботов на главной (карта ниже — клиентская). */
+const SOCHI = SEO_CITIES.find((c) => c.slug === "sochi")!;
+
+/** Компактный SSR-блок после отзывов: только Сочи + направления. */
 export function HomeSeoContent() {
-  const faqLd = faqPageJsonLd(SITE_FAQS);
+  const faqLd = faqPageJsonLd(SITE_FAQS.slice(0, 3));
+  const sports = SEO_SPORTS.slice(0, 8);
 
   return (
-    <section className="mt-10 space-y-8 border-t border-border/50 pt-8" aria-label="О сервисе">
+    <section
+      className="mt-6 border-t border-border/50 pt-4 text-sm"
+      aria-label="Сочи и направления"
+    >
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqLd) }} />
 
-      <div className="max-w-3xl space-y-3">
-        <h2 className="text-2xl font-semibold tracking-tight">Персональные тренировки по всей России</h2>
-        <p className="text-muted-foreground leading-relaxed">
-          ТвойТренер.рф — маркетплейс инструкторов и тренеров: горные лыжи, сноуборд, теннис, плавание, йога и десятки
-          других направлений. Найдите проверенного специалиста на карте, сравните цены и отзывы, забронируйте занятие и
-          оплатите онлайн через ЮKassa.
-        </p>
-        <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
-          <li>В поиске только инструкторы после модерации</li>
-          <li>Рейтинг и отзывы после завершённых занятий</li>
-          <li>Оплата ЮKassa, правила возврата опубликованы на сайте</li>
-        </ul>
-      </div>
-
-      <div className="grid gap-8 md:grid-cols-2">
-        <div className="space-y-3">
-          <h3 className="text-lg font-semibold">Города и курорты</h3>
-          <ul className="grid gap-1.5 sm:grid-cols-2">
-            {SEO_CITIES.map((c) => (
-              <li key={c.slug}>
-                <Link href={cityPath(c)} className="text-primary underline-offset-2 hover:underline">
-                  Инструкторы {c.prepositional}
-                </Link>
-              </li>
-            ))}
-          </ul>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-1.5">
+          <h2 className="text-sm font-semibold text-foreground">Город</h2>
+          <p>
+            <Link
+              href={cityPath(SOCHI)}
+              className="text-primary underline-offset-2 hover:underline"
+            >
+              Инструкторы в Сочи
+            </Link>
+            <span className="text-muted-foreground"> — {SOCHI.regionHint}</span>
+          </p>
+          <p className="text-[11px] leading-snug text-muted-foreground">
+            <Link href="/oferta" className="underline-offset-2 hover:underline">
+              Оферта
+            </Link>
+            {" · "}
+            <Link href="/returns" className="underline-offset-2 hover:underline">
+              Возврат
+            </Link>
+            {" · "}
+            <Link href="/auto" className="underline-offset-2 hover:underline">
+              Автоинструктор
+            </Link>
+            {" · "}
+            <Link href="/events" className="underline-offset-2 hover:underline">
+              Мероприятия
+            </Link>
+          </p>
         </div>
-        <div className="space-y-3">
-          <h3 className="text-lg font-semibold">Направления</h3>
-          <ul className="grid gap-1.5 sm:grid-cols-2">
-            {SEO_SPORTS.slice(0, 12).map((s) => (
+
+        <div className="space-y-1.5">
+          <h2 className="text-sm font-semibold text-foreground">Направления в Сочи</h2>
+          <ul className="flex flex-wrap gap-x-3 gap-y-1 text-muted-foreground">
+            {sports.map((s) => (
               <li key={s.slug}>
-                <Link href={sportPath(s)} className="text-primary underline-offset-2 hover:underline">
-                  {s.label}
+                <Link
+                  href={citySportPath(SOCHI, s)}
+                  className="text-primary underline-offset-2 hover:underline"
+                >
+                  {s.name}
                 </Link>
               </li>
             ))}
+            <li>
+              <Link href={cityPath(SOCHI)} className="underline-offset-2 hover:underline">
+                все…
+              </Link>
+            </li>
           </ul>
+          <p className="text-[11px] leading-snug text-muted-foreground">
+            <Link href="/faq" className="underline-offset-2 hover:underline">
+              FAQ
+            </Link>
+            {" · "}
+            <Link href="/gid/kak-vybrat-instruktora" className="underline-offset-2 hover:underline">
+              Как выбрать инструктора
+            </Link>
+            {" · "}
+            <Link href="/instructor" className="underline-offset-2 hover:underline">
+              Для инструкторов
+            </Link>
+          </p>
         </div>
-      </div>
-
-      <div className="max-w-3xl space-y-4 text-sm text-muted-foreground">
-        <h3 className="text-base font-semibold text-foreground">Частые вопросы</h3>
-        {SITE_FAQS.map((f) => (
-          <div key={f.question} className="space-y-1">
-            <p>
-              <strong className="text-foreground">{f.question}</strong>
-            </p>
-            <p className="leading-relaxed">{f.answer}</p>
-          </div>
-        ))}
-        <p>
-          <Link href="/faq" className="text-primary underline-offset-2 hover:underline">
-            Все вопросы и ответы
-          </Link>
-          {" · "}
-          <Link href="/gid/kak-vybrat-instruktora" className="text-primary underline-offset-2 hover:underline">
-            Как выбрать инструктора
-          </Link>
-        </p>
       </div>
     </section>
   );

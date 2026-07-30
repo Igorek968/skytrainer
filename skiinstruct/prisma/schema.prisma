@@ -325,6 +325,8 @@ model InstructorProfile {
   lng Float?
 
   isOnline           Boolean                      @default(false)
+  /// Район / зона работы для карточки (доверие в поиске).
+  workDistrict       String?
   verificationStatus InstructorVerificationStatus @default(PENDING)
   /// Черновик анкеты до одобрения администратором (для одобренных инструкторов).
   profileDraft           Json?

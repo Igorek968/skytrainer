@@ -1,15 +1,18 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
+import { Suspense } from "react";
 
 import { auth } from "@/auth";
 import { AppProviders } from "@/app/providers";
 import { SEO_PAGES, absoluteUrl, siteJsonLd } from "@/lib/seo";
 import { getPublicProductName } from "@/shared/lib/product";
 import { SiteAnalytics } from "@/shared/analytics/site-analytics";
+import { UtmCapture } from "@/shared/analytics/utm-capture";
 import { YandexMetrikaNoscript } from "@/shared/analytics/yandex-metrika-noscript";
 import { CookieConsentBanner } from "@/shared/legal/cookie-consent-banner";
 import { SiteFooter } from "@/shared/layout/site-footer";
 import { SiteHeader } from "@/shared/layout/site-header";
+import { MessengerWidgets } from "@/shared/marketing/messenger-widgets";
 
 import "./globals.css";
 
@@ -128,8 +131,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             {children}
           </main>
           <SiteFooter />
+          <MessengerWidgets />
           <CookieConsentBanner />
           <SiteAnalytics />
+          <Suspense fallback={null}>
+            <UtmCapture />
+          </Suspense>
           <YandexMetrikaNoscript />
         </AppProviders>
       </body>

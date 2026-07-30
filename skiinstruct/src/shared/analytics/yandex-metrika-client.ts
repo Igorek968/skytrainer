@@ -20,6 +20,12 @@ export const YM_GOALS = {
   instructorApplySubmit: "instructor_apply_submit",
   orderCreate: "order_create",
   orderPaid: "order_paid",
+  phoneClick: "phone_click",
+  messengerTelegram: "messenger_telegram",
+  messengerWhatsapp: "messenger_whatsapp",
+  landingAutoCta: "landing_auto_cta",
+  landingInstructorCta: "landing_instructor_cta",
+  landingEventsCta: "landing_events_cta",
 } as const;
 
 function canTrack(): boolean {

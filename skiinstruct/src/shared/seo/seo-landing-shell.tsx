@@ -16,6 +16,7 @@ import {
   howToJsonLd,
   type FaqItem,
 } from "@/lib/seo-schema";
+import { ServiceGuarantees } from "@/shared/marketing/service-guarantees";
 
 type Props = {
   title: string;
@@ -236,6 +237,8 @@ export function SeoLandingShell({
           </Link>
         </p>
       </section>
+
+      <ServiceGuarantees compact />
 
       <section className="rounded-lg border border-border/60 bg-muted/30 p-4 text-sm text-muted-foreground">
         <p>

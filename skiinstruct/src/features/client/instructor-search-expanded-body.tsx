@@ -109,7 +109,18 @@ export function InstructorSearchExpandedBody({
               ) : (
                 "Категория не указана"
               )}
+              {p.isOnline ? (
+                <span className="ml-2 rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200">
+                  на линии
+                </span>
+              ) : null}
             </p>
+            {p.workDistrict ? (
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                <span className="font-medium text-foreground">Район работы · </span>
+                {p.workDistrict}
+              </p>
+            ) : null}
           </div>
         </div>
         <div className="rounded-md bg-accent px-3 py-1 text-sm font-semibold text-accent-foreground">

@@ -100,13 +100,14 @@ export default NextAuth(authConfig).auth((req) => {
     return withRefCookie(req, NextResponse.next());
   }
 
-  /** Анкета только со страницы входа («Стать инструктором»); прямой заход с шапки — на login. */
-  if (pathname === "/instructor/apply") {
-    const allowApply =
-      req.nextUrl.searchParams.get("new") === "1" ||
-      req.nextUrl.searchParams.get("register") === "1";
-    if (!allowApply) {
-      return withRefCookie(req, redirectTo(req, "/instructor/login"));
+  /**
+   * Рекламный лендинг для инструкторов: гости и не-инструкторы → /landings/instructor,
+   * одобренный инструктор — кабинет на /instructor.
+   */
+  if (pathname === "/instructor") {
+    const role = req.auth?.user?.role as UserRole | undefined;
+    if (role !== "INSTRUCTOR") {
+      return withRefCookie(req, redirectTo(req, "/landings/instructor"));
     }
   }
 
@@ -114,6 +115,10 @@ export default NextAuth(authConfig).auth((req) => {
   const isClientBookingHome = pathname === "/client" || pathname === "/client/";
   const isPublicInstructorBrowse = pathname.startsWith("/instructors/");
   const isPublicSeoLandings = pathname.startsWith("/gorod/") || pathname.startsWith("/sport/");
+  const isPublicTrafficLandings =
+    pathname === "/auto" ||
+    pathname === "/events" ||
+    pathname.startsWith("/landings/");
   const isPublicLegal =
     pathname === "/oferta" ||
     pathname.startsWith("/oferta/") ||
@@ -127,13 +132,16 @@ export default NextAuth(authConfig).auth((req) => {
     pathname.startsWith("/requisites/") ||
     pathname === "/support" ||
     pathname.startsWith("/support/");
+  const isPublicGid = pathname.startsWith("/gid/") || pathname === "/faq";
   const publicPaths = ["/", "/login", "/register", "/instructor/login", "/instructor/apply"];
   if (
     publicPaths.includes(pathname) ||
     isClientBookingHome ||
     isPublicInstructorBrowse ||
     isPublicSeoLandings ||
-    isPublicLegal
+    isPublicTrafficLandings ||
+    isPublicLegal ||
+    isPublicGid
   ) {
     return withRefCookie(req, NextResponse.next());
   }

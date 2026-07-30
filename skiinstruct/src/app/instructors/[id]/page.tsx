@@ -159,7 +159,18 @@ export default async function InstructorProfilePage({ params }: Props) {
           <p className="text-muted-foreground">
             Рейтинг {p.ratingAvg.toFixed(1)} · {p.reviewCount} отзывов
             {p.experienceYears != null ? ` · опыт ${p.experienceYears} лет` : ""}
+            {p.isOnline ? (
+              <span className="ml-2 rounded bg-emerald-100 px-1.5 py-0.5 text-xs font-semibold text-emerald-800">
+                на линии
+              </span>
+            ) : null}
           </p>
+          {p.workDistrict ? (
+            <p className="text-sm text-muted-foreground">
+              <span className="font-medium text-foreground">Район работы: </span>
+              {p.workDistrict}
+            </p>
+          ) : null}
           {specs.length > 0 ? (
             <p className="text-sm">
               <span className="font-medium">Направления: </span>
@@ -178,6 +189,16 @@ export default async function InstructorProfilePage({ params }: Props) {
               Все отзывы
             </Link>
           </div>
+          <p className="pt-2 text-xs text-muted-foreground">
+            Оплата через ЮKassa ·{" "}
+            <Link href="/oferta" className="underline-offset-2 hover:underline">
+              оферта
+            </Link>
+            {" · "}
+            <Link href="/returns" className="underline-offset-2 hover:underline">
+              возврат
+            </Link>
+          </p>
         </div>
       </header>
       {bio ? (

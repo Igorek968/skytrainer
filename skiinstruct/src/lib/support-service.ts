@@ -1,3 +1,4 @@
+import { ticketShortId } from "@/lib/support-ticket-access";
 import { prisma } from "@/lib/prisma";
 import { sendSupportMessageToMax } from "@/lib/max-support";
 import { sendWebPushToUser } from "@/lib/push-web";
@@ -5,7 +6,6 @@ import {
   createPushSnoozeToken,
   createSupportPushReplyToken,
 } from "@/lib/support-push-token";
-import { ticketShortId } from "@/lib/support-ticket-access";
 import { getPublicProductName } from "@/shared/lib/product";
 
 function previewBody(body: string, max = 160): string {

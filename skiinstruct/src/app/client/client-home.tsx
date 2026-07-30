@@ -208,6 +208,7 @@ function ResumeCheckoutFromDraft({
 export default function ClientHomePage() {
   const queryClient = useQueryClient();
   const { data: session } = useSession();
+  const searchParams = useSearchParams();
   const meetLat = useMeetPoint((s) => s.meetLat);
   const meetLng = useMeetPoint((s) => s.meetLng);
   const meetAddress = useMeetPoint((s) => s.meetAddress);
@@ -259,6 +260,13 @@ export default function ClientHomePage() {
     window.addEventListener("skiinstruct:open-personal", onOpenPersonal);
     return () => window.removeEventListener("skiinstruct:open-personal", onOpenPersonal);
   }, []);
+
+  /** Лендинги / реклама: ?specialization=… сразу фильтрует карту. */
+  useEffect(() => {
+    const raw = searchParams.get("specialization")?.trim();
+    if (!raw) return;
+    setSpecializationPref(raw);
+  }, [searchParams]);
 
   /** Быстрый поиск — сегодня; блок «Даты…» (заявка не день в день) — по умолчанию завтра. */
   useEffect(() => {

@@ -191,6 +191,7 @@ export async function GET(req: Request) {
         photoUrl: listPhotoUrl,
         age: p.age,
         isOnline: p.isOnline,
+        workDistrict: p.workDistrict,
         ratingAvg: p.ratingAvg,
         reviewCount: p.reviewCount,
         languages: p.languages,

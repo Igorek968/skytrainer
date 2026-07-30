@@ -93,6 +93,7 @@ type InstructorListRow = {
   photoUrl: string | null;
   age: number | null;
   isOnline: boolean;
+  workDistrict: string | null;
   ratingAvg: number;
   reviewCount: number;
   languages: string[];
@@ -166,6 +167,7 @@ function mapInstructorToListRow(
     photoUrl: listPhotoUrl,
     age: p.age,
     isOnline: p.isOnline,
+    workDistrict: p.workDistrict,
     ratingAvg: p.ratingAvg,
     reviewCount: p.reviewCount,
     languages: p.languages,

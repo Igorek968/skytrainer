@@ -25,6 +25,15 @@ export function supportTelegramUrl(): string {
   return u || DEFAULT_SUPPORT_TELEGRAM_URL;
 }
 
+/**
+ * WhatsApp поддержки. Задаётся через NEXT_PUBLIC_SUPPORT_WHATSAPP_URL
+ * (например https://wa.me/79001234567) — без URL кнопка скрыта.
+ */
+export function supportWhatsAppUrl(): string | null {
+  const u = process.env.NEXT_PUBLIC_SUPPORT_WHATSAPP_URL?.trim();
+  return u || null;
+}
+
 export function supportMaxUrl(): string {
   const u = process.env.NEXT_PUBLIC_SUPPORT_MAX_URL?.trim();
   return u || DEFAULT_SUPPORT_MAX_URL;

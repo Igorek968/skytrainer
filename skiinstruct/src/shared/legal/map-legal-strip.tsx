@@ -44,7 +44,7 @@ export function MapLegalStrip({ className, placement = "attached" }: Props) {
           </Link>
           <span aria-hidden>·</span>
           <Link href={LEGAL_ROUTES.requisites} className="text-accent underline underline-offset-2">
-            Реквизиты
+            Реквизиты / ЮKassa
           </Link>
         </p>
     </div>

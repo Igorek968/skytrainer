@@ -135,6 +135,8 @@ export async function GET(req: Request, ctx: Ctx) {
         taxStatus: instructor.instructorProfile.taxStatus,
         ratingAvg: instructor.instructorProfile.ratingAvg,
         reviewCount: instructor.instructorProfile.reviewCount,
+        workDistrict: instructor.instructorProfile.workDistrict,
+        isOnline: instructor.instructorProfile.isOnline,
       },
       stats: {
         completedLessons,

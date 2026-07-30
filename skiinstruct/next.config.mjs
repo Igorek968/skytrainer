@@ -112,6 +112,16 @@ const nextConfig = {
     NEXT_PUBLIC_YANDEX_MAPS_API_KEY: resolvedYandexMapsApiKeyForClient(),
     NEXT_PUBLIC_VAPID_PUBLIC_KEY: resolvedVapidPublicKeyForClient(),
   },
+  async redirects() {
+    return [
+      { source: "/sochi", destination: "/gorod/sochi", permanent: true },
+      { source: "/sochi/:sport", destination: "/gorod/sochi/:sport", permanent: true },
+      { source: "/moscow", destination: "/gorod/moskva", permanent: true },
+      { source: "/moscow/:sport", destination: "/gorod/moskva/:sport", permanent: true },
+      { source: "/moskva", destination: "/gorod/moskva", permanent: true },
+      { source: "/moskva/:sport", destination: "/gorod/moskva/:sport", permanent: true },
+    ];
+  },
   async headers() {
     return [{ source: "/(.*)", headers: securityHeaders }];
   },
