@@ -2,15 +2,27 @@
 
 Контракт для связки **маркетплейса** и **публичного Telegram-канала** `@tvoitrenerrf`.
 
-| Сайт | Бот / канал |
-|------|-------------|
-| Источник правды: инструкторы, online, мероприятия, отзывы, модерация | Публикация в канал + CTA на сайт |
-| Шлёт события наружу (outbound webhook) | Принимает `POST` на три хука |
-| Deep-link’и на профиль / спорт / запись / регистрацию | Не выдумывает данные сайта |
-| — | Комментарии — только пользователи (группа обсуждения). Бот **не** пишет и **не** отвечает в комментариях |
-| — | Реакции — нативные TG, набор: 🔥 ❤️ 🥱 ⛺ 💥. Бот реакции **не** ставит |
+Репозиторий контент-бота канала: **`telegram_news_bot`** (aiogram, cron, provod.ai, SQLite).  
+Этот файл — только API **сайта** (`skiinstruct`); постинг афиши/AI — зона `telegram_news_bot`.
 
-Сайт **не** постит в канал сам, **не** модерирует комменты канала, **не** ставит реакции.
+## Два контура
+
+| Контур | Кто | Что |
+|--------|-----|-----|
+| **A. Канал (контент)** | `telegram_news_bot` | Cron 08/14/18 МСК, парсеры афиши + content plan + AI → `send_photo` / `send_message` |
+| **B. Канал (живые события сайта)** | Сайт → webhook → бот | `instructor-approved` / `instructor-online` / `event-published` |
+| **C. ЛС** | `telegram_news_bot` | `/start` онбординг → кнопка на сайт (не канал) |
+
+Пользователи **не** пишут в канал. Комменты — группа обсуждения TG. Реакции — настройка канала (🔥 ❤️ 🥱 ⛺ 💥), бот их не ставит.
+
+| Сайт | Бот канала |
+|------|------------|
+| Источник правды: инструкторы, online, мероприятия, отзывы, модерация | Публикация + CTA на сайт |
+| Шлёт outbound webhook | Принимает `POST /hooks/…` (цель: `telegram_news_bot`; сейчас временно `channel-bot` в Docker сайта) |
+| Deep-link’и / `GET /api/bot/instructors` | Не выдумывает данные сайта |
+| **Не** держит `BOT_TOKEN` / `PROVOD_*` в идеале | Токен и Provod — только у бота |
+
+Сайт **не** модерирует комменты и **не** ставит реакции. Прямой постинг с сайта — только через webhook-приёмник (не минуя бота).
 
 ---
 
@@ -21,8 +33,10 @@
 | Этот файл + `BOT_API_SECRET` в корневом `.env` | ✅ готово |
 | `GET /api/bot/health`, `GET /api/bot/instructors` | ✅ код + Docker |
 | Outbound: `instructor-approved` / `instructor-online` / `event-published` | ✅ вызываются на реальных действиях |
-| `BOT_OUTBOUND_WEBHOOK_BASE_URL` | ✅ `http://channel-bot:8787` (Docker). На РФ-VPS у `channel-bot` pin IPv4 `api.telegram.org → 149.154.167.220` |
-| Хуки ДР / отзывов | ❌ этап 2 (поля в БД частично есть, webhook’ов нет) |
+| `BOT_OUTBOUND_WEBHOOK_BASE_URL` | ✅ сейчас `http://channel-bot:8787` (временный bridge на VPS сайта). Цель — URL `telegram_news_bot` с `/hooks/…` |
+| IPv4 pin `api.telegram.org → 149.154.167.220` у `channel-bot` | ✅ иначе с РФ-VPS timeout до Telegram |
+| Хуки в репо `telegram_news_bot` | ❌ ещё нет HTTP `/hooks/…` (long polling only) |
+| Хуки ДР / отзывов | ❌ этап 2 |
 
 **Prod API base:** `https://твойтренер.рф`  
 **Локально (Docker):** `http://localhost:3001`
@@ -33,32 +47,40 @@
 
 ## Env
 
-### Сайт (корень репозитория `.env`, проброс в `docker-compose` → `skiinstruct`)
+### Сайт (корень `.env` → `skiinstruct` в Docker)
 
 ```env
 # Общий секрет сайт ↔ бот (Bearer). Без него /api/bot/* → 503.
 BOT_API_SECRET=<см. корневой .env>
 
-# Базовый URL бота БЕЗ завершающего слэша.
-# Локально (оба в Docker): http://channel-bot:8787
-# Внешний бот: https://<публичный-url-бота>
+# Базовый URL приёмника хуков БЕЗ завершающего слэша.
+# Сейчас (bridge): http://channel-bot:8787
+# Цель (telegram_news_bot): https://<публичный-url-бота>
 BOT_OUTBOUND_WEBHOOK_BASE_URL=http://channel-bot:8787
 ```
 
 После смены URL:
 
 ```powershell
-docker compose up -d --build channel-bot
 docker compose up -d --force-recreate skiinstruct
 ```
 
-`GET /api/bot/health` должен показать `"outbound": true`.
+`GET /api/bot/health` → `"outbound": true`.
 
-Сервис `channel-bot` принимает три хука и публикует в `CHANNEL_ID` (бот должен быть админом канала).
+### Бот (`telegram_news_bot`) — не в контейнере сайта
 
-### Только для бота (не нужны контейнеру сайта)
+```env
+BOT_TOKEN=
+CHANNEL_ID=@tvoitrenerrf   # или -100…
+PROVOD_API_KEY=
+# PROVOD_BASE_URL= / TEXT_MODEL= / IMAGE_MODEL=
+BOT_API_SECRET=            # тот же, что на сайте
+```
 
-В корневом `.env` лежат ключи канала / Provod (секция `CHANNEL_BOT_*` / `PROVOD_*`). Их сайт **не** читает — отдай разработчику бота отдельно.
+**Сайту отдаём:** этот `BOT_API.md` + `BOT_API_SECRET`.  
+**Сайту не нужны:** `BOT_TOKEN`, `PROVOD_API_KEY` (после отказа от временного `channel-bot`).
+
+Временный сервис `channel-bot/` в монорепо сайта — только bridge, пока в `telegram_news_bot` нет `/hooks/…`. На РФ-VPS у него `extra_hosts: api.telegram.org:149.154.167.220`.
 
 ---
 
@@ -121,7 +143,7 @@ Authorization: Bearer <BOT_API_SECRET>
 }
 ```
 
-Только одобренные (`APPROVED`), не demo, не suspended. Поле `sport` — **канонический label с эмодзи** (первое направление профиля).
+Только одобренные (`APPROVED`), не demo, не suspended. Поле `sport` — **канонический label с эмодзи**.
 
 ---
 
@@ -135,6 +157,10 @@ X-Tvoytrener-Event: <name>
 ```
 
 Бот отвечает `2xx`. Ошибки логируются на сайте (`[bot-api]`), модерация/онлайн **не** блокируются.
+
+Рекомендуемый CTA в постах канала (как в `telegram_news_bot`):  
+`https://твойтренер.рф/?utm_source=tg&utm_medium=post&utm_campaign=…`  
+Для живых хуков — кнопки на `profile_url` / `signup_url` из JSON (+ UTM по желанию бота).
 
 ### 1. `POST /hooks/instructor-approved`
 
@@ -154,7 +180,7 @@ X-Tvoytrener-Event: <name>
 
 ### 2. `POST /hooks/instructor-online`
 
-Когда: инструктор переключает статус `isOnline: false → true` (первый выход на линию в этом переключении).
+Когда: инструктор переключает `isOnline: false → true`.
 
 ```json
 {
@@ -184,8 +210,7 @@ X-Tvoytrener-Event: <name>
 }
 ```
 
-`date` — `YYYY-MM-DD` или `null`.  
-`signup_url` сейчас ведёт на маркетинговую `/events?id=…` (параметр `id` карточку на карте пока не открывает). Кнопку «Записаться» можно вести на `signup_url` или на главную `/` / профиль инструктора — пока нет отдельного deep-link карточки события на карте.
+`date` — `YYYY-MM-DD` или `null`.
 
 ---
 
@@ -203,27 +228,24 @@ X-Tvoytrener-Event: <name>
 | Запись с хука | `signup_url` из `event-published` |
 | Регистрация инструктора | `/instructor/apply` |
 | Найм / «Приходи» | `/landings/prichodi` |
-| Канал Telegram (кнопка после регистрации) | `https://t.me/tvoitrenerrf` |
+| Канал Telegram | `https://t.me/tvoitrenerrf` |
 
-Регистрация инструктора на сайте **≠** автоподписка в TG. Только кнопка/ссылка «Вступить в канал».
+Регистрация инструктора ≠ автоподписка в TG — только кнопка «Вступить в канал».
 
 ### Примеры
 
 ```
 https://твойтренер.рф/instructors/clx123
-https://твойтренер.рф/?specialization=%F0%9F%8E%BF%20%D0%93%D0%BE%D1%80%D0%BD%D1%8B%D0%B5%20%D0%BB%D1%8B%D0%B6%D0%B8
 https://твойтренер.рф/sport/gornye-lyzhi
 https://твойтренер.рф/gorod/sochi/gornye-lyzhi
 https://твойтренер.рф/instructor/apply?utm_source=telegram&utm_campaign=channel
-https://твойтренер.рф/landings/prichodi
+https://твойтренер.рф/?utm_source=tg&utm_medium=post&utm_campaign=value_42
 ```
 
-### SEO-slug’и популярных направлений (лендинги `/sport/…`)
+### SEO-slug’и популярных направлений (`/sport/…`)
 
-Полный каталог анкеты шире; для SEO-лендингов — витрина маркетплейса:
-
-| Label (как в API `sport`) | slug |
-|---------------------------|------|
+| Label | slug |
+|-------|------|
 | 🎿 Горные лыжи | `gornye-lyzhi` |
 | ⛷ Сноуборд | `snoubord` |
 | 🏒 Хоккей с шайбой | `hokkej-s-shajboj` |
@@ -243,36 +265,34 @@ https://твойтренер.рф/landings/prichodi
 | ♿ Адаптивный спорт | `adaptivnyj-sport` |
 | 🚗 Автоинструктор | `avtoinstruktor` |
 
-Города SEO: `sochi`, `krasnaya-polyana`, `moskva`, … (см. `skiinstruct/src/lib/seo-landings.ts`).
-
-Полный список label’ов анкеты: `INSTRUCTOR_ACTIVITY_LABELS` в `skiinstruct/src/lib/services/instructor-match.ts` (лыжи, вода, бег, йога, …). Для фильтра API достаточно короткого `sport=лыжи` / `sport=йога`.
-
----
-
-## Этап 2 (заложить, сайт пока не шлёт)
-
-- **ДР инструктора** — в профиле есть `birthDate`; webhook / cron-выборка ещё не сделаны.
-- **Отзыв** — тексты отзывов есть в заказах; отдельного `review-published` хука нет.
-
-Когда появятся — добавим в этот файл JSON и путь хука без смены схемы авторизации.
+Города: `sochi`, `krasnaya-polyana`, … (`seo-landings.ts`).  
+Полный каталог анкеты: `INSTRUCTOR_ACTIVITY_LABELS` в `instructor-match.ts`.
 
 ---
 
-## Пакет разработчику бота
+## Этап 2 (сайт пока не шлёт)
 
-1. Этот файл `skiinstruct/BOT_API.md`.
-2. Из корневого `.env` сайта: **`BOT_API_SECRET`** (имя + значение).
-3. Ключи бота TG / Provod из `.env` (`BOT_TOKEN` / `CHANNEL_ID` / `PROVOD_*` — секция канала).
-4. Prod: `https://твойтренер.рф/api/bot/health` и `/api/bot/instructors`.
-5. Поднять `POST /hooks/instructor-approved|instructor-online|event-published` с проверкой Bearer.
-6. Отдать публичный URL → в `.env` сайта `BOT_OUTBOUND_WEBHOOK_BASE_URL` + recreate → `outbound: true`.
-7. Совместный тест: approve / online / publish event → посты в канале.
-8. Дальше без блокеров сайта: опросы (Telegram Poll + `GET …/instructors?sport=&online=1`), UGC в ЛС, контент-план.
+- ДР инструктора (`birthDate`) — webhook ещё нет.
+- Отзыв — отдельного `review-published` нет.
 
-### Чеклист сайта для бота
+---
+
+## Пакет разработчику `telegram_news_bot`
+
+1. Этот файл.
+2. **`BOT_API_SECRET`** (тот же, что на сайте) — не `BOT_TOKEN`/`PROVOD_*` с сайта.
+3. Prod pull: `https://твойтренер.рф/api/bot/health`, `/api/bot/instructors`.
+4. Поднять HTTP: `POST /hooks/instructor-approved|instructor-online|event-published` + Bearer.
+5. Доступ к Telegram с хоста бота (IPv4 pin `149.154.167.220` / зарубежный VPS / прокси).
+6. Отдать публичный URL → на сайте `BOT_OUTBOUND_WEBHOOK_BASE_URL=https://…` + recreate → выключить временный `channel-bot`.
+7. Тест: approve / online / publish event → посты в канале.
+8. Дальше: опросы + `GET …/instructors?sport=&online=1`, UGC в ЛС.
+
+### Чеклист сайта
 
 - [x] `BOT_API.md` + секрет
 - [x] Три outbound-хука на реальных действиях
-- [x] `BOT_OUTBOUND_WEBHOOK_BASE_URL` + recreate → `health.outbound === true`
-- [x] Примеры JSON + deep-link’и в доке
-- [x] Выборка online-инструкторов по виду спорта
+- [x] `health.outbound === true` (на bridge)
+- [x] Примеры JSON + deep-link’и
+- [x] Выборка online-инструкторов по спорту
+- [ ] Переключение outbound на `telegram_news_bot` (когда появятся `/hooks/…`)
