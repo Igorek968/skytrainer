@@ -6,6 +6,7 @@
 import http from "node:http";
 import { readFile } from "node:fs/promises";
 import { basename } from "node:path";
+import sharp from "sharp";
 
 const PORT = Number(process.env.PORT || 8787);
 const BOT_API_SECRET = (process.env.BOT_API_SECRET || "").trim();
@@ -17,6 +18,9 @@ const DEFAULT_PHOTO_URL =
   `${SITE_URL}/brand/logo-sign-photo.png`;
 const DEFAULT_PHOTO_FILE =
   process.env.DEFAULT_PHOTO_FILE?.trim() || "/brand/logo-sign-photo.png";
+const LOGO_WATERMARK_FILE =
+  process.env.LOGO_WATERMARK_FILE?.trim() || "/brand/logo-tvoytrener-clean.png";
+const LOGO_WATERMARK_FALLBACK = "/brand/logo-mark.png";
 const PROVOD_API_KEY = (process.env.PROVOD_API_KEY || "").trim();
 const PROVOD_BASE_URL = (process.env.PROVOD_BASE_URL || "https://api.provod.ai").replace(
   /\/+$/,
@@ -25,6 +29,10 @@ const PROVOD_BASE_URL = (process.env.PROVOD_BASE_URL || "https://api.provod.ai")
 const TEXT_MODEL = (process.env.TEXT_MODEL || "openai/gpt-5.4").trim();
 const IMAGE_MODEL = (process.env.IMAGE_MODEL || "google/gemini-3.1-flash-image").trim();
 const CTA_BUTTON = "Подобрать тренера → ТвойТренер.рф";
+/** Набор реакций канала (нативные в TG) — дублируем в подписи для вовлечения */
+const REACTION_EMOJIS = "🔥 ❤️ 🥱 ⛺ 💥";
+const COMMENT_HINT =
+  "💬 Комментарии открыты — напишите мнение под постом";
 
 function json(res, status, body) {
   const data = JSON.stringify(body);
@@ -98,7 +106,7 @@ function sportEmoji(sport) {
   return "🏅";
 }
 
-/** Шаблон caption как в старых постах канала. */
+/** Шаблон caption как в старых постах канала + реакции/комменты внизу. */
 function buildCaption({ leadEmoji, title, body, tip, tipLabel = "Важно", ctaLead, siteHref }) {
   const tipBlock = tip
     ? `\n\n⚠️ <b>${esc(tipLabel)}:</b> ${esc(tip)}`
@@ -114,10 +122,73 @@ function buildCaption({ leadEmoji, title, body, tip, tipLabel = "Важно", ct
     "",
     cta,
     "👇 Подобрать тренера на сайте",
+    "",
+    REACTION_EMOJIS,
+    COMMENT_HINT,
   ]
     .filter((x, i, arr) => !(x === "" && arr[i - 1] === ""))
     .join("\n")
     .slice(0, 1024);
+}
+
+/** Логотип ТвойТренер.рф внизу слева (как на старых постах / мерч). */
+async function applyBrandWatermark(file) {
+  try {
+    let logoBuf = null;
+    for (const path of [LOGO_WATERMARK_FILE, LOGO_WATERMARK_FALLBACK]) {
+      try {
+        logoBuf = await readFile(path);
+        if (logoBuf.length > 100) break;
+      } catch {
+        logoBuf = null;
+      }
+    }
+    if (!logoBuf) return file;
+
+    const base = sharp(file.buf).rotate();
+    const meta = await base.metadata();
+    const w = meta.width || 1024;
+    const h = meta.height || 1024;
+    const logoW = Math.max(96, Math.min(280, Math.round(w * 0.22)));
+    const logoPng = await sharp(logoBuf)
+      .resize({ width: logoW, withoutEnlargement: true })
+      .ensureAlpha()
+      .png()
+      .toBuffer();
+    const logoMeta = await sharp(logoPng).metadata();
+    const lh = logoMeta.height || Math.round(logoW * 0.4);
+    const pad = Math.max(12, Math.round(w * 0.035));
+    const left = pad;
+    const top = Math.max(0, h - lh - pad);
+
+    // полупрозрачная «плашка» под логотипом для читаемости
+    const plateW = logoW + pad;
+    const plateH = lh + Math.round(pad * 0.6);
+    const plate = await sharp({
+      create: {
+        width: plateW,
+        height: plateH,
+        channels: 4,
+        background: { r: 0, g: 0, b: 0, alpha: 0.35 },
+      },
+    })
+      .png()
+      .toBuffer();
+
+    const out = await sharp(file.buf)
+      .rotate()
+      .composite([
+        { input: plate, left: Math.max(0, left - Math.round(pad * 0.35)), top: Math.max(0, top - Math.round(pad * 0.2)) },
+        { input: logoPng, left, top },
+      ])
+      .jpeg({ quality: 90, mozjpeg: true })
+      .toBuffer();
+
+    return { buf: out, ct: "image/jpeg", name: "post-branded.jpg" };
+  } catch (e) {
+    console.warn("[channel-bot] watermark fail", e instanceof Error ? e.message : e);
+    return file;
+  }
 }
 
 async function provodComplete(system, user) {
@@ -282,13 +353,18 @@ async function tgSendPhotoUpload(caption, reply_markup, { photoUrl, photoFile, i
   }
 
   for (const file of files) {
+    const branded = await applyBrandWatermark(file);
     const form = new FormData();
     form.set("chat_id", CHANNEL_ID);
     form.set("caption", caption);
     form.set("parse_mode", "HTML");
     form.set("reply_markup", JSON.stringify(reply_markup));
-    const ext = file.ct.includes("png") ? "png" : "jpg";
-    form.set("photo", new Blob([file.buf], { type: file.ct }), file.name || `photo.${ext}`);
+    const ext = branded.ct.includes("png") ? "png" : "jpg";
+    form.set(
+      "photo",
+      new Blob([branded.buf], { type: branded.ct }),
+      branded.name || `photo.${ext}`,
+    );
     try {
       const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, {
         method: "POST",
