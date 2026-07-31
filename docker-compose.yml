@@ -172,11 +172,17 @@ services:
     # РФ-VPS: обычный DNS api.telegram.org часто таймаутит; фиксируем рабочий IPv4.
     extra_hosts:
       - "api.telegram.org:149.154.167.220"
+    volumes:
+      - ./skiinstruct/public/brand:/brand:ro
     environment:
       PORT: "8787"
       BOT_API_SECRET: ${BOT_API_SECRET:-}
       BOT_TOKEN: ${BOT_TOKEN:-}
       CHANNEL_ID: ${CHANNEL_ID:-@tvoitrenerrf}
+      SITE_URL: ${SITE_URL:-https://xn--b1agaovdpdkd.xn--p1ai}
+      PROVOD_API_KEY: ${PROVOD_API_KEY:-}
+      PROVOD_BASE_URL: ${PROVOD_BASE_URL:-https://api.provod.ai}
+      TEXT_MODEL: ${TEXT_MODEL:-openai/gpt-5.4}
       # Node fetch предпочитает IPv4 (см. server.mjs)
       NODE_OPTIONS: "--dns-result-order=ipv4first"
 
