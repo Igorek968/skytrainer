@@ -6,7 +6,6 @@
 import http from "node:http";
 import { readFile } from "node:fs/promises";
 import { basename } from "node:path";
-import sharp from "sharp";
 
 const PORT = Number(process.env.PORT || 8787);
 const BOT_API_SECRET = (process.env.BOT_API_SECRET || "").trim();
@@ -18,9 +17,14 @@ const DEFAULT_PHOTO_URL =
   `${SITE_URL}/brand/logo-sign-photo.png`;
 const DEFAULT_PHOTO_FILE =
   process.env.DEFAULT_PHOTO_FILE?.trim() || "/brand/logo-sign-photo.png";
-const LOGO_WATERMARK_FILE =
-  process.env.LOGO_WATERMARK_FILE?.trim() || "/brand/logo-tvoytrener-official.png";
-const LOGO_WATERMARK_FALLBACK = "/brand/logo-tvoytrener-official.png";
+/** По очереди: логотип намерче (куртка) или на штендере/фоне тренировки — рисует AI в кадре, без наклейки поверх */
+let brandPlacementTick = 0;
+
+/** Официальный логотип сайта (logo-tvoytrener-official.png) — описание для image model */
+const OFFICIAL_LOGO_DESC =
+  "exact official ТвойТренер brand mark from the website: two head-and-shoulders silhouettes facing right " +
+  "(larger front figure teal/muted green, smaller rear figure dark navy), white winding path through the teal figure, " +
+  "and the Cyrillic wordmark ТвойТренер beside/under the icon (Твой in teal, Тренер in navy), clean sans-serif, no .рф in the mark";
 const PROVOD_API_KEY = (process.env.PROVOD_API_KEY || "").trim();
 const PROVOD_BASE_URL = (process.env.PROVOD_BASE_URL || "https://api.provod.ai").replace(
   /\/+$/,
@@ -131,60 +135,39 @@ function buildCaption({ leadEmoji, title, body, tip, tipLabel = "Важно", ct
     .slice(0, 1024);
 }
 
-/** Официальный логотип ТвойТренер внизу слева на светлой плашке. */
-async function applyBrandWatermark(file) {
-  try {
-    let logoBuf = null;
-    for (const path of [LOGO_WATERMARK_FILE, LOGO_WATERMARK_FALLBACK]) {
-      try {
-        logoBuf = await readFile(path);
-        if (logoBuf.length > 100) break;
-      } catch {
-        logoBuf = null;
-      }
-    }
-    if (!logoBuf) return file;
+function nextBrandPlacement() {
+  brandPlacementTick += 1;
+  return brandPlacementTick % 2 === 1 ? "merch" : "backdrop";
+}
 
-    const base = sharp(file.buf).rotate();
-    const meta = await base.metadata();
-    const w = meta.width || 1024;
-    const h = meta.height || 1024;
-    // Official logo is wide (icon + wordmark) — keep readable but not huge
-    const logoW = Math.max(140, Math.min(340, Math.round(w * 0.36)));
-    const logoPng = await sharp(logoBuf)
-      .resize({ width: logoW, withoutEnlargement: true })
-      .png()
-      .toBuffer();
-    const logoMeta = await sharp(logoPng).metadata();
-    const lh = logoMeta.height || Math.round(logoW * 0.28);
-    const pad = Math.max(14, Math.round(w * 0.03));
-    const innerPad = Math.max(8, Math.round(pad * 0.55));
-    const plateW = logoW + innerPad * 2;
-    const plateH = lh + innerPad * 2;
-    const left = pad;
-    const top = Math.max(0, h - plateH - pad);
-
-    // Official logo has white background — place on rounded light plate
-    const plate = Buffer.from(
-      `<svg xmlns="http://www.w3.org/2000/svg" width="${plateW}" height="${plateH}">
-        <rect width="100%" height="100%" rx="${Math.round(innerPad)}" ry="${Math.round(innerPad)}" fill="white" fill-opacity="0.92"/>
-      </svg>`
+function brandSceneHint(placement) {
+  const logo = OFFICIAL_LOGO_DESC;
+  if (placement === "backdrop") {
+    return (
+      `Photorealistic sports coaching scene in Sochi / Adler / Sirius, natural daylight. ` +
+      `Primary brand: white A-frame sandwich-board (штендер) or wall banner standing in the training area, ` +
+      `with the ${logo} printed clearly on it as physical signage. ` +
+      `Athletes/coach nearby without large logo on clothing. ` +
+      `Logo must look printed on the sign — NOT a digital corner watermark, NOT a website UI plate, NOT a floating sticker.`
     );
-
-    const out = await sharp(file.buf)
-      .rotate()
-      .composite([
-        { input: plate, left, top },
-        { input: logoPng, left: left + innerPad, top: top + innerPad },
-      ])
-      .jpeg({ quality: 90, mozjpeg: true })
-      .toBuffer();
-
-    return { buf: out, ct: "image/jpeg", name: "post-branded.jpg" };
-  } catch (e) {
-    console.warn("[channel-bot] watermark fail", e instanceof Error ? e.message : e);
-    return file;
   }
+  return (
+    `Photorealistic lifestyle coaching photo in Sochi / Adler / Sirius seaside or training area, natural daylight. ` +
+    `Coach seen from behind or three-quarter back in a white zip athletic jacket; ` +
+    `the ${logo} is printed LARGE on the jacket BACK as a fabric print (merch), readable and sharp. ` +
+    `Optional small matching logo on a distant banner only. ` +
+    `Logo must look printed on fabric — NOT a digital corner watermark, NOT a website UI plate, NOT a floating sticker.`
+  );
+}
+
+function buildImagePrompt(base, placement) {
+  const scene = brandSceneHint(placement);
+  const core = (base || "").trim();
+  // сцена с брендом важнее свободного image_prompt от текста
+  const joined = core
+    ? `${scene} Scene topic: ${core.slice(0, 280)}`
+    : scene;
+  return `${joined} Square composition. High-end brand campaign photo.`.slice(0, 1200);
 }
 
 async function provodComplete(system, user) {
@@ -222,7 +205,7 @@ async function enrichWithProvod(kind, facts) {
   const system = `Ты редактор Telegram-канала маркетплейса инструкторов «ТвойТренер.рф» (Сочи, Красная Поляна, Сириус, Россия).
 Пиши по-русски, живо, без воды и без выдуманных фактов.
 Ответь СТРОГО JSON без markdown:
-{"title":"...","body":"1-2 предложения","tip":"короткий совет","lead_emoji":"один эмодзи","image_prompt":"English prompt for a photorealistic sports photo for the post, no text/logos/watermarks, 4:3"}`;
+{"title":"...","body":"1-2 предложения","tip":"короткий совет","lead_emoji":"один эмодзи","image_prompt":"English short scene topic only (sport, place, action). Do NOT describe logos — branding is added separately"}`;
   const user = `Тип поста: ${kind}\nФакты:\n${JSON.stringify(facts, null, 2)}`;
   const raw = await provodComplete(system, user);
   if (!raw) return null;
@@ -325,7 +308,11 @@ async function downloadPhoto(url) {
   }
 }
 
-async function tgSendPhotoUpload(caption, reply_markup, { photoUrl, photoFile, imagePrompt } = {}) {
+async function tgSendPhotoUpload(
+  caption,
+  reply_markup,
+  { photoUrl, photoFile, imagePrompt } = {},
+) {
   if (!BOT_TOKEN) return { ok: false, skipped: true };
 
   const files = [];
@@ -349,17 +336,17 @@ async function tgSendPhotoUpload(caption, reply_markup, { photoUrl, photoFile, i
   }
 
   for (const file of files) {
-    const branded = await applyBrandWatermark(file);
+    // Без наклейки поверх фото: бренд уже в AI-кадре (мерч / штендер)
     const form = new FormData();
     form.set("chat_id", CHANNEL_ID);
     form.set("caption", caption);
     form.set("parse_mode", "HTML");
     form.set("reply_markup", JSON.stringify(reply_markup));
-    const ext = branded.ct.includes("png") ? "png" : "jpg";
+    const ext = file.ct.includes("png") ? "png" : "jpg";
     form.set(
       "photo",
-      new Blob([branded.buf], { type: branded.ct }),
-      branded.name || `photo.${ext}`,
+      new Blob([file.buf], { type: file.ct }),
+      file.name || `photo.${ext}`,
     );
     try {
       const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, {
@@ -377,15 +364,32 @@ async function tgSendPhotoUpload(caption, reply_markup, { photoUrl, photoFile, i
   return { ok: false, error: "photo_failed" };
 }
 
-async function publishPost({ photoUrl, caption, buttonUrl, imagePrompt, preferGenerated = false }) {
+async function publishPost({
+  photoUrl,
+  caption,
+  buttonUrl,
+  imagePrompt,
+  preferGenerated = false,
+  brandPlacement,
+}) {
+  const willGenerate = Boolean(imagePrompt) || preferGenerated;
+  const placement = brandPlacement || nextBrandPlacement();
+  // Всегда генерим бренд-сцену, если просили картинку; URL сайта — только fallback
+  const prompt = willGenerate
+    ? buildImagePrompt(imagePrompt || "sports coaching in Sochi", placement)
+    : undefined;
+  if (prompt) {
+    console.log(`[channel-bot] image brand mode=${placement}`);
+  }
   const reply_markup = ctaKeyboard(buttonUrl);
   const withPhoto = await tgSendPhotoUpload(caption, reply_markup, {
     photoUrl: preferGenerated ? undefined : (photoUrl || "").trim(),
-    imagePrompt: imagePrompt || undefined,
+    imagePrompt: prompt,
   });
-  // если генерация не вышла, но был URL — вторая попытка с URL
   if (!withPhoto.ok && preferGenerated && photoUrl) {
-    const again = await tgSendPhotoUpload(caption, reply_markup, { photoUrl });
+    const again = await tgSendPhotoUpload(caption, reply_markup, {
+      photoUrl,
+    });
     if (again.ok) return again;
   }
   if (withPhoto.ok) return withPhoto;
@@ -429,7 +433,7 @@ async function composeApproved(p) {
     imagePrompt: p.photo_url
       ? null
       : ai?.image_prompt ||
-        `Photorealistic sports coaching scene, ${p.sport || "training"}, Sochi Russia outdoors, natural light, no text no logos`,
+        `Photorealistic sports coaching scene, ${p.sport || "training"}, Sochi Russia outdoors, natural light`,
     preferGenerated: !p.photo_url,
   });
 }
@@ -467,7 +471,7 @@ async function composeOnline(p) {
     imagePrompt: p.photo_url
       ? null
       : ai?.image_prompt ||
-        `Photorealistic athlete ready for training, ${p.sport || "sport"}, energetic, Sochi, no text no logos`,
+        `Photorealistic athlete ready for training, ${p.sport || "sport"}, energetic, Sochi`,
     preferGenerated: !p.photo_url,
   });
 }
@@ -503,7 +507,7 @@ async function composeEvent(p) {
     buttonUrl: href,
     imagePrompt:
       ai?.image_prompt ||
-      `Photorealistic sports event atmosphere, ${p.sport || "sport"}, ${p.place || "Sochi Sirius"}, crowd energy, no text no logos`,
+      `Photorealistic sports event atmosphere, ${p.sport || "sport"}, ${p.place || "Sochi Sirius"}, crowd energy`,
     preferGenerated: !p.image_url,
   });
 }
@@ -542,7 +546,7 @@ async function composeNews(p) {
     imagePrompt:
       ai?.image_prompt ||
       p.image_prompt ||
-      `Photorealistic sports scene for Telegram channel, ${facts.sport || facts.topic}, ${facts.place}, cinematic light, no text no logos no watermarks`,
+      `Photorealistic sports scene for Telegram channel, ${facts.sport || facts.topic}, ${facts.place}, cinematic light`,
     preferGenerated: true,
   });
 }
