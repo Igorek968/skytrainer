@@ -23,6 +23,7 @@ const PROVOD_BASE_URL = (process.env.PROVOD_BASE_URL || "https://api.provod.ai")
   "",
 );
 const TEXT_MODEL = (process.env.TEXT_MODEL || "openai/gpt-5.4").trim();
+const IMAGE_MODEL = (process.env.IMAGE_MODEL || "google/gemini-3.1-flash-image").trim();
 const CTA_BUTTON = "Подобрать тренера → ТвойТренер.рф";
 
 function json(res, status, body) {
@@ -154,7 +155,7 @@ async function enrichWithProvod(kind, facts) {
   const system = `Ты редактор Telegram-канала маркетплейса инструкторов «ТвойТренер.рф» (Сочи, Красная Поляна, Сириус, Россия).
 Пиши по-русски, живо, без воды и без выдуманных фактов.
 Ответь СТРОГО JSON без markdown:
-{"title":"...","body":"1-2 предложения","tip":"короткий совет","lead_emoji":"один эмодзи"}`;
+{"title":"...","body":"1-2 предложения","tip":"короткий совет","lead_emoji":"один эмодзи","image_prompt":"English prompt for a photorealistic sports photo for the post, no text/logos/watermarks, 4:3"}`;
   const user = `Тип поста: ${kind}\nФакты:\n${JSON.stringify(facts, null, 2)}`;
   const raw = await provodComplete(system, user);
   if (!raw) return null;
@@ -163,6 +164,46 @@ async function enrichWithProvod(kind, facts) {
     return JSON.parse(cleaned);
   } catch {
     console.warn("[channel-bot] provod JSON parse fail", raw.slice(0, 200));
+    return null;
+  }
+}
+
+/** Генерация картинки через Provod (OpenAI-compatible images API), как раньше в telegram_news_bot. */
+async function provodGenerateImage(prompt) {
+  if (!PROVOD_API_KEY || !prompt?.trim()) return null;
+  try {
+    const res = await fetch(`${PROVOD_BASE_URL}/v1/images/generations`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${PROVOD_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: IMAGE_MODEL,
+        prompt: prompt.trim().slice(0, 1200),
+        n: 1,
+        size: "1024x1024",
+        response_format: "b64_json",
+      }),
+      signal: AbortSignal.timeout(90_000),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      console.error("[channel-bot] provod image", res.status, JSON.stringify(data).slice(0, 400));
+      return null;
+    }
+    const item = data.data?.[0];
+    if (item?.b64_json) {
+      const buf = Buffer.from(item.b64_json, "base64");
+      if (buf.length > 100) return { buf, ct: "image/png", name: "provod.png" };
+    }
+    if (item?.url) {
+      return downloadPhoto(item.url);
+    }
+    console.warn("[channel-bot] provod image empty response");
+    return null;
+  } catch (e) {
+    console.error("[channel-bot] provod image fail", e instanceof Error ? e.message : e);
     return null;
   }
 }
@@ -217,17 +258,25 @@ async function downloadPhoto(url) {
   }
 }
 
-async function tgSendPhotoUpload(caption, reply_markup, photoUrl) {
+async function tgSendPhotoUpload(caption, reply_markup, { photoUrl, photoFile, imagePrompt } = {}) {
   if (!BOT_TOKEN) return { ok: false, skipped: true };
 
   const files = [];
+  // 1) сгенерированное Provod (как раньше)
+  if (imagePrompt) {
+    const gen = await provodGenerateImage(imagePrompt);
+    if (gen) files.push(gen);
+  }
+  // 2) готовое фото с сайта / URL
   if (photoUrl?.startsWith("http")) {
     const d = await downloadPhoto(photoUrl);
     if (d) files.push(d);
   }
+  // 3) локальный бренд-fallback
   const local = await loadLocalPhoto(DEFAULT_PHOTO_FILE);
   if (local) files.push(local);
-  if (DEFAULT_PHOTO_URL) {
+  if (photoFile) files.push(photoFile);
+  if (DEFAULT_PHOTO_URL && files.length === 0) {
     const d = await downloadPhoto(DEFAULT_PHOTO_URL);
     if (d) files.push(d);
   }
@@ -256,9 +305,17 @@ async function tgSendPhotoUpload(caption, reply_markup, photoUrl) {
   return { ok: false, error: "photo_failed" };
 }
 
-async function publishPost({ photoUrl, caption, buttonUrl }) {
+async function publishPost({ photoUrl, caption, buttonUrl, imagePrompt, preferGenerated = false }) {
   const reply_markup = ctaKeyboard(buttonUrl);
-  const withPhoto = await tgSendPhotoUpload(caption, reply_markup, (photoUrl || "").trim());
+  const withPhoto = await tgSendPhotoUpload(caption, reply_markup, {
+    photoUrl: preferGenerated ? undefined : (photoUrl || "").trim(),
+    imagePrompt: imagePrompt || undefined,
+  });
+  // если генерация не вышла, но был URL — вторая попытка с URL
+  if (!withPhoto.ok && preferGenerated && photoUrl) {
+    const again = await tgSendPhotoUpload(caption, reply_markup, { photoUrl });
+    if (again.ok) return again;
+  }
   if (withPhoto.ok) return withPhoto;
   return tgApi("sendMessage", {
     chat_id: CHANNEL_ID,
@@ -297,6 +354,11 @@ async function composeApproved(p) {
     photoUrl: p.photo_url,
     caption,
     buttonUrl: href,
+    imagePrompt: p.photo_url
+      ? null
+      : ai?.image_prompt ||
+        `Photorealistic sports coaching scene, ${p.sport || "training"}, Sochi Russia outdoors, natural light, no text no logos`,
+    preferGenerated: !p.photo_url,
   });
 }
 
@@ -330,6 +392,11 @@ async function composeOnline(p) {
     photoUrl: p.photo_url,
     caption,
     buttonUrl: href,
+    imagePrompt: p.photo_url
+      ? null
+      : ai?.image_prompt ||
+        `Photorealistic athlete ready for training, ${p.sport || "sport"}, energetic, Sochi, no text no logos`,
+    preferGenerated: !p.photo_url,
   });
 }
 
@@ -362,6 +429,10 @@ async function composeEvent(p) {
     photoUrl: p.image_url,
     caption,
     buttonUrl: href,
+    imagePrompt:
+      ai?.image_prompt ||
+      `Photorealistic sports event atmosphere, ${p.sport || "sport"}, ${p.place || "Sochi Sirius"}, crowd energy, no text no logos`,
+    preferGenerated: !p.image_url,
   });
 }
 
@@ -393,9 +464,14 @@ async function composeNews(p) {
     siteHref: href,
   });
   return publishPost({
-    photoUrl: p.image_url || DEFAULT_PHOTO_URL,
+    photoUrl: p.image_url,
     caption,
     buttonUrl: href,
+    imagePrompt:
+      ai?.image_prompt ||
+      p.image_prompt ||
+      `Photorealistic sports scene for Telegram channel, ${facts.sport || facts.topic}, ${facts.place}, cinematic light, no text no logos no watermarks`,
+    preferGenerated: true,
   });
 }
 
@@ -427,7 +503,8 @@ const server = http.createServer(async (req, res) => {
         has_token: Boolean(BOT_TOKEN),
         has_secret: Boolean(BOT_API_SECRET),
         has_provod: Boolean(PROVOD_API_KEY),
-        style: "photo+html+cta",
+        image_model: IMAGE_MODEL,
+        style: "photo+html+cta+provod-image",
       });
     }
 
