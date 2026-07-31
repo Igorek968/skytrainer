@@ -19,8 +19,8 @@ const DEFAULT_PHOTO_URL =
 const DEFAULT_PHOTO_FILE =
   process.env.DEFAULT_PHOTO_FILE?.trim() || "/brand/logo-sign-photo.png";
 const LOGO_WATERMARK_FILE =
-  process.env.LOGO_WATERMARK_FILE?.trim() || "/brand/logo-tvoytrener-clean.png";
-const LOGO_WATERMARK_FALLBACK = "/brand/logo-mark.png";
+  process.env.LOGO_WATERMARK_FILE?.trim() || "/brand/logo-tvoytrener-official.png";
+const LOGO_WATERMARK_FALLBACK = "/brand/logo-tvoytrener-official.png";
 const PROVOD_API_KEY = (process.env.PROVOD_API_KEY || "").trim();
 const PROVOD_BASE_URL = (process.env.PROVOD_BASE_URL || "https://api.provod.ai").replace(
   /\/+$/,
@@ -131,7 +131,7 @@ function buildCaption({ leadEmoji, title, body, tip, tipLabel = "Важно", ct
     .slice(0, 1024);
 }
 
-/** Логотип ТвойТренер.рф внизу слева (как на старых постах / мерч). */
+/** Официальный логотип ТвойТренер внизу слева на светлой плашке. */
 async function applyBrandWatermark(file) {
   try {
     let logoBuf = null;
@@ -149,37 +149,33 @@ async function applyBrandWatermark(file) {
     const meta = await base.metadata();
     const w = meta.width || 1024;
     const h = meta.height || 1024;
-    const logoW = Math.max(96, Math.min(280, Math.round(w * 0.22)));
+    // Official logo is wide (icon + wordmark) — keep readable but not huge
+    const logoW = Math.max(140, Math.min(340, Math.round(w * 0.36)));
     const logoPng = await sharp(logoBuf)
       .resize({ width: logoW, withoutEnlargement: true })
-      .ensureAlpha()
       .png()
       .toBuffer();
     const logoMeta = await sharp(logoPng).metadata();
-    const lh = logoMeta.height || Math.round(logoW * 0.4);
-    const pad = Math.max(12, Math.round(w * 0.035));
+    const lh = logoMeta.height || Math.round(logoW * 0.28);
+    const pad = Math.max(14, Math.round(w * 0.03));
+    const innerPad = Math.max(8, Math.round(pad * 0.55));
+    const plateW = logoW + innerPad * 2;
+    const plateH = lh + innerPad * 2;
     const left = pad;
-    const top = Math.max(0, h - lh - pad);
+    const top = Math.max(0, h - plateH - pad);
 
-    // полупрозрачная «плашка» под логотипом для читаемости
-    const plateW = logoW + pad;
-    const plateH = lh + Math.round(pad * 0.6);
-    const plate = await sharp({
-      create: {
-        width: plateW,
-        height: plateH,
-        channels: 4,
-        background: { r: 0, g: 0, b: 0, alpha: 0.35 },
-      },
-    })
-      .png()
-      .toBuffer();
+    // Official logo has white background — place on rounded light plate
+    const plate = Buffer.from(
+      `<svg xmlns="http://www.w3.org/2000/svg" width="${plateW}" height="${plateH}">
+        <rect width="100%" height="100%" rx="${Math.round(innerPad)}" ry="${Math.round(innerPad)}" fill="white" fill-opacity="0.92"/>
+      </svg>`
+    );
 
     const out = await sharp(file.buf)
       .rotate()
       .composite([
-        { input: plate, left: Math.max(0, left - Math.round(pad * 0.35)), top: Math.max(0, top - Math.round(pad * 0.2)) },
-        { input: logoPng, left, top },
+        { input: plate, left, top },
+        { input: logoPng, left: left + innerPad, top: top + innerPad },
       ])
       .jpeg({ quality: 90, mozjpeg: true })
       .toBuffer();

@@ -184,6 +184,7 @@ services:
       PROVOD_BASE_URL: ${PROVOD_BASE_URL:-https://api.provod.ai}
       TEXT_MODEL: ${TEXT_MODEL:-openai/gpt-5.4}
       IMAGE_MODEL: ${IMAGE_MODEL:-google/gemini-3.1-flash-image}
+      LOGO_WATERMARK_FILE: /brand/logo-tvoytrener-official.png
       # Node fetch предпочитает IPv4 (см. server.mjs)
       NODE_OPTIONS: "--dns-result-order=ipv4first"
 
