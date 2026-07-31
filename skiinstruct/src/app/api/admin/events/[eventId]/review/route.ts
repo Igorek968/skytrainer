@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { isApiErrorResponse, requireAdminSession } from "@/lib/api-session";
 import { resolveRouteParams } from "@/lib/api-route-params";
+import { notifyBotEventPublished } from "@/lib/bot-api";
 import { serializeInstructorEvent } from "@/lib/instructor-events";
 import { prisma } from "@/lib/prisma";
 import { ensureUpcomingDailyCopy } from "@/lib/services/instructor-event-daily-repeat";
@@ -69,6 +70,8 @@ export async function POST(req: Request, ctx: Ctx) {
   if (row.repeatDaily) {
     await ensureUpcomingDailyCopy(row);
   }
+
+  notifyBotEventPublished(row.id);
 
   return NextResponse.json({
     event: serializeInstructorEvent(row),

@@ -133,6 +133,9 @@ services:
       MAX_SUPPORT_USER_ID: ${MAX_SUPPORT_USER_ID:-}
       MAX_SUPPORT_CHAT_ID: ${MAX_SUPPORT_CHAT_ID:-}
       MAX_WEBHOOK_SECRET: ${MAX_WEBHOOK_SECRET:-}
+      # Исходящие события для Telegram/MAX-бота канала (см. skiinstruct/BOT_API.md)
+      BOT_API_SECRET: ${BOT_API_SECRET:-}
+      BOT_OUTBOUND_WEBHOOK_BASE_URL: ${BOT_OUTBOUND_WEBHOOK_BASE_URL:-}
       NEXT_PUBLIC_SUPPORT_EMAIL: ${NEXT_PUBLIC_SUPPORT_EMAIL:-tvoitrenerrf@yandex.ru}
       NEXT_PUBLIC_SUPPORT_MAX_URL: ${NEXT_PUBLIC_SUPPORT_MAX_URL:-https://max.ru/id110116757261_bot}
       NEXT_PUBLIC_SUPPORT_TELEGRAM_URL: ${NEXT_PUBLIC_SUPPORT_TELEGRAM_URL:-https://t.me/tvoitrenerrf}
@@ -156,6 +159,21 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+
+  # Приёмник хуков сайта → посты в TG-канал (см. channel-bot/README.md, skiinstruct/BOT_API.md)
+  channel-bot:
+    build:
+      context: ./channel-bot
+      dockerfile: Dockerfile
+    container_name: skytrainer-channel-bot
+    restart: unless-stopped
+    ports:
+      - "8787:8787"
+    environment:
+      PORT: "8787"
+      BOT_API_SECRET: ${BOT_API_SECRET:-}
+      BOT_TOKEN: ${BOT_TOKEN:-}
+      CHANNEL_ID: ${CHANNEL_ID:-@tvoitrenerrf}
 
   caddy:
     image: caddy:2-alpine

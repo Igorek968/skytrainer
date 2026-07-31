@@ -5,6 +5,7 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { draftToProfileUpdate, parseProfileDraft } from "@/lib/instructor-profile-draft";
 import { prisma } from "@/lib/prisma";
+import { notifyBotInstructorApproved } from "@/lib/bot-api";
 import { notifyInstructorVerificationResult } from "@/lib/services/instructor-verification-notify";
 import { findDuplicateParticipantByDisplayName } from "@/lib/services/user-display-name-uniqueness";
 import { DISPLAY_NAME_DUPLICATE_MESSAGE } from "@/lib/user-display-name";
@@ -126,5 +127,6 @@ export async function POST(req: Request, ctx: Ctx) {
   });
 
   void notifyInstructorVerificationResult({ userId, status: "APPROVED" });
+  notifyBotInstructorApproved(userId);
   return NextResponse.json({ ok: true });
 }

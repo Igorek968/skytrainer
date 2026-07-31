@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { isApiErrorResponse, requireInstructorSession } from "@/lib/api-session";
+import { notifyBotInstructorOnline } from "@/lib/bot-api";
 import { ensureInstructorProfile } from "@/lib/instructor-profile-defaults";
 import { prisma } from "@/lib/prisma";
 
@@ -28,6 +29,11 @@ export async function POST(req: Request) {
 
   await ensureInstructorProfile(userId);
 
+  const prev = await prisma.instructorProfile.findUnique({
+    where: { userId },
+    select: { isOnline: true },
+  });
+
   if (parsed.data.isOnline) {
     const user = await prisma.user.findUnique({
       where: { id: userId },
@@ -45,6 +51,10 @@ export async function POST(req: Request) {
     where: { userId },
     data: { isOnline: parsed.data.isOnline },
   });
+
+  if (parsed.data.isOnline && !prev?.isOnline) {
+    notifyBotInstructorOnline(userId);
+  }
 
   return NextResponse.json({ ok: true });
 }

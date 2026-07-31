@@ -10,6 +10,7 @@ const ORIGIN_EXEMPT_PREFIXES = [
   "/api/webhooks",
   "/api/cron",
   "/api/health",
+  "/api/bot",
 ] as const;
 
 const PUBLIC_API_PREFIXES = [
@@ -21,6 +22,7 @@ const PUBLIC_API_PREFIXES = [
   "/api/webhooks",
   "/api/cron",
   "/api/health",
+  "/api/bot",
   "/api/media",
   "/api/support",
 ] as const;
