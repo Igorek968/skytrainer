@@ -12,3 +12,14 @@ Authorization: Bearer <BOT_API_SECRET>
 ```
 
 Нужно: бот — админ канала `@tvoitrenerrf`.
+
+## Telegram с РФ-VPS
+
+Прямой DNS `api.telegram.org` часто таймаутит. В `docker-compose` для `channel-bot` задан:
+
+```yaml
+extra_hosts:
+  - "api.telegram.org:149.154.167.220"
+```
+
+и `NODE_OPTIONS=--dns-result-order=ipv4first`. Если IP перестанет отвечать — обновить pin (см. док бота / `getent ahostsv4`).

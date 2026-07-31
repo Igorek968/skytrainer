@@ -21,7 +21,7 @@
 | Этот файл + `BOT_API_SECRET` в корневом `.env` | ✅ готово |
 | `GET /api/bot/health`, `GET /api/bot/instructors` | ✅ код + Docker |
 | Outbound: `instructor-approved` / `instructor-online` / `event-published` | ✅ вызываются на реальных действиях |
-| `BOT_OUTBOUND_WEBHOOK_BASE_URL` | ✅ локально: `http://channel-bot:8787` (сервис `channel-bot` в Docker) |
+| `BOT_OUTBOUND_WEBHOOK_BASE_URL` | ✅ `http://channel-bot:8787` (Docker). На РФ-VPS у `channel-bot` pin IPv4 `api.telegram.org → 149.154.167.220` |
 | Хуки ДР / отзывов | ❌ этап 2 (поля в БД частично есть, webhook’ов нет) |
 
 **Prod API base:** `https://твойтренер.рф`  

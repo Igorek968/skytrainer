@@ -169,11 +169,16 @@ services:
     restart: unless-stopped
     ports:
       - "8787:8787"
+    # РФ-VPS: обычный DNS api.telegram.org часто таймаутит; фиксируем рабочий IPv4.
+    extra_hosts:
+      - "api.telegram.org:149.154.167.220"
     environment:
       PORT: "8787"
       BOT_API_SECRET: ${BOT_API_SECRET:-}
       BOT_TOKEN: ${BOT_TOKEN:-}
       CHANNEL_ID: ${CHANNEL_ID:-@tvoitrenerrf}
+      # Node fetch предпочитает IPv4 (см. server.mjs)
+      NODE_OPTIONS: "--dns-result-order=ipv4first"
 
   caddy:
     image: caddy:2-alpine

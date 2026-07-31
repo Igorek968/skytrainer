@@ -121,11 +121,15 @@ services:
       dockerfile: Dockerfile
     container_name: skytrainer-qa-channel-bot
     restart: unless-stopped
+    # РФ-VPS: обычный DNS api.telegram.org часто таймаутит; фиксируем рабочий IPv4.
+    extra_hosts:
+      - "api.telegram.org:149.154.167.220"
     environment:
       PORT: "8787"
       BOT_API_SECRET: ${BOT_API_SECRET:-}
       BOT_TOKEN: ${BOT_TOKEN:-}
       CHANNEL_ID: ${CHANNEL_ID:-@tvoitrenerrf}
+      NODE_OPTIONS: "--dns-result-order=ipv4first"
     logging:
       driver: "json-file"
       options:
