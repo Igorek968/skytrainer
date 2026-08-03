@@ -2,7 +2,10 @@ import type { Prisma } from "@prisma/client";
 
 import { isInstructorEventCompleted, type ClientInstructorEventDTO } from "@/lib/instructor-events";
 import { prisma } from "@/lib/prisma";
-import { spawnDailyRepeatsForExpiringEvents, isSlotEventPast } from "@/lib/services/instructor-event-daily-repeat";
+import {
+  isSlotEventPast,
+  rollForwardDailyRepeatEvents,
+} from "@/lib/services/instructor-event-daily-repeat";
 
 /** Опубликованные мероприятия с датой в будущем или без даты — для ленты клиента. */
 export function activePublishedEventWhere(now: Date = new Date()): Prisma.InstructorEventWhereInput {
@@ -24,19 +27,21 @@ export function isVisibleInClientEventFeed(
 }
 
 /**
- * Прошедшие по дате/времени опубликованные мероприятия → ARCHIVED (скрыты из ленты, у инструктора «Выполнено»).
+ * 1) Автовыкладывание: прошедшие PUBLISHED + repeatDaily → сдвиг даты на том же мероприятии.
+ * 2) Остальные прошедшие PUBLISHED → ARCHIVED.
  */
 export async function archivePastPublishedInstructorEvents(options?: {
   instructorId?: string;
   now?: Date;
-}): Promise<{ archived: number; spawned: number }> {
+}): Promise<{ archived: number; rolled: number }> {
   const now = options?.now ?? new Date();
 
-  const spawned = await spawnDailyRepeatsForExpiringEvents(options);
+  const rolled = await rollForwardDailyRepeatEvents(options);
 
   const result = await prisma.instructorEvent.updateMany({
     where: {
       moderationStatus: "PUBLISHED",
+      repeatDaily: false,
       eventAt: { not: null, lte: now },
       ...(options?.instructorId ? { instructorId: options.instructorId } : {}),
     },
@@ -46,6 +51,7 @@ export async function archivePastPublishedInstructorEvents(options?: {
   const slotCandidates = await prisma.instructorEvent.findMany({
     where: {
       moderationStatus: "PUBLISHED",
+      repeatDaily: false,
       eventAt: null,
       slots: { some: { startsAt: { lte: now } } },
       ...(options?.instructorId ? { instructorId: options.instructorId } : {}),
@@ -63,5 +69,5 @@ export async function archivePastPublishedInstructorEvents(options?: {
     slotArchived += 1;
   }
 
-  return { archived: result.count + slotArchived, spawned };
+  return { archived: result.count + slotArchived, rolled };
 }

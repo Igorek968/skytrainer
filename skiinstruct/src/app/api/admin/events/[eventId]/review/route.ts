@@ -3,9 +3,12 @@ import { NextResponse } from "next/server";
 import { isApiErrorResponse, requireAdminSession } from "@/lib/api-session";
 import { resolveRouteParams } from "@/lib/api-route-params";
 import { notifyBotEventPublished } from "@/lib/bot-api";
-import { serializeInstructorEvent } from "@/lib/instructor-events";
+import {
+  EVENT_SCHEDULE_REQUIRED_MESSAGE,
+  instructorEventHasSchedule,
+  serializeInstructorEvent,
+} from "@/lib/instructor-events";
 import { prisma } from "@/lib/prisma";
-import { ensureUpcomingDailyCopy } from "@/lib/services/instructor-event-daily-repeat";
 import { adminEventReviewSchema } from "@/lib/validations/instructor-event";
 
 type Ctx = { params: { eventId: string } | Promise<{ eventId: string }> };
@@ -33,7 +36,10 @@ export async function POST(req: Request, ctx: Ctx) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
-  const existing = await prisma.instructorEvent.findUnique({ where: { id: eventId } });
+  const existing = await prisma.instructorEvent.findUnique({
+    where: { id: eventId },
+    include: { slots: { select: { id: true } } },
+  });
   if (!existing) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
@@ -57,6 +63,20 @@ export async function POST(req: Request, ctx: Ctx) {
     });
   }
 
+  if (
+    !instructorEventHasSchedule({
+      eventAt: existing.eventAt,
+      slotsCount: existing.slots.length,
+    })
+  ) {
+    return NextResponse.json(
+      {
+        error: `${EVENT_SCHEDULE_REQUIRED_MESSAGE}. Отредактируйте мероприятие или отклоните заявку.`,
+      },
+      { status: 400 },
+    );
+  }
+
   const row = await prisma.instructorEvent.update({
     where: { id: eventId },
     data: {
@@ -66,10 +86,6 @@ export async function POST(req: Request, ctx: Ctx) {
     },
     include: { slots: { orderBy: [{ sortOrder: "asc" }, { startsAt: "asc" }] } },
   });
-
-  if (row.repeatDaily) {
-    await ensureUpcomingDailyCopy(row);
-  }
 
   notifyBotEventPublished(row.id);
 

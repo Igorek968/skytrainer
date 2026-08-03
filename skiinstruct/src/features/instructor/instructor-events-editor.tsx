@@ -570,7 +570,14 @@ export function InstructorEventsEditor({
           throw new Error("Добавьте хотя бы один выход с датой и временем");
         }
       } else {
-        if (eventAt.trim()) payload.eventAt = new Date(eventAt).toISOString();
+        if (!eventAt.trim()) {
+          throw new Error("Укажите дату и время мероприятия");
+        }
+        const parsedAt = new Date(eventAt);
+        if (!Number.isFinite(parsedAt.getTime())) {
+          throw new Error("Некорректная дата и время мероприятия");
+        }
+        payload.eventAt = parsedAt.toISOString();
         const priceParsed = priceRub.trim() ? Number.parseInt(priceRub.trim(), 10) : NaN;
         payload.priceRub =
           Number.isFinite(priceParsed) && priceParsed >= 0 ? priceParsed : null;
@@ -1682,16 +1689,17 @@ export function InstructorEventsEditor({
                 onChange={(e) => setRepeatDaily(e.target.checked)}
               />
               <span>
-                <span className="font-medium">Размещать каждый день</span>
+                <span className="font-medium">Автовыкладывание каждый день</span>
                 <span className="mt-0.5 block text-xs text-muted-foreground">
-                  После окончания мероприятия автоматически создаётся копия на следующий день (то же время,
-                  текст, фото и адрес). Настройка применится после публикации.
+                  Одно мероприятие: после окончания дата сама сдвигается на следующий день (то же время,
+                  текст, фото). Новая копия не создаётся. Обновление — после полуночи (cron / при открытии
+                  ленты).
                 </span>
               </span>
             </label>
           ) : repeatDaily ? (
             <p className="text-xs text-muted-foreground">
-              Включено ежедневное размещение — после окончания создаётся копия на следующий день.
+              Включено автовыкладывание — дата обновляется на этом же мероприятии после окончания.
             </p>
           ) : null}
 
@@ -2021,10 +2029,9 @@ function EventList({
                   onChange={(e) => onRepeatDaily(ev.id, e.target.checked)}
                 />
                 <span>
-                  <span className="font-medium">Размещать каждый день</span>
+                  <span className="font-medium">Автовыкладывание каждый день</span>
                   <span className="mt-0.5 block text-muted-foreground">
-                    После окончания автоматически создаётся копия на следующий день (то же время, текст и
-                    фото).
+                    Дата сдвигается на следующий день на этом же объявлении — без дублей.
                   </span>
                 </span>
               </label>

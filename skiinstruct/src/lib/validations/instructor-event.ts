@@ -54,7 +54,7 @@ export const createInstructorEventSchema = z.object({
   venueAddress: z.string().trim().max(500).optional().nullable(),
   venueLat: venueCoordField,
   venueLng: venueCoordField,
-  /** Авторазмещение на каждый день (применяется после публикации). */
+  /** Автовыкладывание: после окончания дата сдвигается на следующий день на этом же мероприятии. */
   repeatDaily: z.boolean().optional(),
 });
 
@@ -83,6 +83,7 @@ export const adminUpdateInstructorEventSchema = z.object({
   venueLat: venueCoordField,
   venueLng: venueCoordField,
   slots: z.array(eventSlotInputSchema).optional(),
+  /** Автовыкладывание: сдвиг даты на том же мероприятии после окончания. */
   repeatDaily: z.boolean().optional(),
   /** false — после правок снять с публикации в DRAFT; по умолчанию статус не трогаем. */
   keepPublished: z.boolean().optional(),

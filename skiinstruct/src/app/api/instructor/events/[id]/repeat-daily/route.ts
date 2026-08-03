@@ -4,7 +4,6 @@ import { z } from "zod";
 import { isApiErrorResponse, requireInstructorSession } from "@/lib/api-session";
 import { isInstructorEventCompleted, serializeInstructorEvent } from "@/lib/instructor-events";
 import { prisma } from "@/lib/prisma";
-import { ensureUpcomingDailyCopy } from "@/lib/services/instructor-event-daily-repeat";
 
 const bodySchema = z.object({
   repeatDaily: z.boolean(),
@@ -43,7 +42,7 @@ export async function PATCH(req: Request, ctx: Ctx) {
 
   if (existing.moderationStatus !== "PUBLISHED") {
     return NextResponse.json(
-      { error: "Ежедневное размещение доступно только для опубликованных мероприятий" },
+      { error: "Автовыкладывание доступно только для опубликованных мероприятий" },
       { status: 400 },
     );
   }
@@ -60,10 +59,6 @@ export async function PATCH(req: Request, ctx: Ctx) {
     data: { repeatDaily: parsed.data.repeatDaily },
     include: { slots: { orderBy: [{ sortOrder: "asc" }, { startsAt: "asc" }] } },
   });
-
-  if (parsed.data.repeatDaily) {
-    await ensureUpcomingDailyCopy(row);
-  }
 
   return NextResponse.json({ event: serializeInstructorEvent(row) });
 }

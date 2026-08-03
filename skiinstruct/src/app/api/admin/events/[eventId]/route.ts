@@ -3,6 +3,8 @@ import { NextResponse } from "next/server";
 import { isApiErrorResponse, requireAdminSession } from "@/lib/api-session";
 import { resolveRouteParams } from "@/lib/api-route-params";
 import {
+  EVENT_SCHEDULE_REQUIRED_MESSAGE,
+  instructorEventHasSchedule,
   isInstructorEventCompleted,
   serializeInstructorEvent,
 } from "@/lib/instructor-events";
@@ -75,7 +77,10 @@ export async function PATCH(req: Request, ctx: Ctx) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
-  const existing = await prisma.instructorEvent.findUnique({ where: { id: eventId } });
+  const existing = await prisma.instructorEvent.findUnique({
+    where: { id: eventId },
+    include: { slots: { select: { id: true } } },
+  });
   if (!existing) {
     return NextResponse.json({ error: "Мероприятие не найдено" }, { status: 404 });
   }
@@ -84,6 +89,18 @@ export async function PATCH(req: Request, ctx: Ctx) {
   const eventAt = parseEventAt(data.eventAt);
   if (data.eventAt !== undefined && data.eventAt && eventAt === null) {
     return NextResponse.json({ error: "Некорректная дата" }, { status: 400 });
+  }
+
+  const nextEventAt = eventAt !== undefined ? eventAt : existing.eventAt;
+  const nextSlotsCount =
+    data.slots !== undefined ? data.slots.length : existing.slots.length;
+  if (
+    !instructorEventHasSchedule({
+      eventAt: nextEventAt,
+      slotsCount: nextSlotsCount,
+    })
+  ) {
+    return NextResponse.json({ error: EVENT_SCHEDULE_REQUIRED_MESSAGE }, { status: 400 });
   }
 
   let titleId = existing.titleId;

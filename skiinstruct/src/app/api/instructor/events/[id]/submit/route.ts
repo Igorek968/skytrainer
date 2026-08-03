@@ -3,12 +3,13 @@ import { NextResponse } from "next/server";
 import { isApiErrorResponse, requireInstructorSession } from "@/lib/api-session";
 import {
   canEditInstructorEvent,
+  EVENT_SCHEDULE_REQUIRED_MESSAGE,
+  instructorEventHasSchedule,
   isInstructorEventCompleted,
   serializeInstructorEvent,
 } from "@/lib/instructor-events";
 import { isInstructorEventAutoApproveEnabled } from "@/lib/instructor-event-moderation-config";
 import { prisma } from "@/lib/prisma";
-import { ensureUpcomingDailyCopy } from "@/lib/services/instructor-event-daily-repeat";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -56,11 +57,13 @@ export async function POST(_req: Request, ctx: Ctx) {
     );
   }
 
-  if (!existing.eventAt && existing.slots.length === 0) {
-    return NextResponse.json(
-      { error: "Укажите день и выходы или дату мероприятия перед отправкой на модерацию" },
-      { status: 400 },
-    );
+  if (
+    !instructorEventHasSchedule({
+      eventAt: existing.eventAt,
+      slotsCount: existing.slots.length,
+    })
+  ) {
+    return NextResponse.json({ error: EVENT_SCHEDULE_REQUIRED_MESSAGE }, { status: 400 });
   }
 
   const autoApprove = isInstructorEventAutoApproveEnabled();
@@ -75,10 +78,6 @@ export async function POST(_req: Request, ctx: Ctx) {
     },
     include: { slots: { orderBy: [{ sortOrder: "asc" }, { startsAt: "asc" }] } },
   });
-
-  if (autoApprove && row.repeatDaily) {
-    await ensureUpcomingDailyCopy(row);
-  }
 
   if (!autoApprove) {
     try {

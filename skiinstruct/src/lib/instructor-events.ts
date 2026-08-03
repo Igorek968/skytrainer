@@ -45,7 +45,7 @@ export type InstructorEventDTO = {
   paidRegistrationCount?: number;
   registrationRevenueRub?: number;
   unconfirmedAttendanceCount?: number;
-  /** Автоматически создавать копию на следующий день */
+  /** Автовыкладывание: после окончания дата сдвигается на этом же мероприятии */
   repeatDaily?: boolean;
   /** Место проведения */
   venueAddress?: string | null;
@@ -133,6 +133,22 @@ export function showEventCardEdit(ev: InstructorEventDTO): boolean {
 
 export function showEventCardModeration(ev: InstructorEventDTO): boolean {
   return (ev.canEdit || canRestoreArchivedEvent(ev)) && Boolean(ev.eventAt || ev.hasSlots);
+}
+
+/** Сообщение, если нет даты/времени (классика) и нет выходов со слотами. */
+export const EVENT_SCHEDULE_REQUIRED_MESSAGE =
+  "Укажите дату и время мероприятия — без них нельзя сохранить и отправить на модерацию";
+
+/** Есть расписание: дата/время eventAt или хотя бы один выход (слот). */
+export function instructorEventHasSchedule(input: {
+  eventAt: Date | string | null | undefined;
+  slotsCount?: number;
+}): boolean {
+  if ((input.slotsCount ?? 0) > 0) return true;
+  if (input.eventAt == null || input.eventAt === "") return false;
+  if (input.eventAt instanceof Date) return Number.isFinite(input.eventAt.getTime());
+  const t = Date.parse(input.eventAt);
+  return Number.isFinite(t);
 }
 
 /** Скрыть опубликованное из ленты (без безвозвратного удаления). */

@@ -6,7 +6,11 @@ import { toast } from "sonner";
 
 import { AdminEventEditorSheet } from "@/features/admin/admin-event-editor-sheet";
 import type { InstructorEventDTO } from "@/lib/instructor-events";
-import { formatEventDateRu, moderationStatusLabel } from "@/lib/instructor-events";
+import {
+  formatEventDateRu,
+  instructorEventHasSchedule,
+  moderationStatusLabel,
+} from "@/lib/instructor-events";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Label } from "@/shared/ui/label";
@@ -126,10 +130,18 @@ export function AdminEventsModerationSection() {
                 </div>
                 <div className="text-xs text-muted-foreground">
                   {ev.instructor.name ?? ev.instructor.email} · {moderationStatusLabel(ev.moderationStatus)}
-                  {ev.eventAt ? ` · ${formatEventDateRu(ev.eventAt)}` : null}
+                  {ev.eventAt ? ` · ${formatEventDateRu(ev.eventAt)}` : " · дата и время не указаны"}
                   {ev.priceRub != null ? ` · ${ev.priceRub} ₽` : null}
                   {ev.maxRegistrations != null ? ` · мест: ${ev.maxRegistrations}` : null}
                 </div>
+                {!instructorEventHasSchedule({
+                  eventAt: ev.eventAt,
+                  slotsCount: ev.hasSlots ? 1 : 0,
+                }) ? (
+                  <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">
+                    Нельзя опубликовать: укажите дату и время через «Редактировать» или отклоните заявку.
+                  </p>
+                ) : null}
                 <p className="mt-2 whitespace-pre-wrap text-muted-foreground">
                   {ev.catalogItemId ? (
                     <>
@@ -145,7 +157,13 @@ export function AdminEventsModerationSection() {
                     type="button"
                     size="sm"
                     variant="accent"
-                    disabled={review.isPending}
+                    disabled={
+                      review.isPending ||
+                      !instructorEventHasSchedule({
+                        eventAt: ev.eventAt,
+                        slotsCount: ev.hasSlots ? 1 : 0,
+                      })
+                    }
                     onClick={() => review.mutate({ eventId: ev.id, action: "approve" })}
                   >
                     {ev.catalogItemId ? "Одобрить участие" : "Опубликовать"}

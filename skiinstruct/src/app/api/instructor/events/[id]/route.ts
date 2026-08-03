@@ -3,6 +3,8 @@ import { NextResponse } from "next/server";
 import { isApiErrorResponse, requireInstructorSession } from "@/lib/api-session";
 import {
   canEditInstructorEvent,
+  EVENT_SCHEDULE_REQUIRED_MESSAGE,
+  instructorEventHasSchedule,
   isInstructorEventCompleted,
   serializeInstructorEvent,
 } from "@/lib/instructor-events";
@@ -44,6 +46,7 @@ export async function PATCH(req: Request, ctx: Ctx) {
 
   const existing = await prisma.instructorEvent.findFirst({
     where: { id, instructorId: userId },
+    include: { slots: { select: { id: true } } },
   });
   if (!existing) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -89,6 +92,16 @@ export async function PATCH(req: Request, ctx: Ctx) {
   const eventAt = parseEventAt(parsed.data.eventAt);
   if (parsed.data.eventAt !== undefined && parsed.data.eventAt && eventAt === null) {
     return NextResponse.json({ error: "Некорректная дата" }, { status: 400 });
+  }
+
+  const nextEventAt = eventAt !== undefined ? eventAt : existing.eventAt;
+  if (
+    !instructorEventHasSchedule({
+      eventAt: nextEventAt,
+      slotsCount: existing.slots.length,
+    })
+  ) {
+    return NextResponse.json({ error: EVENT_SCHEDULE_REQUIRED_MESSAGE }, { status: 400 });
   }
 
   let titleId = existing.titleId;

@@ -225,6 +225,13 @@ export async function POST(req: Request) {
   if (hasSlots) {
     const slotInputs = (parsed.data.slots ?? []) as EventSlotInput[];
     const allHaveDate = slotInputs.every((s) => Boolean(s.date?.trim()));
+    const allHaveTime = slotInputs.every((s) => Boolean(s.time?.trim()));
+    if (!allHaveTime) {
+      return NextResponse.json(
+        { error: "Укажите время для каждого выхода" },
+        { status: 400 },
+      );
+    }
     if (!eventDay && !allHaveDate) {
       return NextResponse.json(
         { error: "Укажите дату для каждого выхода или общий день мероприятия" },
@@ -232,8 +239,11 @@ export async function POST(req: Request) {
       );
     }
     eventAt = null;
-  } else if (parsed.data.eventAt && !eventAt) {
-    return NextResponse.json({ error: "Некорректная дата мероприятия" }, { status: 400 });
+  } else if (!eventAt) {
+    return NextResponse.json(
+      { error: "Укажите дату и время мероприятия — без них нельзя сохранить" },
+      { status: 400 },
+    );
   }
 
   const titleRow = await upsertInstructorEventTitle(userId, parsed.data.title);
@@ -242,7 +252,11 @@ export async function POST(req: Request) {
 
   const saveSlotsForEvent = async (eventId: string) => {
     if (!hasSlots) return;
-    await syncEventSlots(eventId, eventDay, slotInputs);
+    try {
+      await syncEventSlots(eventId, eventDay, slotInputs);
+    } catch (e) {
+      throw e instanceof Error ? e : new Error("Ошибка сохранения выходов");
+    }
   };
 
   const existingId = parsed.data.eventId?.trim();
@@ -285,7 +299,14 @@ export async function POST(req: Request) {
       include: { slots: { orderBy: [{ sortOrder: "asc" }, { startsAt: "asc" }] } },
     });
     if (hasSlots) {
-      await saveSlotsForEvent(existingId);
+      try {
+        await saveSlotsForEvent(existingId);
+      } catch (e) {
+        return NextResponse.json(
+          { error: e instanceof Error ? e.message : "Ошибка сохранения выходов" },
+          { status: 400 },
+        );
+      }
     }
     const refreshed = await prisma.instructorEvent.findUnique({
       where: { id: existingId },
@@ -315,7 +336,15 @@ export async function POST(req: Request) {
   });
 
   if (hasSlots) {
-    await saveSlotsForEvent(row.id);
+    try {
+      await saveSlotsForEvent(row.id);
+    } catch (e) {
+      await prisma.instructorEvent.delete({ where: { id: row.id } }).catch(() => undefined);
+      return NextResponse.json(
+        { error: e instanceof Error ? e.message : "Ошибка сохранения выходов" },
+        { status: 400 },
+      );
+    }
   }
 
   const refreshed = await prisma.instructorEvent.findUnique({
