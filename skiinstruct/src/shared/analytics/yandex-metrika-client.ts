@@ -18,6 +18,7 @@ export const YM_GOALS = {
   googleAuthStart: "google_auth_start",
   emailClick: "email_click",
   instructorApplySubmit: "instructor_apply_submit",
+  instructorApplySuccess: "instructor_apply_success",
   orderCreate: "order_create",
   orderPaid: "order_paid",
   phoneClick: "phone_click",

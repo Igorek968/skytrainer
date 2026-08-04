@@ -7,6 +7,7 @@ import { instructorApplyAction, type InstructorApplyState } from "@/app/actions/
 import { FORM_DRAFT_KEYS } from "@/lib/form-draft-storage";
 import { LEGAL_ROUTES } from "@/lib/legal";
 import { instructorActivityLabelsAlphabetical } from "@/lib/services/instructor-match";
+import { readStoredUtm } from "@/shared/analytics/utm-capture";
 import { useFormDraft } from "@/shared/hooks/use-form-draft";
 import { useDisplayNameDuplicateCheck } from "@/shared/hooks/use-display-name-duplicate-check";
 import { YM_GOALS, trackYandexGoal } from "@/shared/analytics/yandex-metrika-client";
@@ -15,6 +16,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/sha
 import { Input } from "@/shared/ui/input";
 import { PasswordInput } from "@/shared/ui/password-input";
 import { Label } from "@/shared/ui/label";
+import { useEffect, useState } from "react";
 
 const initialState: InstructorApplyState = { error: null, success: false };
 
@@ -77,6 +79,16 @@ export default function InstructorApplyPage() {
     defaultDraft,
   );
   const displayNameDuplicate = useDisplayNameDuplicateCheck(values.firstName, values.lastName);
+  const [utm, setUtm] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    const stored = readStoredUtm();
+    const next: Record<string, string> = {};
+    for (const [k, v] of Object.entries(stored)) {
+      if (v) next[k] = v;
+    }
+    setUtm(next);
+  }, []);
 
   return (
     <div className="mx-auto max-w-lg space-y-6 py-4">
@@ -84,9 +96,8 @@ export default function InstructorApplyPage() {
         <CardHeader>
           <CardTitle as="h1">Стать инструктором</CardTitle>
           <CardDescription>
-            Заполните анкету полностью (включая ИНН и телефон). Без ИНН заявка на модерацию не отправляется. После
-            проверки администратором вы сможете включить статус «онлайн» и принимать заявки клиентов по всей России
-            (поиск рядом — в радиусе 5 км от точки встречи).
+            Анкета на площадку ТвойТренер.рф: заявки с карты, свой график, оплата онлайн. Укажите телефон и ИНН (нужен
+            для выплат через ЮKassa). После модерации включите «онлайн» и принимайте заявки.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -94,8 +105,13 @@ export default function InstructorApplyPage() {
             className="space-y-4"
             action={formAction}
             noValidate
-            onSubmitCapture={() => trackYandexGoal(YM_GOALS.instructorApplySubmit)}
+            onSubmitCapture={() =>
+              trackYandexGoal(YM_GOALS.instructorApplySubmit, Object.keys(utm).length ? utm : undefined)
+            }
           >
+            {Object.entries(utm).map(([key, value]) => (
+              <input key={key} type="hidden" name={key} value={value} />
+            ))}
             <div className="space-y-2">
               <Label htmlFor="lastName">Фамилия</Label>
               <Input
@@ -285,7 +301,9 @@ export default function InstructorApplyPage() {
                 value={values.inn}
                 onChange={(e) => setField("inn", e.target.value.replace(/\D/g, "").slice(0, 12))}
               />
-              <p className="text-xs text-muted-foreground">Без ИНН заявка на модерацию не будет отправлена.</p>
+              <p className="text-xs text-muted-foreground">
+                ИНН самозанятого или ИП — для выплат. Без него заявка не уйдёт на модерацию.
+              </p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="achievements">Достижения (по одному на строку, необязательно)</Label>

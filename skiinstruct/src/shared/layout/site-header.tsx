@@ -148,7 +148,7 @@ export function SiteHeader() {
                   Войти
                 </Link>
                 <Link
-                  href="/instructor/login"
+                  href="/landings/instructor?utm_source=site&utm_medium=header&utm_campaign=hire"
                   className={navLinkOutlineClass}
                   onClick={() => trackYandexGoal(YM_GOALS.instructorLoginOpen)}
                 >
@@ -306,7 +306,9 @@ export function SiteHeader() {
                 onClick={() => {
                   setOpen(false);
                   trackYandexGoal(YM_GOALS.instructorLoginOpen);
-                  window.location.assign("/instructor/login");
+                  window.location.assign(
+                    "/landings/instructor?utm_source=site&utm_medium=header&utm_campaign=hire",
+                  );
                 }}
               >
                 Инструктору

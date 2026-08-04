@@ -668,6 +668,20 @@ export async function GET(req: Request) {
               .filter(Boolean)
               .join(" ") || null;
           const nickname = (draft?.nickname ?? p.user.nickname)?.trim() || null;
+          const rawDraft =
+            p.profileDraft && typeof p.profileDraft === "object" && !Array.isArray(p.profileDraft)
+              ? (p.profileDraft as Record<string, unknown>)
+              : null;
+          const acq =
+            rawDraft?.acquisition && typeof rawDraft.acquisition === "object" && !Array.isArray(rawDraft.acquisition)
+              ? (rawDraft.acquisition as Record<string, unknown>)
+              : null;
+          const acquisitionSource = acq
+            ? [acq.utm_source, acq.utm_medium, acq.utm_campaign, acq.utm_content]
+                .map((x) => (typeof x === "string" ? x.trim() : ""))
+                .filter(Boolean)
+                .join(" / ") || null
+            : null;
           return {
             userId: p.userId,
             email: p.user.email,
@@ -677,6 +691,7 @@ export async function GET(req: Request) {
             phone: p.user.phone,
             inn: p.inn,
             certificationLevel: p.certificationLevel,
+            acquisitionSource,
             moderationKind,
             profileDraftSubmittedAt: p.profileDraftSubmittedAt?.toISOString() ?? null,
             ...(profileChanges?.length ? { profileChanges } : {}),

@@ -1,4 +1,9 @@
-import { getBrandAltText, BRAND_LOGO_MARK } from "@/shared/brand/assets";
+import {
+  getBrandAltText,
+  BRAND_LOGO_MARK,
+  BRAND_TEAL,
+  BRAND_NAVY,
+} from "@/shared/brand/assets";
 import { cn } from "@/lib/utils";
 
 type SiteLogoProps = {
@@ -6,9 +11,6 @@ type SiteLogoProps = {
   /** Компактный размер на узких экранах. */
   compact?: boolean;
 };
-
-/** Цвет левой фигуры логотипа. */
-const BRAND_TEAL = "#0f766e";
 
 export function SiteLogo({ className, compact = false }: SiteLogoProps) {
   const alt = getBrandAltText();
@@ -20,7 +22,7 @@ export function SiteLogo({ className, compact = false }: SiteLogoProps) {
         className,
       )}
     >
-      {/* eslint-disable-next-line @next/next/no-img-element -- brand PNG, без next/image */}
+      {/* eslint-disable-next-line @next/next/no-img-element -- brand SVG, без next/image */}
       <img
         src={BRAND_LOGO_MARK}
         alt=""
@@ -40,7 +42,7 @@ export function SiteLogo({ className, compact = false }: SiteLogoProps) {
         aria-label={alt}
       >
         <span style={{ color: BRAND_TEAL }}>Твой</span>
-        <span className="text-slate-900 dark:text-slate-100">Тренер</span>
+        <span style={{ color: BRAND_NAVY }}>Тренер</span>
       </span>
     </span>
   );

@@ -9,6 +9,8 @@ type Props = {
   lead: string;
   ctaLabel: string;
   ctaHref: string;
+  /** Если задан — вместо стандартной кнопки CTA (для трекинга целей). */
+  ctaSlot?: ReactNode;
   secondaryCtaLabel?: string;
   secondaryCtaHref?: string;
   bullets?: string[];
@@ -22,6 +24,7 @@ export function TrafficLanding({
   lead,
   ctaLabel,
   ctaHref,
+  ctaSlot,
   secondaryCtaLabel,
   secondaryCtaHref,
   bullets = [],
@@ -36,12 +39,14 @@ export function TrafficLanding({
         <h1 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">{title}</h1>
         <p className="text-base leading-relaxed text-muted-foreground sm:text-lg">{lead}</p>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <Link
-            href={ctaHref}
-            className="inline-flex items-center justify-center rounded-md bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground hover:opacity-90"
-          >
-            {ctaLabel}
-          </Link>
+          {ctaSlot ?? (
+            <Link
+              href={ctaHref}
+              className="inline-flex items-center justify-center rounded-md bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground hover:opacity-90"
+            >
+              {ctaLabel}
+            </Link>
+          )}
           {secondaryCtaLabel && secondaryCtaHref ? (
             <Link
               href={secondaryCtaHref}

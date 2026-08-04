@@ -235,6 +235,9 @@ export function AdminModerationSection({ data }: { data: AdminOverview }) {
                         ? ` · ${formatInAppTimeZone(p.profileDraftSubmittedAt)}`
                         : null}
                     </p>
+                    {p.acquisitionSource ? (
+                      <p className="text-xs text-accent">Источник: {p.acquisitionSource}</p>
+                    ) : null}
                     <div className="text-xs">{p.certificationLevel}</div>
                     {p.moderationKind === "PROFILE_UPDATE" ? (
                       <ProfileDraftChangesSummary changes={p.profileChanges ?? []} />

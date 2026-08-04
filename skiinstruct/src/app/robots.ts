@@ -10,6 +10,8 @@ const PUBLIC_ALLOW = [
   "/instructors/",
   "/instructor/login",
   "/instructor/apply",
+  "/vakansiya",
+  "/landings/",
   "/gid/",
   "/faq",
   "/llms.txt",

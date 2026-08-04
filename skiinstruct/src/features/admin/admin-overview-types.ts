@@ -98,6 +98,8 @@ export type AdminOverview = {
     phone: string | null;
     inn: string | null;
     certificationLevel: string | null;
+    /** Источник заявки (utm_source / campaign), если пришёл с Авито/Директ/SEO. */
+    acquisitionSource?: string | null;
     moderationKind: "NEW_ACCOUNT" | "PROFILE_UPDATE";
     profileDraftSubmittedAt: string | null;
     /** Только для PROFILE_UPDATE: что изменилось относительно опубликованной анкеты */

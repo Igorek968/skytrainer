@@ -22,6 +22,12 @@ export async function instructorApplyAction(
   const taxStatus =
     taxStatusRaw === "IP" ? ("IP" as const) : taxStatusRaw === "SELF_EMPLOYED" ? ("SELF_EMPLOYED" as const) : undefined;
 
+  const acquisition: Record<string, string> = {};
+  for (const key of ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term"] as const) {
+    const v = String(formData.get(key) ?? "").trim();
+    if (v) acquisition[key] = v.slice(0, 200);
+  }
+
   const created = await createInstructorApplication({
     email: String(formData.get("email") ?? ""),
     password,
@@ -40,6 +46,7 @@ export async function instructorApplyAction(
     taxStatus,
     inn: String(formData.get("inn") ?? ""),
     phone: String(formData.get("phone") ?? ""),
+    acquisition: Object.keys(acquisition).length > 0 ? acquisition : undefined,
   });
 
   if (!created.ok) {

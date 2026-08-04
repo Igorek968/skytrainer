@@ -114,7 +114,10 @@ export default NextAuth(authConfig).auth((req) => {
   /** Карта и заказ — для гостей и для инструкторов/админов «как клиент». */
   const isClientBookingHome = pathname === "/client" || pathname === "/client/";
   const isPublicInstructorBrowse = pathname.startsWith("/instructors/");
-  const isPublicSeoLandings = pathname.startsWith("/gorod/") || pathname.startsWith("/sport/");
+  const isPublicSeoLandings =
+    pathname.startsWith("/gorod/") ||
+    pathname.startsWith("/sport/") ||
+    pathname === "/vakansiya";
   const isPublicTrafficLandings =
     pathname === "/auto" ||
     pathname === "/events" ||

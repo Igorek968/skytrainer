@@ -87,6 +87,8 @@ export async function createInstructorApplication(input: {
   taxStatus?: "SELF_EMPLOYED" | "IP";
   inn?: string;
   phone?: string;
+  /** UTM / источник заявки (Авито, Директ, SEO…). */
+  acquisition?: Record<string, string>;
 }): Promise<CreateInstructorApplicationResult> {
   if (!input.acceptAgencyOffer || !input.acceptPrivacy) {
     return {
@@ -194,6 +196,9 @@ export async function createInstructorApplication(input: {
     lastName,
     middleName: middleName ?? undefined,
     nickname,
+    ...(input.acquisition && Object.keys(input.acquisition).length > 0
+      ? { acquisition: input.acquisition }
+      : {}),
   };
 
   let createdUserId: string;

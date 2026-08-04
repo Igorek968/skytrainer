@@ -14,6 +14,8 @@ import {
   siteAlertTitle,
   unlockSiteAlertSound,
 } from "@/lib/site-alert";
+import { readStoredUtm } from "@/shared/analytics/utm-capture";
+import { YM_GOALS, trackYandexGoal } from "@/shared/analytics/yandex-metrika-client";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
 
@@ -60,8 +62,12 @@ export function InstructorPendingModerationClient() {
     };
   }, []);
 
+  const appliedGoalSent = useRef(false);
+
   useEffect(() => {
-    if (searchParams.get("applied") === "1") {
+    if (searchParams.get("applied") === "1" && !appliedGoalSent.current) {
+      appliedGoalSent.current = true;
+      trackYandexGoal(YM_GOALS.instructorApplySuccess, readStoredUtm());
       toast.success("Заявка отправлена на модерацию. Дождитесь решения администратора.", {
         duration: 10_000,
       });

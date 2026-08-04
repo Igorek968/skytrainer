@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { pageMetadata } from "@/lib/seo";
 import { TrafficLanding } from "@/shared/marketing/traffic-landing";
+import { TrackedHireCta } from "@/shared/marketing/tracked-hire-cta";
 
 export const metadata: Metadata = pageMetadata({
   title: "Инструкторам — заявки и заработок на ТвойТренер.рф",
@@ -11,13 +12,16 @@ export const metadata: Metadata = pageMetadata({
 });
 
 export default function InstructorTrafficLandingPage() {
+  const applyHref =
+    "/instructor/apply?utm_source=site&utm_medium=landing_instructor&utm_campaign=hire";
   return (
     <TrafficLanding
       eyebrow="ТвойТренер.рф · для инструкторов"
       title="Заявки от учеников рядом — выходите на линию и зарабатывайте"
       lead="Зарегистрируйтесь как инструктор: укажите район работы, направления и ставку. Ученики видят, что вы «на линии», и оставляют заявку с онлайн-оплатой."
       ctaLabel="Подать заявку инструктора"
-      ctaHref="/instructor/apply"
+      ctaHref={applyHref}
+      ctaSlot={<TrackedHireCta href={applyHref} label="Подать заявку инструктора" />}
       secondaryCtaLabel="Уже есть аккаунт — войти"
       secondaryCtaHref="/instructor/login"
       bullets={[

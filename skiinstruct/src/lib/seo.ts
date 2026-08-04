@@ -4,6 +4,14 @@ import { LEGAL_ROUTES } from "@/lib/legal";
 import { SEO_CITIES, SEO_SPORTS, cityPath, citySportPath, sportPath } from "@/lib/seo-landings";
 import { getPublicProductName } from "@/shared/lib/product";
 
+/** Публичный телефон карточки Яндекс / контактов (E.164). */
+const ORG_PHONE =
+  process.env.NEXT_PUBLIC_SUPPORT_PHONE?.trim() || "+79103564419";
+
+/** Текст «О компании» — тот же смысл, что в Яндекс Бизнесе. */
+export const ORG_ABOUT =
+  "ТвойТренер.рф — маркетплейс персональных тренировок в Сочи и дальше. Найдите инструктора, тренера или гида на карте, отправьте заявку и оплатите занятие онлайн. Инструкторам — заявки с карты, свой график и прозрачная оплата через ЮKassa. Юридический адрес — точка регистрации компании; занятия проходят у инструкторов по городу.";
+
 export type SeoPage = {
   title: string;
   description: string;
@@ -59,6 +67,12 @@ export const SEO_PAGES = {
     description:
       "Заявка инструктора на ТвойТренер.рф: заполните анкету со ставкой, специализацией и реквизитами. После проверки администратором профиль появится в поиске для клиентов по всей России.",
     path: "/instructor/apply",
+  },
+  vakansiya: {
+    title: "Вакансия инструктора / тренера / гида в Сочи — ТвойТренер.рф",
+    description:
+      "Набор инструкторов, тренеров и гидов на ТвойТренер.рф в Сочи: заявки с карты, свой график, оплата ЮKassa. Анкета онлайн без штатного оклада.",
+    path: "/vakansiya",
   },
   support: {
     title: "Поддержка и помощь пользователям | ТвойТренер.рф",
@@ -120,6 +134,7 @@ export const SEO_PAGES = {
 export const PUBLIC_SITEMAP_PAGES: SeoPage[] = [
   SEO_PAGES.home,
   SEO_PAGES.instructorApply,
+  SEO_PAGES.vakansiya,
   SEO_PAGES.support,
   SEO_PAGES.faq,
   SEO_PAGES.guideChooseInstructor,
@@ -238,10 +253,12 @@ export function siteJsonLd(): Record<string, unknown>[] {
   return [
     {
       "@context": "https://schema.org",
-      "@type": "Organization",
+      "@type": ["Organization", "LocalBusiness"],
       "@id": organizationId,
       name: productName,
       alternateName: ["ТвойТренер", "Твой Тренер", "tvoytrener"],
+      legalName: 'ООО "ТВОЙТРЕНЕР"',
+      description: ORG_ABOUT,
       url: origin,
       logo: {
         "@type": "ImageObject",
@@ -251,11 +268,57 @@ export function siteJsonLd(): Record<string, unknown>[] {
       },
       image: `${origin}/favicon-120.png`,
       email: process.env.NEXT_PUBLIC_SUPPORT_EMAIL?.trim() || "tvoitrenerrf@yandex.ru",
-      sameAs: organizationSameAs(),
-      areaServed: {
-        "@type": "Country",
-        name: "Россия",
+      telephone: ORG_PHONE,
+      address: {
+        "@type": "PostalAddress",
+        streetAddress: "Урожайная улица, 35/2",
+        addressLocality: "Сочи",
+        addressRegion: "Краснодарский край",
+        postalCode: "354375",
+        addressCountry: "RU",
       },
+      geo: {
+        "@type": "GeoCoordinates",
+        latitude: 43.406121,
+        longitude: 39.990464,
+      },
+      openingHoursSpecification: {
+        "@type": "OpeningHoursSpecification",
+        dayOfWeek: [
+          "Monday",
+          "Tuesday",
+          "Wednesday",
+          "Thursday",
+          "Friday",
+          "Saturday",
+          "Sunday",
+        ],
+        opens: "09:00",
+        closes: "21:00",
+      },
+      priceRange: "₽₽",
+      sameAs: organizationSameAs(),
+      areaServed: [
+        { "@type": "City", name: "Сочи" },
+        { "@type": "Country", name: "Россия" },
+      ],
+      contactPoint: [
+        {
+          "@type": "ContactPoint",
+          contactType: "customer support",
+          telephone: ORG_PHONE,
+          email: process.env.NEXT_PUBLIC_SUPPORT_EMAIL?.trim() || "tvoitrenerrf@yandex.ru",
+          availableLanguage: ["Russian"],
+          url: origin,
+        },
+      ],
+      knowsAbout: [
+        "персональные тренировки",
+        "инструктор",
+        "тренер",
+        "гид",
+        "маркетплейс спорта",
+      ],
     },
     {
       "@context": "https://schema.org",
