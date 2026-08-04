@@ -4,30 +4,56 @@ import { SEO_CITIES, SEO_SPORTS, cityPath, citySportPath } from "@/lib/seo-landi
 import { SITE_FAQS, faqPageJsonLd } from "@/lib/seo-schema";
 
 const SOCHI = SEO_CITIES.find((c) => c.slug === "sochi")!;
+const KP = SEO_CITIES.find((c) => c.slug === "krasnaya-polyana")!;
 
-/** Компактный SSR-блок после отзывов: только Сочи + направления. */
+/** Компактный SSR-блок после отзывов: Сочи + КП + направления + отстройка. */
 export function HomeSeoContent() {
-  const faqLd = faqPageJsonLd(SITE_FAQS.slice(0, 3));
+  const faqLd = faqPageJsonLd(SITE_FAQS.slice(0, 4));
   const sports = SEO_SPORTS.slice(0, 8);
 
   return (
     <section
       className="mt-6 border-t border-border/50 pt-4 text-sm"
-      aria-label="Сочи и направления"
+      aria-label="О сервисе, города и направления"
     >
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqLd) }} />
 
+      <div className="mb-4 max-w-3xl space-y-2">
+        <h2 className="text-sm font-semibold text-foreground">Что такое ТвойТренер.рф</h2>
+        <p className="text-muted-foreground leading-relaxed">
+          Маркетплейс живых инструкторов, тренеров и гидов: выбираете специалиста на карте, бронируете персональную
+          тренировку и оплачиваете через ЮKassa. Это не приложение с ИИ и не «сайт, который тренирует» — занятие
+          проводит человек после модерации.
+        </p>
+        <p className="text-[11px] leading-snug text-muted-foreground">
+          <Link href="/gid/chto-takoe-tvoytrener" className="underline-offset-2 hover:underline">
+            Подробнее о сервисе
+          </Link>
+          {" · "}
+          <Link href="/faq" className="underline-offset-2 hover:underline">
+            FAQ
+          </Link>
+          {" · "}
+          <Link href="/gid/kak-vybrat-instruktora" className="underline-offset-2 hover:underline">
+            Как выбрать инструктора
+          </Link>
+        </p>
+      </div>
+
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-1.5">
-          <h2 className="text-sm font-semibold text-foreground">Город</h2>
+          <h2 className="text-sm font-semibold text-foreground">Города и курорты</h2>
           <p>
-            <Link
-              href={cityPath(SOCHI)}
-              className="text-primary underline-offset-2 hover:underline"
-            >
-              Инструкторы в Сочи
+            <Link href={cityPath(SOCHI)} className="text-primary underline-offset-2 hover:underline">
+              Персональный тренер в Сочи
             </Link>
             <span className="text-muted-foreground"> — {SOCHI.regionHint}</span>
+          </p>
+          <p>
+            <Link href={cityPath(KP)} className="text-primary underline-offset-2 hover:underline">
+              Инструктор в Красной Поляне
+            </Link>
+            <span className="text-muted-foreground"> — {KP.regionHint}</span>
           </p>
           <p className="text-[11px] leading-snug text-muted-foreground">
             <Link href="/oferta" className="underline-offset-2 hover:underline">
@@ -68,16 +94,12 @@ export function HomeSeoContent() {
             </li>
           </ul>
           <p className="text-[11px] leading-snug text-muted-foreground">
-            <Link href="/faq" className="underline-offset-2 hover:underline">
-              FAQ
+            <Link href="/instructor/apply" className="underline-offset-2 hover:underline">
+              Стать инструктором
             </Link>
             {" · "}
-            <Link href="/gid/kak-vybrat-instruktora" className="underline-offset-2 hover:underline">
-              Как выбрать инструктора
-            </Link>
-            {" · "}
-            <Link href="/instructor" className="underline-offset-2 hover:underline">
-              Для инструкторов
+            <Link href="/landings/prichodi" className="underline-offset-2 hover:underline">
+              Приходи к нам
             </Link>
           </p>
         </div>

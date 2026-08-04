@@ -8,7 +8,7 @@ export const metadata: Metadata = pageMetadata({
   title: "Инструкторам — заявки и заработок на ТвойТренер.рф",
   description:
     "Подключайтесь как инструктор: заявки от учеников рядом, оплата через ЮKassa, рейтинг и отзывы. Регистрация и модерация на ТвойТренер.рф.",
-  path: "/instructor",
+  path: "/landings/instructor",
 });
 
 export default function InstructorTrafficLandingPage() {

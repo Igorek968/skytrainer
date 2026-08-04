@@ -9,7 +9,7 @@
 | 1 | Кампании MICRO клиенты + инструкторы | Direct `713299925`, `713299932` (модерация) |
 | 2 | Тексты Авито + автоответы + UTM | `scripts/avito-instructor-vacancy-READY.md` |
 | 3 | SEO `/vakansiya` | сайт |
-| 4 | UTM сохраняется в заявке + цели Метрики в коде | apply / pending / лендинги |
+| 4 | UTM first-touch + URL на apply; цели Метрики в коде | apply / pending / лендинги |
 | 5 | CTA «Инструктору» → лендинг найма | шапка сайта |
 | 6 | Бриф карточки Яндекс Бизнес | `scripts/yandex-business-card-BRIEF.md` |
 | 7 | HR-анкета менеджера | `scripts/hr-docs/` |

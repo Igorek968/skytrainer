@@ -183,12 +183,11 @@ export function PrichodiLanding() {
           </ul>
 
           <div className="mt-12 flex flex-col gap-3 sm:flex-row sm:items-center">
-            <Link
+            <TrackedHireCta
               href="/instructor/apply?utm_source=landing&utm_campaign=prichodi"
-              className="inline-flex items-center justify-center rounded-md bg-[var(--prichodi-ink)] px-6 py-3.5 text-sm font-semibold text-white transition hover:opacity-90"
-            >
-              Прийти в команду
-            </Link>
+              label="Прийти в команду"
+              className="rounded-md bg-[var(--prichodi-ink)] px-6 py-3.5 text-sm font-semibold text-white hover:opacity-90"
+            />
             <p className="text-sm text-[var(--prichodi-ink)]/60">
               Самозанятый или ИП · модерация анкеты · выход «на линию»
             </p>

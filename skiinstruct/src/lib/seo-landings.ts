@@ -171,16 +171,20 @@ function priceHint(city?: SeoCity): string {
 
 export function cityLandingCopy(city: SeoCity): LandingCopy {
   return {
-    title: `Инструкторы ${city.prepositional} — найти тренера | ТвойТренер.рф`,
-    description: `Где найти проверенного инструктора ${city.prepositional}? На ТвойТренер.рф: карта, отзывы, онлайн-оплата ЮKassa. ${city.regionHint}. ${priceHint(city)}.`,
-    h1: `Инструкторы и тренеры ${city.prepositional}`,
-    lead: `Ищете инструктора ${city.prepositional}? На ТвойТренер.рф в выдаче только профили после модерации: сравните рейтинг и ставку на карте, отправьте заявку и оплатите занятие онлайн через ЮKassa.`,
+    title: `Персональный тренер ${city.prepositional} — услуги инструктора | ТвойТренер.рф`,
+    description: `Услуги персонального тренера и инструктора ${city.prepositional}: карта живых специалистов, отзывы, ставка ₽/час, запись и оплата ЮKassa. ${city.regionHint}. ${priceHint(city)}. Не ИИ — только люди после модерации.`,
+    h1: `Персональный тренер и инструктор ${city.prepositional}`,
+    lead: `Нужен тренер или инструктор ${city.prepositional}? ТвойТренер.рф — маркетплейс живых специалистов: сравните рейтинг и ставку на карте, отправьте заявку и оплатите персональную тренировку онлайн через ЮKassa.`,
     facts: [
       `${city.name}: ${city.venues || city.regionHint}.`,
-      city.seasonTip || `Персональные тренировки ${city.prepositional} доступны через карту поиска.`,
+      city.seasonTip || `Услуги персонального тренера ${city.prepositional} — через карту поиска ТвойТренер.рф.`,
       `Оплата онлайн, правила возврата — на сайте; ${priceHint(city)}.`,
     ],
     faqs: [
+      {
+        question: `Где заказать услуги тренера ${city.prepositional}?`,
+        answer: `На ТвойТренер.рф откройте карту, укажите точку встречи ${city.prepositional} и вид спорта. Выберите одобренного инструктора, отправьте заявку и оплатите занятие через ЮKassa.`,
+      },
       {
         question: `Как найти инструктора ${city.prepositional}?`,
         answer: `Откройте карту на ТвойТренер.рф, укажите точку встречи ${city.prepositional} и вид спорта. Сравните рейтинг, отзывы и ставку, затем отправьте заявку одобренному инструктору.`,
@@ -199,10 +203,10 @@ export function cityLandingCopy(city: SeoCity): LandingCopy {
 
 export function sportLandingCopy(sport: SeoSport): LandingCopy {
   return {
-    title: `Инструктор: ${sport.name} — поиск тренера | ТвойТренер.рф`,
-    description: `Где найти инструктора по «${sport.name}» в России? ТвойТренер.рф: карта, отзывы, цены и онлайн-запись с оплатой через ЮKassa.`,
-    h1: `Инструкторы: ${sport.name}`,
-    lead: `Нужен инструктор по направлению «${sport.name}»? На ТвойТренер.рф отфильтруйте карту, посмотрите кто онлайн, сравните отзывы и забронируйте занятие с оплатой на платформе.`,
+    title: `Инструктор «${sport.name}» — услуги тренера рядом | ТвойТренер.рф`,
+    description: `Услуги инструктора по «${sport.name}»: найдите живого тренера на карте ТвойТренер.рф, сравните отзывы и цены, запишитесь и оплатите онлайн через ЮKassa. По всей России.`,
+    h1: `Инструкторы и тренеры: ${sport.name}`,
+    lead: `Нужен инструктор по направлению «${sport.name}»? На ТвойТренер.рф отфильтруйте карту, посмотрите кто онлайн, сравните отзывы и забронируйте занятие с оплатой на платформе — это маркетплейс людей, не ИИ-тренер.`,
     facts: [
       `Направление: ${sport.name} — в каталоге маркетплейса ТвойТренер.рф.`,
       "В поиске только инструкторы после модерации; рейтинг строится на отзывах после занятий.",
@@ -223,8 +227,8 @@ export function sportLandingCopy(sport: SeoSport): LandingCopy {
 
 export function citySportLandingCopy(city: SeoCity, sport: SeoSport): LandingCopy {
   return {
-    title: `${sport.name} ${city.prepositional} — инструктор | ТвойТренер.рф`,
-    description: `Где найти инструктора «${sport.name}» ${city.prepositional}? ТвойТренер.рф: карта, отзывы, ${priceHint(city)}, запись и оплата ЮKassa. ${city.regionHint}.`,
+    title: `${sport.name} ${city.prepositional} — инструктор и тренер | ТвойТренер.рф`,
+    description: `Услуги инструктора «${sport.name}» ${city.prepositional}: карта, отзывы, ${priceHint(city)}, запись и оплата ЮKassa. ${city.regionHint}. Живые специалисты после модерации — не ИИ.`,
     h1: `${sport.name} ${city.prepositional}`,
     lead: `Ищете инструктора по «${sport.name}» ${city.prepositional}? На ТвойТренер.рф выберите специалиста на карте, сравните рейтинг и отзывы, отправьте заявку и оплатите персональную тренировку онлайн.`,
     facts: [

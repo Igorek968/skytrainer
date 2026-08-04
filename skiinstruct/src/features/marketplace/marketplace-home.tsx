@@ -41,7 +41,9 @@ export function MarketplaceHome() {
               </Link>
             </Button>
             <Button variant="outline" size="lg" className="min-w-[220px]" asChild>
-              <Link href="/instructor/login">Стать инструктором</Link>
+              <Link href="/instructor/apply?utm_source=site&utm_medium=marketplace&utm_campaign=hire">
+                Стать инструктором
+              </Link>
             </Button>
           </div>
           <p className="mt-4 text-sm text-muted-foreground">

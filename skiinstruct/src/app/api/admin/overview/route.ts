@@ -677,7 +677,7 @@ export async function GET(req: Request) {
               ? (rawDraft.acquisition as Record<string, unknown>)
               : null;
           const acquisitionSource = acq
-            ? [acq.utm_source, acq.utm_medium, acq.utm_campaign, acq.utm_content]
+            ? [acq.utm_source, acq.utm_medium, acq.utm_campaign, acq.utm_content, acq.utm_term]
                 .map((x) => (typeof x === "string" ? x.trim() : ""))
                 .filter(Boolean)
                 .join(" / ") || null

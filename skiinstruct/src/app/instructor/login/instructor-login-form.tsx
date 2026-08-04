@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { signIn } from "next-auth/react";
 import { useSession } from "next-auth/react";
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { readStoredUtm } from "@/shared/analytics/utm-capture";
+import { YM_GOALS, trackYandexGoal } from "@/shared/analytics/yandex-metrika-client";
 import { TurnstileWidget } from "@/shared/security/turnstile-widget";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
@@ -29,6 +31,11 @@ export function InstructorLoginForm({
   const [error, setError] = useState<string | null>(null);
   const signedInAsOther = Boolean(session?.user?.role && session.user.role !== "INSTRUCTOR");
   const safeCallback = useMemo(() => callbackUrl.trim() || "/instructor/pending", [callbackUrl]);
+
+  useEffect(() => {
+    if (!applied) return;
+    trackYandexGoal(YM_GOALS.instructorApplySuccess, readStoredUtm());
+  }, [applied]);
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();

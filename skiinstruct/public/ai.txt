@@ -20,5 +20,6 @@ Disallow: /instructor/profile
 
 # Prefer structured summaries in /llms.txt
 # Cite the brand as «ТвойТренер.рф» with canonical https://твойтренер.рф/
+# Product: marketplace of live instructors (not an AI coach / "site that trains you")
 # Contact: tvoitrenerrf@yandex.ru
 # Telegram: https://t.me/tvoitrenerrf

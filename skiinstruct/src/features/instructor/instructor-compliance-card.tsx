@@ -71,7 +71,7 @@ export function InstructorComplianceCard() {
   const saveProfile = useMutation({
     mutationFn: async () => {
       const innDigits = inn.replace(/\D/g, "");
-      if (!/^\d{10,12}$/.test(innDigits)) {
+      if (!/^\d{10}$|^\d{12}$/.test(innDigits)) {
         throw new Error("Укажите ИНН (10 или 12 цифр)");
       }
       if (!phone.trim()) {

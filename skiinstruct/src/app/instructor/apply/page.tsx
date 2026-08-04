@@ -1,13 +1,15 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 
 import { instructorApplyAction, type InstructorApplyState } from "@/app/actions/instructor-apply";
 import { FORM_DRAFT_KEYS } from "@/lib/form-draft-storage";
 import { LEGAL_ROUTES } from "@/lib/legal";
 import { instructorActivityLabelsAlphabetical } from "@/lib/services/instructor-match";
-import { readStoredUtm } from "@/shared/analytics/utm-capture";
+import { resolveUtmForForm } from "@/shared/analytics/utm-capture";
 import { useFormDraft } from "@/shared/hooks/use-form-draft";
 import { useDisplayNameDuplicateCheck } from "@/shared/hooks/use-display-name-duplicate-check";
 import { YM_GOALS, trackYandexGoal } from "@/shared/analytics/yandex-metrika-client";
@@ -16,7 +18,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/sha
 import { Input } from "@/shared/ui/input";
 import { PasswordInput } from "@/shared/ui/password-input";
 import { Label } from "@/shared/ui/label";
-import { useEffect, useState } from "react";
 
 const initialState: InstructorApplyState = { error: null, success: false };
 
@@ -72,7 +73,8 @@ function SubmitButton({ disabledByName }: { disabledByName: boolean }) {
   );
 }
 
-export default function InstructorApplyPage() {
+function InstructorApplyForm() {
+  const searchParams = useSearchParams();
   const [state, formAction] = useFormState(instructorApplyAction, initialState);
   const { values, setField } = useFormDraft<InstructorApplyDraft>(
     FORM_DRAFT_KEYS.instructorApply,
@@ -82,13 +84,13 @@ export default function InstructorApplyPage() {
   const [utm, setUtm] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    const stored = readStoredUtm();
+    const resolved = resolveUtmForForm(searchParams);
     const next: Record<string, string> = {};
-    for (const [k, v] of Object.entries(stored)) {
+    for (const [k, v] of Object.entries(resolved)) {
       if (v) next[k] = v;
     }
     setUtm(next);
-  }, []);
+  }, [searchParams]);
 
   return (
     <div className="mx-auto max-w-lg space-y-6 py-4">
@@ -374,5 +376,15 @@ export default function InstructorApplyPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function InstructorApplyPage() {
+  return (
+    <Suspense
+      fallback={<div className="mx-auto max-w-lg h-48 animate-pulse rounded-xl bg-muted/60" aria-hidden />}
+    >
+      <InstructorApplyForm />
+    </Suspense>
   );
 }

@@ -16,7 +16,7 @@ const ALLOWED = new Set(["image/jpeg", "image/png", "image/webp", "application/p
 
 const patchSchema = z.object({
   taxStatus: z.enum(["SELF_EMPLOYED", "IP"]).optional(),
-  inn: z.string().regex(/^\d{10,12}$/, "Укажите ИНН (10 или 12 цифр)").optional(),
+  inn: z.string().regex(/^\d{10}$|^\d{12}$/, "Укажите ИНН (10 или 12 цифр)").optional(),
   payoutAccountHint: z.string().min(4).max(64).optional(),
   phone: z
     .string()

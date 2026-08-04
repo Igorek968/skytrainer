@@ -824,10 +824,13 @@ export default function ClientHomePage() {
       <div className="space-y-3">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Найти Тренера, Инструктора, Гида.</h1>
+            <h1 className="text-2xl font-semibold tracking-tight">
+              Маркетплейс живых инструкторов рядом с вами
+            </h1>
             <p className="text-sm text-muted-foreground">
-              Без регистрации: отметьте себя на карте, выберите направление и инструктора. После выбора — согласие с
-              офертой, аккаунт и оплата картой, затем заявка уходит инструктору.
+              Не ИИ и не «сайт, который тренирует» — выбираете реального тренера, инструктора или гида на карте,
+              сравниваете отзывы и ставку, оплачиваете занятие через ЮKassa. Без регистрации на старте: отметьте себя
+              на карте и направление, затем оферта, аккаунт и заявка.
             </p>
           </div>
           {session?.user ? (

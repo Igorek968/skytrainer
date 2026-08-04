@@ -13,8 +13,8 @@ import {
 export const metadata: Metadata = pageMetadata(SEO_PAGES.guideChooseInstructor);
 
 const GUIDE_FAQS = [
-  SITE_FAQS[0],
-  SITE_FAQS[1],
+  SITE_FAQS[2],
+  SITE_FAQS[3],
   {
     question: "На что смотреть в профиле инструктора?",
     answer:

@@ -54,7 +54,9 @@ function RegisterForm() {
 
   useEffect(() => {
     if (asInstructor) {
-      router.replace("/instructor/login");
+      router.replace(
+        "/instructor/apply?utm_source=site&utm_medium=register&utm_campaign=hire",
+      );
     }
   }, [asInstructor, router]);
 
@@ -82,7 +84,9 @@ function RegisterForm() {
             форму — после неё вы попадёте в кабинет инструктора (после одобрения администратором).
           </p>
           <Button asChild variant="accent" className="w-full">
-            <Link href="/instructor/login">Вход для инструктора</Link>
+            <Link href="/instructor/apply?utm_source=site&utm_medium=register&utm_campaign=hire">
+              Подать заявку инструктора
+            </Link>
           </Button>
         </CardContent>
       </Card>
@@ -183,12 +187,15 @@ function RegisterForm() {
           </p>
           <p className="text-center text-sm text-muted-foreground">
             Инструктор?{" "}
-            <Link className="font-medium text-accent underline" href="/instructor/login">
-              Вход инструктора
+            <Link
+              className="font-medium text-accent underline"
+              href="/instructor/apply?utm_source=site&utm_medium=register&utm_campaign=hire"
+            >
+              Подать заявку
             </Link>
             {" · "}
             <Link className="text-accent underline" href="/instructor/login">
-              Вход
+              Войти
             </Link>
           </p>
         </CardContent>
