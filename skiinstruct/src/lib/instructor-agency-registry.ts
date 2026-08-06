@@ -4,6 +4,10 @@ import { LEGAL_ROUTES, legalOperatorName } from "@/lib/legal";
 import { AGENCY_OFFER_VERSION, LEGAL_PLATFORM_URL } from "@/lib/legal-config";
 import { LEGAL_AGENT } from "@/lib/legal-entity";
 import { computeComplianceFlags } from "@/lib/instructor-compliance";
+import {
+  escapeOfferHtml,
+  renderInstructorAgencyOfferBodyHtml,
+} from "@/lib/instructor-agency-offer-html";
 import { prisma } from "@/lib/prisma";
 
 export type AgencyRegistryRow = {
@@ -206,58 +210,107 @@ export async function fetchAgencyCertificateData(userId: string): Promise<Agency
   };
 }
 
+/**
+ * Полностью заполненный агентский договор с инструктором:
+ * реквизиты сторон + полный текст оферты (не ссылка) + блок акцепта.
+ * Нужен для выгрузки в ЮKassa как готовый договор для подписания.
+ */
 export function renderAgencyCertificateHtml(data: AgencyCertificateData): string {
   const i = data.instructor;
   const accepted = formatRuDate(i.agencyOfferAcceptedAt);
   const generated = formatRuDate(data.generatedAt);
+  const offerVersion = i.agencyOfferVersion ?? data.offerVersion;
+  const instructorName = escapeOfferHtml(i.name ?? "—");
+  const instructorEmail = escapeOfferHtml(i.email);
+  const instructorInn = escapeOfferHtml(i.inn ?? "—");
+  const taxLabel = escapeOfferHtml(taxStatusLabel(i.taxStatus));
+  const agentName = escapeOfferHtml(data.agentName);
+  const agentInn = escapeOfferHtml(data.agentInn);
 
   return `<!DOCTYPE html>
 <html lang="ru">
 <head>
   <meta charset="utf-8" />
-  <title>Справка об акцепте агентского договора — ${i.name ?? i.email}</title>
+  <title>Агентский договор с инструктором — ${instructorName}</title>
   <style>
-    body { font-family: Georgia, "Times New Roman", serif; max-width: 720px; margin: 2rem auto; padding: 0 1rem; color: #111; line-height: 1.5; }
-    h1 { font-size: 1.25rem; margin-bottom: 0.25rem; }
+    body { font-family: Georgia, "Times New Roman", serif; max-width: 780px; margin: 2rem auto; padding: 0 1rem 3rem; color: #111; line-height: 1.5; font-size: 11pt; }
+    h1 { font-size: 1.3rem; margin: 0 0 0.35rem; text-align: center; }
+    h2 { font-size: 1.05rem; margin: 1.35rem 0 0.5rem; }
+    .meta { text-align: center; color: #444; font-size: 0.9rem; margin-bottom: 1.25rem; }
     .muted { color: #444; font-size: 0.9rem; }
-    table { width: 100%; border-collapse: collapse; margin: 1.25rem 0; font-size: 0.95rem; }
-    th, td { border: 1px solid #ccc; padding: 0.5rem 0.65rem; text-align: left; vertical-align: top; }
-    th { width: 42%; background: #f7f7f7; font-weight: 600; }
-    p { margin: 0.75rem 0; }
-    @media print { body { margin: 0; } }
+    table { width: 100%; border-collapse: collapse; margin: 1rem 0 1.25rem; font-size: 0.95rem; }
+    th, td { border: 1px solid #ccc; padding: 0.45rem 0.6rem; text-align: left; vertical-align: top; }
+    th { width: 40%; background: #f7f7f7; font-weight: 600; }
+    p, li { margin: 0.45rem 0; }
+    ul { margin: 0.35rem 0 0.75rem 1.25rem; padding: 0; }
+    .sig { margin-top: 1.75rem; border-top: 1px solid #ccc; padding-top: 1rem; }
+    .sig-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-top: 1rem; }
+    @media print {
+      body { margin: 0; padding: 0.5rem; }
+      a { color: #000; text-decoration: none; }
+    }
+    @media (max-width: 640px) { .sig-grid { grid-template-columns: 1fr; } }
   </style>
 </head>
 <body>
-  <h1>Справка об акцепте агентского договора (оферты)</h1>
-  <p class="muted">Сформировано платформой ${data.agentName} · ${generated}</p>
-
-  <p>
-    Настоящая справка подтверждает, что инструктор, указанный ниже, акцептовал публичную оферту
-    агентского договора, размещённую по адресу <a href="${data.offerUrl}">${data.offerUrl}</a>
-    (версия ${data.offerVersion}), и прошёл проверку документов в информационной системе платформы.
+  <h1>АГЕНТСКИЙ ДОГОВОР<br />(публичная оферта)<br />с инструктором</h1>
+  <p class="meta">
+    Версия оферты: ${escapeOfferHtml(offerVersion)} · Сформировано ${agentName} · ${escapeOfferHtml(generated)}
   </p>
 
+  <p>
+    Настоящий документ является полностью заполненным экземпляром агентского договора
+    (публичной оферты) между Агентом и Инструктором (Принципалом). Текст договора приведён ниже
+    целиком; ссылка на сайт не заменяет текст условий.
+  </p>
+
+  <h2>Стороны договора</h2>
   <table>
-    <tr><th>Агент (оператор платформы)</th><td>${data.agentName}, ИНН ${data.agentInn}</td></tr>
-    <tr><th>Инструктор (принципал)</th><td>${i.name ?? "—"}</td></tr>
-    <tr><th>Email</th><td>${i.email}</td></tr>
-    <tr><th>ИНН инструктора</th><td>${i.inn ?? "—"}</td></tr>
-    <tr><th>Налоговый статус</th><td>${taxStatusLabel(i.taxStatus)}</td></tr>
-    <tr><th>Дата и время акцепта оферты</th><td>${accepted}</td></tr>
-    <tr><th>Версия оферты</th><td>${i.agencyOfferVersion ?? data.offerVersion}</td></tr>
-    <tr><th>Статус анкеты</th><td>${i.verificationStatus}</td></tr>
+    <tr><th>Агент (оператор платформы)</th><td>${agentName}, ИНН ${agentInn}</td></tr>
+    <tr><th>Инструктор (принципал)</th><td>${instructorName}</td></tr>
+    <tr><th>Email инструктора</th><td>${instructorEmail}</td></tr>
+    <tr><th>ИНН инструктора</th><td>${instructorInn}</td></tr>
+    <tr><th>Налоговый статус</th><td>${taxLabel}</td></tr>
+    <tr><th>Дата и время акцепта оферты</th><td>${escapeOfferHtml(accepted)}</td></tr>
+    <tr><th>Версия оферты при акцепте</th><td>${escapeOfferHtml(offerVersion)}</td></tr>
+    <tr><th>Статус анкеты на платформе</th><td>${escapeOfferHtml(i.verificationStatus)}</td></tr>
     <tr><th>Документ НПД/ИП</th><td>${yesNo(i.taxDocumentApproved)}</td></tr>
     <tr><th>Страхование</th><td>${yesNo(i.insuranceApproved)}</td></tr>
     <tr><th>Допуск к оплаченным заявкам</th><td>${yesNo(i.canAcceptPaidOrders)}</td></tr>
-    <tr><th>Завершённых занятий</th><td>${i.completedLessons}</td></tr>
-    <tr><th>Оплаченных заказов</th><td>${i.paidOrders}</td></tr>
   </table>
 
-  <p class="muted">
-    Акцепт оферты зафиксирован электронно при регистрации или в личном кабинете инструктора.
-    Документ сформирован автоматически на основании данных базы платформы и не требует подписи инструктора на бумаге
-    при использовании модели публичной оферты (ст. 437–438 ГК РФ).
-  </p>
+  <h2>Условия договора (текст публичной оферты)</h2>
+  ${renderInstructorAgencyOfferBodyHtml()}
+
+  <div class="sig">
+    <h2>Акцепт и заключение договора</h2>
+    <p>
+      Договор заключён в электронной форме путём акцепта настоящей публичной оферты при регистрации
+      Инструктора на Платформе (ст. 437, 438 ГК РФ). Отдельная бумажная подпись сторон не требуется.
+      Факт акцепта зафиксирован в информационной системе платформы.
+    </p>
+    <div class="sig-grid">
+      <div>
+        <p><strong>Агент (Исполнитель):</strong></p>
+        <p>${agentName}<br />ИНН ${agentInn}</p>
+        <p class="muted">Оферта размещена и действует на Платформе</p>
+      </div>
+      <div>
+        <p><strong>Принципал (Инструктор):</strong></p>
+        <p>
+          ${instructorName}<br />
+          ИНН ${instructorInn}<br />
+          Email: ${instructorEmail}<br />
+          Налоговый статус: ${taxLabel}<br />
+          Акцепт: ${escapeOfferHtml(accepted)} · версия ${escapeOfferHtml(offerVersion)}
+        </p>
+      </div>
+    </div>
+    <p class="muted" style="margin-top:1.25rem;">
+      Документ сформирован автоматически на основании данных базы платформы и готов для предоставления
+      платёжному партнёру (ЮKassa) как экземпляр договора с конкретным инструктором.
+    </p>
+  </div>
 </body>
 </html>`;
 }

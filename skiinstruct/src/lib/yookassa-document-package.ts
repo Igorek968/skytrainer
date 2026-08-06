@@ -5,6 +5,10 @@ import {
   renderAgencyCertificateHtml,
   type AgencyRegistryRow,
 } from "@/lib/instructor-agency-registry";
+import {
+  escapeOfferHtml,
+  renderInstructorAgencyOfferBodyHtml,
+} from "@/lib/instructor-agency-offer-html";
 import { LEGAL_ROUTES, legalOperatorName } from "@/lib/legal";
 import {
   AGENCY_OFFER_VERSION,
@@ -13,27 +17,16 @@ import {
   CANCEL_CLIENT_PARTIAL_REFUND_HOURS,
   CLIENT_OFFER_VERSION,
   EVENT_CANCEL_FULL_REFUND_HOURS,
+  formatLegalEditionDate,
   INSTRUCTOR_CANCEL_NOTICE_HOURS,
   INSTRUCTOR_LATE_GRACE_MINUTES,
   INSTRUCTOR_NO_SHOW_PENALTY_PERCENT,
   LEGAL_PLATFORM_URL,
-  NPD_RECEIPT_DEADLINE_HOURS,
-  PAYOUT_MIN_WITHDRAWAL_RUB,
   PLATFORM_FEE_PERCENT,
-  REFERRAL_COOKIE_MAX_AGE_DAYS,
-  REFERRAL_MAX_ORDERS_PER_CLIENT,
-  REFERRAL_REWARD_RUB,
 } from "@/lib/legal-config";
 import { LEGAL_AGENT, LEGAL_SITE_URL, legalRegisteredAddress } from "@/lib/legal-entity";
-import { formatPayoutWindowHint } from "@/lib/services/order-payout";
 
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
+const escapeHtml = escapeOfferHtml;
 
 function formatRuDate(iso: string | null): string {
   if (!iso) return "—";
@@ -132,21 +125,22 @@ export function renderYookassaCoverLetterHtml(generatedAt: string): string {
   </p>
   <p>
     Сотрудничество с инструкторами оформлено <strong>агентским договором в форме публичной оферты</strong>
-    (ст. 437–438 ГК РФ): ${escapeHtml(site)}${LEGAL_ROUTES.ofertaInstructor}. Акцепт фиксируется электронно
-    при регистрации в сервисе (дата и версия — в реестре и справках, приложенных к пакету).
+    (ст. 437–438 ГК РФ). В пакете приложены: полный текст оферты и <strong>полностью заполненные
+    экземпляры договора</strong> по каждому инструктору (реквизиты сторон + текст условий + дата акцепта) —
+    готовые для подписания / подтверждения сотрудничества с исполнителем.
   </p>
   <p>
-    Для клиентов действует договор бронирования услуг (публичная оферта) с агентской моделью расчётов:
-    ${escapeHtml(site)}${LEGAL_ROUTES.oferta}. Чек на обучение выставляет Инструктор (НПД/ИП).
+    Для клиентов действует договор бронирования услуг (публичная оферта) с агентской моделью расчётов.
+    Чек на обучение выставляет Инструктор (НПД/ИП).
   </p>
 
   <h2>5. Состав пакета</h2>
   <ol>
-    <li>Агентский договор (публичная оферта для инструкторов)</li>
+    <li>Агентский договор (полный текст публичной оферты для инструкторов)</li>
     <li>Договор бронирования услуг (оферта для клиентов)</li>
     <li>Реквизиты Агента (ООО)</li>
     <li>Реестр инструкторов, акцептовавших агентскую оферту</li>
-    <li>Справки об акцепте агентского договора по каждому инструктору из реестра</li>
+    <li>Заполненные агентские договоры по каждому инструктору (текст оферты + данные сторон)</li>
   </ol>
 
   <p>Готовы предоставить дополнительные материалы по запросу.</p>
@@ -256,70 +250,25 @@ export function renderClientOfferHtml(): string {
 }
 
 export function renderInstructorAgencyOfferHtml(): string {
-  const agent = LEGAL_AGENT;
-  const site = LEGAL_SITE_URL;
-  const payoutHint = formatPayoutWindowHint();
-
   const body = `
   <h1>Агентский договор (публичная оферта) для инструктора</h1>
-  <p class="muted">Редакция ${AGENCY_OFFER_VERSION.replace(/-/g, ".")}</p>
-  <p>
-    Публичная оферта (ст. 437 ГК РФ) для самозанятых и ИП (далее — «Инструктор», «Принципал»).
-    Акцепт — регистрация в сервисе с отметкой о согласии.
-  </p>
-
-  <h2>1. Термины</h2>
-  <ul>
-    <li><strong>Агент</strong> — ${escapeHtml(agent.shortName)} (ИНН ${escapeHtml(agent.inn)}), действует за вознаграждение в интересах Инструктора.</li>
-    <li><strong>Клиент</strong> — пользователь, бронирующий занятие через платформу.</li>
-    <li><strong>Услуга</strong> — занятие, оказываемое Инструктором лично. Договор на услугу — между Клиентом и Инструктором.</li>
-    <li><strong>Комиссия Агента</strong> — ${PLATFORM_FEE_PERCENT}% от стоимости услуги.</li>
-  </ul>
-
-  <h2>2. Предмет</h2>
-  <p>
-    Агент предоставляет платформу, привлекает Клиентов, принимает оплату и перечисляет Инструктору сумму за вычетом Комиссии.
-    Агент не оказывает услуги Клиентам самостоятельно. Отношения не являются трудовыми.
-  </p>
-
-  <h2>3. Регистрация и документы</h2>
-  <ul>
-    <li>Подтверждение статуса НПД или ИП, ИНН, справка из «Мой налог» или выписка ИП.</li>
-    <li>Договор страхования ответственности — загрузка в личном кабинете.</li>
-    <li>Без одобрения документов приём оплаченных заявок недоступен.</li>
-  </ul>
-
-  <h2>4. Расчёты и выплаты</h2>
-  <ul>
-    <li>Оплата Клиентом — только через платформу (ЮKassa).</li>
-    <li>Комиссия Агента: ${PLATFORM_FEE_PERCENT}% (удерживается при расчётах).</li>
-    <li>Выплата Инструктору: ${escapeHtml(payoutHint)}.</li>
-    <li>Минимальная сумма к выводу: ${PAYOUT_MIN_WITHDRAWAL_RUB} ₽.</li>
-    <li>Чек в «Мой налог» (или ККТ) — в течение ${NPD_RECEIPT_DEADLINE_HOURS} ч после занятия.</li>
-  </ul>
-
-  <h2>5. Отмена и опоздание</h2>
-  <ul>
-    <li>Отмена Инструктором не позднее ${INSTRUCTOR_CANCEL_NOTICE_HOURS} ч — полный возврат Клиенту без штрафа.</li>
-    <li>Отмена менее чем за ${INSTRUCTOR_CANCEL_NOTICE_HOURS} ч или неявка — полный возврат Клиенту и штраф ${INSTRUCTOR_NO_SHOW_PENALTY_PERCENT}% в пользу платформы.</li>
-    <li>Опоздание более ${INSTRUCTOR_LATE_GRACE_MINUTES} мин — Клиент вправе запросить полный возврат.</li>
-  </ul>
-
-  <h2>6. Ответственность и риски</h2>
-  <p>
-    Инструктор лично оказывает услугу и отвечает за безопасность занятия. Агент не несёт ответственности за травмы
-    и вред при занятиях. Страхование (раздел 3) не переводит ответственность на Агента.
-  </p>
-
-  <h2>7–9. Реферальная программа, ПДн, реквизиты</h2>
-  <p>
-    Реферальная программа — на условиях клиентской оферты. Обработка ПДн — по политике на Сайте.
+  <p class="muted">
+    Версия ${escapeHtml(AGENCY_OFFER_VERSION)} · Редакция от ${escapeHtml(formatLegalEditionDate())}
   </p>
   <p>
-    <strong>Агент:</strong> ${escapeHtml(agent.fullName)}, ИНН ${escapeHtml(agent.inn)}, ОГРН ${escapeHtml(agent.ogrn)},
-    р/с ${escapeHtml(agent.bankAccount)}, ${escapeHtml(agent.bankName)}, БИК ${escapeHtml(agent.bik)}.
+    Ниже приведён полный текст публичной оферты. Заполненные экземпляры договора с конкретными инструкторами
+    (реквизиты сторон + тот же текст условий + дата акцепта) — в разделе «Договоры с инструкторами».
   </p>
-  <p class="muted">Полный текст на Сайте: ${escapeHtml(site)}${LEGAL_ROUTES.ofertaInstructor}</p>
+  ${renderInstructorAgencyOfferBodyHtml()}
+  <div class="sig" style="margin-top:1.5rem;border-top:1px solid #ccc;padding-top:1rem;">
+    <p><strong>Порядок заключения договора</strong></p>
+    <p>
+      Договор заключается в электронной форме путём акцепта настоящей публичной оферты при регистрации
+      Инструктора на Платформе (ст. 437, 438 ГК РФ). Отдельная бумажная подпись сторон не требуется.
+      Факт акцепта фиксируется в системе Платформы (дата, версия оферты) и отражается в заполненном
+      экземпляре договора с каждым инструктором.
+    </p>
+  </div>
   `;
 
   return wrapHtmlDocument("Агентский договор для инструктора", body);
@@ -429,7 +378,7 @@ export async function buildYookassaPackageFiles(
           .replace(/[^\p{L}\p{N}._-]+/gu, "_")
           .slice(0, 48) || row.userId.slice(0, 8);
       files.push({
-        name: `05-spravki/${safe}-${row.userId.slice(0, 8)}.html`,
+        name: `05-dogovory/${safe}-${row.userId.slice(0, 8)}.html`,
         content: renderAgencyCertificateHtml(data),
         mimeType: "text/html; charset=utf-8",
       });
@@ -445,11 +394,11 @@ export async function buildYookassaPackageFiles(
     <strong>Содержание пакета для ЮKassa</strong>
     <ol>
       <li>Сопроводительное письмо</li>
-      <li>Агентский договор (оферта для инструкторов)</li>
+      <li>Агентский договор (полный текст оферты для инструкторов)</li>
       <li>Договор-оферта для клиентов</li>
       <li>Реквизиты Агента</li>
       <li>Реестр инструкторов</li>
-      ${includeCertificates ? "<li>Справки об акцепте по каждому инструктору</li>" : ""}
+      ${includeCertificates ? "<li>Заполненные договоры с каждым инструктором</li>" : ""}
     </ol>
   </div>
   <section>${renderYookassaCoverLetterHtml(generatedAt).match(/<body[^>]*>([\s\S]*)<\/body>/i)?.[1] ?? ""}</section>
@@ -488,16 +437,16 @@ export async function buildYookassaPackageFiles(
 Файлы:
 - yookassa-paket-*.html — всё в одном файле (откройте в браузере → Печать → Сохранить как PDF)
 - 00-soprovoditelnoe-pismo-*.html — сопроводительное письмо
-- 01-agentskiy-dogovor-oferta-*.html — агентский договор для инструкторов
+- 01-agentskiy-dogovor-oferta-*.html — полный текст агентской оферты для инструкторов
 - 02-dogovor-oferta-klient-*.html — оферта для клиентов
 - 03-rekvizity-*.html — реквизиты ООО (Агента)
 - 04-reestr-instruktorov-*.csv — реестр акцептов (Excel / Google Sheets)
-- 05-spravki/*.html — справка об акцепте по каждому инструктору
+- 05-dogovory/*.html — заполненный агентский договор с каждым инструктором (реквизиты + полный текст оферты + акцепт)
 
 Отправка в поддержку ЮKassa:
 1. Приложите PDF из yookassa-paket (или отдельные PDF по разделам)
 2. Приложите CSV-реестр
-3. В тексте обращения укажите, что исполнители — инструкторы НПД/ИП по агентскому договору-оферте
+3. В тексте обращения укажите, что исполнители — инструкторы НПД/ИП по заполненным агентским договорам (оферта с акцептом)
 `;
 
   files.push({

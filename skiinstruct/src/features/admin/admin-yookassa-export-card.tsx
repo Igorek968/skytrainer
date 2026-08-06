@@ -71,8 +71,8 @@ export function AdminYookassaExportCard() {
       <CardHeader>
         <CardTitle>Пакет документов для ЮKassa</CardTitle>
         <CardDescription>
-          Скачайте на проде ({LEGAL_PLATFORM_URL}): сопроводительное письмо, оферты, реквизиты, реестр инструкторов и
-          справки об акцепте. Данные берутся из текущей базы.
+          Скачайте на проде ({LEGAL_PLATFORM_URL}): сопроводительное письмо, оферты, реквизиты, реестр и
+          заполненные договоры с каждым инструктором (полный текст оферты + данные сторон). Данные из текущей базы.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -91,7 +91,7 @@ export function AdminYookassaExportCard() {
               checked={noCertificates}
               onChange={(e) => setNoCertificates(e.target.checked)}
             />
-            <span>Без справок по каждому инструктору (короче архив)</span>
+            <span>Без договоров по каждому инструктору (короче архив)</span>
           </label>
         </div>
 
@@ -127,8 +127,8 @@ export function AdminYookassaExportCard() {
             </li>
             <li>Приложите PDF и CSV-реестр к обращению в поддержку.</li>
             <li>
-              В тексте укажите: исполнители — инструкторы НПД/ИП; ООО «ТВОЙТРЕНЕР» — оператор платформы; договор с инструкторами —
-              публичная оферта на /oferta-instructor.
+              В тексте укажите: исполнители — инструкторы НПД/ИП; ООО «ТВОЙТРЕНЕР» — оператор платформы; с каждым
+              инструктором — заполненный агентский договор (полный текст оферты + акцепт).
             </li>
           </ol>
         </div>

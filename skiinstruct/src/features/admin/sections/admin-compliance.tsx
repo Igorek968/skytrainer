@@ -46,7 +46,7 @@ export function AdminComplianceSection() {
         <CardHeader>
           <CardTitle>Документы для проверяющих</CardTitle>
           <CardDescription>
-            Публичная оферта агентского договора и реквизиты агента — для приложения к пакету документов.
+            Публичная оферта и заполненные договоры с инструкторами — для пакета ЮKassa.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-2 text-sm">
@@ -183,7 +183,7 @@ export function AdminComplianceSection() {
                   <th className="py-2 pr-3 font-medium">Страх.</th>
                   <th className="py-2 pr-3 font-medium">Допуск</th>
                   <th className="py-2 pr-3 font-medium">Занятий</th>
-                  <th className="py-2 font-medium">Справка</th>
+                  <th className="py-2 font-medium">Договор</th>
                 </tr>
               </thead>
               <tbody>
