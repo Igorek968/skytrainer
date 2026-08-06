@@ -5,6 +5,7 @@ import { useState } from "react";
 
 import {
   useAdminAgencyRegistry,
+  useAdminClientRegistry,
   useAdminComplianceReviewMutation,
   useAdminPendingCompliance,
 } from "@/features/admin/use-admin-compliance";
@@ -25,16 +26,19 @@ function formatDt(iso: string | null): string {
 
 export function AdminComplianceSection() {
   const [activeOnly, setActiveOnly] = useState(false);
+  const [clientsPaidOnly, setClientsPaidOnly] = useState(true);
   const [rejectDoc, setRejectDoc] = useState<{ userId: string; documentId: string; label: string } | null>(
     null,
   );
   const [rejectNote, setRejectNote] = useState("");
 
   const registry = useAdminAgencyRegistry(activeOnly);
+  const clientRegistry = useAdminClientRegistry(clientsPaidOnly);
   const pending = useAdminPendingCompliance();
   const review = useAdminComplianceReviewMutation();
 
   const rows = registry.data?.rows ?? [];
+  const clientRows = clientRegistry.data?.rows ?? [];
   const pendingItems = pending.data?.items ?? [];
 
   return (
@@ -46,7 +50,7 @@ export function AdminComplianceSection() {
         <CardHeader>
           <CardTitle>Документы для проверяющих</CardTitle>
           <CardDescription>
-            Публичная оферта и заполненные договоры с инструкторами — для пакета ЮKassa.
+            Публичные оферты и заполненные договоры с инструкторами и клиентами — для пакета ЮKassa.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-2 text-sm">
@@ -56,13 +60,23 @@ export function AdminComplianceSection() {
             </Link>
           </Button>
           <Button type="button" variant="outline" size="sm" asChild>
+            <Link href={LEGAL_ROUTES.oferta} target="_blank" rel="noopener noreferrer">
+              Договор с клиентом (оферта)
+            </Link>
+          </Button>
+          <Button type="button" variant="outline" size="sm" asChild>
             <Link href={LEGAL_ROUTES.requisites} target="_blank" rel="noopener noreferrer">
               Реквизиты агента
             </Link>
           </Button>
           <Button type="button" variant="secondary" size="sm" asChild>
             <a href="/api/admin/agency-registry?format=csv" download>
-              Скачать реестр (CSV)
+              CSV инструкторов
+            </a>
+          </Button>
+          <Button type="button" variant="secondary" size="sm" asChild>
+            <a href="/api/admin/client-registry?format=csv" download>
+              CSV клиентов
             </a>
           </Button>
           <Button type="button" variant="secondary" size="sm" asChild>
@@ -219,6 +233,89 @@ export function AdminComplianceSection() {
                       <Button type="button" size="sm" variant="outline" asChild>
                         <Link
                           href={`/api/admin/agency-registry/${r.userId}/certificate`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          PDF/печать
+                        </Link>
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <CardTitle>Договоры с пользователями (клиентами)</CardTitle>
+            <CardDescription>
+              Акцепт договора бронирования при регистрации. Заполненный экземпляр — для ЮKassa. Всего:{" "}
+              {clientRows.length}
+            </CardDescription>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={clientsPaidOnly}
+                onChange={(e) => setClientsPaidOnly(e.target.checked)}
+              />
+              Только с оплатами
+            </label>
+            <Button type="button" size="sm" variant="secondary" asChild>
+              <a
+                href={`/api/admin/client-registry?format=csv${clientsPaidOnly ? "&paidOnly=1" : ""}`}
+                download
+              >
+                CSV
+              </a>
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="overflow-x-auto">
+          {clientRegistry.isLoading ? (
+            <p className="text-sm text-muted-foreground">Загрузка…</p>
+          ) : clientRows.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              {clientsPaidOnly ? "Нет клиентов с оплаченной активностью" : "Нет клиентов"}
+            </p>
+          ) : (
+            <table className="w-full min-w-[880px] text-left text-sm">
+              <thead>
+                <tr className="border-b text-xs text-muted-foreground">
+                  <th className="py-2 pr-3 font-medium">Клиент</th>
+                  <th className="py-2 pr-3 font-medium">Телефон</th>
+                  <th className="py-2 pr-3 font-medium">Акцепт оферты</th>
+                  <th className="py-2 pr-3 font-medium">Заказы</th>
+                  <th className="py-2 pr-3 font-medium">Мероприятия</th>
+                  <th className="py-2 font-medium">Договор</th>
+                </tr>
+              </thead>
+              <tbody>
+                {clientRows.map((r) => (
+                  <tr key={r.userId} className="border-b border-border/60">
+                    <td className="py-2 pr-3">
+                      <div className="font-medium">{r.name ?? "—"}</div>
+                      <div className="text-xs text-muted-foreground">{r.email}</div>
+                    </td>
+                    <td className="py-2 pr-3">{r.phone ?? "—"}</td>
+                    <td className="py-2 pr-3">
+                      <div>{formatDt(r.offerAcceptedAt)}</div>
+                      <div className="text-xs text-muted-foreground">v{r.offerVersion}</div>
+                    </td>
+                    <td className="py-2 pr-3">
+                      опл. {r.paidOrders}
+                      <span className="text-xs text-muted-foreground"> / заверш. {r.completedOrders}</span>
+                    </td>
+                    <td className="py-2 pr-3">{r.paidEventRegistrations}</td>
+                    <td className="py-2">
+                      <Button type="button" size="sm" variant="outline" asChild>
+                        <Link
+                          href={`/api/admin/client-registry/${r.userId}/certificate`}
                           target="_blank"
                           rel="noopener noreferrer"
                         >

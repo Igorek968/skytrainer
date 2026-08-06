@@ -1,3 +1,10 @@
+import { renderClientOfferBodyHtml } from "@/lib/client-booking-offer-html";
+import {
+  clientBookingRegistryToCsv,
+  fetchClientBookingCertificateData,
+  fetchClientBookingRegistryRows,
+  renderClientBookingCertificateHtml,
+} from "@/lib/client-booking-registry";
 import {
   agencyRegistryToCsv,
   fetchAgencyCertificateData,
@@ -9,18 +16,10 @@ import {
   escapeOfferHtml,
   renderInstructorAgencyOfferBodyHtml,
 } from "@/lib/instructor-agency-offer-html";
-import { LEGAL_ROUTES, legalOperatorName } from "@/lib/legal";
+import { legalOperatorName } from "@/lib/legal";
 import {
   AGENCY_OFFER_VERSION,
-  CANCEL_CLIENT_FULL_REFUND_HOURS,
-  CANCEL_CLIENT_PARTIAL_PERCENT,
-  CANCEL_CLIENT_PARTIAL_REFUND_HOURS,
-  CLIENT_OFFER_VERSION,
-  EVENT_CANCEL_FULL_REFUND_HOURS,
   formatLegalEditionDate,
-  INSTRUCTOR_CANCEL_NOTICE_HOURS,
-  INSTRUCTOR_LATE_GRACE_MINUTES,
-  INSTRUCTOR_NO_SHOW_PENALTY_PERCENT,
   LEGAL_PLATFORM_URL,
   PLATFORM_FEE_PERCENT,
 } from "@/lib/legal-config";
@@ -131,7 +130,8 @@ export function renderYookassaCoverLetterHtml(generatedAt: string): string {
   </p>
   <p>
     Для клиентов действует договор бронирования услуг (публичная оферта) с агентской моделью расчётов.
-    Чек на обучение выставляет Инструктор (НПД/ИП).
+    В пакете — полный текст оферты, реестр клиентов и <strong>заполненные экземпляры договора</strong>
+    с клиентами (реквизиты сторон + текст условий + дата акцепта). Чек на обучение выставляет Инструктор (НПД/ИП).
   </p>
 
   <h2>5. Состав пакета</h2>
@@ -140,7 +140,9 @@ export function renderYookassaCoverLetterHtml(generatedAt: string): string {
     <li>Договор бронирования услуг (оферта для клиентов)</li>
     <li>Реквизиты Агента (ООО)</li>
     <li>Реестр инструкторов, акцептовавших агентскую оферту</li>
-    <li>Заполненные агентские договоры по каждому инструктору (текст оферты + данные сторон)</li>
+    <li>Реестр клиентов, акцептовавших договор бронирования</li>
+    <li>Заполненные агентские договоры по каждому инструктору</li>
+    <li>Заполненные договоры бронирования по клиентам</li>
   </ol>
 
   <p>Готовы предоставить дополнительные материалы по запросу.</p>
@@ -176,76 +178,10 @@ export function renderRequisitesHtml(): string {
 }
 
 export function renderClientOfferHtml(): string {
-  const agent = LEGAL_AGENT;
-  const site = LEGAL_SITE_URL;
-
   const body = `
   <h1>Договор бронирования услуг (публичная оферта)</h1>
-  <p class="muted">Редакция от ${CLIENT_OFFER_VERSION.replace(/-/g, ".")}</p>
-  <p>
-    <strong>${escapeHtml(agent.fullName)}</strong> (ИНН ${escapeHtml(agent.inn)}, КПП ${escapeHtml(agent.kpp)},
-    ОГРН ${escapeHtml(agent.ogrn)}) — Исполнитель (Агент), оператор Платформы
-    <a href="${escapeHtml(site)}">${escapeHtml(site)}</a>.
-  </p>
-
-  <h2>1. Термины</h2>
-  <p>
-    <strong>Исполнитель / Агент</strong> — ${escapeHtml(agent.shortName)}: поиск Инструктора, бронирование, приём оплаты;
-    не является исполнителем услуг обучения.<br />
-    <strong>Инструктор</strong> — самозанятый (НПД) или ИП, оказывает занятие лично.<br />
-    <strong>Клиент</strong> — физическое лицо, бронирующее занятие.<br />
-    <strong>Комиссия Агента</strong> — ${PLATFORM_FEE_PERCENT}% от стоимости занятия / участия в мероприятии.<br />
-    <strong>Услуга инструктора</strong> — обучение и проведение занятия; договор на неё — между Клиентом и Инструктором.
-  </p>
-
-  <h2>2. Предмет и акцепт</h2>
-  <p>
-    2.1. Агент оказывает услугу по бронированию и приёму оплаты; фактический исполнитель обучения — Инструктор.<br />
-    2.2. Акцепт — оплата / «Оплатить» / «Заказать» / «Записаться» и согласие с Офертой, Политикой ПДн и Правилами возврата.<br />
-    2.3. Чек на обучение выставляет Инструктор (НПД/ИП). Подтверждение оплаты через ЮKassa — у Агента.
-  </p>
-
-  <h2>3. Стоимость и оплата</h2>
-  <p>
-    Итоговая сумма включает вознаграждение Инструктору и Комиссию Агента (${PLATFORM_FEE_PERCENT}%).
-    Оплата — в рублях через ЮKassa на р/с Агента ${escapeHtml(agent.bankAccount)} в ${escapeHtml(agent.bankName)},
-    БИК ${escapeHtml(agent.bik)}.
-  </p>
-
-  <h2>4. Возвраты (отмена клиентом)</h2>
-  <table>
-    <tr><th>Срок до занятия</th><th>Возврат</th></tr>
-    <tr><td>Более ${CANCEL_CLIENT_FULL_REFUND_HOURS} ч</td><td>100%</td></tr>
-    <tr><td>От ${CANCEL_CLIENT_PARTIAL_REFUND_HOURS} до ${CANCEL_CLIENT_FULL_REFUND_HOURS} ч</td><td>${CANCEL_CLIENT_PARTIAL_PERCENT}%</td></tr>
-    <tr><td>Менее ${CANCEL_CLIENT_PARTIAL_REFUND_HOURS} ч</td><td>Без возврата</td></tr>
-  </table>
-  <p>
-    Отмена инструктором — 100% клиенту; менее чем за ${INSTRUCTOR_CANCEL_NOTICE_HOURS} ч или неявка —
-    также штраф ${INSTRUCTOR_NO_SHOW_PENALTY_PERCENT}% с инструктора. Опоздание инструктора более
-    ${INSTRUCTOR_LATE_GRACE_MINUTES} мин от ETA — право на полный возврат.
-    Подробности: ${escapeHtml(site)}${LEGAL_ROUTES.returns}.
-  </p>
-
-  <h2>5. Мероприятия</h2>
-  <p>
-    Комиссия Агента ${PLATFORM_FEE_PERCENT}%. Отмена клиентом за ${EVENT_CANCEL_FULL_REFUND_HOURS} ч и более — 100%;
-    позже — без возврата. Отмена инструктором — полный возврат участникам.
-  </p>
-
-  <h2>6. Ответственность</h2>
-  <p>
-    Платформа — информационная площадка. Агент не отвечает за качество занятия и травмы при оказании Услуг Инструктора.
-    Ответственность за занятие — у Инструктора; требуется страхование (см. оферту инструктора).
-  </p>
-
-  <h2>7. Реквизиты Агента</h2>
-  <p>
-    ${escapeHtml(agent.fullName)}, ИНН ${escapeHtml(agent.inn)}, КПП ${escapeHtml(agent.kpp)},
-    ОГРН ${escapeHtml(agent.ogrn)}, email ${escapeHtml(agent.email)}.
-  </p>
-  <p class="muted">Полный текст на Сайте: ${escapeHtml(site)}${LEGAL_ROUTES.oferta}</p>
+  ${renderClientOfferBodyHtml()}
   `;
-
   return wrapHtmlDocument("Договор бронирования услуг (оферта) для клиентов", body);
 }
 
@@ -319,9 +255,59 @@ export function renderRegistryTableHtml(rows: AgencyRegistryRow[], generatedAt: 
   return `${header}${bodyRows}</tbody></table>`;
 }
 
+export function renderClientRegistryTableHtml(
+  rows: Awaited<ReturnType<typeof fetchClientBookingRegistryRows>>,
+  generatedAt: string,
+): string {
+  const header = `
+  <h1>Реестр клиентов — акцепт договора бронирования</h1>
+  <p class="muted">
+    Сформировано ${escapeHtml(legalOperatorName())} · ${escapeHtml(formatRuDate(generatedAt))} · всего: ${rows.length}
+  </p>
+  <table>
+    <thead>
+      <tr>
+        <th>№</th>
+        <th>ФИО</th>
+        <th>Email</th>
+        <th>Телефон</th>
+        <th>Дата акцепта</th>
+        <th>Версия оферты</th>
+        <th>Оплач. заказов</th>
+        <th>Завершённых</th>
+        <th>Мероприятия</th>
+      </tr>
+    </thead>
+    <tbody>
+  `;
+
+  const bodyRows = rows
+    .map(
+      (r, i) => `
+      <tr>
+        <td>${i + 1}</td>
+        <td>${escapeHtml(r.name ?? "—")}</td>
+        <td>${escapeHtml(r.email)}</td>
+        <td>${escapeHtml(r.phone ?? "—")}</td>
+        <td>${escapeHtml(formatRuDate(r.offerAcceptedAt))}</td>
+        <td>${escapeHtml(r.offerVersion)}</td>
+        <td>${r.paidOrders}</td>
+        <td>${r.completedOrders}</td>
+        <td>${r.paidEventRegistrations}</td>
+      </tr>`,
+    )
+    .join("");
+
+  return `${header}${bodyRows}</tbody></table>`;
+}
+
 export type YookassaPackageOptions = {
   activeOnly?: boolean;
   includeCertificates?: boolean;
+  /** Заполненные договоры с клиентами (по умолчанию — только с оплаченной активностью). */
+  includeClientCertificates?: boolean;
+  /** Все клиенты, а не только с оплатами (для includeClientCertificates). */
+  allClients?: boolean;
 };
 
 export type YookassaPackageFiles = {
@@ -335,11 +321,15 @@ export async function buildYookassaPackageFiles(
 ): Promise<YookassaPackageFiles> {
   const activeOnly = options?.activeOnly ?? false;
   const includeCertificates = options?.includeCertificates ?? true;
+  const includeClientCertificates = options?.includeClientCertificates ?? true;
+  const allClients = options?.allClients ?? false;
   const generatedAt = new Date().toISOString();
   const stamp = generatedAt.slice(0, 10);
 
   const rows = await fetchAgencyRegistryRows({ activeOnly });
+  const clientRows = await fetchClientBookingRegistryRows({ paidOnly: !allClients });
   const csv = agencyRegistryToCsv(rows);
+  const clientCsv = clientBookingRegistryToCsv(clientRows);
 
   const files: YookassaPackageFiles["files"] = [
     {
@@ -367,6 +357,11 @@ export async function buildYookassaPackageFiles(
       content: csv,
       mimeType: "text/csv; charset=utf-8",
     },
+    {
+      name: `04b-reestr-klientov-${stamp}.csv`,
+      content: clientCsv,
+      mimeType: "text/csv; charset=utf-8",
+    },
   ];
 
   if (includeCertificates) {
@@ -385,6 +380,22 @@ export async function buildYookassaPackageFiles(
     }
   }
 
+  if (includeClientCertificates) {
+    for (const row of clientRows) {
+      const data = await fetchClientBookingCertificateData(row.userId);
+      if (!data) continue;
+      const safe =
+        (row.name ?? row.email)
+          .replace(/[^\p{L}\p{N}._-]+/gu, "_")
+          .slice(0, 48) || row.userId.slice(0, 8);
+      files.push({
+        name: `06-dogovory-klienty/${safe}-${row.userId.slice(0, 8)}.html`,
+        content: renderClientBookingCertificateHtml(data),
+        mimeType: "text/html; charset=utf-8",
+      });
+    }
+  }
+
   const combinedBody = `
   <div class="no-print" style="border:1px solid #ccc;padding:1rem;margin-bottom:1.5rem;background:#f9f9f9;">
     <strong>Как сохранить в PDF:</strong> Файл → Печать (Ctrl+P) → «Сохранить как PDF».
@@ -398,7 +409,9 @@ export async function buildYookassaPackageFiles(
       <li>Договор-оферта для клиентов</li>
       <li>Реквизиты Агента</li>
       <li>Реестр инструкторов</li>
+      <li>Реестр клиентов</li>
       ${includeCertificates ? "<li>Заполненные договоры с каждым инструктором</li>" : ""}
+      ${includeClientCertificates ? "<li>Заполненные договоры с клиентами</li>" : ""}
     </ol>
   </div>
   <section>${renderYookassaCoverLetterHtml(generatedAt).match(/<body[^>]*>([\s\S]*)<\/body>/i)?.[1] ?? ""}</section>
@@ -406,6 +419,7 @@ export async function buildYookassaPackageFiles(
   <section class="page-break">${renderClientOfferHtml().match(/<body[^>]*>([\s\S]*)<\/body>/i)?.[1] ?? ""}</section>
   <section class="page-break">${renderRequisitesHtml().match(/<body[^>]*>([\s\S]*)<\/body>/i)?.[1] ?? ""}</section>
   <section class="page-break">${renderRegistryTableHtml(rows, generatedAt)}</section>
+  <section class="page-break">${renderClientRegistryTableHtml(clientRows, generatedAt)}</section>
   ${
     includeCertificates
       ? (
@@ -415,6 +429,22 @@ export async function buildYookassaPackageFiles(
               if (!data) return "";
               const inner =
                 renderAgencyCertificateHtml(data).match(/<body[^>]*>([\s\S]*)<\/body>/i)?.[1] ?? "";
+              return `<section class="page-break">${inner}</section>`;
+            }),
+          )
+        ).join("")
+      : ""
+  }
+  ${
+    includeClientCertificates
+      ? (
+          await Promise.all(
+            clientRows.map(async (row) => {
+              const data = await fetchClientBookingCertificateData(row.userId);
+              if (!data) return "";
+              const inner =
+                renderClientBookingCertificateHtml(data)
+                  .match(/<body[^>]*>([\s\S]*)<\/body>/i)?.[1] ?? "";
               return `<section class="page-break">${inner}</section>`;
             }),
           )
@@ -433,6 +463,7 @@ export async function buildYookassaPackageFiles(
 Сформирован: ${formatRuDate(generatedAt)}
 Сайт: ${LEGAL_PLATFORM_URL}
 Инструкторов в реестре: ${rows.length}${activeOnly ? " (только с полным допуском)" : ""}
+Клиентов в реестре: ${clientRows.length}${allClients ? "" : " (с оплаченной активностью)"}
 
 Файлы:
 - yookassa-paket-*.html — всё в одном файле (откройте в браузере → Печать → Сохранить как PDF)
@@ -440,13 +471,15 @@ export async function buildYookassaPackageFiles(
 - 01-agentskiy-dogovor-oferta-*.html — полный текст агентской оферты для инструкторов
 - 02-dogovor-oferta-klient-*.html — оферта для клиентов
 - 03-rekvizity-*.html — реквизиты ООО (Агента)
-- 04-reestr-instruktorov-*.csv — реестр акцептов (Excel / Google Sheets)
-- 05-dogovory/*.html — заполненный агентский договор с каждым инструктором (реквизиты + полный текст оферты + акцепт)
+- 04-reestr-instruktorov-*.csv — реестр акцептов инструкторов
+- 04b-reestr-klientov-*.csv — реестр клиентов (акцепт договора бронирования)
+- 05-dogovory/*.html — заполненный агентский договор с каждым инструктором
+- 06-dogovory-klienty/*.html — заполненный договор бронирования с каждым клиентом
 
 Отправка в поддержку ЮKassa:
 1. Приложите PDF из yookassa-paket (или отдельные PDF по разделам)
-2. Приложите CSV-реестр
-3. В тексте обращения укажите, что исполнители — инструкторы НПД/ИП по заполненным агентским договорам (оферта с акцептом)
+2. Приложите CSV-реестры
+3. В тексте обращения укажите: исполнители — инструкторы НПД/ИП по агентским договорам; с клиентами — договор бронирования услуг (оферта с акцептом)
 `;
 
   files.push({

@@ -6,10 +6,19 @@ import { toast } from "sonner";
 import { LEGAL_PLATFORM_URL } from "@/lib/legal-config";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
-function packageUrl(params: { format: "zip" | "html" | "preview"; activeOnly: boolean; noCertificates: boolean }) {
+
+function packageUrl(params: {
+  format: "zip" | "html" | "preview";
+  activeOnly: boolean;
+  noCertificates: boolean;
+  noClientCertificates: boolean;
+  allClients: boolean;
+}) {
   const q = new URLSearchParams({ format: params.format });
   if (params.activeOnly) q.set("activeOnly", "1");
   if (params.noCertificates) q.set("noCertificates", "1");
+  if (params.noClientCertificates) q.set("noClientCertificates", "1");
+  if (params.allClients) q.set("allClients", "1");
   return `/api/admin/yookassa-package?${q.toString()}`;
 }
 
@@ -34,9 +43,11 @@ async function downloadBlob(url: string, fallbackName: string) {
 export function AdminYookassaExportCard() {
   const [activeOnly, setActiveOnly] = useState(false);
   const [noCertificates, setNoCertificates] = useState(false);
+  const [noClientCertificates, setNoClientCertificates] = useState(false);
+  const [allClients, setAllClients] = useState(false);
   const [busy, setBusy] = useState<"zip" | "html" | null>(null);
 
-  const opts = { activeOnly, noCertificates };
+  const opts = { activeOnly, noCertificates, noClientCertificates, allClients };
 
   async function onDownloadZip() {
     setBusy("zip");
@@ -71,8 +82,8 @@ export function AdminYookassaExportCard() {
       <CardHeader>
         <CardTitle>Пакет документов для ЮKassa</CardTitle>
         <CardDescription>
-          Скачайте на проде ({LEGAL_PLATFORM_URL}): сопроводительное письмо, оферты, реквизиты, реестр и
-          заполненные договоры с каждым инструктором (полный текст оферты + данные сторон). Данные из текущей базы.
+          Скачайте на проде ({LEGAL_PLATFORM_URL}): сопроводительное письмо, оферты, реквизиты, реестры и
+          заполненные договоры с инструкторами и клиентами. Данные из текущей базы.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -91,7 +102,24 @@ export function AdminYookassaExportCard() {
               checked={noCertificates}
               onChange={(e) => setNoCertificates(e.target.checked)}
             />
-            <span>Без договоров по каждому инструктору (короче архив)</span>
+            <span>Без договоров по каждому инструктору</span>
+          </label>
+          <label className="flex cursor-pointer items-center gap-2">
+            <input
+              type="checkbox"
+              checked={noClientCertificates}
+              onChange={(e) => setNoClientCertificates(e.target.checked)}
+            />
+            <span>Без договоров по каждому клиенту</span>
+          </label>
+          <label className="flex cursor-pointer items-center gap-2">
+            <input
+              type="checkbox"
+              checked={allClients}
+              onChange={(e) => setAllClients(e.target.checked)}
+              disabled={noClientCertificates}
+            />
+            <span>Все клиенты (не только с оплатами)</span>
           </label>
         </div>
 
@@ -112,7 +140,12 @@ export function AdminYookassaExportCard() {
           </Button>
           <Button type="button" variant="outline" size="sm" asChild>
             <a href="/api/admin/agency-registry?format=csv" download>
-              Только реестр (CSV)
+              CSV инструкторов
+            </a>
+          </Button>
+          <Button type="button" variant="outline" size="sm" asChild>
+            <a href="/api/admin/client-registry?paidOnly=1&format=csv" download>
+              CSV клиентов
             </a>
           </Button>
         </div>
@@ -125,10 +158,10 @@ export function AdminYookassaExportCard() {
               Файл <code className="text-foreground">yookassa-paket-*.html</code> → откройте → «Печать» → «Сохранить
               как PDF».
             </li>
-            <li>Приложите PDF и CSV-реестр к обращению в поддержку.</li>
+            <li>Приложите PDF и CSV-реестры к обращению в поддержку.</li>
             <li>
-              В тексте укажите: исполнители — инструкторы НПД/ИП; ООО «ТВОЙТРЕНЕР» — оператор платформы; с каждым
-              инструктором — заполненный агентский договор (полный текст оферты + акцепт).
+              В тексте укажите: исполнители — инструкторы НПД/ИП по агентским договорам; с клиентами — договор
+              бронирования услуг (оферта + акцепт); ООО «ТВОЙТРЕНЕР» — оператор платформы.
             </li>
           </ol>
         </div>

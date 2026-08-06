@@ -17,12 +17,16 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const activeOnly = url.searchParams.get("activeOnly") === "1";
   const noCertificates = url.searchParams.get("noCertificates") === "1";
+  const noClientCertificates = url.searchParams.get("noClientCertificates") === "1";
+  const allClients = url.searchParams.get("allClients") === "1";
   const format = url.searchParams.get("format") ?? "html";
   const stamp = new Date().toISOString().slice(0, 10);
 
   const options = {
     activeOnly,
     includeCertificates: !noCertificates,
+    includeClientCertificates: !noClientCertificates,
+    allClients,
   };
 
   if (format === "manifest") {

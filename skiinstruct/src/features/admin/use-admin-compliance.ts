@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
+import type { ClientBookingRegistryRow } from "@/lib/client-booking-registry";
 import type { AgencyRegistryRow } from "@/lib/instructor-agency-registry";
 import type { PendingComplianceItem } from "@/lib/instructor-agency-registry";
 import { devPollInterval } from "@/lib/query-poll";
@@ -11,6 +12,12 @@ type RegistryResponse = {
   generatedAt: string;
   count: number;
   rows: AgencyRegistryRow[];
+};
+
+type ClientRegistryResponse = {
+  generatedAt: string;
+  count: number;
+  rows: ClientBookingRegistryRow[];
 };
 
 type PendingResponse = {
@@ -27,6 +34,14 @@ async function fetchRegistry(activeOnly: boolean): Promise<RegistryResponse> {
   return r.json() as Promise<RegistryResponse>;
 }
 
+async function fetchClientRegistry(paidOnly: boolean): Promise<ClientRegistryResponse> {
+  const q = paidOnly ? "?paidOnly=1" : "";
+  const r = await fetch(`/api/admin/client-registry${q}`, { credentials: "include", cache: "no-store" });
+  if (r.status === 403) throw new Error("forbidden");
+  if (!r.ok) throw new Error("client-registry-load");
+  return r.json() as Promise<ClientRegistryResponse>;
+}
+
 async function fetchPending(): Promise<PendingResponse> {
   const r = await fetch("/api/admin/compliance/pending", { credentials: "include", cache: "no-store" });
   if (r.status === 403) throw new Error("forbidden");
@@ -38,6 +53,15 @@ export function useAdminAgencyRegistry(activeOnly = false) {
   return useQuery({
     queryKey: ["admin-agency-registry", activeOnly],
     queryFn: () => fetchRegistry(activeOnly),
+    refetchInterval: devPollInterval(20_000),
+    staleTime: 10_000,
+  });
+}
+
+export function useAdminClientRegistry(paidOnly = false) {
+  return useQuery({
+    queryKey: ["admin-client-registry", paidOnly],
+    queryFn: () => fetchClientRegistry(paidOnly),
     refetchInterval: devPollInterval(20_000),
     staleTime: 10_000,
   });

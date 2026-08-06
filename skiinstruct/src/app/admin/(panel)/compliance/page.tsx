@@ -6,9 +6,9 @@ export default function AdminCompliancePage() {
   return (
     <div className="space-y-4">
       <header>
-        <h1 className="text-2xl font-semibold tracking-tight">Агентский договор и документы</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">ЮKassa / договоры</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Претензии по качеству уроков, реестр акцептов оферты, проверка НПД/ИП и страхования, пакет для ЮKassa.
+          Претензии по качеству, договоры с инструкторами и клиентами, проверка НПД/ИП, пакет для ЮKassa.
         </p>
       </header>
       <AdminComplianceSection />
