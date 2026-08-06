@@ -1,4 +1,4 @@
-﻿﻿# Create Yandex Direct SEARCH campaign: instructor hire -> /landings/prichodi
+﻿# Create Yandex Direct SEARCH campaign: instructor hire -> /landings/prichodi
 # Requires approved Direct API access + YANDEX_DIRECT_TOKEN in .env
 # Usage:
 #   .\scripts\yandex-direct-create-instructor-hire-campaigns.ps1
@@ -8,7 +8,8 @@ param(
   [string]$ClientLogin = "",
   [switch]$Sandbox,
   [switch]$DryRun,
-  [int]$DailyBudgetRub = 150
+  # Direct min daily budget for RUB = 300
+  [int]$DailyBudgetRub = 300
 )
 
 $ErrorActionPreference = "Stop"
@@ -117,10 +118,13 @@ if (-not $Token) { throw "Set YANDEX_DIRECT_TOKEN in .env" }
 if (-not $ClientLogin) { $ClientLogin = Read-DotEnv "YANDEX_DIRECT_CLIENT_LOGIN" }
 
 $site = "https://xn--b1agaovdpdkd.xn--p1ai"
-$landing = "$site/landings/prichodi"
+# Conversion: instructor registration form (not client checkout)
+$landing = "$site/instructor/apply"
 $startDate = (Get-Date).ToString("yyyy-MM-dd")
 $dailyMicros = To-Micros $DailyBudgetRub
 $geo = @(239)
+$metrikaId = Read-DotEnv "NEXT_PUBLIC_YANDEX_METRIKA_ID"
+if (-not $metrikaId) { $metrikaId = Read-DotEnv "YANDEX_METRIKA_ID" }
 
 function Utm([string]$content) {
   return ($landing + "?utm_source=yandex&utm_medium=cpc&utm_campaign=prichodi_hire&utm_content=" + $content)
@@ -147,6 +151,19 @@ if (-not $DryRun) {
 
 Write-Host ""
 Write-Host ("=== Campaign: {0} ===" -f $campaignName)
+$textCampaign = @{
+  BiddingStrategy = @{
+    Search = @{ BiddingStrategyType = "HIGHEST_POSITION" }
+    Network = @{ BiddingStrategyType = "SERVING_OFF" }
+  }
+  Settings = @(
+    @{ Option = "ENABLE_AREA_OF_INTEREST_TARGETING"; Value = "NO" }
+  )
+}
+if ($metrikaId -and ($metrikaId -match '^\d+$')) {
+  $textCampaign.CounterIds = @{ Items = @([int64]$metrikaId) }
+}
+
 $addCamp = Invoke-Direct "campaigns" @{
   method = "add"
   params = @{
@@ -156,15 +173,7 @@ $addCamp = Invoke-Direct "campaigns" @{
         StartDate = $startDate
         DailyBudget = @{ Amount = $dailyMicros; Mode = "STANDARD" }
         NegativeKeywords = @{ Items = $sharedMinus }
-        TextCampaign = @{
-          BiddingStrategy = @{
-            Search = @{ BiddingStrategyType = "HIGHEST_POSITION" }
-            Network = @{ BiddingStrategyType = "SERVING_OFF" }
-          }
-          Settings = @(
-            @{ Option = "ENABLE_AREA_OF_INTEREST_TARGETING"; Value = "NO" }
-          )
-        }
+        TextCampaign = $textCampaign
       }
     )
   }

@@ -60,10 +60,23 @@ $urls = @(
   "$origin/favicon.ico",
   "$origin/favicon.svg",
   "$origin/sitemap.xml",
+  # Hire funnel (набор инструкторов)
+  "$origin/landings/prichodi",
+  "$origin/vakansiya",
+  "$origin/landings/instructor",
+  "$origin/instructor/apply",
+  "$origin/oferta-instructor",
+  # Demand / SEO hubs
   "$origin/gorod/sochi",
   "$origin/gorod/sochi/gornye-lyzhi",
+  "$origin/gorod/krasnaya-polyana",
+  "$origin/gorod/krasnaya-polyana/gornye-lyzhi",
   "$origin/gorod/moskva",
-  "$origin/sport/gornye-lyzhi"
+  "$origin/sport/gornye-lyzhi",
+  "$origin/sport/snoubord",
+  "$origin/faq",
+  "$origin/gid/kak-vybrat-instruktora",
+  "$origin/gid/chto-takoe-tvoytrener"
 )
 
 foreach ($u in $urls) {
