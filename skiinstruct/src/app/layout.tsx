@@ -68,7 +68,7 @@ export const metadata: Metadata = {
       { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
     ],
     shortcut: ["/favicon.ico"],
-    apple: [{ url: "/apple-touch-icon.png?v=space1", sizes: "180x180", type: "image/png" }],
+    apple: [{ url: "/apple-touch-icon.png?v=lockup1", sizes: "180x180", type: "image/png" }],
   },
   openGraph: {
     type: "website",
@@ -79,7 +79,7 @@ export const metadata: Metadata = {
     url: absoluteUrl(SEO_PAGES.home.path),
     images: [
       {
-        url: "/brand/press/logo-horizontal-on-white.png?v=space1",
+        url: "/brand/press/logo-horizontal-on-white.png?v=lockup1",
         width: 1099,
         height: 516,
         alt: appName,
@@ -90,7 +90,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: SEO_PAGES.home.title,
     description: SEO_PAGES.home.description,
-    images: ["/brand/press/logo-horizontal-on-white.png?v=space1"],
+    images: ["/brand/press/logo-horizontal-on-white.png?v=lockup1"],
   },
 };
 

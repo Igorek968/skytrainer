@@ -11,7 +11,7 @@ param(
   [string]$DirectToken = "",
   [string]$ClientLogin = "",
   [long]$CampaignId = 713347086,
-  [long]$CounterId = 110595574,
+  [long]$CounterId = 111110026,
   # Target CPA for bid adjustments (RUB). Used as PriorityGoals.Value.
   [int]$SubmitCpaRub = 150,
   [int]$SuccessCpaRub = 300

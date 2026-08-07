@@ -18,7 +18,7 @@
 
 ### A. Метрика — создать цели (API не пускает)
 
-https://metrika.yandex.ru → счётчик **110595574** → Цели → JavaScript-событие:
+https://metrika.yandex.ru → счётчик **111110026** (логин `TvoiTrenerrf`) → Цели → JavaScript-событие:
 
 | Идентификатор | Название |
 |---|---|

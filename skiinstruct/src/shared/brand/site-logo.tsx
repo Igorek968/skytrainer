@@ -1,8 +1,6 @@
 import {
   getBrandAltText,
-  BRAND_LOGO_MARK,
-  BRAND_TEAL,
-  BRAND_NAVY,
+  BRAND_LOGO_OFFICIAL_PNG,
 } from "@/shared/brand/assets";
 import { cn } from "@/lib/utils";
 
@@ -12,38 +10,24 @@ type SiteLogoProps = {
   compact?: boolean;
 };
 
+/** Полный официальный логотип (PNG-эталон), как в brand/logo-tvoytrener-official.png */
 export function SiteLogo({ className, compact = false }: SiteLogoProps) {
   const alt = getBrandAltText();
 
   return (
-    <span
-      className={cn(
-        "inline-flex flex-row flex-nowrap items-center gap-2 whitespace-nowrap",
-        className,
-      )}
-    >
-      {/* eslint-disable-next-line @next/next/no-img-element -- brand SVG, без next/image */}
+    <span className={cn("inline-flex items-center", className)}>
+      {/* eslint-disable-next-line @next/next/no-img-element -- brand PNG, без next/image */}
       <img
-        src={BRAND_LOGO_MARK}
-        alt=""
-        width={40}
-        height={66}
+        src={BRAND_LOGO_OFFICIAL_PNG}
+        alt={alt}
+        width={220}
+        height={68}
         className={cn(
-          "h-10 w-auto shrink-0 object-contain object-left",
-          compact && "h-9",
+          "h-9 w-auto max-w-[min(100%,220px)] object-contain object-left sm:h-10",
+          compact && "h-8 sm:h-9",
         )}
         decoding="async"
       />
-      <span
-        className={cn(
-          "shrink-0 font-bold tracking-tight",
-          compact ? "text-base" : "text-lg sm:text-xl",
-        )}
-        aria-label={alt}
-      >
-        <span style={{ color: BRAND_TEAL }}>Твой</span>
-        <span style={{ color: BRAND_NAVY }}> Тренер</span>
-      </span>
     </span>
   );
 }

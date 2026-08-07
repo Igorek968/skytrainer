@@ -1,22 +1,22 @@
 import { getPublicProductName } from "@/shared/lib/product";
 
-/** Официальный горизонтальный логотип (SVG). */
+/** Официальный горизонтальный логотип (SVG-обёртка над PNG-эталоном). */
 export const BRAND_LOGO_HORIZONTAL =
-  "/brand/logo-tvoytrener-official.svg?v=space1" as const;
+  "/brand/logo-tvoytrener-official.png?v=ref2" as const;
 
-/** Официальный горизонтальный логотип (PNG). */
+/** Официальный горизонтальный логотип (PNG-эталон). */
 export const BRAND_LOGO_OFFICIAL_PNG =
-  "/brand/logo-tvoytrener-official.png?v=space1" as const;
+  "/brand/logo-tvoytrener-official.png?v=ref2" as const;
 
 /** Знак без текста — из официального логотипа. */
-export const BRAND_LOGO_MARK = "/brand/logo-mark.svg?v=space1" as const;
+export const BRAND_LOGO_MARK = "/brand/logo-mark.svg?v=ref2" as const;
 
 /** Знак на тёмном фоне (SVG). */
-export const BRAND_LOGO_MARK_ON_DARK = "/brand/logo-mark-on-dark.svg?v=space1" as const;
+export const BRAND_LOGO_MARK_ON_DARK = "/brand/logo-mark-on-dark.svg?v=ref2" as const;
 
 /** Растровый мастер-файл (PNG, для печати / агентства). */
 export const BRAND_LOGO_HORIZONTAL_PNG =
-  "/brand/logo-tvoytrener-official.png?v=space1" as const;
+  "/brand/logo-tvoytrener-official.png?v=ref2" as const;
 
 /** Пакет для рекламщиков / партнёров. */
 export const BRAND_PRESS_DIR = "/brand/press" as const;

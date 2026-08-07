@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Manrope, Unbounded } from "next/font/google";
 import type { CSSProperties } from "react";
 
-import { BRAND_LOGO_MARK, BRAND_WORDMARK } from "@/shared/brand/assets";
+import { BRAND_LOGO_OFFICIAL_PNG, BRAND_WORDMARK } from "@/shared/brand/assets";
 import { TrackedHireCta } from "@/shared/marketing/tracked-hire-cta";
 
 const display = Unbounded({
@@ -103,21 +103,15 @@ export function PrichodiLanding() {
         />
 
         <div className="prichodi-hero-copy relative z-10 mx-auto flex min-h-[min(92dvh,920px)] max-w-6xl flex-col justify-end px-4 pb-14 pt-24 sm:justify-center sm:px-6 sm:pb-20 sm:pt-16 lg:px-8">
-          <div className="flex items-center gap-3">
+          <div className="inline-flex items-center rounded-md bg-white/95 px-2.5 py-1.5 shadow-sm">
             <Image
-              src={BRAND_LOGO_MARK}
-              alt=""
-              width={48}
-              height={48}
-              className="h-11 w-11 sm:h-12 sm:w-12"
+              src={BRAND_LOGO_OFFICIAL_PNG}
+              alt="Твой Тренер"
+              width={220}
+              height={68}
+              className="h-10 w-auto sm:h-11"
+              priority
             />
-            <p
-              className="text-2xl font-semibold tracking-tight sm:text-3xl"
-              style={{ fontFamily: "var(--font-prichodi-display), system-ui" }}
-            >
-              <span className="text-[var(--prichodi-teal)]">Твой</span>
-              <span className="text-white"> Тренер</span>
-            </p>
           </div>
 
           <h1
