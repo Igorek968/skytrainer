@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { useAdminYookassaBulkNotifyMutation } from "@/features/admin/use-admin-compliance";
 import { LEGAL_PLATFORM_URL } from "@/lib/legal-config";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
@@ -46,6 +47,7 @@ export function AdminYookassaExportCard() {
   const [noClientCertificates, setNoClientCertificates] = useState(false);
   const [allClients, setAllClients] = useState(false);
   const [busy, setBusy] = useState<"zip" | "html" | null>(null);
+  const bulkNotify = useAdminYookassaBulkNotifyMutation();
 
   const opts = { activeOnly, noCertificates, noClientCertificates, allClients };
 
@@ -83,7 +85,7 @@ export function AdminYookassaExportCard() {
         <CardTitle>Пакет документов для ЮKassa</CardTitle>
         <CardDescription>
           Скачайте на проде ({LEGAL_PLATFORM_URL}): сопроводительное письмо, оферты, реквизиты, реестры и
-          заполненные договоры с инструкторами и клиентами. Данные из текущей базы.
+          заполненные договоры. Новые инструкторы автоматически шлют договор на почту ops (YOOKASSA_DOCS_EMAIL).
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -138,6 +140,14 @@ export function AdminYookassaExportCard() {
           <Button type="button" variant="outline" onClick={onPreview}>
             Открыть для печати в PDF
           </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={bulkNotify.isPending}
+            onClick={() => bulkNotify.mutate({})}
+          >
+            {bulkNotify.isPending ? "Шлём…" : "Разослать новые договоры на почту ops"}
+          </Button>
           <Button type="button" variant="outline" size="sm" asChild>
             <a href="/api/admin/agency-registry?format=csv" download>
               CSV инструкторов
@@ -153,23 +163,14 @@ export function AdminYookassaExportCard() {
         <div className="rounded-md border border-border bg-background/80 p-3 text-sm text-muted-foreground">
           <p className="font-medium text-foreground">Как отправить в ЮKassa</p>
           <ol className="mt-2 list-decimal space-y-1 pl-5">
-            <li>Скачайте ZIP или HTML.</li>
+            <li>Скачайте ZIP/HTML или возьмите договоры с почты ops.</li>
             <li>
-              Файл <code className="text-foreground">yookassa-paket-*.html</code> → откройте → «Печать» → «Сохранить
-              как PDF».
+              Файл <code className="text-foreground">*.html</code> → «Печать» → «Сохранить как PDF».
             </li>
-            <li>Приложите PDF и CSV-реестры к обращению в поддержку.</li>
-            <li>
-              В тексте укажите: исполнители — инструкторы НПД/ИП по агентским договорам; с клиентами — договор
-              бронирования услуг (оферта + акцепт); ООО «ТВОЙТРЕНЕР» — оператор платформы.
-            </li>
+            <li>Приложите PDF и CSV-реестр к обращению в поддержку ЮKassa.</li>
+            <li>В админке нажмите «В ЮKassa ✓» по каждому переданному инструктору.</li>
           </ol>
         </div>
-
-        <p className="text-xs text-muted-foreground">
-          Нужен только просмотр без скачивания — «Открыть для печати». Если кнопки возвращают 401, войдите как
-          администратор в этой же вкладке.
-        </p>
       </CardContent>
     </Card>
   );

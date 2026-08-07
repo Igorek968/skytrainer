@@ -54,7 +54,8 @@ $data = Get-Content $dataPath -Raw -Encoding UTF8 | ConvertFrom-Json
 $groups = @($data.groups)
 $site = "https://xn--b1agaovdpdkd.xn--p1ai"
 $landing = "$site$($data.landingPath)"
-$geo = @(239)
+# Sochi (239) already includes Krasnaya Polyana (10994). Sirius (218709) is a separate federal territory.
+$geo = @(239, 218709)
 
 function Utm([string]$content) {
   return ($landing + "?utm_source=yandex&utm_medium=cpc&utm_campaign=prichodi_hire&utm_content=" + $content)

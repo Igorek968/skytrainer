@@ -108,3 +108,71 @@ export function useAdminComplianceReviewMutation() {
     onError: (e: Error) => toast.error(e.message || "Ошибка"),
   });
 }
+
+export function useAdminYookassaContractMutation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (params: {
+      userId: string;
+      action: "notify" | "mark_sent";
+      force?: boolean;
+    }) => {
+      const r = await fetch(`/api/admin/agency-registry/${params.userId}/yookassa-contract`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ action: params.action, force: params.force }),
+      });
+      const j = (await r.json().catch(() => ({}))) as {
+        error?: string;
+        skipped?: boolean;
+        reason?: string;
+        to?: string;
+      };
+      if (!r.ok) throw new Error(j.error ?? "yookassa-contract-failed");
+      return j;
+    },
+    onSuccess: async (data, params) => {
+      await qc.invalidateQueries({ queryKey: ["admin-agency-registry"] });
+      if (params.action === "mark_sent") {
+        toast.success("Отмечено: передано в ЮKassa");
+      } else if (data.skipped) {
+        toast.message(data.reason ?? "Пропущено");
+      } else {
+        toast.success(data.to ? `Договор отправлен на ${data.to}` : "Договор отправлен");
+      }
+    },
+    onError: (e: Error) => toast.error(e.message || "Ошибка"),
+  });
+}
+
+export function useAdminYookassaBulkNotifyMutation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (params?: { force?: boolean }) => {
+      const r = await fetch("/api/admin/agency-registry/notify-yookassa", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ force: params?.force === true, limit: 200 }),
+      });
+      const j = (await r.json().catch(() => ({}))) as {
+        error?: string;
+        sent?: number;
+        skipped?: number;
+        failed?: number;
+        total?: number;
+      };
+      if (!r.ok) throw new Error(j.error ?? "bulk-notify-failed");
+      return j;
+    },
+    onSuccess: async (data) => {
+      await qc.invalidateQueries({ queryKey: ["admin-agency-registry"] });
+      toast.success(
+        `Рассылка: отправлено ${data.sent ?? 0}, пропущено ${data.skipped ?? 0}, ошибок ${data.failed ?? 0}`,
+      );
+    },
+    onError: (e: Error) => toast.error(e.message || "Ошибка рассылки"),
+  });
+}
+

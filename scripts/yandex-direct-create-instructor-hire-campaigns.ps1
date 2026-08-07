@@ -122,7 +122,8 @@ $site = "https://xn--b1agaovdpdkd.xn--p1ai"
 $landing = "$site/instructor/apply"
 $startDate = (Get-Date).ToString("yyyy-MM-dd")
 $dailyMicros = To-Micros $DailyBudgetRub
-$geo = @(239)
+# Sochi (239) includes Krasnaya Polyana. Sirius (218709) is separate.
+$geo = @(239, 218709)
 $metrikaId = Read-DotEnv "NEXT_PUBLIC_YANDEX_METRIKA_ID"
 if (-not $metrikaId) { $metrikaId = Read-DotEnv "YANDEX_METRIKA_ID" }
 

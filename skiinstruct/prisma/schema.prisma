@@ -348,6 +348,10 @@ model InstructorProfile {
   /// Акцепт агентской оферты для инструкторов (/oferta-instructor).
   agencyOfferAcceptedAt DateTime?
   agencyOfferVersion    String? @default("2026-05-13")
+  /// Заполненный агентский договор отправлен на почту ops (для пакета ЮKassa).
+  yookassaContractNotifiedAt DateTime?
+  /// Админ отметил, что договор передан в поддержку ЮKassa.
+  yookassaContractMarkedSentAt DateTime?
   taxStatus             InstructorTaxStatus?
   inn                   String?
   /// Маскированные реквизиты для выплат (карта/счёт).

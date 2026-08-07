@@ -260,5 +260,13 @@ export async function createInstructorApplication(input: {
     console.error("[admin-alert] instructor apply", e instanceof Error ? e.message : e);
   }
 
+  void import("@/lib/services/yookassa-instructor-contract-notify")
+    .then(({ notifyYookassaInstructorContract }) =>
+      notifyYookassaInstructorContract(createdUserId),
+    )
+    .catch((e) =>
+      console.error("[yookassa-contract] apply", e instanceof Error ? e.message : e),
+    );
+
   return { ok: true, email };
 }

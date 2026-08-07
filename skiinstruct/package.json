@@ -23,6 +23,7 @@
     "db:enrich-instructor-trust": "tsx prisma/enrich-instructor-trust.ts",
     "export:agency-registry": "tsx scripts/export-agency-registry.ts",
     "export:yookassa-package": "tsx scripts/export-yookassa-package.ts",
+    "export:yookassa-instructor-contracts": "tsx scripts/backfill-yookassa-instructor-contracts.ts",
     "pwa:icons": "node scripts/generate-notification-icons.mjs",
     "db:studio": "prisma studio",
     "postinstall": "prisma generate"

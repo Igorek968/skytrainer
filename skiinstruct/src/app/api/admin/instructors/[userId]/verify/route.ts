@@ -128,5 +128,12 @@ export async function POST(req: Request, ctx: Ctx) {
 
   void notifyInstructorVerificationResult({ userId, status: "APPROVED" });
   notifyBotInstructorApproved(userId);
+  void import("@/lib/services/yookassa-instructor-contract-notify")
+    .then(({ notifyYookassaInstructorContract }) =>
+      notifyYookassaInstructorContract(userId),
+    )
+    .catch((e) =>
+      console.error("[yookassa-contract] approve", e instanceof Error ? e.message : e),
+    );
   return NextResponse.json({ ok: true });
 }

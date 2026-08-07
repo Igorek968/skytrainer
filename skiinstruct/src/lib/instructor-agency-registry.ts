@@ -27,6 +27,10 @@ export type AgencyRegistryRow = {
   paidOrders: number;
   /** Одобрен, документы в порядке и сейчас на линии. */
   activeOnPlatform: boolean;
+  /** Заполненный договор ушёл на почту ops. */
+  yookassaContractNotifiedAt: string | null;
+  /** Админ отметил передачу в поддержку ЮKassa. */
+  yookassaContractMarkedSentAt: string | null;
 };
 
 function taxStatusLabel(status: InstructorTaxStatus | null): string {
@@ -65,6 +69,8 @@ export async function fetchAgencyRegistryRows(options?: {
           agencyOfferVersion: true,
           verificationStatus: true,
           isOnline: true,
+          yookassaContractNotifiedAt: true,
+          yookassaContractMarkedSentAt: true,
         },
       },
     },
@@ -125,6 +131,8 @@ export async function fetchAgencyRegistryRows(options?: {
       paidOrders: paidByUser.get(u.id) ?? 0,
       activeOnPlatform:
         p.verificationStatus === "APPROVED" && flags.canAcceptPaidOrders && p.isOnline,
+      yookassaContractNotifiedAt: p.yookassaContractNotifiedAt?.toISOString() ?? null,
+      yookassaContractMarkedSentAt: p.yookassaContractMarkedSentAt?.toISOString() ?? null,
     };
 
     if (options?.activeOnly && !row.canAcceptPaidOrders) continue;
@@ -151,6 +159,8 @@ export function agencyRegistryToCsv(rows: AgencyRegistryRow[]): string {
     "Активен на платформе",
     "Завершённых занятий",
     "Оплаченных заказов",
+    "Договор на почту ops",
+    "Передано в ЮKassa",
   ];
 
   const escape = (v: string) => {
@@ -177,6 +187,8 @@ export function agencyRegistryToCsv(rows: AgencyRegistryRow[]): string {
         yesNo(r.activeOnPlatform),
         String(r.completedLessons),
         String(r.paidOrders),
+        formatRuDate(r.yookassaContractNotifiedAt),
+        formatRuDate(r.yookassaContractMarkedSentAt),
       ]
         .map((c) => escape(String(c)))
         .join(","),

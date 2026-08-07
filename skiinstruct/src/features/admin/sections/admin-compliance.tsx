@@ -8,6 +8,8 @@ import {
   useAdminClientRegistry,
   useAdminComplianceReviewMutation,
   useAdminPendingCompliance,
+  useAdminYookassaBulkNotifyMutation,
+  useAdminYookassaContractMutation,
 } from "@/features/admin/use-admin-compliance";
 import { AdminQualityClaimsSection } from "@/features/admin/sections/admin-quality-claims";
 import { AdminYookassaExportCard } from "@/features/admin/admin-yookassa-export-card";
@@ -36,10 +38,15 @@ export function AdminComplianceSection() {
   const clientRegistry = useAdminClientRegistry(clientsPaidOnly);
   const pending = useAdminPendingCompliance();
   const review = useAdminComplianceReviewMutation();
+  const yookassaContract = useAdminYookassaContractMutation();
+  const yookassaBulk = useAdminYookassaBulkNotifyMutation();
 
   const rows = registry.data?.rows ?? [];
   const clientRows = clientRegistry.data?.rows ?? [];
   const pendingItems = pending.data?.items ?? [];
+  const pendingYookassaMail = rows.filter(
+    (r) => r.agencyOfferAcceptedAt && !r.yookassaContractNotifiedAt,
+  ).length;
 
   return (
     <div className="space-y-6">
@@ -169,17 +176,29 @@ export function AdminComplianceSection() {
           <div>
             <CardTitle>Реестр акцептов агентского договора</CardTitle>
             <CardDescription>
-              Инструкторы платформы: акцепт оферты, документы и факт работы. Всего: {rows.length}
+              Инструкторы: акцепт оферты, договоры для ЮKassa. Всего: {rows.length}
+              {pendingYookassaMail > 0 ? ` · на почту ops ещё не ушло: ${pendingYookassaMail}` : ""}
             </CardDescription>
           </div>
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={activeOnly}
-              onChange={(e) => setActiveOnly(e.target.checked)}
-            />
-            Только с полным допуском
-          </label>
+          <div className="flex flex-wrap items-center gap-3">
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={activeOnly}
+                onChange={(e) => setActiveOnly(e.target.checked)}
+              />
+              Только с полным допуском
+            </label>
+            <Button
+              type="button"
+              size="sm"
+              variant="accent"
+              disabled={yookassaBulk.isPending || pendingYookassaMail === 0}
+              onClick={() => yookassaBulk.mutate({})}
+            >
+              {yookassaBulk.isPending ? "Отправка…" : `На почту ops (${pendingYookassaMail})`}
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="overflow-x-auto">
           {registry.isLoading ? (
@@ -187,7 +206,7 @@ export function AdminComplianceSection() {
           ) : rows.length === 0 ? (
             <p className="text-sm text-muted-foreground">Нет инструкторов</p>
           ) : (
-            <table className="w-full min-w-[960px] text-left text-sm">
+            <table className="w-full min-w-[1100px] text-left text-sm">
               <thead>
                 <tr className="border-b text-xs text-muted-foreground">
                   <th className="py-2 pr-3 font-medium">Инструктор</th>
@@ -196,7 +215,8 @@ export function AdminComplianceSection() {
                   <th className="py-2 pr-3 font-medium">НПД/ИП</th>
                   <th className="py-2 pr-3 font-medium">Страх.</th>
                   <th className="py-2 pr-3 font-medium">Допуск</th>
-                  <th className="py-2 pr-3 font-medium">Занятий</th>
+                  <th className="py-2 pr-3 font-medium">Почта ops</th>
+                  <th className="py-2 pr-3 font-medium">ЮKassa</th>
                   <th className="py-2 font-medium">Договор</th>
                 </tr>
               </thead>
@@ -225,20 +245,66 @@ export function AdminComplianceSection() {
                         <span className="text-muted-foreground">нет</span>
                       )}
                     </td>
-                    <td className="py-2 pr-3">
-                      {r.completedLessons}
-                      <span className="text-xs text-muted-foreground"> / опл. {r.paidOrders}</span>
+                    <td className="py-2 pr-3 text-xs">
+                      {r.yookassaContractNotifiedAt ? (
+                        <span className="text-emerald-700 dark:text-emerald-400">
+                          {formatDt(r.yookassaContractNotifiedAt)}
+                        </span>
+                      ) : (
+                        <span className="text-amber-700 dark:text-amber-400">нет</span>
+                      )}
+                    </td>
+                    <td className="py-2 pr-3 text-xs">
+                      {r.yookassaContractMarkedSentAt ? (
+                        <span className="text-emerald-700 dark:text-emerald-400">
+                          {formatDt(r.yookassaContractMarkedSentAt)}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
                     </td>
                     <td className="py-2">
-                      <Button type="button" size="sm" variant="outline" asChild>
-                        <Link
-                          href={`/api/admin/agency-registry/${r.userId}/certificate`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          PDF/печать
-                        </Link>
-                      </Button>
+                      <div className="flex flex-wrap gap-1">
+                        <Button type="button" size="sm" variant="outline" asChild>
+                          <Link
+                            href={`/api/admin/agency-registry/${r.userId}/certificate`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            PDF
+                          </Link>
+                        </Button>
+                        {r.agencyOfferAcceptedAt ? (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="secondary"
+                            disabled={yookassaContract.isPending}
+                            onClick={() =>
+                              yookassaContract.mutate({
+                                userId: r.userId,
+                                action: "notify",
+                                force: Boolean(r.yookassaContractNotifiedAt),
+                              })
+                            }
+                          >
+                            На почту
+                          </Button>
+                        ) : null}
+                        {r.agencyOfferAcceptedAt && !r.yookassaContractMarkedSentAt ? (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            disabled={yookassaContract.isPending}
+                            onClick={() =>
+                              yookassaContract.mutate({ userId: r.userId, action: "mark_sent" })
+                            }
+                          >
+                            В ЮKassa ✓
+                          </Button>
+                        ) : null}
+                      </div>
                     </td>
                   </tr>
                 ))}
