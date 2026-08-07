@@ -229,7 +229,7 @@ export function pageMetadata(page: SeoPage): Metadata {
   const url = absoluteUrl(page.path);
   const productName = getPublicProductName();
   const ogImage = {
-    url: "/brand/press/logo-horizontal-on-white.png",
+    url: "/brand/press/logo-horizontal-on-white.png?v=space1",
     width: 1099,
     height: 516,
     alt: productName,
@@ -288,7 +288,7 @@ export function siteJsonLd(): Record<string, unknown>[] {
       url: origin,
       logo: {
         "@type": "ImageObject",
-        url: `${origin}/brand/press/logo-horizontal-on-white.png`,
+        url: `${origin}/brand/press/logo-horizontal-on-white.png?v=space1`,
         width: 1099,
         height: 516,
       },

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="ТвойТренер">
-  <title>ТвойТренер</title>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Твой Тренер">
+  <title>Твой Тренер</title>
   <rect width="512" height="512" rx="96" fill="#ffffff"/>
   <!-- Maskable: знак в безопасной зоне (~20% поля) -->
   <image

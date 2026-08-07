@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="10 8 70 84" role="img" aria-label="ТвойТренер">
-  <title>ТвойТренер</title>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="10 8 70 84" role="img" aria-label="Твой Тренер">
+  <title>Твой Тренер</title>
   <!-- Только знак из logo-tvoytrener-official -->
   <circle cx="58.5" cy="26.5" r="8.2" fill="#2E3E55"/>
   <path

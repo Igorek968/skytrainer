@@ -116,7 +116,7 @@ export function PrichodiLanding() {
               style={{ fontFamily: "var(--font-prichodi-display), system-ui" }}
             >
               <span className="text-[var(--prichodi-teal)]">Твой</span>
-              <span className="text-white">Тренер</span>
+              <span className="text-white"> Тренер</span>
             </p>
           </div>
 

@@ -42,7 +42,7 @@ export function SiteLogo({ className, compact = false }: SiteLogoProps) {
         aria-label={alt}
       >
         <span style={{ color: BRAND_TEAL }}>Твой</span>
-        <span style={{ color: BRAND_NAVY }}>Тренер</span>
+        <span style={{ color: BRAND_NAVY }}> Тренер</span>
       </span>
     </span>
   );

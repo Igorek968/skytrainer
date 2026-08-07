@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 160" role="img" aria-label="ТвойТренер">
-  <title>ТвойТренер</title>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 580 160" role="img" aria-label="Твой Тренер">
+  <title>Твой Тренер</title>
   <!-- Alias официального вектора: logo-tvoytrener-official.svg -->
   <g transform="translate(8, 18) scale(1.35)">
     <circle cx="58.5" cy="26.5" r="8.2" fill="#2E3E55"/>
@@ -30,6 +30,6 @@
     font-weight="700"
     letter-spacing="-0.5"
   >
-    <tspan fill="#027676">Твой</tspan><tspan fill="#2E3E55">Тренер</tspan>
+    <tspan fill="#027676">Твой</tspan><tspan fill="#2E3E55"> Тренер</tspan>
   </text>
 </svg>
