@@ -25,6 +25,24 @@ export function supportTelegramUrl(): string {
   return u || DEFAULT_SUPPORT_TELEGRAM_URL;
 }
 
+/** Публичный канал с UTM (рост подписчиков с сайта). */
+export function brandTelegramChannelUrl(opts?: {
+  campaign?: string;
+  content?: string;
+}): string {
+  const base = supportTelegramUrl();
+  try {
+    const url = new URL(base);
+    url.searchParams.set("utm_source", "site");
+    url.searchParams.set("utm_medium", "telegram_invite");
+    url.searchParams.set("utm_campaign", opts?.campaign || "channel");
+    if (opts?.content) url.searchParams.set("utm_content", opts.content);
+    return url.toString();
+  } catch {
+    return base;
+  }
+}
+
 /**
  * WhatsApp поддержки. Задаётся через NEXT_PUBLIC_SUPPORT_WHATSAPP_URL
  * (например https://wa.me/79001234567) — без URL кнопка скрыта.

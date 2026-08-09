@@ -84,19 +84,18 @@ export function InstructorSearchExpandedBody({
     <>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="h-12 w-12 overflow-hidden rounded-full border border-border bg-muted">
+          <div className="relative h-12 w-12 overflow-hidden rounded-full border border-border bg-muted">
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-xs text-muted-foreground">
+              Фото
+            </div>
             {avatarUrl ? (
               <InstructorPhoto
                 src={avatarUrl}
                 alt={ins.name ?? "Инструктор"}
                 size={48}
-                className="h-full w-full"
+                className="relative z-[1] h-full w-full"
               />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center text-xs text-muted-foreground">
-                Фото
-              </div>
-            )}
+            ) : null}
           </div>
           <div>
             <p className="text-base font-semibold">{ins.name}</p>

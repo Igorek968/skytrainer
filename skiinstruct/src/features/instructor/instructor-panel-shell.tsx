@@ -6,6 +6,7 @@ import { InstructorLessonSoonPrompt } from "@/features/instructor/instructor-les
 import { InstructorPendingOrderPrompt } from "@/features/instructor/instructor-pending-order-prompt";
 import { InstructorPushAlertsBanner } from "@/features/instructor/instructor-push-alerts-banner";
 import { OrderLessonRemindersPrompt } from "@/features/orders/order-lesson-reminders-prompt";
+import { TelegramChannelInvite } from "@/shared/marketing/telegram-channel-invite";
 import { useAutoWebPushSubscribe } from "@/features/push/use-auto-web-push-subscribe";
 import { useVisibilityInvalidate } from "@/features/push/use-visibility-invalidate";
 import { unlockSiteAlertSound } from "@/lib/site-alert";
@@ -40,6 +41,14 @@ export function InstructorPanelShell({ children }: { children: React.ReactNode }
   return (
     <>
       <InstructorPushAlertsBanner audience="instructor" />
+      <div className="mx-auto max-w-6xl px-4 pt-3">
+        <TelegramChannelInvite
+          campaign="instructor_cabinet"
+          audience="instructor"
+          dismissible
+          dismissKey="tg-invite-instructor-v1"
+        />
+      </div>
       {children}
       <InstructorPendingOrderPrompt />
       <InstructorEventRegistrationPrompt />

@@ -117,19 +117,18 @@ export function InstructorNearbyVirtualList({
                     onClick={() => setSelectedId(i.id)}
                   >
                     <span className="flex items-center gap-3">
-                      <span className="h-10 w-10 shrink-0 overflow-hidden rounded-full border border-border bg-muted">
+                      <span className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full border border-border bg-muted">
+                        <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-[10px] text-muted-foreground">
+                          Фото
+                        </span>
                         {rowAvatar ? (
                           <InstructorPhoto
                             src={rowAvatar}
                             alt={i.name ?? "Инструктор"}
                             size={40}
-                            className="h-full w-full"
+                            className="relative z-[1] h-full w-full"
                           />
-                        ) : (
-                          <span className="flex h-full w-full items-center justify-center text-[10px] text-muted-foreground">
-                            Фото
-                          </span>
-                        )}
+                        ) : null}
                       </span>
                       <span>
                         <span className="block font-medium">{i.name || "Имя Фамилия не указаны"}</span>

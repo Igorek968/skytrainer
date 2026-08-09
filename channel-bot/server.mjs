@@ -228,11 +228,11 @@ async function provodGenerateImage(prompt) {
         Authorization: `Bearer ${PROVOD_API_KEY}`,
         "Content-Type": "application/json",
       },
+      // gemini image на Provod: size / response_format=url → 400; b64 без size — ок
       body: JSON.stringify({
         model: IMAGE_MODEL,
         prompt: prompt.trim().slice(0, 1200),
         n: 1,
-        size: "1024x1024",
         response_format: "b64_json",
       }),
       signal: AbortSignal.timeout(90_000),

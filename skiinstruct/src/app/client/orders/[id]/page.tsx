@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { OrderChat } from "@/features/chat/order-chat";
 import { PaidContactCallButton } from "@/features/chat/paid-contact-call";
 import { ReferralInviteCta } from "@/features/share/referral-invite-cta";
+import { TelegramChannelInvite } from "@/shared/marketing/telegram-channel-invite";
 import { CancelOrderButton, ClaimLateRefundButton } from "@/features/orders/cancel-order-button";
 import { QualityRefundClaim } from "@/features/orders/quality-refund-claim";
 import { canClaimQualityRefund } from "@/lib/refund-policy";
@@ -754,6 +755,9 @@ function ClientOrderDetailContent({
       </Card>
 
       {showReferralInvite ? <ReferralInviteCta /> : null}
+      {showReferralInvite ? (
+        <TelegramChannelInvite campaign="order_paid" audience="client" />
+      ) : null}
 
       <div className="flex flex-wrap gap-2">
         {(status === "DRAFT" ||

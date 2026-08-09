@@ -5,15 +5,15 @@ import { LEGAL_AGENT } from "@/lib/legal-entity";
 import { LEGAL_ROUTES } from "@/lib/legal";
 import {
   SUPPORT_TELEGRAM_HANDLE,
+  brandTelegramChannelUrl,
   supportEmail,
   supportMaxUrl,
-  supportTelegramUrl,
 } from "@/lib/support-config";
 import { SupportLauncher } from "@/features/support/support-launcher";
 
 export function SiteFooter() {
   const email = supportEmail();
-  const telegramUrl = supportTelegramUrl();
+  const telegramUrl = brandTelegramChannelUrl({ campaign: "footer", content: "public" });
   const maxUrl = supportMaxUrl();
 
   return (
@@ -63,7 +63,7 @@ export function SiteFooter() {
             {email}
           </a>
           {" · "}
-          Telegram:{" "}
+          Канал Telegram:{" "}
           <a
             className="underline underline-offset-2 hover:text-foreground"
             href={telegramUrl}

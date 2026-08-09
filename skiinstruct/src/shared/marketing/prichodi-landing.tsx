@@ -142,6 +142,15 @@ export function PrichodiLanding() {
             >
               Как это работает
             </Link>
+            <a
+              href="https://t.me/tvoitrenerrf?utm_source=landing&utm_medium=telegram_invite&utm_campaign=prichodi"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center px-2 py-2 text-sm font-medium text-white/85 underline-offset-4 hover:text-white hover:underline"
+              style={{ fontFamily: "var(--font-prichodi-body), system-ui" }}
+            >
+              Канал в Telegram
+            </a>
           </div>
         </div>
       </section>

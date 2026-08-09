@@ -1,11 +1,36 @@
 import { resolveSensitiveUploadDisplaySrc } from "@/lib/sensitive-upload-urls";
 
+/** Абсолютный URL нашего /api/media|/api/private-media|/uploads → относительный путь (для next/image и img). */
+function relativizeOwnUploadUrl(absoluteUrl: string): string | null {
+  try {
+    const parsed = new URL(absoluteUrl);
+    const path = `${parsed.pathname}${parsed.search}`;
+    if (
+      path.startsWith("/api/media/") ||
+      path.startsWith("/api/private-media/") ||
+      path.startsWith("/uploads/")
+    ) {
+      return path;
+    }
+  } catch {
+    /* not a valid absolute URL */
+  }
+  return null;
+}
+
 /** URL для <img src> / ссылки — публичные через /api/media, чувствительные через /api/private-media. */
 export function publicUploadDisplaySrc(url: string | null | undefined): string | null {
   if (!url?.trim()) return null;
   const trimmed = url.trim();
   if (trimmed.startsWith("/api/private-media/") || trimmed.startsWith("/api/media/")) return trimmed;
-  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  if (/^https?:\/\//i.test(trimmed)) {
+    const own = relativizeOwnUploadUrl(trimmed);
+    if (own?.startsWith("/uploads/")) {
+      return `/api/media/${own.slice("/uploads/".length)}`;
+    }
+    if (own) return own;
+    return trimmed;
+  }
   const sensitive = resolveSensitiveUploadDisplaySrc(trimmed);
   if (sensitive) return sensitive;
   if (trimmed.startsWith("/uploads/")) {
