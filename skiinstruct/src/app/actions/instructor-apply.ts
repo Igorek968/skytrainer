@@ -62,7 +62,7 @@ export async function instructorApplyAction(
     return { error: created.error, success: false };
   }
 
-  const afterApplyUrl = `/instructor/pending?applied=1`;
+  const afterApplyUrl = `/instructor/pending?applied=1&verifyEmail=1`;
 
   await signOut({ redirect: false });
   const signedIn = await credentialsSignInNoRedirect(created.email, password);

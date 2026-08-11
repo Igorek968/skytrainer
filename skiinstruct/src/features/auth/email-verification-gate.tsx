@@ -18,6 +18,8 @@ type Status = {
   role?: string;
 };
 
+type GateRole = "CLIENT" | "INSTRUCTOR";
+
 async function fetchEmailStatus(): Promise<Status | null> {
   const r = await fetch("/api/auth/email-verification", {
     credentials: "include",
@@ -28,11 +30,52 @@ async function fetchEmailStatus(): Promise<Status | null> {
   return r.json() as Promise<Status>;
 }
 
+function copyForRole(role: GateRole) {
+  if (role === "INSTRUCTOR") {
+    return {
+      title: "Остался один шаг — подтвердите email",
+      body: (email: string | null) =>
+        email ? (
+          <>
+            Мы отправили письмо на{" "}
+            <span className="font-medium text-foreground">{email}</span>. Откройте его и нажмите
+            «Подтвердить email». Пока адрес не подтверждён, кабинет и выход на линию недоступны.
+          </>
+        ) : (
+          <>
+            Мы отправили письмо на ваш email. Откройте его и нажмите «Подтвердить email». Пока адрес
+            не подтверждён, кабинет и выход на линию недоступны.
+          </>
+        ),
+      hint: "Письма нет? Загляните в «Спам». Окно закроется само после подтверждения — можно открыть почту в другой вкладке.",
+      unlocked: "Email подтверждён — можно продолжать оформление в кабинете",
+    };
+  }
+  return {
+    title: "Остался один шаг — подтвердите email",
+    body: (email: string | null) =>
+      email ? (
+        <>
+          Мы отправили письмо на{" "}
+          <span className="font-medium text-foreground">{email}</span>. Откройте его и нажмите
+          кнопку «Подтвердить email». Пока адрес не подтверждён, заказ и оплата недоступны.
+        </>
+      ) : (
+        <>
+          Мы отправили письмо на ваш email. Откройте его и нажмите «Подтвердить email». Пока адрес не
+          подтверждён, заказ и оплата недоступны.
+        </>
+      ),
+    hint: "Письма нет? Загляните в «Спам» / «Промоакции». Окно закроется само после подтверждения — можно открыть почту в другой вкладке.",
+    unlocked: "Email подтверждён — добро пожаловать!",
+  };
+}
+
 /**
- * Жёсткий экран для клиента: сайт недоступен, пока email не подтверждён.
- * z-index выше карты Leaflet (~700) и виджетов (~6000).
+ * Жёсткий экран: сайт/кабинет недоступны, пока email не подтверждён.
+ * z-index выше карты Leaflet и плавающих виджетов.
  */
-export function ClientEmailVerificationGate() {
+export function EmailVerificationGate({ role }: { role: GateRole }) {
   const { data: session, status: sessionStatus } = useSession();
   const qc = useQueryClient();
   const router = useRouter();
@@ -41,19 +84,19 @@ export function ClientEmailVerificationGate() {
   const celebrated = useRef(false);
   const product = getPublicProductName();
   const [mounted, setMounted] = useState(false);
-  /** Защёлка: показали блок — не прячем, пока API не скажет verified. */
   const [locked, setLocked] = useState(false);
+  const copy = copyForRole(role);
 
   const justRegistered = searchParams.get("verifyEmail") === "1";
   const justVerified = searchParams.get("emailVerified") === "1";
 
-  const isClient =
-    sessionStatus === "authenticated" && session?.user?.role === "CLIENT";
+  const isTargetRole =
+    sessionStatus === "authenticated" && session?.user?.role === role;
 
   const status = useQuery({
     queryKey: ["email-verification-status"],
     queryFn: fetchEmailStatus,
-    enabled: isClient && !justVerified,
+    enabled: isTargetRole && !justVerified,
     staleTime: 0,
     refetchInterval: (q) => {
       const d = q.state.data;
@@ -65,7 +108,6 @@ export function ClientEmailVerificationGate() {
 
   useEffect(() => setMounted(true), []);
 
-  // После клика по ссылке в письме — не мигать гейтом
   useEffect(() => {
     if (!justVerified) return;
     celebrated.current = true;
@@ -74,33 +116,32 @@ export function ClientEmailVerificationGate() {
       email: prev?.email ?? session?.user?.email ?? null,
       verified: true,
       required: true,
-      role: "CLIENT",
+      role,
     }));
-    toast.success("Email подтверждён — добро пожаловать!");
+    toast.success(copy.unlocked);
     const sp = new URLSearchParams(searchParams.toString());
     sp.delete("emailVerified");
     const q = sp.toString();
     router.replace(q ? `${pathname}?${q}` : pathname, { scroll: false });
-  }, [justVerified, qc, router, pathname, searchParams, session?.user?.email]);
+  }, [justVerified, qc, router, pathname, searchParams, session?.user?.email, role, copy.unlocked]);
 
-  // После регистрации сразу держим замок
   useEffect(() => {
-    if (justRegistered && isClient) setLocked(true);
-  }, [justRegistered, isClient]);
+    if (justRegistered && isTargetRole) setLocked(true);
+  }, [justRegistered, isTargetRole]);
 
   useEffect(() => {
     if (!status.data) return;
-    if (status.data.role === "CLIENT" && !status.data.verified && status.data.email) {
+    if (status.data.role === role && !status.data.verified && status.data.email) {
       setLocked(true);
     }
     if (status.data.verified) {
       setLocked(false);
       if (!celebrated.current && justRegistered) {
         celebrated.current = true;
-        toast.success("Email подтверждён — добро пожаловать!");
+        toast.success(copy.unlocked);
       }
     }
-  }, [status.data, justRegistered]);
+  }, [status.data, justRegistered, role, copy.unlocked]);
 
   useEffect(() => {
     const onVis = () => {
@@ -121,7 +162,6 @@ export function ClientEmailVerificationGate() {
     };
   }, [locked]);
 
-  // Убрать ?verifyEmail=1 из URL, когда уже показываем гейт (чтобы не мешал шарингу)
   useEffect(() => {
     if (!justRegistered || !locked) return;
     const sp = new URLSearchParams(searchParams.toString());
@@ -176,7 +216,7 @@ export function ClientEmailVerificationGate() {
     onError: () => toast.error("Не удалось проверить статус"),
   });
 
-  if (!mounted || !isClient || justVerified || !locked) return null;
+  if (!mounted || !isTargetRole || justVerified || !locked) return null;
 
   const email = status.data?.email ?? session?.user?.email ?? null;
 
@@ -199,26 +239,12 @@ export function ClientEmailVerificationGate() {
             {product}
           </p>
           <h2 id="email-gate-title" className="text-xl font-semibold tracking-tight text-foreground">
-            Остался один шаг — подтвердите email
+            {copy.title}
           </h2>
           <p id="email-gate-desc" className="text-sm leading-relaxed text-muted-foreground">
-            {email ? (
-              <>
-                Мы отправили письмо на{" "}
-                <span className="font-medium text-foreground">{email}</span>. Откройте его и нажмите
-                кнопку «Подтвердить email». Пока адрес не подтверждён, заказ и оплата недоступны.
-              </>
-            ) : (
-              <>
-                Мы отправили письмо на ваш email. Откройте его и нажмите «Подтвердить email». Пока
-                адрес не подтверждён, заказ и оплата недоступны.
-              </>
-            )}
+            {copy.body(email)}
           </p>
-          <p className="text-xs text-muted-foreground">
-            Письма нет? Загляните в «Спам» / «Промоакции». Окно закроется само после подтверждения —
-            можно открыть почту в другой вкладке.
-          </p>
+          <p className="text-xs text-muted-foreground">{copy.hint}</p>
         </div>
 
         <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-950 dark:text-amber-100">
@@ -251,4 +277,9 @@ export function ClientEmailVerificationGate() {
   );
 
   return createPortal(node, document.body);
+}
+
+/** @deprecated используйте EmailVerificationGate role="CLIENT" */
+export function ClientEmailVerificationGate() {
+  return <EmailVerificationGate role="CLIENT" />;
 }

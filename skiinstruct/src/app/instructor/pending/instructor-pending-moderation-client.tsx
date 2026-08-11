@@ -3,11 +3,11 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signOut } from "next-auth/react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, Suspense } from "react";
 import { toast } from "sonner";
 
 import { isWebPushAvailable, subscribeWebPush } from "@/features/push/web-push-client";
-import { EmailVerificationBanner } from "@/features/auth/email-verification-banner";
+import { EmailVerificationGate } from "@/features/auth/email-verification-gate";
 import { SupportLauncher } from "@/features/support/support-launcher";
 import { signOutCallbackForRole } from "@/lib/auth-routes";
 import {
@@ -159,7 +159,9 @@ export function InstructorPendingModerationClient() {
 
   return (
     <div className="mx-auto max-w-lg space-y-6 py-2">
-      <EmailVerificationBanner />
+      <Suspense fallback={null}>
+        <EmailVerificationGate role="INSTRUCTOR" />
+      </Suspense>
       <Card>
         <CardHeader>
           <CardTitle as="h1">

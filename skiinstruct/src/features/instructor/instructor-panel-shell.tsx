@@ -5,14 +5,14 @@ import { InstructorEventRegistrationPrompt } from "@/features/instructor/instruc
 import { InstructorLessonSoonPrompt } from "@/features/instructor/instructor-lesson-soon-prompt";
 import { InstructorPendingOrderPrompt } from "@/features/instructor/instructor-pending-order-prompt";
 import { InstructorPushAlertsBanner } from "@/features/instructor/instructor-push-alerts-banner";
-import { EmailVerificationBanner } from "@/features/auth/email-verification-banner";
+import { EmailVerificationGate } from "@/features/auth/email-verification-gate";
 import { OrderLessonRemindersPrompt } from "@/features/orders/order-lesson-reminders-prompt";
 import { TelegramChannelInvite } from "@/shared/marketing/telegram-channel-invite";
 import { useAutoWebPushSubscribe } from "@/features/push/use-auto-web-push-subscribe";
 import { useVisibilityInvalidate } from "@/features/push/use-visibility-invalidate";
 import { unlockSiteAlertSound } from "@/lib/site-alert";
 import { isWebPushAvailable, subscribeWebPush, syncWebPushSubscription } from "@/features/push/web-push-client";
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
 
 export function InstructorPanelShell({ children }: { children: React.ReactNode }) {
   useAutoWebPushSubscribe(true);
@@ -27,8 +27,6 @@ export function InstructorPanelShell({ children }: { children: React.ReactNode }
     window.addEventListener("pointerdown", unlock, { once: true });
     window.addEventListener("keydown", unlock, { once: true });
 
-    // Не вызываем requestPermission() без жеста — на iOS PWA это молча ломает push.
-    // Баннер «Включить уведомления» запрашивает разрешение по тапу.
     if (isWebPushAvailable() && typeof Notification !== "undefined" && Notification.permission === "granted") {
       void syncWebPushSubscription();
     }
@@ -41,9 +39,11 @@ export function InstructorPanelShell({ children }: { children: React.ReactNode }
 
   return (
     <>
+      <Suspense fallback={null}>
+        <EmailVerificationGate role="INSTRUCTOR" />
+      </Suspense>
       <InstructorPushAlertsBanner audience="instructor" />
       <div className="mx-auto max-w-6xl space-y-3 px-4 pt-3">
-        <EmailVerificationBanner />
         <TelegramChannelInvite
           campaign="instructor_cabinet"
           audience="instructor"
@@ -61,7 +61,7 @@ export function InstructorPanelShell({ children }: { children: React.ReactNode }
   );
 }
 
-/** После разрешения браузерных уведомлений — подписать инструктора на Web Push (заявки вне сайта). */
+/** После разрешения браузерных уведомлений — подписать инструктора на Web Push. */
 export async function enableInstructorOfflineAlerts(): Promise<boolean> {
   return subscribeWebPush();
 }

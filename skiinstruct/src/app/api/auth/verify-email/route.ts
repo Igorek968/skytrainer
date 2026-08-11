@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { prisma } from "@/lib/prisma";
 import { verifyEmailToken } from "@/lib/services/email-verification";
 
 export async function GET(req: Request) {
@@ -14,5 +15,14 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Ссылка недействительна или устарела" }, { status: 400 });
   }
 
-  return NextResponse.json({ ok: true, email: result.email });
+  const user = await prisma.user.findFirst({
+    where: { email: { equals: result.email, mode: "insensitive" } },
+    select: { role: true },
+  });
+
+  return NextResponse.json({
+    ok: true,
+    email: result.email,
+    role: user?.role ?? null,
+  });
 }

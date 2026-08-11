@@ -4,7 +4,7 @@ import { Suspense } from "react";
 import { useSession } from "next-auth/react";
 
 import { ClientChatMessagePrompt } from "@/features/client/client-chat-message-prompt";
-import { ClientEmailVerificationGate } from "@/features/auth/client-email-verification-gate";
+import { EmailVerificationGate } from "@/features/auth/email-verification-gate";
 import { OrderLessonRemindersPrompt } from "@/features/orders/order-lesson-reminders-prompt";
 import { PushEnableBanner } from "@/features/push/push-enable-banner";
 import { useAutoWebPushSubscribe } from "@/features/push/use-auto-web-push-subscribe";
@@ -13,7 +13,7 @@ import { useVisibilityInvalidate } from "@/features/push/use-visibility-invalida
 function ClientEmailGateHost() {
   return (
     <Suspense fallback={null}>
-      <ClientEmailVerificationGate />
+      <EmailVerificationGate role="CLIENT" />
     </Suspense>
   );
 }
