@@ -35,8 +35,8 @@ function VerifyEmailInner() {
   useEffect(() => {
     if (state !== "ok") return;
     const t = window.setTimeout(() => {
-      router.replace("/client");
-    }, 2500);
+      router.replace("/client?emailVerified=1");
+    }, 1800);
     return () => window.clearTimeout(t);
   }, [state, router]);
 
@@ -67,7 +67,7 @@ function VerifyEmailInner() {
                 Блокировка снята — через пару секунд откроем карту заказов со всеми функциями.
               </p>
               <Button asChild className="w-full">
-                <Link href="/client">Перейти сейчас</Link>
+                <Link href="/client?emailVerified=1">Перейти на сайт</Link>
               </Button>
             </>
           ) : state === "error" ? (
