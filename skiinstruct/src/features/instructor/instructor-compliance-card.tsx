@@ -25,6 +25,7 @@ type ComplianceStatus = {
   agencyOfferAccepted: boolean;
   taxDocumentApproved: boolean;
   insuranceApproved: boolean;
+  passportApproved: boolean;
   canAcceptPaidOrders: boolean;
   taxStatus: "SELF_EMPLOYED" | "IP" | null;
   inn: string | null;
@@ -42,6 +43,7 @@ export function InstructorComplianceCard() {
   const qc = useQueryClient();
   const taxInput = useRef<HTMLInputElement>(null);
   const insInput = useRef<HTMLInputElement>(null);
+  const passportInput = useRef<HTMLInputElement>(null);
   const [taxStatus, setTaxStatus] = useState<"SELF_EMPLOYED" | "IP">("SELF_EMPLOYED");
   const [inn, setInn] = useState("");
   const [phone, setPhone] = useState("");
@@ -142,7 +144,7 @@ export function InstructorComplianceCard() {
       <CardHeader>
         <CardTitle>Соответствие и выплаты</CardTitle>
         <CardDescription>
-          Для приёма оплаченных заявок: агентский договор, документы НПД/ИП, страхование. Минимальный вывод —{" "}
+          Для приёма оплаченных заявок: агентский договор, паспорт, документы НПД/ИП, страхование. Минимальный вывод —{" "}
           {PAYOUT_MIN_WITHDRAWAL_RUB} ₽. Чек НПД — в течение {NPD_RECEIPT_DEADLINE_HOURS} ч после каждого урока.
         </CardDescription>
       </CardHeader>
@@ -159,6 +161,7 @@ export function InstructorComplianceCard() {
             )}
           </li>
           <li>Налоговый статус: {data.taxDocumentApproved ? "одобрен" : "требуется загрузка"}</li>
+          <li>Паспорт: {data.passportApproved ? "одобрен" : "требуется загрузка / проверка"}</li>
           <li>Страхование: {data.insuranceApproved ? "одобрено" : "требуется загрузка"}</li>
           <li>
             Приём заявок:{" "}
@@ -242,11 +245,25 @@ export function InstructorComplianceCard() {
               e.target.value = "";
             }}
           />
+          <input
+            ref={passportInput}
+            type="file"
+            accept="image/*,application/pdf"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) upload.mutate({ file: f, type: "PASSPORT" });
+              e.target.value = "";
+            }}
+          />
           <Button type="button" variant="secondary" onClick={() => taxInput.current?.click()}>
             Загрузить НПД/ИП
           </Button>
           <Button type="button" variant="secondary" onClick={() => insInput.current?.click()}>
             Загрузить страховку
+          </Button>
+          <Button type="button" variant="secondary" onClick={() => passportInput.current?.click()}>
+            Загрузить паспорт
           </Button>
         </div>
 

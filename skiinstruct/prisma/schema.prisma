@@ -82,6 +82,8 @@ enum ComplianceDocType {
   TAX_STATUS_NPD
   TAX_STATUS_IP
   INSURANCE
+  /// Разворот паспорта (стр. 2–3) — для идентификации инструктора.
+  PASSPORT
 }
 
 enum ComplianceDocStatus {
@@ -354,6 +356,14 @@ model InstructorProfile {
   yookassaContractMarkedSentAt DateTime?
   taxStatus             InstructorTaxStatus?
   inn                   String?
+  /// Паспорт РФ: серия (4 цифры).
+  passportSeries        String?
+  /// Паспорт РФ: номер (6 цифр).
+  passportNumber        String?
+  /// Дата выдачи паспорта.
+  passportIssuedAt      DateTime?
+  /// Код подразделения (XXX-XXX).
+  passportDepartmentCode String?
   /// Маскированные реквизиты для выплат (карта/счёт).
   payoutAccountHint     String?
 

@@ -40,6 +40,10 @@ export type InstructorProfileSeedInput = {
   agencyOfferVersion?: string | null;
   taxStatus?: "SELF_EMPLOYED" | "IP" | null;
   inn?: string | null;
+  passportSeries?: string | null;
+  passportNumber?: string | null;
+  passportIssuedAt?: Date | null;
+  passportDepartmentCode?: string | null;
 };
 
 export type AvailabilitySlotRow = {
@@ -93,6 +97,10 @@ export function buildInstructorProfileCreateData(
     agencyOfferVersion: input.agencyOfferVersion ?? AGENCY_OFFER_VERSION,
     taxStatus: input.taxStatus ?? null,
     inn: input.inn?.trim() || null,
+    passportSeries: input.passportSeries?.trim() || null,
+    passportNumber: input.passportNumber?.trim() || null,
+    passportIssuedAt: input.passportIssuedAt ?? null,
+    passportDepartmentCode: input.passportDepartmentCode?.trim() || null,
   };
 }
 

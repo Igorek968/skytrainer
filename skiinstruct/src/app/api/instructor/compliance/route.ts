@@ -101,7 +101,10 @@ export async function POST(req: Request) {
   const file = form.get("file");
   const typeRaw = String(form.get("type") ?? "");
   const type =
-    typeRaw === "INSURANCE" || typeRaw === "TAX_STATUS_NPD" || typeRaw === "TAX_STATUS_IP"
+    typeRaw === "INSURANCE" ||
+    typeRaw === "TAX_STATUS_NPD" ||
+    typeRaw === "TAX_STATUS_IP" ||
+    typeRaw === "PASSPORT"
       ? typeRaw
       : null;
 

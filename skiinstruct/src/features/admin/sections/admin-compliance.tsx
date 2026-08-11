@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 
+import { AdminInstructorModerationSheet } from "@/features/admin/admin-instructor-moderation-sheet";
 import {
   useAdminAgencyRegistry,
   useAdminClientRegistry,
@@ -33,6 +34,7 @@ export function AdminComplianceSection() {
     null,
   );
   const [rejectNote, setRejectNote] = useState("");
+  const [dossierUserId, setDossierUserId] = useState<string | null>(null);
 
   const registry = useAdminAgencyRegistry(activeOnly);
   const clientRegistry = useAdminClientRegistry(clientsPaidOnly);
@@ -96,9 +98,10 @@ export function AdminComplianceSection() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Очередь документов НПД/ИП и страхования</CardTitle>
+          <CardTitle>Очередь документов (паспорт, НПД/ЕГРИП, страхование)</CardTitle>
           <CardDescription>
-            Без одобрения инструктор не может выйти «онлайн» и принять оплаченную заявку.
+            Для допуска к оплаченным заявкам модератор обязан подтвердить статус НПД («Мой налог») или выписку ЕГРИП
+            (ИП). Без этого инструктор не примет оплату.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -110,6 +113,10 @@ export function AdminComplianceSection() {
             <ul className="space-y-3">
               {pendingItems.map((item) => {
                 const href = publicUploadDisplaySrc(item.fileUrl);
+                const passportLine =
+                  item.passportSeries && item.passportNumber
+                    ? `${item.passportSeries} ${item.passportNumber}${item.passportDepartmentCode ? ` · ${item.passportDepartmentCode}` : ""}`
+                    : null;
                 return (
                   <li
                     key={item.documentId}
@@ -122,9 +129,23 @@ export function AdminComplianceSection() {
                         {complianceDocTypeLabel(item.type)}
                         {item.inn ? ` · ИНН ${item.inn}` : ""}
                       </p>
+                      {item.birthDate ? (
+                        <p className="text-xs text-muted-foreground">Дата рождения: {item.birthDate}</p>
+                      ) : null}
+                      {passportLine ? (
+                        <p className="text-xs text-muted-foreground">Паспорт: {passportLine}</p>
+                      ) : null}
                       <p className="text-xs text-muted-foreground">Загружено: {formatDt(item.createdAt)}</p>
                     </div>
                     <div className="flex shrink-0 flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => setDossierUserId(item.userId)}
+                      >
+                        Полное досье
+                      </Button>
                       {href ? (
                         <Button type="button" size="sm" variant="outline" asChild>
                           <Link href={href} target="_blank" rel="noopener noreferrer">
@@ -214,6 +235,7 @@ export function AdminComplianceSection() {
                   <th className="py-2 pr-3 font-medium">Акцепт оферты</th>
                   <th className="py-2 pr-3 font-medium">НПД/ИП</th>
                   <th className="py-2 pr-3 font-medium">Страх.</th>
+                  <th className="py-2 pr-3 font-medium">Паспорт</th>
                   <th className="py-2 pr-3 font-medium">Допуск</th>
                   <th className="py-2 pr-3 font-medium">Почта ops</th>
                   <th className="py-2 pr-3 font-medium">ЮKassa</th>
@@ -238,6 +260,7 @@ export function AdminComplianceSection() {
                     </td>
                     <td className="py-2 pr-3">{r.taxDocumentApproved ? "✓" : "—"}</td>
                     <td className="py-2 pr-3">{r.insuranceApproved ? "✓" : "—"}</td>
+                    <td className="py-2 pr-3">{r.passportApproved ? "✓" : "—"}</td>
                     <td className="py-2 pr-3">
                       {r.canAcceptPaidOrders ? (
                         <span className="text-emerald-700 dark:text-emerald-400">да</span>
@@ -460,6 +483,14 @@ export function AdminComplianceSection() {
             </div>
           </div>
         </div>
+      ) : null}
+
+      {dossierUserId ? (
+        <AdminInstructorModerationSheet
+          userId={dossierUserId}
+          onClose={() => setDossierUserId(null)}
+          onRejected={() => setDossierUserId(null)}
+        />
       ) : null}
     </div>
   );

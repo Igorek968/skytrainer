@@ -35,6 +35,11 @@ type InstructorApplyDraft = {
   bio: string;
   taxStatus: string;
   inn: string;
+  birthDate: string;
+  passportSeries: string;
+  passportNumber: string;
+  passportIssuedAt: string;
+  passportDepartmentCode: string;
   achievements: string;
   acceptAgencyOffer: boolean;
   acceptPrivacy: boolean;
@@ -54,6 +59,11 @@ const defaultDraft: InstructorApplyDraft = {
   bio: "",
   taxStatus: "SELF_EMPLOYED",
   inn: "",
+  birthDate: "",
+  passportSeries: "",
+  passportNumber: "",
+  passportIssuedAt: "",
+  passportDepartmentCode: "",
   achievements: "",
   acceptAgencyOffer: false,
   acceptPrivacy: false,
@@ -98,14 +108,16 @@ function InstructorApplyForm() {
         <CardHeader>
           <CardTitle as="h1">Стать инструктором</CardTitle>
           <CardDescription>
-            Анкета на площадку ТвойТренер.рф: заявки с карты, свой график, оплата онлайн. Укажите телефон и ИНН (нужен
-            для выплат через ЮKassa). После модерации включите «онлайн» и принимайте заявки.
+            Анкета на площадку ТвойТренер.рф: заявки с карты, свой график, оплата онлайн. Укажите ФИО, паспортные
+            данные, телефон и ИНН (нужны для договора и выплат через ЮKassa). После модерации включите «онлайн» и
+            принимайте заявки.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form
             className="space-y-4"
             action={formAction}
+            encType="multipart/form-data"
             noValidate
             onSubmitCapture={() =>
               trackYandexGoal(YM_GOALS.instructorApplySubmit, Object.keys(utm).length ? utm : undefined)
@@ -141,12 +153,14 @@ function InstructorApplyForm() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="middleName">Отчество (при наличии)</Label>
+              <Label htmlFor="middleName">Отчество (как в паспорте)</Label>
               <Input
                 id="middleName"
                 name="middleName"
                 autoComplete="additional-name"
+                required
                 maxLength={80}
+                aria-invalid={Boolean(state.error)}
                 value={values.middleName}
                 onChange={(e) => setField("middleName", e.target.value)}
               />
@@ -307,6 +321,95 @@ function InstructorApplyForm() {
                 ИНН самозанятого или ИП — для выплат. Без него заявка не уйдёт на модерацию.
               </p>
             </div>
+
+            <div className="rounded-md border border-border bg-muted/20 p-3 space-y-3">
+              <p className="text-sm font-medium">Паспортные данные (обязательно)</p>
+              <p className="text-xs text-muted-foreground">
+                Нужны для идентификации по договору. Видны только администрации, клиентам не показываются.
+              </p>
+              <div className="space-y-2">
+                <Label htmlFor="birthDate">Дата рождения</Label>
+                <Input
+                  id="birthDate"
+                  name="birthDate"
+                  type="date"
+                  required
+                  value={values.birthDate}
+                  onChange={(e) => setField("birthDate", e.target.value)}
+                />
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="passportSeries">Серия паспорта</Label>
+                  <Input
+                    id="passportSeries"
+                    name="passportSeries"
+                    required
+                    inputMode="numeric"
+                    maxLength={4}
+                    placeholder="1234"
+                    value={values.passportSeries}
+                    onChange={(e) => setField("passportSeries", e.target.value.replace(/\D/g, "").slice(0, 4))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="passportNumber">Номер паспорта</Label>
+                  <Input
+                    id="passportNumber"
+                    name="passportNumber"
+                    required
+                    inputMode="numeric"
+                    maxLength={6}
+                    placeholder="567890"
+                    value={values.passportNumber}
+                    onChange={(e) => setField("passportNumber", e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="passportIssuedAt">Дата выдачи</Label>
+                <Input
+                  id="passportIssuedAt"
+                  name="passportIssuedAt"
+                  type="date"
+                  required
+                  value={values.passportIssuedAt}
+                  onChange={(e) => setField("passportIssuedAt", e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="passportDepartmentCode">Код подразделения</Label>
+                <Input
+                  id="passportDepartmentCode"
+                  name="passportDepartmentCode"
+                  required
+                  inputMode="numeric"
+                  placeholder="770-001"
+                  maxLength={7}
+                  value={values.passportDepartmentCode}
+                  onChange={(e) => {
+                    const digits = e.target.value.replace(/\D/g, "").slice(0, 6);
+                    const next =
+                      digits.length <= 3 ? digits : `${digits.slice(0, 3)}-${digits.slice(3)}`;
+                    setField("passportDepartmentCode", next);
+                  }}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="passportScan">Фото / скан паспорта (стр. 2–3)</Label>
+                <Input
+                  id="passportScan"
+                  name="passportScan"
+                  type="file"
+                  required
+                  accept="image/jpeg,image/png,image/webp,application/pdf"
+                />
+                <p className="text-xs text-muted-foreground">
+                  JPG, PNG, WEBP или PDF, до 8 МБ. Разворот паспорта со стр. 2–3 (фото и личные данные).
+                </p>
+              </div>
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="achievements">Достижения (по одному на строку, необязательно)</Label>
               <textarea

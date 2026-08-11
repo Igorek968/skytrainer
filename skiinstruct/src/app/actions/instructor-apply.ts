@@ -46,6 +46,15 @@ export async function instructorApplyAction(
     taxStatus,
     inn: String(formData.get("inn") ?? ""),
     phone: String(formData.get("phone") ?? ""),
+    birthDate: String(formData.get("birthDate") ?? ""),
+    passportSeries: String(formData.get("passportSeries") ?? ""),
+    passportNumber: String(formData.get("passportNumber") ?? ""),
+    passportIssuedAt: String(formData.get("passportIssuedAt") ?? ""),
+    passportDepartmentCode: String(formData.get("passportDepartmentCode") ?? ""),
+    passportScan: (() => {
+      const f = formData.get("passportScan");
+      return f instanceof File && f.size > 0 ? f : null;
+    })(),
     acquisition: Object.keys(acquisition).length > 0 ? acquisition : undefined,
   });
 

@@ -133,6 +133,7 @@ const nextConfig = {
     instrumentationHook: true,
     serverActions: {
       allowedOrigins: serverActionsAllowedOrigins(),
+      bodySizeLimit: "8mb",
     },
   },
   images: {

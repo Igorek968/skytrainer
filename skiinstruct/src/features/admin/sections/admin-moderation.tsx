@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { AdminDeleteUserButton } from "@/features/admin/admin-delete-user-button";
+import { AdminInstructorModerationSheet } from "@/features/admin/admin-instructor-moderation-sheet";
 import type { AdminOverview } from "@/features/admin/admin-overview-types";
 import {
   useAdminProfileReviewMutation,
@@ -189,6 +190,7 @@ export function AdminModerationSection({ data }: { data: AdminOverview }) {
   const verify = useAdminVerifyInstructorMutation();
   const profileReview = useAdminProfileReviewMutation();
   const [rejectTarget, setRejectTarget] = useState<RejectTarget | null>(null);
+  const [dossierUserId, setDossierUserId] = useState<string | null>(null);
 
   return (
     <>
@@ -200,6 +202,8 @@ export function AdminModerationSection({ data }: { data: AdminOverview }) {
             {data.pendingInstructors > data.pendingList.length
               ? ` (показаны первые ${data.pendingList.length} из ${data.pendingInstructors})`
               : null}
+            . Для новой регистрации откройте окно подтверждения — там ФИО, паспорт, ИНН, документы и чеклист допуска к
+            оплате (НПД/ЕГРИП).
           </p>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -256,7 +260,12 @@ export function AdminModerationSection({ data }: { data: AdminOverview }) {
                       email={p.email}
                       name={p.name}
                       role="INSTRUCTOR"
-                      disabled={verify.isPending || profileReview.isPending || Boolean(rejectTarget)}
+                      disabled={
+                        verify.isPending ||
+                        profileReview.isPending ||
+                        Boolean(rejectTarget) ||
+                        Boolean(dossierUserId)
+                      }
                     />
                     {p.moderationKind === "NEW_ACCOUNT" ? (
                       <>
@@ -264,16 +273,16 @@ export function AdminModerationSection({ data }: { data: AdminOverview }) {
                           type="button"
                           size="sm"
                           variant="accent"
-                          disabled={verify.isPending || Boolean(rejectTarget)}
-                          onClick={() => verify.mutate({ userId: p.userId, status: "APPROVED" })}
+                          disabled={Boolean(rejectTarget) || Boolean(dossierUserId)}
+                          onClick={() => setDossierUserId(p.userId)}
                         >
-                          Одобрить инструктора
+                          Проверить и подтвердить…
                         </Button>
                         <Button
                           type="button"
                           size="sm"
                           variant="outline"
-                          disabled={verify.isPending || Boolean(rejectTarget)}
+                          disabled={verify.isPending || Boolean(rejectTarget) || Boolean(dossierUserId)}
                           onClick={() =>
                             setRejectTarget({
                               userId: p.userId,
@@ -291,8 +300,17 @@ export function AdminModerationSection({ data }: { data: AdminOverview }) {
                         <Button
                           type="button"
                           size="sm"
+                          variant="outline"
+                          disabled={Boolean(rejectTarget) || Boolean(dossierUserId)}
+                          onClick={() => setDossierUserId(p.userId)}
+                        >
+                          Досье / договор
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
                           variant="accent"
-                          disabled={profileReview.isPending || Boolean(rejectTarget)}
+                          disabled={profileReview.isPending || Boolean(rejectTarget) || Boolean(dossierUserId)}
                           onClick={() => profileReview.mutate({ userId: p.userId, action: "approve" })}
                         >
                           Опубликовать изменения
@@ -301,7 +319,7 @@ export function AdminModerationSection({ data }: { data: AdminOverview }) {
                           type="button"
                           size="sm"
                           variant="outline"
-                          disabled={profileReview.isPending || Boolean(rejectTarget)}
+                          disabled={profileReview.isPending || Boolean(rejectTarget) || Boolean(dossierUserId)}
                           onClick={() =>
                             setRejectTarget({
                               userId: p.userId,
@@ -341,6 +359,14 @@ export function AdminModerationSection({ data }: { data: AdminOverview }) {
               { onSuccess: () => setRejectTarget(null) },
             );
           }}
+        />
+      ) : null}
+
+      {dossierUserId ? (
+        <AdminInstructorModerationSheet
+          userId={dossierUserId}
+          onClose={() => setDossierUserId(null)}
+          onRejected={() => setDossierUserId(null)}
         />
       ) : null}
     </>

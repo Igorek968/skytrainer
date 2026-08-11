@@ -22,6 +22,7 @@ export type AgencyRegistryRow = {
   isOnline: boolean;
   taxDocumentApproved: boolean;
   insuranceApproved: boolean;
+  passportApproved: boolean;
   canAcceptPaidOrders: boolean;
   completedLessons: number;
   paidOrders: number;
@@ -69,6 +70,8 @@ export async function fetchAgencyRegistryRows(options?: {
           agencyOfferVersion: true,
           verificationStatus: true,
           isOnline: true,
+          passportSeries: true,
+          passportNumber: true,
           yookassaContractNotifiedAt: true,
           yookassaContractMarkedSentAt: true,
         },
@@ -112,6 +115,7 @@ export async function fetchAgencyRegistryRows(options?: {
       agencyOfferAcceptedAt: p.agencyOfferAcceptedAt,
       taxStatus: p.taxStatus,
       approvedDocTypes: docsByUser.get(u.id) ?? new Set(),
+      requiresPassportApproval: Boolean(p.passportSeries && p.passportNumber),
     });
 
     const row: AgencyRegistryRow = {
@@ -126,6 +130,7 @@ export async function fetchAgencyRegistryRows(options?: {
       isOnline: p.isOnline,
       taxDocumentApproved: flags.taxDocumentApproved,
       insuranceApproved: flags.insuranceApproved,
+      passportApproved: flags.passportApproved,
       canAcceptPaidOrders: flags.canAcceptPaidOrders,
       completedLessons: completedByUser.get(u.id) ?? 0,
       paidOrders: paidByUser.get(u.id) ?? 0,
@@ -154,6 +159,7 @@ export function agencyRegistryToCsv(rows: AgencyRegistryRow[]): string {
     "Статус анкеты",
     "НПД/ИП одобрен",
     "Страхование одобрено",
+    "Паспорт одобрен",
     "Может принимать оплаченные",
     "Онлайн",
     "Активен на платформе",
@@ -182,6 +188,7 @@ export function agencyRegistryToCsv(rows: AgencyRegistryRow[]): string {
         r.verificationStatus,
         yesNo(r.taxDocumentApproved),
         yesNo(r.insuranceApproved),
+        yesNo(r.passportApproved),
         yesNo(r.canAcceptPaidOrders),
         yesNo(r.isOnline),
         yesNo(r.activeOnPlatform),
@@ -288,6 +295,7 @@ export function renderAgencyCertificateHtml(data: AgencyCertificateData): string
     <tr><th>Статус анкеты на платформе</th><td>${escapeOfferHtml(i.verificationStatus)}</td></tr>
     <tr><th>Документ НПД/ИП</th><td>${yesNo(i.taxDocumentApproved)}</td></tr>
     <tr><th>Страхование</th><td>${yesNo(i.insuranceApproved)}</td></tr>
+    <tr><th>Паспорт</th><td>${yesNo(i.passportApproved)}</td></tr>
     <tr><th>Допуск к оплаченным заявкам</th><td>${yesNo(i.canAcceptPaidOrders)}</td></tr>
   </table>
 
@@ -338,6 +346,10 @@ export type PendingComplianceItem = {
   inn: string | null;
   taxStatus: InstructorTaxStatus | null;
   agencyOfferAcceptedAt: string | null;
+  birthDate: string | null;
+  passportSeries: string | null;
+  passportNumber: string | null;
+  passportDepartmentCode: string | null;
 };
 
 export async function fetchPendingComplianceDocuments(): Promise<PendingComplianceItem[]> {
@@ -349,11 +361,15 @@ export async function fetchPendingComplianceDocuments(): Promise<PendingComplian
         select: {
           email: true,
           name: true,
+          birthDate: true,
           instructorProfile: {
             select: {
               inn: true,
               taxStatus: true,
               agencyOfferAcceptedAt: true,
+              passportSeries: true,
+              passportNumber: true,
+              passportDepartmentCode: true,
             },
           },
         },
@@ -372,6 +388,10 @@ export async function fetchPendingComplianceDocuments(): Promise<PendingComplian
     inn: d.user.instructorProfile?.inn ?? null,
     taxStatus: d.user.instructorProfile?.taxStatus ?? null,
     agencyOfferAcceptedAt: d.user.instructorProfile?.agencyOfferAcceptedAt?.toISOString() ?? null,
+    birthDate: d.user.birthDate?.toISOString().slice(0, 10) ?? null,
+    passportSeries: d.user.instructorProfile?.passportSeries ?? null,
+    passportNumber: d.user.instructorProfile?.passportNumber ?? null,
+    passportDepartmentCode: d.user.instructorProfile?.passportDepartmentCode ?? null,
   }));
 }
 
@@ -383,6 +403,8 @@ export function complianceDocTypeLabel(type: string): string {
       return "Выписка ИП";
     case "INSURANCE":
       return "Страхование ответственности";
+    case "PASSPORT":
+      return "Паспорт (стр. 2–3)";
     default:
       return type;
   }

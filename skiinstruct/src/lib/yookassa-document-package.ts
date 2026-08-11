@@ -228,6 +228,7 @@ export function renderRegistryTableHtml(rows: AgencyRegistryRow[], generatedAt: 
         <th>Версия оферты</th>
         <th>НПД/ИП</th>
         <th>Страхование</th>
+        <th>Паспорт</th>
         <th>Допуск</th>
       </tr>
     </thead>
@@ -247,6 +248,7 @@ export function renderRegistryTableHtml(rows: AgencyRegistryRow[], generatedAt: 
         <td>${escapeHtml(r.agencyOfferVersion ?? "—")}</td>
         <td>${yesNo(r.taxDocumentApproved)}</td>
         <td>${yesNo(r.insuranceApproved)}</td>
+        <td>${yesNo(r.passportApproved)}</td>
         <td>${yesNo(r.canAcceptPaidOrders)}</td>
       </tr>`,
     )

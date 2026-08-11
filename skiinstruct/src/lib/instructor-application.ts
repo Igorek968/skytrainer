@@ -1,13 +1,23 @@
+import { randomUUID } from "crypto";
+
 import { Prisma } from "@prisma/client";
 import { hash } from "bcryptjs";
 import { z } from "zod";
 
 import { buildInstructorProfileCreateData } from "@/lib/instructor-profile-defaults";
+import {
+  PASSPORT_UPLOAD_ALLOWED,
+  PASSPORT_UPLOAD_MAX_BYTES,
+  parseInstructorPassportInput,
+  passportFileExt,
+} from "@/lib/instructor-passport";
 import { AGENCY_OFFER_VERSION } from "@/lib/legal-config";
 import { normalizeRussianPhone } from "@/lib/phone";
+import { writePrivateUpload } from "@/lib/private-uploads";
 import { prisma } from "@/lib/prisma";
 import { canonicalizeActivityLabel, canonicalizeActivityLabels } from "@/lib/services/instructor-match";
 import { findDuplicateParticipantByDisplayName } from "@/lib/services/user-display-name-uniqueness";
+import { validateUploadedBytes } from "@/lib/upload-validation";
 import { DISPLAY_NAME_DUPLICATE_MESSAGE } from "@/lib/user-display-name";
 
 const namePart = z
@@ -22,15 +32,7 @@ const applySchema = z.object({
   password: z.string().min(8, "Пароль: не меньше 8 символов").max(128),
   lastName: namePart.refine((s) => s.length >= 1, { message: "Укажите фамилию" }),
   firstName: namePart.refine((s) => s.length >= 1, { message: "Укажите имя" }),
-  middleName: z
-    .string()
-    .trim()
-    .max(80)
-    .refine((s) => !s || /^[\p{L}\p{M}\s'-]+$/u.test(s), {
-      message: "Отчество: только буквы, пробел, дефис или апостроф",
-    })
-    .optional()
-    .transform((s) => (s && s.length > 0 ? s : null)),
+  middleName: namePart.refine((s) => s.length >= 1, { message: "Укажите отчество (как в паспорте)" }),
   nickname: z
     .string()
     .trim()
@@ -87,6 +89,13 @@ export async function createInstructorApplication(input: {
   taxStatus?: "SELF_EMPLOYED" | "IP";
   inn?: string;
   phone?: string;
+  birthDate?: string;
+  passportSeries?: string;
+  passportNumber?: string;
+  passportIssuedAt?: string;
+  passportDepartmentCode?: string;
+  /** Скан/фото разворота паспорта (стр. 2–3). */
+  passportScan?: File | null;
   /** UTM / источник заявки (Авито, Директ, SEO…). */
   acquisition?: Record<string, string>;
 }): Promise<CreateInstructorApplicationResult> {
@@ -100,6 +109,36 @@ export async function createInstructorApplication(input: {
 
   if (input.passwordConfirm !== undefined && input.password !== input.passwordConfirm) {
     return { ok: false, error: "Пароли не совпадают", status: 400 };
+  }
+
+  const passportParsed = parseInstructorPassportInput({
+    birthDate: input.birthDate,
+    passportSeries: input.passportSeries,
+    passportNumber: input.passportNumber,
+    passportIssuedAt: input.passportIssuedAt,
+    passportDepartmentCode: input.passportDepartmentCode,
+  });
+  if (!passportParsed.ok) {
+    return { ok: false, error: passportParsed.error, status: 400 };
+  }
+
+  const passportScan = input.passportScan;
+  if (!(passportScan instanceof File) || passportScan.size <= 0) {
+    return {
+      ok: false,
+      error: "Прикрепите фото или скан паспорта (разворот стр. 2–3)",
+      status: 400,
+    };
+  }
+  if (!PASSPORT_UPLOAD_ALLOWED.has(passportScan.type)) {
+    return { ok: false, error: "Паспорт: допустимы JPG, PNG, WEBP или PDF", status: 400 };
+  }
+  if (passportScan.size > PASSPORT_UPLOAD_MAX_BYTES) {
+    return { ok: false, error: "Файл паспорта: максимум 8 MB", status: 400 };
+  }
+  const passportBuffer = Buffer.from(await passportScan.arrayBuffer());
+  if (!validateUploadedBytes(passportScan.type, passportBuffer)) {
+    return { ok: false, error: "Содержимое файла паспорта не соответствует формату", status: 400 };
   }
 
   const parsed = applySchema.safeParse({
@@ -163,6 +202,13 @@ export async function createInstructorApplication(input: {
     inn,
     phone,
   } = parsed.data;
+  const {
+    birthDate,
+    passportSeries,
+    passportNumber,
+    passportIssuedAt,
+    passportDepartmentCode,
+  } = passportParsed.data;
 
   const duplicateName = await findDuplicateParticipantByDisplayName(null, firstName, lastName);
   if (duplicateName) {
@@ -194,7 +240,7 @@ export async function createInstructorApplication(input: {
   const profileDraft = {
     firstName,
     lastName,
-    middleName: middleName ?? undefined,
+    middleName,
     nickname,
     ...(input.acquisition && Object.keys(input.acquisition).length > 0
       ? { acquisition: input.acquisition }
@@ -211,6 +257,7 @@ export async function createInstructorApplication(input: {
         middleName,
         nickname,
         phone,
+        birthDate,
         role: "INSTRUCTOR",
         instructorProfile: {
           create: {
@@ -223,6 +270,10 @@ export async function createInstructorApplication(input: {
               agencyOfferVersion: AGENCY_OFFER_VERSION,
               taxStatus,
               inn,
+              passportSeries,
+              passportNumber,
+              passportIssuedAt,
+              passportDepartmentCode,
             }),
             profileDraft,
           },
@@ -241,6 +292,23 @@ export async function createInstructorApplication(input: {
       return { ok: false, error: "Этот email уже зарегистрирован", status: 409 };
     }
     throw e;
+  }
+
+  try {
+    const ext = passportFileExt(passportScan.type);
+    const filename = `${createdUserId}-PASSPORT-${randomUUID()}.${ext}`;
+    const fileUrl = await writePrivateUpload("compliance", filename, passportBuffer);
+    await prisma.instructorComplianceDocument.create({
+      data: {
+        userId: createdUserId,
+        type: "PASSPORT",
+        fileUrl,
+        status: "PENDING",
+      },
+    });
+  } catch (e) {
+    console.error("[instructor-apply] passport upload", e instanceof Error ? e.message : e);
+    // Аккаунт уже создан — скан можно догрузить в кабинете.
   }
 
   try {

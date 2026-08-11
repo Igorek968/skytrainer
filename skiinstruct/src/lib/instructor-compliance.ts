@@ -6,6 +6,7 @@ export type ComplianceFlags = {
   agencyOfferAccepted: boolean;
   taxDocumentApproved: boolean;
   insuranceApproved: boolean;
+  passportApproved: boolean;
   canAcceptPaidOrders: boolean;
 };
 
@@ -13,6 +14,8 @@ export function computeComplianceFlags(input: {
   agencyOfferAcceptedAt: Date | null | undefined;
   taxStatus: InstructorTaxStatus | null | undefined;
   approvedDocTypes: Set<string>;
+  /** Если паспортные реквизиты уже собраны — требуем одобренный скан. Старые анкеты без паспорта не блокируем. */
+  requiresPassportApproval?: boolean;
 }): ComplianceFlags {
   const approved = input.approvedDocTypes;
   const taxOk =
@@ -20,13 +23,16 @@ export function computeComplianceFlags(input: {
       ? approved.has("TAX_STATUS_IP") || approved.has("TAX_STATUS_NPD")
       : approved.has("TAX_STATUS_NPD") || approved.has("TAX_STATUS_IP");
   const insuranceOk = approved.has("INSURANCE");
+  const passportUploadedOk = approved.has("PASSPORT");
+  const passportOk = input.requiresPassportApproval ? passportUploadedOk : true;
   const agencyOfferAccepted = Boolean(input.agencyOfferAcceptedAt);
 
   return {
     agencyOfferAccepted,
     taxDocumentApproved: taxOk,
     insuranceApproved: insuranceOk,
-    canAcceptPaidOrders: agencyOfferAccepted && taxOk && insuranceOk,
+    passportApproved: passportUploadedOk,
+    canAcceptPaidOrders: agencyOfferAccepted && taxOk && insuranceOk && passportOk,
   };
 }
 
@@ -40,11 +46,15 @@ export async function getInstructorComplianceStatus(userId: string) {
         agencyOfferAcceptedAt: true,
         inn: true,
         payoutAccountHint: true,
+        passportSeries: true,
+        passportNumber: true,
+        passportIssuedAt: true,
+        passportDepartmentCode: true,
       },
     }),
     prisma.user.findUnique({
       where: { id: userId },
-      select: { phone: true },
+      select: { phone: true, birthDate: true },
     }),
     prisma.instructorComplianceDocument.findMany({
       where: { userId },
@@ -60,6 +70,7 @@ export async function getInstructorComplianceStatus(userId: string) {
     agencyOfferAcceptedAt: profile?.agencyOfferAcceptedAt,
     taxStatus: profile?.taxStatus,
     approvedDocTypes: approved,
+    requiresPassportApproval: Boolean(profile?.passportSeries && profile?.passportNumber),
   });
 
   return {
@@ -68,12 +79,17 @@ export async function getInstructorComplianceStatus(userId: string) {
     inn: profile?.inn ?? null,
     payoutAccountHint: profile?.payoutAccountHint ?? null,
     phone: user?.phone ?? null,
+    birthDate: user?.birthDate?.toISOString() ?? null,
+    passportSeries: profile?.passportSeries ?? null,
+    passportNumber: profile?.passportNumber ?? null,
+    passportIssuedAt: profile?.passportIssuedAt?.toISOString() ?? null,
+    passportDepartmentCode: profile?.passportDepartmentCode ?? null,
     documents: docs,
   };
 }
 
 export const COMPLIANCE_BLOCK_MESSAGE =
-  "Для приёма оплаченных заявок нужны: акцепт агентского договора, одобренные документы НПД/ИП и страхование. Загрузите их в разделе «Соответствие и выплаты».";
+  "Для приёма оплаченных заявок нужны: акцепт агентского договора, паспорт, одобренные документы НПД/ИП и страхование. Загрузите их в разделе «Соответствие и выплаты».";
 
 export async function assertInstructorCanAcceptPaidOrders(userId: string): Promise<string | null> {
   const status = await getInstructorComplianceStatus(userId);

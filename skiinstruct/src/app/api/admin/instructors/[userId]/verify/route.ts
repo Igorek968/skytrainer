@@ -14,6 +14,8 @@ const bodySchema = z
   .object({
     status: z.enum(["APPROVED", "REJECTED"]),
     rejectMessage: z.string().trim().min(3).max(2000).optional(),
+    /** Одобрить выбранные compliance-документы вместе с анкетой. */
+    approveDocumentIds: z.array(z.string().cuid()).max(20).optional(),
   })
   .refine((d) => d.status !== "REJECTED" || Boolean(d.rejectMessage?.trim()), {
     message: "Укажите причину отказа (не менее 3 символов)",
@@ -113,17 +115,28 @@ export async function POST(req: Request, ctx: Ctx) {
           profileDraftRejectedAt: null,
         },
       });
-      return;
+    } else {
+      await tx.instructorProfile.update({
+        where: { userId },
+        data: {
+          verificationStatus: "APPROVED",
+          profileDraftRejectNote: null,
+          profileDraftRejectedAt: null,
+        },
+      });
     }
 
-    await tx.instructorProfile.update({
-      where: { userId },
-      data: {
-        verificationStatus: "APPROVED",
-        profileDraftRejectNote: null,
-        profileDraftRejectedAt: null,
-      },
-    });
+    const approveIds = parsed.data.approveDocumentIds?.filter(Boolean) ?? [];
+    if (approveIds.length > 0) {
+      await tx.instructorComplianceDocument.updateMany({
+        where: {
+          userId,
+          id: { in: approveIds },
+          status: "PENDING",
+        },
+        data: { status: "APPROVED", rejectNote: null },
+      });
+    }
   });
 
   void notifyInstructorVerificationResult({ userId, status: "APPROVED" });
