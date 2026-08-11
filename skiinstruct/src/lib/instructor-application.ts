@@ -15,6 +15,7 @@ import { AGENCY_OFFER_VERSION } from "@/lib/legal-config";
 import { normalizeRussianPhone } from "@/lib/phone";
 import { writePrivateUpload } from "@/lib/private-uploads";
 import { prisma } from "@/lib/prisma";
+import { sendEmailVerification } from "@/lib/services/email-verification";
 import { canonicalizeActivityLabel, canonicalizeActivityLabels } from "@/lib/services/instructor-match";
 import { findDuplicateParticipantByDisplayName } from "@/lib/services/user-display-name-uniqueness";
 import { validateUploadedBytes } from "@/lib/upload-validation";
@@ -335,6 +336,10 @@ export async function createInstructorApplication(input: {
     .catch((e) =>
       console.error("[yookassa-contract] apply", e instanceof Error ? e.message : e),
     );
+
+  void sendEmailVerification(email).catch((e) => {
+    console.error("[instructor-apply] email verification send failed", e);
+  });
 
   return { ok: true, email };
 }

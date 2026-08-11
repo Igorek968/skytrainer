@@ -9,6 +9,7 @@ import {
   markMockCardBound,
   saveCardFromPaymentMethodPayload,
 } from "@/lib/services/client-yookassa-card";
+import { assertUserEmailVerified } from "@/lib/services/email-verification";
 import { completeOrderPrepayment } from "@/lib/services/order-prepayment";
 import { orderAmountDueRub } from "@/lib/services/referral";
 import { createYooKassaLessonPayment, isYooKassaConfigured } from "@/lib/yookassa";
@@ -23,6 +24,14 @@ export async function POST(req: Request) {
   try {
     const resolved = await requireClientSession();
     if (isApiErrorResponse(resolved)) return resolved;
+
+    const emailBlock = await assertUserEmailVerified(resolved.userId);
+    if (emailBlock) {
+      return NextResponse.json(
+        { error: emailBlock, code: "EMAIL_NOT_VERIFIED" },
+        { status: 403 },
+      );
+    }
 
     let json: unknown;
     try {

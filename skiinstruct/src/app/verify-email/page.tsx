@@ -41,18 +41,24 @@ function VerifyEmailInner() {
               ? "Проверяем ссылку…"
               : state === "ok"
                 ? "Адрес почты подтверждён."
-                : "Ссылка недействительна или устарела."}
+                : "Ссылка недействительна или устарела. Запросите новое письмо в кабинете."}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {state === "ok" && email ? (
             <p className="text-sm text-muted-foreground">
-              Email <strong>{email}</strong> подтверждён. Можно оформлять заказы и оплачивать уроки.
+              Email <strong>{email}</strong> подтверждён. Клиенты могут оплачивать уроки, инструкторы —
+              выходить на линию (если включена обязательная проверка).
             </p>
           ) : null}
-          <Button asChild className="w-full">
-            <Link href="/client">На карту заказов</Link>
-          </Button>
+          <div className="flex flex-col gap-2">
+            <Button asChild className="w-full">
+              <Link href="/client">Кабинет клиента</Link>
+            </Button>
+            <Button asChild variant="outline" className="w-full">
+              <Link href="/instructor">Кабинет инструктора</Link>
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </div>

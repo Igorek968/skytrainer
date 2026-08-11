@@ -83,3 +83,22 @@ export async function sendEmailVerification(email: string): Promise<boolean> {
 export function isEmailVerificationRequired(): boolean {
   return process.env.REQUIRE_EMAIL_VERIFICATION === "1";
 }
+
+export const EMAIL_NOT_VERIFIED_MESSAGE =
+  "Подтвердите email по ссылке из письма. Без этого оплата и важные действия недоступны.";
+
+/**
+ * Если REQUIRE_EMAIL_VERIFICATION=1 и у пользователя emailVerified пустой — вернуть текст ошибки.
+ * Иначе null.
+ */
+export async function assertUserEmailVerified(userId: string): Promise<string | null> {
+  if (!isEmailVerificationRequired()) return null;
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { emailVerified: true },
+  });
+  if (!user) return "Пользователь не найден";
+  if (user.emailVerified) return null;
+  return EMAIL_NOT_VERIFIED_MESSAGE;
+}
+

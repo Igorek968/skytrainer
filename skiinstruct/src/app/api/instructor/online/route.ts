@@ -5,6 +5,7 @@ import { isApiErrorResponse, requireInstructorSession } from "@/lib/api-session"
 import { notifyBotInstructorOnline } from "@/lib/bot-api";
 import { ensureInstructorProfile } from "@/lib/instructor-profile-defaults";
 import { prisma } from "@/lib/prisma";
+import { assertUserEmailVerified } from "@/lib/services/email-verification";
 
 const bodySchema = z.object({
   isOnline: z.boolean(),
@@ -35,6 +36,14 @@ export async function POST(req: Request) {
   });
 
   if (parsed.data.isOnline) {
+    const emailBlock = await assertUserEmailVerified(userId);
+    if (emailBlock) {
+      return NextResponse.json(
+        { error: emailBlock, code: "EMAIL_NOT_VERIFIED" },
+        { status: 403 },
+      );
+    }
+
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: { suspendedAt: true },

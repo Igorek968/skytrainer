@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { isWebPushAvailable, subscribeWebPush } from "@/features/push/web-push-client";
+import { EmailVerificationBanner } from "@/features/auth/email-verification-banner";
 import { SupportLauncher } from "@/features/support/support-launcher";
 import { signOutCallbackForRole } from "@/lib/auth-routes";
 import {
@@ -158,6 +159,7 @@ export function InstructorPendingModerationClient() {
 
   return (
     <div className="mx-auto max-w-lg space-y-6 py-2">
+      <EmailVerificationBanner />
       <Card>
         <CardHeader>
           <CardTitle as="h1">

@@ -6,6 +6,7 @@ import { Prisma } from "@prisma/client";
 import { isApiErrorResponse, requireAuthSession, requireClientSession } from "@/lib/api-session";
 import { prisma } from "@/lib/prisma";
 import { assertClientHasNoOtherActiveOrder } from "@/lib/services/client-active-order";
+import { assertUserEmailVerified } from "@/lib/services/email-verification";
 import { findInstructorScheduleConflict } from "@/lib/services/instructor-schedule";
 import { prepareInstructorQueue } from "@/lib/services/instructor-routing";
 import { canonicalizeActivityLabel } from "@/lib/services/instructor-match";
@@ -75,6 +76,14 @@ export async function GET() {
 export async function POST(req: Request) {
   const resolved = await requireClientSession();
   if (isApiErrorResponse(resolved)) return resolved;
+
+  const emailBlock = await assertUserEmailVerified(resolved.userId);
+  if (emailBlock) {
+    return NextResponse.json(
+      { error: emailBlock, code: "EMAIL_NOT_VERIFIED" },
+      { status: 403 },
+    );
+  }
 
   let json: unknown;
   try {
