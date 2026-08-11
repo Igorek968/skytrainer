@@ -18,6 +18,10 @@ export type AdminUserListRow = {
   isOnline: boolean;
   verificationStatus: string | null;
   specializations: string[];
+  /** Анкета договора заполнена полностью. */
+  anketaComplete?: boolean;
+  /** verificationStatus === APPROVED */
+  verifiedOk?: boolean;
 };
 
 export type AdminUsersListResponse = {

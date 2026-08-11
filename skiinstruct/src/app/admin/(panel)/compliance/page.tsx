@@ -1,17 +1,15 @@
 "use client";
 
+import { AdminWorkspace } from "@/features/admin/admin-workspace";
 import { AdminComplianceSection } from "@/features/admin/sections/admin-compliance";
 
 export default function AdminCompliancePage() {
   return (
-    <div className="space-y-4">
-      <header>
-        <h1 className="text-2xl font-semibold tracking-tight">ЮKassa / договоры</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Претензии по качеству, договоры с инструкторами и клиентами, проверка НПД/ИП, пакет для ЮKassa.
-        </p>
-      </header>
-      <AdminComplianceSection />
-    </div>
+    <AdminWorkspace
+      title="ЮKassa / договоры"
+      subtitle="Документы НПД/ИП/паспорт, претензии, пакет для ЮKassa. Связано с воронкой инструкторов."
+    >
+      {() => <AdminComplianceSection />}
+    </AdminWorkspace>
   );
 }

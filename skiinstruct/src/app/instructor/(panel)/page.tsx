@@ -884,7 +884,7 @@ export default function InstructorHomePage() {
             </Button>
             {session?.user?.role === "ADMIN" ? (
               <Button type="button" variant="outline" size="sm" asChild>
-                <Link href="/admin/activity">Админ-панель</Link>
+                <Link href="/admin/metrics">Админ-панель</Link>
               </Button>
             ) : (
               <Button type="button" variant="outline" size="sm" asChild>

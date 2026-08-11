@@ -7,7 +7,7 @@ export default function AdminPipelinePage() {
   return (
     <AdminWorkspace
       title="Воронка заказов"
-      subtitle="Где заявки ждут инструктора, оплаты или уже в работе."
+      subtitle="От черновика до урока: matching, rescue и работа. Карточки открывают фильтры заказов."
     >
       {(data) => <AdminPipelineSection data={data} />}
     </AdminWorkspace>

@@ -55,7 +55,7 @@ function navForRole(role: UserRole): AppNavLinks {
       area: "admin",
       bookHref: "/client",
       bookLabel: "Заказать занятие",
-      dashboardHref: "/admin/activity",
+      dashboardHref: "/admin/metrics",
       dashboardLabel: "Админ-панель",
       ordersHref: "/admin/orders",
       ordersLabel: "Заказы (админ)",

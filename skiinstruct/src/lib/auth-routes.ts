@@ -26,7 +26,7 @@ export function isClientBookingReturnPath(path: string): boolean {
 export function cabinetPathForRole(role: UserRole | undefined): string | null {
   if (role === "INSTRUCTOR") return "/instructor";
   if (role === "CLIENT") return "/client";
-  if (role === "ADMIN") return "/admin/activity";
+  if (role === "ADMIN") return "/admin/metrics";
   return null;
 }
 

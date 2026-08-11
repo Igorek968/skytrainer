@@ -113,8 +113,8 @@ export async function signInAdminCredentialsAction(
   const rawRedirect = String(formData.get("redirectTo") ?? "");
   const redirectTo = resolvePostLoginRedirect(
     "ADMIN",
-    sanitizeRedirectPath(rawRedirect, "/admin/activity"),
-    "/admin/activity",
+    sanitizeRedirectPath(rawRedirect, "/admin/metrics"),
+    "/admin/metrics",
   );
 
   if (!email.includes("@")) {

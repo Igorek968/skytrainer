@@ -26,7 +26,7 @@ function SubmitButton() {
   );
 }
 
-export function AdminLoginForm({ callbackUrl = "/admin/activity" }: { callbackUrl?: string }) {
+export function AdminLoginForm({ callbackUrl = "/admin/metrics" }: { callbackUrl?: string }) {
   const { data: session } = useSession();
   const [state, formAction] = useFormState(signInAdminCredentialsAction, initialState);
   const signedInAsOther = Boolean(session?.user?.role && session.user.role !== "ADMIN");

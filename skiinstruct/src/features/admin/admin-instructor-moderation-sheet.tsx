@@ -102,6 +102,8 @@ export function AdminInstructorModerationSheet({ userId, onClose, onRejected }: 
         qc.invalidateQueries({ queryKey: ["admin-overview"] }),
         qc.invalidateQueries({ queryKey: ["admin-agency-registry"] }),
         qc.invalidateQueries({ queryKey: ["admin-compliance-pending"] }),
+        qc.invalidateQueries({ queryKey: ["admin-instructors-funnel"] }),
+        qc.invalidateQueries({ queryKey: ["admin-alerts"] }),
       ]);
       if (vars.status === "REJECTED") onRejected();
       else onClose();

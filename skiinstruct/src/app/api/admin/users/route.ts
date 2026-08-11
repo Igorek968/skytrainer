@@ -8,6 +8,7 @@ import {
   type AdminUserRoleFilter,
 } from "@/lib/admin-list-filters";
 import { isApiErrorResponse, requireAdminSession } from "@/lib/api-session";
+import { instructorAnketaIsComplete } from "@/lib/instructor-anketa-status";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -58,7 +59,9 @@ export async function GET(req: Request) {
       id: true,
       email: true,
       name: true,
+      middleName: true,
       phone: true,
+      birthDate: true,
       role: true,
       suspendedAt: true,
       createdAt: true,
@@ -68,7 +71,18 @@ export async function GET(req: Request) {
           isOnline: true,
           verificationStatus: true,
           specializations: true,
+          inn: true,
+          taxStatus: true,
+          passportSeries: true,
+          passportNumber: true,
+          passportIssuedAt: true,
+          passportDepartmentCode: true,
+          bio: true,
         },
+      },
+      complianceDocuments: {
+        where: { type: { in: ["PASSPORT", "TAX_STATUS_NPD", "TAX_STATUS_IP"] } },
+        select: { type: true },
       },
     },
   });
@@ -95,19 +109,45 @@ export async function GET(req: Request) {
     role: roleFilter,
     online: onlineOnly,
     total: users.length,
-    users: users.map((u) => ({
-      id: u.id,
-      email: u.email,
-      name: u.name,
-      phone: u.phone,
-      role: u.role,
-      suspendedAt: u.suspendedAt?.toISOString() ?? null,
-      createdAt: u.createdAt.toISOString(),
-      updatedAt: u.updatedAt.toISOString(),
-      isOnline: u.instructorProfile?.isOnline ?? false,
-      verificationStatus: u.instructorProfile?.verificationStatus ?? null,
-      specializations: u.instructorProfile?.specializations ?? [],
-    })),
+    users: users.map((u) => {
+      const p = u.instructorProfile;
+      const docs = u.complianceDocuments ?? [];
+      const anketaComplete = p
+        ? instructorAnketaIsComplete({
+            name: u.name,
+            middleName: u.middleName,
+            phone: u.phone,
+            email: u.email,
+            birthDate: u.birthDate,
+            inn: p.inn,
+            taxStatus: p.taxStatus,
+            passportSeries: p.passportSeries,
+            passportNumber: p.passportNumber,
+            passportIssuedAt: p.passportIssuedAt,
+            passportDepartmentCode: p.passportDepartmentCode,
+            bio: p.bio,
+            hasPassportScan: docs.some((d) => d.type === "PASSPORT"),
+            hasTaxDocument: docs.some(
+              (d) => d.type === "TAX_STATUS_NPD" || d.type === "TAX_STATUS_IP",
+            ),
+          })
+        : true;
+      return {
+        id: u.id,
+        email: u.email,
+        name: u.name,
+        phone: u.phone,
+        role: u.role,
+        suspendedAt: u.suspendedAt?.toISOString() ?? null,
+        createdAt: u.createdAt.toISOString(),
+        updatedAt: u.updatedAt.toISOString(),
+        isOnline: p?.isOnline ?? false,
+        verificationStatus: p?.verificationStatus ?? null,
+        specializations: p?.specializations ?? [],
+        anketaComplete,
+        verifiedOk: p?.verificationStatus === "APPROVED",
+      };
+    }),
     counts: {
       all: allCount,
       CLIENT: clientCount,

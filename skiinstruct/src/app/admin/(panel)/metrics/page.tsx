@@ -19,8 +19,8 @@ function MetricsSkeleton() {
 export default function AdminMetricsPage() {
   return (
     <AdminWorkspace
-      title="Показатели"
-      subtitle="Нажмите на карточку счётчика — откроется список заказов, пользователей или очередь модерации."
+      title="Показатели CRM"
+      subtitle="Очереди найма и спроса. Карточка открывает нужный раздел с фильтрами."
     >
       {(data) => (
         <Suspense fallback={<MetricsSkeleton />}>

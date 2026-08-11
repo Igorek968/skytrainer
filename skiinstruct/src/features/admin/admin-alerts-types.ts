@@ -47,6 +47,7 @@ export function adminAlertCategoryLabel(c: AdminAlertCategory): string {
 
 /** Какой бейдж меню соответствует пункту nav. */
 export function adminNavBadgeForHref(href: string): AdminNavBadgeKey | null {
+  if (href.startsWith("/admin/instructors")) return "moderation";
   if (href.startsWith("/admin/moderation")) return "moderation";
   if (href.startsWith("/admin/messages")) return "messages";
   if (href.startsWith("/admin/finance")) return "finance";

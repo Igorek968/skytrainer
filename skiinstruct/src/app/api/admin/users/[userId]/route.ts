@@ -34,7 +34,10 @@ export async function GET(_req: Request, ctx: Ctx) {
       id: true,
       email: true,
       name: true,
+      middleName: true,
+      nickname: true,
       phone: true,
+      birthDate: true,
       role: true,
       suspendedAt: true,
       suspendedNote: true,
@@ -52,6 +55,25 @@ export async function GET(_req: Request, ctx: Ctx) {
           hourlyRate: true,
           specializations: true,
           payoutAccountHint: true,
+          inn: true,
+          taxStatus: true,
+          agencyOfferAcceptedAt: true,
+          agencyOfferVersion: true,
+          passportSeries: true,
+          passportNumber: true,
+          passportIssuedAt: true,
+          passportDepartmentCode: true,
+        },
+      },
+      complianceDocuments: {
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          type: true,
+          status: true,
+          fileUrl: true,
+          rejectNote: true,
+          createdAt: true,
         },
       },
     },
@@ -60,23 +82,78 @@ export async function GET(_req: Request, ctx: Ctx) {
     return NextResponse.json({ error: "Пользователь не найден" }, { status: 404 });
   }
 
+  const { resolveSensitiveUploadDisplaySrc } = await import("@/lib/sensitive-upload-urls");
+  const { complianceDocTypeLabel } = await import("@/lib/instructor-agency-registry");
+  const { instructorAnketaMissingFields } = await import("@/lib/instructor-anketa-status");
+
+  const p = user.instructorProfile;
+  const docs = user.complianceDocuments;
+  const missingFields = p
+    ? instructorAnketaMissingFields({
+        name: user.name,
+        middleName: user.middleName,
+        phone: user.phone,
+        email: user.email,
+        birthDate: user.birthDate,
+        inn: p.inn,
+        taxStatus: p.taxStatus,
+        passportSeries: p.passportSeries,
+        passportNumber: p.passportNumber,
+        passportIssuedAt: p.passportIssuedAt,
+        passportDepartmentCode: p.passportDepartmentCode,
+        bio: p.bio,
+        hasPassportScan: docs.some((d) => d.type === "PASSPORT"),
+        hasTaxDocument: docs.some((d) => d.type === "TAX_STATUS_NPD" || d.type === "TAX_STATUS_IP"),
+      })
+    : [];
+
   return NextResponse.json({
     user: {
       id: user.id,
       email: user.email,
       name: user.name,
+      middleName: user.middleName,
+      nickname: user.nickname,
       phone: user.phone,
+      birthDate: user.birthDate?.toISOString().slice(0, 10) ?? null,
       role: user.role,
       suspendedAt: user.suspendedAt?.toISOString() ?? null,
       suspendedNote: user.suspendedNote,
       createdAt: user.createdAt.toISOString(),
       updatedAt: user.updatedAt.toISOString(),
-      instructorProfile: user.instructorProfile
+      anketaComplete: missingFields.length === 0,
+      missingFields,
+      instructorProfile: p
         ? {
-            ...user.instructorProfile,
-            hourlyRate: Number(user.instructorProfile.hourlyRate),
+            isOnline: p.isOnline,
+            verificationStatus: p.verificationStatus,
+            certificationLevel: p.certificationLevel,
+            experienceYears: p.experienceYears,
+            sportsExperienceYears: p.sportsExperienceYears,
+            age: p.age,
+            bio: p.bio,
+            hourlyRate: Number(p.hourlyRate),
+            specializations: p.specializations,
+            payoutAccountHint: p.payoutAccountHint,
+            inn: p.inn,
+            taxStatus: p.taxStatus,
+            agencyOfferAcceptedAt: p.agencyOfferAcceptedAt?.toISOString() ?? null,
+            agencyOfferVersion: p.agencyOfferVersion,
+            passportSeries: p.passportSeries,
+            passportNumber: p.passportNumber,
+            passportIssuedAt: p.passportIssuedAt?.toISOString().slice(0, 10) ?? null,
+            passportDepartmentCode: p.passportDepartmentCode,
           }
         : null,
+      documents: docs.map((d) => ({
+        id: d.id,
+        type: d.type,
+        typeLabel: complianceDocTypeLabel(d.type),
+        status: d.status,
+        rejectNote: d.rejectNote,
+        createdAt: d.createdAt.toISOString(),
+        viewUrl: resolveSensitiveUploadDisplaySrc(d.fileUrl),
+      })),
     },
   });
 }

@@ -178,7 +178,20 @@ export function AdminUsersSection() {
               <tbody>
                 {data.users.map((u) => (
                   <tr key={u.id} className="border-b border-border/80">
-                    <td className="py-2 pr-3 font-medium">{u.name?.trim() || "—"}</td>
+                    <td className="py-2 pr-3 font-medium">
+                      <span className="inline-flex items-center gap-1.5">
+                        {u.role === "INSTRUCTOR" && u.verifiedOk ? (
+                          <span
+                            className="text-base leading-none text-emerald-600 dark:text-emerald-400"
+                            title="Проверка анкеты пройдена"
+                            aria-label="Проверен"
+                          >
+                            ★
+                          </span>
+                        ) : null}
+                        {u.name?.trim() || "—"}
+                      </span>
+                    </td>
                     <td className="py-2 pr-3 text-muted-foreground">{u.email}</td>
                     <td className="py-2 pr-3 tabular-nums text-muted-foreground">{formatPhone(u.phone)}</td>
                     <td className="py-2 pr-3">{roleLabel(u.role)}</td>
@@ -200,9 +213,21 @@ export function AdminUsersSection() {
                                 Офлайн
                               </Badge>
                             )}
-                            {u.verificationStatus === "PENDING" ? (
+                            {u.verifiedOk ? (
+                              <Badge className="bg-emerald-600 text-[10px] hover:bg-emerald-600">
+                                Проверен
+                              </Badge>
+                            ) : u.anketaComplete === false ? (
+                              <Badge className="bg-amber-500 text-[10px] text-white hover:bg-amber-500">
+                                Неполная анкета
+                              </Badge>
+                            ) : u.verificationStatus === "PENDING" ? (
                               <Badge variant="secondary" className="text-[10px]">
                                 На модерации
+                              </Badge>
+                            ) : u.verificationStatus === "REJECTED" ? (
+                              <Badge variant="outline" className="border-destructive text-[10px] text-destructive">
+                                Отклонён
                               </Badge>
                             ) : null}
                           </>
