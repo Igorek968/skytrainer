@@ -3,13 +3,13 @@
 import { useSession } from "next-auth/react";
 
 import { ClientChatMessagePrompt } from "@/features/client/client-chat-message-prompt";
-import { EmailVerificationBanner } from "@/features/auth/email-verification-banner";
+import { ClientEmailVerificationGate } from "@/features/auth/client-email-verification-gate";
 import { OrderLessonRemindersPrompt } from "@/features/orders/order-lesson-reminders-prompt";
 import { PushEnableBanner } from "@/features/push/push-enable-banner";
 import { useAutoWebPushSubscribe } from "@/features/push/use-auto-web-push-subscribe";
 import { useVisibilityInvalidate } from "@/features/push/use-visibility-invalidate";
 
-/** Напоминания клиенту по урокам (1 ч, старт, завершение). */
+/** Напоминания клиенту по урокам + блокировка до подтверждения email. */
 export function ClientRemindersRoot() {
   const { data: session, status } = useSession();
   const isClient = status === "authenticated" && session?.user?.role === "CLIENT";
@@ -21,9 +21,7 @@ export function ClientRemindersRoot() {
 
   return (
     <>
-      <div className="mx-auto max-w-6xl px-3 pt-3 sm:px-4">
-        <EmailVerificationBanner />
-      </div>
+      <ClientEmailVerificationGate />
       <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 p-3 sm:bottom-4 sm:left-auto sm:right-4 sm:max-w-md">
         <div className="pointer-events-auto">
           <PushEnableBanner

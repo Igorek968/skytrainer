@@ -2,7 +2,6 @@ import crypto from "crypto";
 
 import { prisma } from "@/lib/prisma";
 import {
-  buildPasswordResetEmailContent,
   isPasswordResetEmailConfigured,
   passwordResetEmailDefaults,
   sendPasswordResetEmailViaSmtp,
@@ -64,17 +63,29 @@ export async function sendEmailVerification(email: string): Promise<boolean> {
   if (!isPasswordResetEmailConfigured()) return false;
   const raw = await createEmailVerificationToken(email);
   const link = buildEmailVerificationLink(raw);
-  const { from, subject: defaultSubject } = passwordResetEmailDefaults();
+  const { from } = passwordResetEmailDefaults();
   const appName = getPublicProductName();
   const subject = `${appName}: подтвердите email`;
-  const { text: baseText, html: baseHtml } = buildPasswordResetEmailContent(link);
-  const text = baseText.replace("восстановление пароля", "подтверждение email").replace("Сбросить пароль", "Подтвердить email");
-  const html = baseHtml
-    .replace("восстановление пароля", "подтверждение email")
-    .replace("Сбросить пароль", "Подтвердить email")
-    .replace("сброс —", "письмо —");
+  const text = [
+    "Здравствуйте!",
+    "",
+    `Вы зарегистрировались на ${appName}. Чтобы открыть полный доступ к заказам и оплате, подтвердите email:`,
+    link,
+    "",
+    "Ссылка действует 48 часов. Если вы не регистрировались — просто удалите письмо.",
+  ].join("\n");
+  const html = `<!DOCTYPE html>
+<html lang="ru">
+<body style="font-family:sans-serif;line-height:1.5;color:#111">
+  <p>Здравствуйте!</p>
+  <p>Вы зарегистрировались на <strong>${appName}</strong>. Подтвердите email — после этого откроется полный доступ к заказам и оплате.</p>
+  <p><a href="${link}" style="display:inline-block;padding:12px 18px;background:#027676;color:#fff;text-decoration:none;border-radius:8px;font-weight:600">Подтвердить email</a></p>
+  <p style="font-size:13px;color:#555">Или скопируйте ссылку:<br/><a href="${link}">${link}</a></p>
+  <p style="font-size:13px;color:#555">Ссылка действует 48 часов. Если вы не регистрировались — удалите это письмо.</p>
+</body>
+</html>`;
 
-  const payload = { to: email, from, subject: defaultSubject.includes("восстановление") ? subject : subject, text, html };
+  const payload = { to: email, from, subject, text, html };
   if (await sendPasswordResetEmailViaSmtp(payload)) return true;
   if (await sendPasswordResetEmailViaWebhook(payload)) return true;
   return false;

@@ -60,5 +60,5 @@ export async function registerClientAction(
     );
   }
 
-  redirect(redirectTo);
+  redirect(`${redirectTo}${redirectTo.includes("?") ? "&" : "?"}verifyEmail=1`);
 }
