@@ -74,12 +74,12 @@ const siteUsesHttps = configuredSiteUsesHttps();
 
 const cspDirectives = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://api-maps.yandex.ru https://yastatic.net https://mc.yandex.ru https://www.googletagmanager.com",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://api-maps.yandex.ru https://yastatic.net https://mc.yandex.ru https://www.googletagmanager.com https://challenges.cloudflare.com",
   "style-src 'self' 'unsafe-inline' https://yastatic.net",
   isProd ? "img-src 'self' data: blob: https:" : "img-src 'self' data: blob: https: http:",
   "font-src 'self' data: https://yastatic.net",
-  "connect-src 'self' https://api-maps.yandex.ru https://geocode-maps.yandex.ru https://*.yandex.ru https://mc.yandex.ru https://www.google-analytics.com https://region1.google-analytics.com wss:",
-  "frame-src 'self' https://yoomoney.ru https://*.yookassa.ru",
+  "connect-src 'self' https://api-maps.yandex.ru https://geocode-maps.yandex.ru https://*.yandex.ru https://mc.yandex.ru https://www.google-analytics.com https://region1.google-analytics.com https://challenges.cloudflare.com wss:",
+  "frame-src 'self' https://yoomoney.ru https://*.yookassa.ru https://challenges.cloudflare.com",
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",

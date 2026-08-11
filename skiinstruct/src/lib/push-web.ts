@@ -46,7 +46,10 @@ export type PushPayload = {
 };
 
 export async function sendWebPushToUser(userId: string, payload: PushPayload): Promise<{ sent: number; errors: number }> {
-  if (!ensureVapid()) return { sent: 0, errors: 0 };
+  if (!ensureVapid()) {
+    console.warn("[push-web] VAPID keys missing — push skipped", payload.tag);
+    return { sent: 0, errors: 0 };
+  }
 
   const subs = await prisma.pushSubscription.findMany({ where: { userId } });
   let sent = 0;

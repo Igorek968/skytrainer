@@ -37,14 +37,29 @@ const credentialsProvider = Credentials({
     email: { label: "Email", type: "text" },
     password: { label: "Пароль", type: "password" },
     resetToken: { label: "Токен сброса пароля", type: "text" },
+    captchaToken: { label: "Turnstile", type: "text" },
+    /** Только Server Actions: значение = AUTH_SECRET (после уже проверенного captcha). */
+    trustedServerSignIn: { label: "Trusted", type: "text" },
   },
   authorize: async (raw: Record<string, unknown> | undefined) => {
     const requestHeaders = await headers();
     const ip = clientIp(requestHeaders);
     const resetToken = typeof raw?.resetToken === "string" ? raw.resetToken.trim() : "";
     const captchaToken = typeof raw?.captchaToken === "string" ? raw.captchaToken.trim() : "";
-    const humanOk = await verifyTurnstileToken(captchaToken, ip);
-    if (!humanOk) return null;
+    const trustedRaw =
+      typeof raw?.trustedServerSignIn === "string" ? raw.trustedServerSignIn.trim() : "";
+    const authSecret =
+      process.env.AUTH_SECRET?.trim() || process.env.NEXTAUTH_SECRET?.trim() || "";
+    const trustedServer =
+      Boolean(authSecret) && Boolean(trustedRaw) && trustedRaw === authSecret;
+
+    // Браузерный вход — Turnstile обязателен (если секрет задан).
+    // Авто-вход после регистрации/заявки: captcha уже проверен в action, токен одноразовый —
+    // передаём trustedServerSignIn=AUTH_SECRET только из Server Action.
+    if (!trustedServer) {
+      const humanOk = await verifyTurnstileToken(captchaToken, ip);
+      if (!humanOk) return null;
+    }
 
     if (resetToken) {
       if (!rateLimit(`password-reset:signin:${resetToken.slice(0, 16)}`, 8, 900_000)) {

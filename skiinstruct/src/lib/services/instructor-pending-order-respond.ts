@@ -3,6 +3,7 @@ import type { Order } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { assertInstructorCanAcceptPaidOrders } from "@/lib/instructor-compliance";
 import { isMockCheckoutEnabled } from "@/lib/checkout-config";
+import { notifyClientOrderDecision } from "@/lib/services/client-order-notify";
 import { assignInstructorByQueue } from "@/lib/services/instructor-routing";
 import { transitionOrderStatus } from "@/lib/services/order-service";
 import { orderHasMeetAddress } from "@/shared/lib/order-meet-address";
@@ -36,10 +37,21 @@ export async function instructorRespondToPendingOrder(
     };
   }
 
+  const instructor = await prisma.user.findUnique({
+    where: { id: instructorUserId },
+    select: { name: true },
+  });
+
   if (action === "reject") {
     await assignInstructorByQueue(orderId, "reject");
     const updated = await prisma.order.findUnique({ where: { id: orderId } });
     if (!updated) return { ok: false, error: "Not found", status: 404 };
+    void notifyClientOrderDecision({
+      clientId: order.clientId,
+      orderId,
+      decision: "rejected",
+      instructorName: instructor?.name,
+    });
     return { ok: true, order: updated };
   }
 
@@ -72,6 +84,12 @@ export async function instructorRespondToPendingOrder(
     actorUserId: instructorUserId,
     to: "ACCEPTED",
     extra: { pendingExpiresAt: null },
+  });
+  void notifyClientOrderDecision({
+    clientId: order.clientId,
+    orderId,
+    decision: "accepted",
+    instructorName: instructor?.name,
   });
   return { ok: true, order: updated };
 }

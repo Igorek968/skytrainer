@@ -44,10 +44,17 @@ export function messageForCredentialsFailure(error: unknown): string {
   return "Неверный email или пароль.";
 }
 
+function authSecretForTrustedSignIn(): string {
+  return process.env.AUTH_SECRET?.trim() || process.env.NEXTAUTH_SECRET?.trim() || "";
+}
+
 function signInResultFromAuthResponse(result: unknown): { ok: true } | { ok: false; error: string } {
-  if (result == null) return { ok: true };
+  // null/undefined при redirect:false без cookie — не считаем успехом
+  if (result == null) {
+    return { ok: false, error: "Не удалось установить сессию. Попробуйте войти вручную." };
+  }
   if (typeof result === "object") {
-    const r = result as { error?: string | null; ok?: boolean; status?: number };
+    const r = result as { error?: string | null; ok?: boolean; status?: number; url?: string | null };
     if (r.error) {
       return {
         ok: false,
@@ -61,8 +68,12 @@ function signInResultFromAuthResponse(result: unknown): { ok: true } | { ok: fal
       return { ok: false, error: "Неверный email или пароль." };
     }
     if (r.ok === true || r.status === 200) return { ok: true };
+    // url на /api/auth/error — провал
+    if (typeof r.url === "string" && /error=/i.test(r.url)) {
+      return { ok: false, error: "Неверный email или пароль." };
+    }
   }
-  return { ok: true };
+  return { ok: false, error: "Не удалось выполнить вход. Попробуйте ещё раз." };
 }
 
 /** Вход по ссылке восстановления пароля (без смены пароля). */
@@ -76,14 +87,20 @@ export async function passwordResetTokenSignInNoRedirect(
       return { ok: false, error: "Слишком много попыток. Подождите 15 минут." };
     }
 
+    const trusted = authSecretForTrustedSignIn();
     const result = await signIn("credentials", {
       resetToken,
+      trustedServerSignIn: trusted,
       redirect: false,
     });
     return signInResultFromAuthResponse(result);
   } catch (error) {
+    // redirect:false не должен кидать NEXT_REDIRECT; если кинул — это ошибка конфигурации, не успех
     if (isNextRedirect(error)) {
-      return { ok: true };
+      return {
+        ok: false,
+        error: "Сбой настройки входа. Проверьте AUTH_SECRET / AUTH_URL и войдите вручную.",
+      };
     }
     if (isCredentialsLikeFailure(error)) {
       return { ok: false, error: "Ссылка недействительна или устарела." };
@@ -105,15 +122,20 @@ export async function credentialsSignInNoRedirect(
       return { ok: false, error: "Слишком много попыток входа. Подождите 15 минут." };
     }
 
+    const trusted = authSecretForTrustedSignIn();
     const result = await signIn("credentials", {
       email,
       password,
+      trustedServerSignIn: trusted,
       redirect: false,
     });
     return signInResultFromAuthResponse(result);
   } catch (error) {
     if (isNextRedirect(error)) {
-      return { ok: true };
+      return {
+        ok: false,
+        error: "Сбой настройки входа. Аккаунт мог быть создан — войдите вручную на /login.",
+      };
     }
     if (isCredentialsLikeFailure(error)) {
       return { ok: false, error: messageForCredentialsFailure(error) };
