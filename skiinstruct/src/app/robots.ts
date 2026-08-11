@@ -1,8 +1,13 @@
 import type { MetadataRoute } from "next";
 
-import { absoluteUrl } from "@/lib/seo";
+import { absoluteUrl, siteOrigin } from "@/lib/seo";
 
-/** Публичные боты поиска и ИИ — разрешены; кабинеты и API закрыты. */
+/**
+ * robots.txt для Яндекса/Google.
+ * — только punycode в Host/Sitemap (кириллица в robots.txt запрещена Яндексом);
+ * — один блок User-agent: * (без дублей по ботам — файл был ~7 KB / 300+ строк);
+ * — Host без схемы (классический формат Яндекса).
+ */
 const PUBLIC_ALLOW = [
   "/",
   "/gorod/",
@@ -31,26 +36,22 @@ const PUBLIC_DISALLOW = [
   "/instructor/registrations",
   "/instructor/profile",
   "/instructor/availability",
+  "/instructor/pending",
   "/verify-email",
   "/login",
   "/register",
   "/reset-password",
 ];
 
-const AI_BOTS = [
-  "GPTBot",
-  "ChatGPT-User",
-  "Google-Extended",
-  "ClaudeBot",
-  "Anthropic-AI",
-  "PerplexityBot",
-  "Bytespider",
-  "CCBot",
-  "YandexBot",
-  "YandexImages",
-];
-
 export default function robots(): MetadataRoute.Robots {
+  const origin = siteOrigin();
+  let host = "xn--b1agaovdpdkd.xn--p1ai";
+  try {
+    host = new URL(origin).host;
+  } catch {
+    /* keep punycode fallback */
+  }
+
   return {
     rules: [
       {
@@ -58,13 +59,13 @@ export default function robots(): MetadataRoute.Robots {
         allow: PUBLIC_ALLOW,
         disallow: PUBLIC_DISALLOW,
       },
-      ...AI_BOTS.map((userAgent) => ({
-        userAgent,
+      {
+        userAgent: "Yandex",
         allow: PUBLIC_ALLOW,
         disallow: PUBLIC_DISALLOW,
-      })),
+      },
     ],
     sitemap: absoluteUrl("/sitemap.xml"),
-    host: absoluteUrl("/").replace(/\/$/, ""),
+    host,
   };
 }

@@ -212,7 +212,8 @@ export function siteOrigin(): string {
     if (url.hostname !== "localhost" && url.hostname !== "127.0.0.1") {
       url.protocol = "https:";
     }
-    return url.origin;
+    // URL().host уже в punycode — важно для robots.txt / sitemap (Яндекс запрещает кириллицу).
+    return `${url.protocol}//${url.host}`;
   } catch {
     return "http://localhost:3001";
   }

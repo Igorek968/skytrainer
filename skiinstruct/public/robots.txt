@@ -1,0 +1,68 @@
+# ТвойТренер.рф — резервная статическая копия (Next app/robots.ts имеет приоритет).
+# Если динамический маршрут недоступен при деплое, этот файл помогает ботам.
+# Домен только в punycode (кириллица в robots.txt запрещена Яндексом).
+
+User-agent: *
+Allow: /
+Allow: /gorod/
+Allow: /sport/
+Allow: /instructors/
+Allow: /instructor/login
+Allow: /instructor/apply
+Allow: /vakansiya
+Allow: /landings/
+Allow: /gid/
+Allow: /faq
+Allow: /llms.txt
+Allow: /ai.txt
+Disallow: /admin/
+Disallow: /api/
+Disallow: /client/orders
+Disallow: /client/profile
+Disallow: /client/messages
+Disallow: /client/favorites
+Disallow: /client/registrations
+Disallow: /client/referral
+Disallow: /instructor/orders
+Disallow: /instructor/registrations
+Disallow: /instructor/profile
+Disallow: /instructor/availability
+Disallow: /instructor/pending
+Disallow: /verify-email
+Disallow: /login
+Disallow: /register
+Disallow: /reset-password
+
+User-agent: Yandex
+Allow: /
+Allow: /gorod/
+Allow: /sport/
+Allow: /instructors/
+Allow: /instructor/login
+Allow: /instructor/apply
+Allow: /vakansiya
+Allow: /landings/
+Allow: /gid/
+Allow: /faq
+Allow: /llms.txt
+Allow: /ai.txt
+Disallow: /admin/
+Disallow: /api/
+Disallow: /client/orders
+Disallow: /client/profile
+Disallow: /client/messages
+Disallow: /client/favorites
+Disallow: /client/registrations
+Disallow: /client/referral
+Disallow: /instructor/orders
+Disallow: /instructor/registrations
+Disallow: /instructor/profile
+Disallow: /instructor/availability
+Disallow: /instructor/pending
+Disallow: /verify-email
+Disallow: /login
+Disallow: /register
+Disallow: /reset-password
+
+Host: xn--b1agaovdpdkd.xn--p1ai
+Sitemap: https://xn--b1agaovdpdkd.xn--p1ai/sitemap.xml
