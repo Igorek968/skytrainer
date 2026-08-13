@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils";
 type Props = {
   userId: string;
   onClose: () => void;
-  onRejected: () => void;
+  onRejected?: () => void;
 };
 
 function Field({ label, value }: { label: string; value: string | null | undefined }) {
@@ -106,7 +106,7 @@ export function AdminInstructorModerationSheet({ userId, onClose, onRejected }: 
         qc.invalidateQueries({ queryKey: ["admin-alerts"] }),
         qc.invalidateQueries({ queryKey: ["admin-instructor-moderation", userId] }),
       ]);
-      if (vars.status === "REJECTED") onRejected();
+      if (vars.status === "REJECTED") onRejected?.();
       else onClose();
     },
     onError: (e: Error) => toast.error(e.message),
