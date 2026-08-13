@@ -12,6 +12,7 @@ import { verifyTurnstileToken } from "@/lib/security/turnstile";
 import { validatePasswordResetToken } from "@/lib/services/password-reset";
 import { consumeEmailLoginToken } from "@/lib/services/email-verification";
 import { bindReferralFromCookie, ensureUserReferralCode } from "@/lib/services/referral";
+import type { UserRole } from "@prisma/client";
 
 const credentialsSchema = z
   .object({
@@ -192,11 +193,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       return token;
     },
     async session({ session, token }) {
-      const base = await authConfig.callbacks.session({ session, token });
-      if (base.user && typeof token.email === "string") {
-        base.user.email = token.email;
+      if (session.user) {
+        session.user.id = token.sub ?? "";
+        session.user.role = token.role as import("@prisma/client").UserRole;
+        if (typeof token.email === "string" && token.email.trim()) {
+          session.user.email = token.email;
+        }
       }
-      return base;
+      return session;
     },
   },
 });
