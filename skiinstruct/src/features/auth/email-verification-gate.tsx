@@ -11,7 +11,12 @@ import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
 import { getPublicProductName } from "@/shared/lib/product";
-import { RUSSIAN_EMAIL_EXAMPLES, RUSSIAN_EMAIL_HINT } from "@/lib/russian-email";
+import {
+  assertRussianEmail,
+  RUSSIAN_EMAIL_EXAMPLES,
+  RUSSIAN_EMAIL_HINT,
+} from "@/lib/russian-email";
+import { syncLocalFormEmails } from "@/lib/sync-local-form-emails";
 import { cn } from "@/lib/utils";
 import {
   clearForcedEmailVerificationGate,
@@ -248,6 +253,7 @@ export function EmailVerificationGate({ role }: { role: GateRole }) {
       const j = (await r.json().catch(() => ({}))) as {
         ok?: boolean;
         email?: string;
+        sent?: boolean;
         warning?: string;
         error?: string;
       };
@@ -255,21 +261,34 @@ export function EmailVerificationGate({ role }: { role: GateRole }) {
       return j;
     },
     onSuccess: async (j) => {
-      const email = j.email ?? newEmail.trim().toLowerCase();
+      const email = (j.email ?? newEmail).trim().toLowerCase();
+      syncLocalFormEmails(email);
       qc.setQueryData<Status>(["email-verification-status"], (prev) => ({
         email,
         verified: false,
         required: prev?.required ?? true,
         role: prev?.role ?? role,
       }));
-      await updateSession({ email }).catch(() => undefined);
+      try {
+        await updateSession({ email });
+      } catch {
+        /* сессия подтянется при следующем запросе */
+      }
       void qc.invalidateQueries({ queryKey: ["email-verification-status"] });
+      void qc.invalidateQueries({ queryKey: ["instructor-application-edit"] });
+      void qc.invalidateQueries({ queryKey: ["instructor-pending-me"] });
+      void qc.invalidateQueries({ queryKey: ["me"] });
+      router.refresh();
       setChangeOpen(false);
       setNewEmail("");
-      if (j.warning) {
-        toast.message("Email обновлён", { description: j.warning });
+      if (j.warning || j.sent === false) {
+        toast.message("Анкета обновлена на новый email", {
+          description: j.warning ?? "Письмо не ушло — нажмите «Выслать ещё раз».",
+        });
       } else {
-        toast.success("Email обновлён — письмо отправлено на новый адрес");
+        toast.success("Анкета обновлена", {
+          description: `Письмо подтверждения отправлено на ${email}. После клика по ссылке откроется кабинет.`,
+        });
       }
     },
     onError: (e: Error) => toast.error(e.message),
@@ -334,9 +353,15 @@ export function EmailVerificationGate({ role }: { role: GateRole }) {
         </div>
 
         <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-950 dark:text-amber-100">
-          {status.isFetching || !email
-            ? "Проверяем статус…"
-            : "Ждём подтверждение… Проверяем автоматически каждые несколько секунд."}
+          {status.isFetching || !email ? (
+            "Проверяем статус…"
+          ) : (
+            <>
+              Письмо ждём на{" "}
+              <span className="font-semibold text-foreground">{email}</span>. Проверяем автоматически
+              каждые несколько секунд.
+            </>
+          )}
         </div>
 
         {changeOpen ? (
@@ -344,9 +369,10 @@ export function EmailVerificationGate({ role }: { role: GateRole }) {
             className="space-y-3 rounded-lg border border-border bg-muted/30 p-3"
             onSubmit={(e) => {
               e.preventDefault();
-              const value = newEmail.trim();
-              if (!value.includes("@")) {
-                toast.error("Укажите корректный email");
+              const value = newEmail.trim().toLowerCase();
+              const ruErr = assertRussianEmail(value);
+              if (ruErr) {
+                toast.error(ruErr);
                 return;
               }
               changeEmail.mutate(value);
@@ -359,21 +385,17 @@ export function EmailVerificationGate({ role }: { role: GateRole }) {
                 type="email"
                 autoComplete="email"
                 inputMode="email"
-                placeholder={role === "INSTRUCTOR" ? "name@mail.ru" : "name@example.com"}
+                autoFocus
+                placeholder="name@mail.ru"
                 value={newEmail}
                 onChange={(e) => setNewEmail(e.target.value)}
                 disabled={changeEmail.isPending}
                 required
               />
-              {role === "INSTRUCTOR" ? (
-                <p className="text-xs text-muted-foreground">
-                  {RUSSIAN_EMAIL_HINT} {RUSSIAN_EMAIL_EXAMPLES}.
-                </p>
-              ) : (
-                <p className="text-xs text-muted-foreground">
-                  На новый адрес сразу уйдёт письмо со ссылкой подтверждения.
-                </p>
-              )}
+              <p className="text-xs text-muted-foreground">
+                {RUSSIAN_EMAIL_HINT} {RUSSIAN_EMAIL_EXAMPLES}. После сохранения анкета и письмо
+                подтверждения перейдут на новый адрес — по ссылке из письма откроется кабинет.
+              </p>
             </div>
             <div className="flex flex-col gap-2 sm:flex-row">
               <Button
@@ -424,7 +446,7 @@ export function EmailVerificationGate({ role }: { role: GateRole }) {
               className="w-full"
               disabled={!authReady}
               onClick={() => {
-                setNewEmail(email ?? "");
+                setNewEmail("");
                 setChangeOpen(true);
               }}
             >

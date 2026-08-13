@@ -13,7 +13,8 @@ const bodySchema = z.object({
 
 /**
  * Смена email, пока адрес ещё не подтверждён (окно после регистрации).
- * Клиент — любой валидный email; инструктор — только российские домены.
+ * Клиент и инструктор — только российские почтовые домены.
+ * Письмо подтверждения уходит на новый адрес; старые токены сбрасываются.
  */
 export async function POST(req: Request) {
   const ip = clientIp(req.headers);
@@ -44,11 +45,9 @@ export async function POST(req: Request) {
 
   const nextEmail = parsed.data.email.trim().toLowerCase();
 
-  if (auth.role === "INSTRUCTOR") {
-    const ruErr = assertRussianEmail(nextEmail);
-    if (ruErr) {
-      return NextResponse.json({ error: ruErr }, { status: 400 });
-    }
+  const ruErr = assertRussianEmail(nextEmail);
+  if (ruErr) {
+    return NextResponse.json({ error: ruErr }, { status: 400 });
   }
 
   const user = await prisma.user.findUnique({
@@ -84,7 +83,12 @@ export async function POST(req: Request) {
   await prisma.$transaction(async (tx) => {
     await tx.verificationToken.deleteMany({
       where: {
-        OR: [{ identifier: current }, { identifier: nextEmail }, { identifier: `email-login:${current}` }],
+        OR: [
+          { identifier: current },
+          { identifier: nextEmail },
+          { identifier: `email-login:${current}` },
+          { identifier: `email-login:${nextEmail}` },
+        ],
       },
     });
     await tx.user.update({
@@ -99,11 +103,12 @@ export async function POST(req: Request) {
       {
         ok: true,
         email: nextEmail,
-        warning: "Email сохранён, но письмо не отправлено — проверьте SMTP или нажмите «Выслать ещё раз»",
+        sent: false,
+        warning: "Email сохранён, но письмо не отправлено — нажмите «Выслать ещё раз»",
       },
       { status: 200 },
     );
   }
 
-  return NextResponse.json({ ok: true, email: nextEmail });
+  return NextResponse.json({ ok: true, email: nextEmail, sent: true });
 }
