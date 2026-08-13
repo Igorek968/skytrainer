@@ -3,6 +3,7 @@ import { hash } from "bcryptjs";
 import { z } from "zod";
 
 import { prisma } from "@/lib/prisma";
+import { assertRussianEmail } from "@/lib/russian-email";
 import { sendEmailVerification } from "@/lib/services/email-verification";
 import { bindReferralByCode, bindReferralFromCookie, ensureUserReferralCode } from "@/lib/services/referral";
 import { findDuplicateParticipantByDisplayName } from "@/lib/services/user-display-name-uniqueness";
@@ -46,6 +47,11 @@ export async function createClientUser(input: {
   }
 
   const { email, password } = parsed.data;
+  const ruErr = assertRussianEmail(email);
+  if (ruErr) {
+    return { ok: false, error: ruErr, status: 400 };
+  }
+
   const nameRaw = typeof input.name === "string" ? input.name.trim() : "";
   const name = nameRaw.length > 0 ? nameRaw.slice(0, 120) : null;
 

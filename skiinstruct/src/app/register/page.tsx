@@ -7,6 +7,7 @@ import { useFormState, useFormStatus } from "react-dom";
 
 import { registerClientAction, type RegisterClientState } from "@/app/actions/register-client";
 import { FORM_DRAFT_KEYS } from "@/lib/form-draft-storage";
+import { RUSSIAN_EMAIL_EXAMPLES, RUSSIAN_EMAIL_HINT } from "@/lib/russian-email";
 import { YM_GOALS, trackYandexGoal } from "@/shared/analytics/yandex-metrika-client";
 import { TurnstileWidget } from "@/shared/security/turnstile-widget";
 import { Button } from "@/shared/ui/button";
@@ -132,10 +133,14 @@ function RegisterForm() {
                 type="email"
                 autoComplete="email"
                 required
+                placeholder="name@mail.ru"
                 aria-invalid={Boolean(state.error)}
                 value={values.email}
                 onChange={(e) => setField("email", e.target.value)}
               />
+              <p className="text-xs text-muted-foreground">
+                {RUSSIAN_EMAIL_HINT} {RUSSIAN_EMAIL_EXAMPLES}.
+              </p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="reg-password">Пароль</Label>

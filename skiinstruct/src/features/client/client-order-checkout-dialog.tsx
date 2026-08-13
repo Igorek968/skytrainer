@@ -20,6 +20,7 @@ import {
   savePendingCheckout,
 } from "@/lib/client-pending-checkout";
 import { LEGAL_ROUTES } from "@/lib/legal";
+import { RUSSIAN_EMAIL_EXAMPLES, RUSSIAN_EMAIL_HINT } from "@/lib/russian-email";
 import { InstructorServiceExecutorNotice } from "@/shared/legal/instructor-service-executor-notice";
 import { LegalConsentCheckbox } from "@/shared/legal/legal-consent-checkbox";
 import { YM_GOALS, trackYandexGoal } from "@/shared/analytics/yandex-metrika-client";
@@ -333,8 +334,14 @@ export function ClientOrderCheckoutDialog({ open, onOpenChange, instructor, onCr
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                placeholder={authMode === "register" ? "name@mail.ru" : undefined}
                 autoComplete="email"
               />
+              {authMode === "register" ? (
+                <p className="text-xs text-muted-foreground">
+                  {RUSSIAN_EMAIL_HINT} {RUSSIAN_EMAIL_EXAMPLES}.
+                </p>
+              ) : null}
             </div>
             <div className="space-y-2">
               <Label htmlFor="co-pass">Пароль</Label>
