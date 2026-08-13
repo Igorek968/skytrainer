@@ -16,6 +16,7 @@ import { normalizeRussianPhone } from "@/lib/phone";
 import { writePrivateUpload } from "@/lib/private-uploads";
 import { prisma } from "@/lib/prisma";
 import { sendEmailVerification } from "@/lib/services/email-verification";
+import { assertRussianEmail } from "@/lib/russian-email";
 import { canonicalizeActivityLabel, canonicalizeActivityLabels } from "@/lib/services/instructor-match";
 import { findDuplicateParticipantByDisplayName } from "@/lib/services/user-display-name-uniqueness";
 import { validateUploadedBytes } from "@/lib/upload-validation";
@@ -123,6 +124,11 @@ export async function createInstructorApplication(input: {
   });
   if (!passportParsed.ok) {
     return { ok: false, error: passportParsed.error, status: 400 };
+  }
+
+  const emailRuErr = assertRussianEmail(input.email);
+  if (emailRuErr) {
+    return { ok: false, error: emailRuErr, status: 400 };
   }
 
   const passportScan = input.passportScan;

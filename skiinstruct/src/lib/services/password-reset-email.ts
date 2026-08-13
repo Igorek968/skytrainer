@@ -1,10 +1,11 @@
 import nodemailer from "nodemailer";
 
+import { formatSmtpFromHeader, resolveSmtpFrom, type SmtpFromAddress } from "@/lib/smtp-from";
 import { smtpReplyTo } from "@/lib/support-config";
 
 export type PasswordResetEmailPayload = {
   to: string;
-  from: string;
+  from: string | SmtpFromAddress;
   subject: string;
   text: string;
   html: string;
@@ -36,13 +37,10 @@ export function buildPasswordResetEmailContent(resetLink: string): { text: strin
 
 import { getPublicProductName } from "@/shared/lib/product";
 
-export function passwordResetEmailDefaults(): { from: string; subject: string } {
+export function passwordResetEmailDefaults(): { from: SmtpFromAddress; subject: string } {
   const appName = getPublicProductName();
   return {
-    from:
-      process.env.PASSWORD_RESET_EMAIL_FROM?.trim() ||
-      process.env.SMTP_FROM?.trim() ||
-      `${appName} <noreply@localhost>`,
+    from: resolveSmtpFrom(),
     subject:
       process.env.PASSWORD_RESET_EMAIL_SUBJECT?.trim() ||
       `восстановление пароля на ${appName}`,
@@ -148,7 +146,7 @@ export async function sendPasswordResetEmailViaWebhook(payload: PasswordResetEma
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         to: payload.to,
-        from: payload.from,
+        from: typeof payload.from === "string" ? payload.from : formatSmtpFromHeader(payload.from),
         subject: payload.subject,
         text: payload.text,
         html: payload.html,

@@ -9,6 +9,7 @@ import { instructorApplyAction, type InstructorApplyState } from "@/app/actions/
 import { FORM_DRAFT_KEYS } from "@/lib/form-draft-storage";
 import { LEGAL_ROUTES } from "@/lib/legal";
 import { instructorActivityLabelsAlphabetical } from "@/lib/services/instructor-match";
+import { RUSSIAN_EMAIL_EXAMPLES, RUSSIAN_EMAIL_HINT } from "@/lib/russian-email";
 import { resolveUtmForForm } from "@/shared/analytics/utm-capture";
 import { useFormDraft } from "@/shared/hooks/use-form-draft";
 import { useDisplayNameDuplicateCheck } from "@/shared/hooks/use-display-name-duplicate-check";
@@ -194,10 +195,14 @@ function InstructorApplyForm() {
                 type="email"
                 autoComplete="email"
                 required
+                placeholder="name@mail.ru"
                 aria-invalid={Boolean(state.error)}
                 value={values.email}
                 onChange={(e) => setField("email", e.target.value)}
               />
+              <p className="text-xs text-muted-foreground">
+                {RUSSIAN_EMAIL_HINT} {RUSSIAN_EMAIL_EXAMPLES}.
+              </p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="phone">Номер телефона</Label>

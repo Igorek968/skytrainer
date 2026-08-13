@@ -8,7 +8,10 @@ import { createPortal } from "react-dom";
 import { toast } from "sonner";
 
 import { Button } from "@/shared/ui/button";
+import { Input } from "@/shared/ui/input";
+import { Label } from "@/shared/ui/label";
 import { getPublicProductName } from "@/shared/lib/product";
+import { RUSSIAN_EMAIL_EXAMPLES, RUSSIAN_EMAIL_HINT } from "@/lib/russian-email";
 import { cn } from "@/lib/utils";
 import {
   clearForcedEmailVerificationGate,
@@ -80,10 +83,10 @@ function copyForRole(role: GateRole) {
 
 /**
  * Жёсткий экран: сайт/кабинет недоступны, пока email не подтверждён.
- * z-index выше карты Leaflet и плавающих виджетов.
+ * После регистрации (?verifyEmail=1 / sessionStorage) показывается сразу, не дожидаясь сессии.
  */
 export function EmailVerificationGate({ role }: { role: GateRole }) {
-  const { data: session, status: sessionStatus } = useSession();
+  const { data: session, status: sessionStatus, update: updateSession } = useSession();
   const qc = useQueryClient();
   const router = useRouter();
   const pathname = usePathname();
@@ -92,10 +95,14 @@ export function EmailVerificationGate({ role }: { role: GateRole }) {
   const product = getPublicProductName();
   const [mounted, setMounted] = useState(false);
   const [locked, setLocked] = useState(false);
+  const [changeOpen, setChangeOpen] = useState(false);
+  const [newEmail, setNewEmail] = useState("");
   const copy = copyForRole(role);
 
   const justRegistered = searchParams.get("verifyEmail") === "1";
   const justVerified = searchParams.get("emailVerified") === "1";
+  const forceFlag = mounted && isEmailVerificationGateForced();
+  const forceShow = justRegistered || forceFlag;
 
   const isTargetRole =
     sessionStatus === "authenticated" && session?.user?.role === role;
@@ -103,7 +110,7 @@ export function EmailVerificationGate({ role }: { role: GateRole }) {
   const status = useQuery({
     queryKey: ["email-verification-status"],
     queryFn: fetchEmailStatus,
-    enabled: isTargetRole && !justVerified,
+    enabled: (isTargetRole || forceShow) && !justVerified && sessionStatus !== "unauthenticated",
     staleTime: 0,
     refetchInterval: (q) => {
       const d = q.state.data;
@@ -115,13 +122,13 @@ export function EmailVerificationGate({ role }: { role: GateRole }) {
 
   useEffect(() => setMounted(true), []);
 
-  // Регистрация из окна заказа / без ?verifyEmail= — сразу замок
   useEffect(() => {
-    if (!mounted || !isTargetRole || justVerified) return;
-    if (isEmailVerificationGateForced() || justRegistered) {
+    if (!mounted || justVerified) return;
+    if (justRegistered || isEmailVerificationGateForced()) {
+      forceEmailVerificationGate();
       setLocked(true);
     }
-  }, [mounted, isTargetRole, justVerified, justRegistered]);
+  }, [mounted, justVerified, justRegistered]);
 
   useEffect(() => {
     if (!justVerified) return;
@@ -137,28 +144,29 @@ export function EmailVerificationGate({ role }: { role: GateRole }) {
     toast.success(copy.unlocked);
     const sp = new URLSearchParams(searchParams.toString());
     sp.delete("emailVerified");
+    sp.delete("verifyEmail");
     const q = sp.toString();
     router.replace(q ? `${pathname}?${q}` : pathname, { scroll: false });
   }, [justVerified, qc, router, pathname, searchParams, session?.user?.email, role, copy.unlocked]);
 
   useEffect(() => {
-    if (justRegistered && isTargetRole) {
-      forceEmailVerificationGate();
-      setLocked(true);
-    }
-  }, [justRegistered, isTargetRole]);
-
-  useEffect(() => {
     if (!status.data) return;
+    if (status.data.role && status.data.role !== role) return;
+
+    const unverified = !status.data.verified && Boolean(status.data.email);
     const needsVerify =
-      status.data.role === role &&
-      !status.data.verified &&
-      Boolean(status.data.email) &&
-      (status.data.required || justRegistered || isEmailVerificationGateForced());
+      unverified &&
+      (role === "INSTRUCTOR" ||
+        status.data.required ||
+        justRegistered ||
+        isEmailVerificationGateForced());
+
     if (needsVerify) {
       forceEmailVerificationGate();
       setLocked(true);
+      return;
     }
+
     if (status.data.verified) {
       const wasForced = justRegistered || isEmailVerificationGateForced();
       setLocked(false);
@@ -167,8 +175,16 @@ export function EmailVerificationGate({ role }: { role: GateRole }) {
         celebrated.current = true;
         toast.success(copy.unlocked);
       }
+      if (justRegistered) {
+        const sp = new URLSearchParams(searchParams.toString());
+        if (sp.has("verifyEmail")) {
+          sp.delete("verifyEmail");
+          const q = sp.toString();
+          router.replace(q ? `${pathname}?${q}` : pathname, { scroll: false });
+        }
+      }
     }
-  }, [status.data, justRegistered, role, copy.unlocked]);
+  }, [status.data, justRegistered, role, copy.unlocked, router, pathname, searchParams]);
 
   useEffect(() => {
     const onVis = () => {
@@ -188,15 +204,6 @@ export function EmailVerificationGate({ role }: { role: GateRole }) {
       document.body.style.overflow = prev;
     };
   }, [locked]);
-
-  useEffect(() => {
-    if (!justRegistered || !locked) return;
-    const sp = new URLSearchParams(searchParams.toString());
-    if (!sp.has("verifyEmail")) return;
-    sp.delete("verifyEmail");
-    const q = sp.toString();
-    router.replace(q ? `${pathname}?${q}` : pathname, { scroll: false });
-  }, [justRegistered, locked, router, pathname, searchParams]);
 
   const resend = useMutation({
     mutationFn: async () => {
@@ -225,6 +232,44 @@ export function EmailVerificationGate({ role }: { role: GateRole }) {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const changeEmail = useMutation({
+    mutationFn: async (email: string) => {
+      const r = await fetch("/api/auth/change-unverified-email", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const j = (await r.json().catch(() => ({}))) as {
+        ok?: boolean;
+        email?: string;
+        warning?: string;
+        error?: string;
+      };
+      if (!r.ok) throw new Error(j.error ?? "Не удалось сменить email");
+      return j;
+    },
+    onSuccess: async (j) => {
+      const email = j.email ?? newEmail.trim().toLowerCase();
+      qc.setQueryData<Status>(["email-verification-status"], (prev) => ({
+        email,
+        verified: false,
+        required: prev?.required ?? true,
+        role: prev?.role ?? role,
+      }));
+      await updateSession({ email }).catch(() => undefined);
+      void qc.invalidateQueries({ queryKey: ["email-verification-status"] });
+      setChangeOpen(false);
+      setNewEmail("");
+      if (j.warning) {
+        toast.message("Email обновлён", { description: j.warning });
+      } else {
+        toast.success("Email обновлён — письмо отправлено на новый адрес");
+      }
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const checkNow = useMutation({
     mutationFn: async () => {
       const fresh = await fetchEmailStatus();
@@ -245,9 +290,16 @@ export function EmailVerificationGate({ role }: { role: GateRole }) {
     onError: () => toast.error("Не удалось проверить статус"),
   });
 
-  if (!mounted || !isTargetRole || justVerified || !locked) return null;
+  const allowRender =
+    locked &&
+    !justVerified &&
+    (isTargetRole || forceShow) &&
+    sessionStatus !== "unauthenticated";
+
+  if (!mounted || !allowRender) return null;
 
   const email = status.data?.email ?? session?.user?.email ?? null;
+  const authReady = sessionStatus === "authenticated";
 
   const node = (
     <div
@@ -282,6 +334,66 @@ export function EmailVerificationGate({ role }: { role: GateRole }) {
             : "Ждём подтверждение… Проверяем автоматически каждые несколько секунд."}
         </div>
 
+        {changeOpen ? (
+          <form
+            className="space-y-3 rounded-lg border border-border bg-muted/30 p-3"
+            onSubmit={(e) => {
+              e.preventDefault();
+              const value = newEmail.trim();
+              if (!value.includes("@")) {
+                toast.error("Укажите корректный email");
+                return;
+              }
+              changeEmail.mutate(value);
+            }}
+          >
+            <div className="space-y-2">
+              <Label htmlFor="change-email-input">Новый email</Label>
+              <Input
+                id="change-email-input"
+                type="email"
+                autoComplete="email"
+                inputMode="email"
+                placeholder={role === "INSTRUCTOR" ? "name@mail.ru" : "name@example.com"}
+                value={newEmail}
+                onChange={(e) => setNewEmail(e.target.value)}
+                disabled={changeEmail.isPending}
+                required
+              />
+              {role === "INSTRUCTOR" ? (
+                <p className="text-xs text-muted-foreground">
+                  {RUSSIAN_EMAIL_HINT} {RUSSIAN_EMAIL_EXAMPLES}.
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  На новый адрес сразу уйдёт письмо со ссылкой подтверждения.
+                </p>
+              )}
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Button
+                type="submit"
+                className="w-full sm:flex-1"
+                disabled={changeEmail.isPending || !authReady}
+              >
+                {changeEmail.isPending ? "Сохраняем…" : "Сохранить и выслать письмо"}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                className="w-full sm:w-auto"
+                disabled={changeEmail.isPending}
+                onClick={() => {
+                  setChangeOpen(false);
+                  setNewEmail("");
+                }}
+              >
+                Отмена
+              </Button>
+            </div>
+          </form>
+        ) : null}
+
         <div className="flex flex-col gap-2">
           <Button
             type="button"
@@ -295,11 +407,25 @@ export function EmailVerificationGate({ role }: { role: GateRole }) {
             type="button"
             variant="outline"
             className="w-full"
-            disabled={resend.isPending}
+            disabled={resend.isPending || !authReady}
             onClick={() => resend.mutate()}
           >
             {resend.isPending ? "Отправляем…" : "Выслать письмо ещё раз"}
           </Button>
+          {!changeOpen ? (
+            <Button
+              type="button"
+              variant="ghost"
+              className="w-full"
+              disabled={!authReady}
+              onClick={() => {
+                setNewEmail(email ?? "");
+                setChangeOpen(true);
+              }}
+            >
+              Сменить почту
+            </Button>
+          ) : null}
         </div>
       </div>
     </div>

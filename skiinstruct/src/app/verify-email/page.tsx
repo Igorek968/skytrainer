@@ -1,13 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
 import { readClientCheckoutDraft } from "@/lib/client-checkout-draft";
 import { CLIENT_BOOKING_RETURN_PATH, readPendingCheckout } from "@/lib/client-pending-checkout";
+import { clearForcedEmailVerificationGate } from "@/lib/email-gate-force";
 
 function fallbackHomeForRole(role: string | null | undefined, redirectTo: string | null): string {
   if (redirectTo?.trim()) return redirectTo.trim();
@@ -18,8 +19,26 @@ function fallbackHomeForRole(role: string | null | undefined, redirectTo: string
   return "/client?emailVerified=1";
 }
 
+function successMessage(role: string | null, nextHref: string): string {
+  if (role === "INSTRUCTOR") {
+    if (nextHref.includes("/instructor/login")) {
+      return "Войдите — откроется ожидание модерации или кабинет.";
+    }
+    if (nextHref.includes("/instructor/pending")) {
+      return "Открываем экран ожидания модерации.";
+    }
+    return "Открываем кабинет инструктора.";
+  }
+  if (nextHref.includes("checkout=1")) {
+    return "Вернёмся к оформлению заказа.";
+  }
+  if (nextHref.includes("/login")) {
+    return "Войдите — откроется кабинет клиента.";
+  }
+  return "Открываем кабинет клиента.";
+}
+
 function VerifyEmailInner() {
-  const router = useRouter();
   const params = useSearchParams();
   const token = params.get("token")?.trim() ?? "";
   const [state, setState] = useState<"loading" | "ok" | "error">("loading");
@@ -69,7 +88,6 @@ function VerifyEmailInner() {
           if (sessionRes.ok && sessionJson.redirectTo) {
             redirectTo = sessionJson.redirectTo;
           } else if (!sessionRes.ok && j.role === "INSTRUCTOR") {
-            // Подтверждение прошло, сессию не поставили — пусть войдёт и попадёт в кабинет
             redirectTo = `/instructor/login?emailVerified=1&email=${encodeURIComponent(j.email ?? "")}&callbackUrl=${encodeURIComponent(redirectTo)}`;
           } else if (!sessionRes.ok && j.role === "CLIENT") {
             redirectTo = `/login?emailVerified=1&email=${encodeURIComponent(j.email ?? "")}&callbackUrl=${encodeURIComponent(redirectTo)}`;
@@ -77,6 +95,7 @@ function VerifyEmailInner() {
         }
 
         if (cancelled) return;
+        clearForcedEmailVerificationGate();
         setEmail(j.email ?? null);
         setRole(j.role ?? null);
         setNextHref(redirectTo);
@@ -92,13 +111,14 @@ function VerifyEmailInner() {
 
   useEffect(() => {
     if (state !== "ok") return;
-    // Не уводим на login как «успех» без явного клика — только в кабинет/pending
+    // Не уводим автоматически на форму логина — только в кабинет / pending
     if (nextHref.includes("/login") || nextHref.includes("/instructor/login")) return;
+    // Полная перезагрузка: cookie сессии успевает примениться (router.replace часто кидал на login)
     const t = window.setTimeout(() => {
-      router.replace(nextHref);
-    }, 1200);
+      window.location.assign(nextHref);
+    }, 900);
     return () => window.clearTimeout(t);
-  }, [state, router, nextHref]);
+  }, [state, nextHref]);
 
   return (
     <div className="mx-auto max-w-md py-10">
@@ -119,21 +139,21 @@ function VerifyEmailInner() {
               <p className="text-sm text-muted-foreground">
                 {email ? (
                   <>
-                    Email <strong>{email}</strong> подтверждён.
+                    Email <strong>{email}</strong> подтверждён.{" "}
                   </>
                 ) : (
-                  "Email подтверждён."
-                )}{" "}
-                {role === "INSTRUCTOR"
-                  ? nextHref.includes("/instructor/login")
-                    ? "Войдите — откроется кабинет / ожидание модерации."
-                    : "Открываем кабинет инструктора."
-                  : nextHref.includes("checkout=1")
-                    ? "Вернёмся к оформлению заказа."
-                    : "Открываем кабинет."}
+                  "Email подтверждён. "
+                )}
+                {successMessage(role, nextHref)}
               </p>
-              <Button asChild className="w-full">
-                <Link href={nextHref}>Перейти сейчас</Link>
+              <Button
+                className="w-full"
+                type="button"
+                onClick={() => {
+                  window.location.assign(nextHref);
+                }}
+              >
+                Перейти сейчас
               </Button>
             </>
           ) : state === "error" ? (

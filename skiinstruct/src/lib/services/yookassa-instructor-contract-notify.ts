@@ -6,8 +6,8 @@ import {
 } from "@/lib/instructor-agency-registry";
 import { LEGAL_PLATFORM_URL } from "@/lib/legal-config";
 import { prisma } from "@/lib/prisma";
+import { resolveSmtpFrom } from "@/lib/smtp-from";
 import { smtpReplyTo } from "@/lib/support-config";
-import { getPublicProductName } from "@/shared/lib/product";
 
 function envSecret(value: string | undefined): string {
   const v = value?.trim() ?? "";
@@ -110,11 +110,7 @@ export async function notifyYookassaInstructorContract(
   const html = renderAgencyCertificateHtml(data);
   const name = data.instructor.name?.trim() || data.instructor.email;
   const safeFile = `agent-dogovor-${userId}.html`;
-  const appName = getPublicProductName();
-  const from =
-    process.env.PASSWORD_RESET_EMAIL_FROM?.trim() ||
-    process.env.SMTP_FROM?.trim() ||
-    `${appName} <${smtp.user}>`;
+  const from = resolveSmtpFrom();
 
   const text = [
     `Новый / обновлённый агентский договор инструктора для пакета ЮKassa.`,

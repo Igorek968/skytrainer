@@ -74,22 +74,23 @@ export function InstructorPendingModerationClient() {
     appliedGoalSent.current = true;
     trackYandexGoal(YM_GOALS.instructorApplySuccess, readStoredUtm());
 
-    const needVerifyEmail = searchParams.get("verifyEmail") === "1";
-    if (needVerifyEmail) {
-      forceEmailVerificationGate();
-      toast.message("Подтвердите email", {
-        description: "Сначала откройте письмо и подтвердите адрес — затем заявка уйдёт на модерацию.",
-        duration: 10_000,
-      });
-      router.replace("/instructor/pending?verifyEmail=1", { scroll: false });
-      return;
-    }
-
-    toast.success("Заявка отправлена на модерацию. Дождитесь решения администратора.", {
-      duration: 10_000,
+    // Цепочка: анкета → экран модерации → сразу стоп-окно email (не проскакивать)
+    forceEmailVerificationGate();
+    toast.message("Заявка принята", {
+      description:
+        "Сначала подтвердите email по письму. Затем дождитесь решения модератора — кабинет откроется после одобрения.",
+      duration: 8_000,
     });
-    router.replace("/instructor/pending", { scroll: false });
+    router.replace("/instructor/pending?verifyEmail=1", { scroll: false });
   }, [router, searchParams]);
+
+  // На каждом заходе на pending без подтверждённой почты — держим замок
+  useEffect(() => {
+    if (searchParams.get("emailVerified") === "1") return;
+    if (searchParams.get("verifyEmail") === "1") {
+      forceEmailVerificationGate();
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     if (!data?.verificationStatus) return;

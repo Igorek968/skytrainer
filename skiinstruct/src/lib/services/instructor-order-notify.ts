@@ -9,6 +9,7 @@ import { publicSiteHostLabel } from "@/lib/app-origin";
 import { orderIsUrgent, URGENT_INSTRUCTOR_DEADLINE_MIN } from "@/shared/lib/order-flex";
 import { getPublicProductName } from "@/shared/lib/product";
 import { APP_TIME_ZONE } from "@/shared/lib/app-timezone";
+import { resolveSmtpFrom } from "@/lib/smtp-from";
 import { smtpReplyTo } from "@/lib/support-config";
 
 function envSecret(value: string | undefined): string {
@@ -225,11 +226,7 @@ export async function notifyInstructorOfPendingOrder(orderId: string): Promise<b
         appName,
       });
 
-      const from =
-        process.env.SMTP_FROM?.trim() ||
-        process.env.SKIINSTRUCT_SMTP_FROM?.trim() ||
-        process.env.PASSWORD_RESET_EMAIL_FROM?.trim() ||
-        `${appName} <noreply@localhost>`;
+      const from = resolveSmtpFrom();
 
       try {
         const transport = nodemailer.createTransport({

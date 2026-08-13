@@ -168,21 +168,35 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
     async jwt(ctx: Parameters<NonNullable<typeof authConfig.callbacks.jwt>>[0]) {
       const token = await authConfig.callbacks.jwt(ctx);
+      if (ctx.trigger === "update" && ctx.session && typeof ctx.session === "object") {
+        const s = ctx.session as { email?: string; role?: string };
+        if (typeof s.email === "string" && s.email.trim()) {
+          token.email = s.email.trim().toLowerCase();
+        }
+      }
       const uid = token.sub ?? (ctx.user as { id?: string } | undefined)?.id;
       if (uid) {
         try {
           const db = await prisma.user.findUnique({
             where: { id: uid },
-            select: { role: true },
+            select: { role: true, email: true },
           });
           if (db) {
             token.role = db.role;
+            token.email = db.email;
           }
         } catch {
-          /* оставляем token.role от authorize */
+          /* оставляем token от authorize */
         }
       }
       return token;
+    },
+    async session({ session, token }) {
+      const base = await authConfig.callbacks.session({ session, token });
+      if (base.user && typeof token.email === "string") {
+        base.user.email = token.email;
+      }
+      return base;
     },
   },
 });

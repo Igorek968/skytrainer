@@ -5,6 +5,7 @@ import { publicSiteHostLabel } from "@/lib/app-origin";
 import { prisma } from "@/lib/prisma";
 import { sendWebPushToUser } from "@/lib/push-web";
 import { getPublicProductName } from "@/shared/lib/product";
+import { resolveSmtpFrom } from "@/lib/smtp-from";
 import { smtpReplyTo } from "@/lib/support-config";
 
 function envSecret(value: string | undefined): string {
@@ -200,10 +201,7 @@ export async function notifyInstructorOfEventRegistration(registrationId: string
       panelUrl,
     });
 
-    const from =
-      process.env.SMTP_FROM?.trim() ||
-      process.env.PASSWORD_RESET_EMAIL_FROM?.trim() ||
-      `${appName} <noreply@localhost>`;
+    const from = resolveSmtpFrom();
 
     try {
       const transport = nodemailer.createTransport({

@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { prisma } from "@/lib/prisma";
-import { getInstructorVerificationStatus, instructorEntryPath } from "@/lib/instructor-verification-gate";
+import { cabinetPathAfterEmailVerification } from "@/lib/email-verification-redirect";
 import { verifyEmailToken } from "@/lib/services/email-verification";
 
 export async function GET(req: Request) {
@@ -16,23 +15,12 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Ссылка недействительна или устарела" }, { status: 400 });
   }
 
-  const user = await prisma.user.findFirst({
-    where: { email: { equals: result.email, mode: "insensitive" } },
-    select: { id: true, role: true },
-  });
-
-  let redirectTo = "/client?emailVerified=1";
-  if (user?.role === "INSTRUCTOR") {
-    const status = await getInstructorVerificationStatus(user.id);
-    redirectTo = `${instructorEntryPath(status)}?emailVerified=1`;
-  } else if (user?.role === "ADMIN" || user?.role === "MODERATOR") {
-    redirectTo = "/admin/metrics?emailVerified=1";
-  }
+  const { role, redirectTo } = await cabinetPathAfterEmailVerification(result.email);
 
   return NextResponse.json({
     ok: true,
     email: result.email,
-    role: user?.role ?? null,
+    role,
     loginToken: result.loginToken,
     redirectTo,
   });
