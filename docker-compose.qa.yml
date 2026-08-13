@@ -66,6 +66,9 @@ services:
       SKIINSTRUCT_ADMIN_EMAIL: ${SKIINSTRUCT_ADMIN_EMAIL}
       SKIINSTRUCT_ADMIN_PASSWORD: ${SKIINSTRUCT_ADMIN_PASSWORD}
       SKIINSTRUCT_ADMIN_NAME: ${SKIINSTRUCT_ADMIN_NAME:-QA Администратор}
+      SKIINSTRUCT_MODERATOR_EMAIL: ${SKIINSTRUCT_MODERATOR_EMAIL:-}
+      SKIINSTRUCT_MODERATOR_PASSWORD: ${SKIINSTRUCT_MODERATOR_PASSWORD:-}
+      SKIINSTRUCT_MODERATOR_NAME: ${SKIINSTRUCT_MODERATOR_NAME:-Модератор}
       STRIPE_SECRET_KEY: ${SKIINSTRUCT_STRIPE_SECRET_KEY:-}
       STRIPE_WEBHOOK_SECRET: ${SKIINSTRUCT_STRIPE_WEBHOOK_SECRET:-}
       NEXT_PUBLIC_VAPID_PUBLIC_KEY: ${SKIINSTRUCT_VAPID_PUBLIC_KEY:-}
@@ -101,6 +104,8 @@ services:
     volumes:
       # Фото инструкторов — bind-mount, чтобы переживали деплой и sync-instructors-to-vps.ps1
       - ./deploy/skiinstruct-uploads:/app/public/uploads
+      # Паспорт / НПД / страховка — иначе private/uploads пропадает при пересборке образа
+      - ./deploy/skiinstruct-private-uploads:/app/private/uploads
     depends_on:
       postgres:
         condition: service_healthy

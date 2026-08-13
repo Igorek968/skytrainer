@@ -170,7 +170,10 @@ function ResumeCheckoutFromQuery({
     });
     setCheckoutOpen(true);
     clearPendingCheckout();
-    router.replace("/client", { scroll: false });
+    const sp = new URLSearchParams(searchParams.toString());
+    sp.delete("checkout");
+    const q = sp.toString();
+    router.replace(q ? `/client?${q}` : "/client", { scroll: false });
   }, [searchParams, router, data, setSelectedId, setCheckoutInstructor, setCheckoutOpen]);
 
   return null;

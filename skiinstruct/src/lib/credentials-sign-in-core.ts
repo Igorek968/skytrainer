@@ -109,6 +109,38 @@ export async function passwordResetTokenSignInNoRedirect(
   }
 }
 
+/** Устанавливает cookie сессии после подтверждения email (ссылка из письма без сессии). */
+export async function emailLoginTokenSignInNoRedirect(
+  emailLoginToken: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    const h = await headers();
+    const ip = clientIp(h);
+    if (!rateLimit(`email-login-enter:${ip}`, 20, 900_000)) {
+      return { ok: false, error: "Слишком много попыток. Подождите 15 минут." };
+    }
+
+    const trusted = authSecretForTrustedSignIn();
+    const result = await signIn("credentials", {
+      emailLoginToken,
+      trustedServerSignIn: trusted,
+      redirect: false,
+    });
+    return signInResultFromAuthResponse(result);
+  } catch (error) {
+    if (isNextRedirect(error)) {
+      return {
+        ok: false,
+        error: "Сбой настройки входа. Подтверждение прошло — войдите вручную.",
+      };
+    }
+    if (isCredentialsLikeFailure(error)) {
+      return { ok: false, error: "Ссылка входа устарела. Войдите вручную." };
+    }
+    throw error;
+  }
+}
+
 /** Устанавливает cookie сессии без редиректа Auth.js (надёжно из Server Actions). */
 export async function credentialsSignInNoRedirect(
   email: string,

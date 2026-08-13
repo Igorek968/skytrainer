@@ -10,6 +10,11 @@ import { toast } from "sonner";
 import { Button } from "@/shared/ui/button";
 import { getPublicProductName } from "@/shared/lib/product";
 import { cn } from "@/lib/utils";
+import {
+  clearForcedEmailVerificationGate,
+  forceEmailVerificationGate,
+  isEmailVerificationGateForced,
+} from "@/lib/email-gate-force";
 
 type Status = {
   email: string | null;
@@ -19,6 +24,8 @@ type Status = {
 };
 
 type GateRole = "CLIENT" | "INSTRUCTOR";
+
+export { forceEmailVerificationGate, clearForcedEmailVerificationGate };
 
 async function fetchEmailStatus(): Promise<Status | null> {
   const r = await fetch("/api/auth/email-verification", {
@@ -48,7 +55,7 @@ function copyForRole(role: GateRole) {
           </>
         ),
       hint: "Письма нет? Загляните в «Спам». Окно закроется само после подтверждения — можно открыть почту в другой вкладке.",
-      unlocked: "Email подтверждён — можно продолжать оформление в кабинете",
+      unlocked: "Email подтверждён — теперь дождитесь решения модератора",
     };
   }
   return {
@@ -108,10 +115,19 @@ export function EmailVerificationGate({ role }: { role: GateRole }) {
 
   useEffect(() => setMounted(true), []);
 
+  // Регистрация из окна заказа / без ?verifyEmail= — сразу замок
+  useEffect(() => {
+    if (!mounted || !isTargetRole || justVerified) return;
+    if (isEmailVerificationGateForced() || justRegistered) {
+      setLocked(true);
+    }
+  }, [mounted, isTargetRole, justVerified, justRegistered]);
+
   useEffect(() => {
     if (!justVerified) return;
     celebrated.current = true;
     setLocked(false);
+    clearForcedEmailVerificationGate();
     qc.setQueryData<Status>(["email-verification-status"], (prev) => ({
       email: prev?.email ?? session?.user?.email ?? null,
       verified: true,
@@ -126,17 +142,28 @@ export function EmailVerificationGate({ role }: { role: GateRole }) {
   }, [justVerified, qc, router, pathname, searchParams, session?.user?.email, role, copy.unlocked]);
 
   useEffect(() => {
-    if (justRegistered && isTargetRole) setLocked(true);
+    if (justRegistered && isTargetRole) {
+      forceEmailVerificationGate();
+      setLocked(true);
+    }
   }, [justRegistered, isTargetRole]);
 
   useEffect(() => {
     if (!status.data) return;
-    if (status.data.role === role && !status.data.verified && status.data.email) {
+    const needsVerify =
+      status.data.role === role &&
+      !status.data.verified &&
+      Boolean(status.data.email) &&
+      (status.data.required || justRegistered || isEmailVerificationGateForced());
+    if (needsVerify) {
+      forceEmailVerificationGate();
       setLocked(true);
     }
     if (status.data.verified) {
+      const wasForced = justRegistered || isEmailVerificationGateForced();
       setLocked(false);
-      if (!celebrated.current && justRegistered) {
+      clearForcedEmailVerificationGate();
+      if (!celebrated.current && wasForced) {
         celebrated.current = true;
         toast.success(copy.unlocked);
       }
@@ -188,6 +215,7 @@ export function EmailVerificationGate({ role }: { role: GateRole }) {
     onSuccess: (j) => {
       if (j.alreadyVerified) {
         setLocked(false);
+        clearForcedEmailVerificationGate();
         void qc.invalidateQueries({ queryKey: ["email-verification-status"] });
         toast.success("Email уже подтверждён");
         return;
@@ -206,6 +234,7 @@ export function EmailVerificationGate({ role }: { role: GateRole }) {
     onSuccess: (fresh) => {
       if (fresh?.verified) {
         setLocked(false);
+        clearForcedEmailVerificationGate();
         toast.success("Готово — доступ открыт");
         return;
       }

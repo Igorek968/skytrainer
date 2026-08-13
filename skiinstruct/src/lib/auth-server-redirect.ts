@@ -66,14 +66,15 @@ export async function redirectWhenAlreadyLoggedIn(
 
 /** Редирект в кабинет по роли из БД (для layout кабинетов). */
 export async function redirectToRoleCabinetUnless(
-  allowedRole: UserRole,
+  allowedRole: UserRole | UserRole[],
   loginHref: string,
 ): Promise<void> {
   const row = await getDbRoleForSession();
   if (!row) {
     redirect(loginHref);
   }
-  if (row.role !== allowedRole) {
+  const allowed = Array.isArray(allowedRole) ? allowedRole : [allowedRole];
+  if (!allowed.includes(row.role)) {
     redirect(cabinetPathForRole(row.role) ?? loginHref);
   }
 }

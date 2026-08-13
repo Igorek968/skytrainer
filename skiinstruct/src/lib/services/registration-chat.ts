@@ -21,11 +21,11 @@ export async function assertRegistrationChatAccess(input: {
 
   const isClient = reg.clientId === input.userId;
   const isInstructor = reg.event.instructorId === input.userId;
-  if (!isClient && !isInstructor && input.role !== "ADMIN") {
+  if (!isClient && !isInstructor && input.role !== "ADMIN" && input.role !== "MODERATOR") {
     return { ok: false as const, status: 404 as const, error: "Not found" };
   }
 
-  if (!canRevealRegistrationContact(reg.status, Number(reg.amountRub)) && input.role !== "ADMIN") {
+  if (!canRevealRegistrationContact(reg.status, Number(reg.amountRub)) && input.role !== "ADMIN" && input.role !== "MODERATOR") {
     return {
       ok: false as const,
       status: 403 as const,

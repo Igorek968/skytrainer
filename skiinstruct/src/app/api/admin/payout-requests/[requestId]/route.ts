@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { isApiErrorResponse, requireAdminSession } from "@/lib/api-session";
+import { isApiErrorResponse, requireFullAdminSession } from "@/lib/api-session";
 import { updatePayoutRequestStatus } from "@/lib/services/payout-request";
 
 const bodySchema = z.object({
@@ -13,7 +13,7 @@ export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ requestId: string }> },
 ) {
-  const auth = await requireAdminSession();
+  const auth = await requireFullAdminSession();
   if (isApiErrorResponse(auth)) return auth;
 
   const { requestId } = await params;

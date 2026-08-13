@@ -106,7 +106,7 @@ export async function markAdminAlertsRead(ids?: string[]): Promise<number> {
 
 async function pushAlertToAdmins(alert: AdminAlert): Promise<void> {
   const admins = await prisma.user.findMany({
-    where: { role: "ADMIN" },
+    where: { role: { in: ["ADMIN", "MODERATOR"] } },
     select: { id: true },
   });
   if (!admins.length) return;

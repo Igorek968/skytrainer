@@ -27,10 +27,10 @@ export async function validateClientLoginEmail(email: string): Promise<{ error: 
   if (!trimmed) return { error: "Введите email" };
 
   const role = await lookupRoleForIdentifier(trimmed);
-  if (role === "ADMIN") {
+  if (role === "ADMIN" || role === "MODERATOR") {
     return {
       error:
-        "Этот email — администратор. Войдите через /admin/login или зарегистрируйте отдельный клиентский аккаунт.",
+        "Этот email — сотрудник админки. Войдите через /admin/login или зарегистрируйте отдельный клиентский аккаунт.",
     };
   }
   if (role === "INSTRUCTOR") {
@@ -68,10 +68,10 @@ export async function signInWithCredentialsAction(
   }
 
   const role = await lookupRoleForIdentifier(email);
-  if (role === "ADMIN") {
+  if (role === "ADMIN" || role === "MODERATOR") {
     return {
       error:
-        "Этот email — администратор. Войдите через /admin/login или зарегистрируйте отдельный клиентский аккаунт.",
+        "Этот email — сотрудник админки. Войдите через /admin/login или зарегистрируйте отдельный клиентский аккаунт.",
     };
   }
   if (role === "INSTRUCTOR") {
@@ -90,8 +90,8 @@ export async function signInWithCredentialsAction(
   if (role && role !== "CLIENT" && isClientBookingReturnPath(redirectTo)) {
     return {
       error:
-        role === "ADMIN"
-          ? "Этот email — администратор. Для заказа войдите как клиент или используйте /admin/login."
+        role === "ADMIN" || role === "MODERATOR"
+          ? "Этот email — сотрудник админки. Для заказа войдите как клиент или используйте /admin/login."
           : "Этот email — инструктор. Для заказа зарегистрируйтесь как клиент с другим email.",
     };
   }
@@ -111,22 +111,23 @@ export async function signInAdminCredentialsAction(
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
   const rawRedirect = String(formData.get("redirectTo") ?? "");
+  const staffUser = await prisma.user.findFirst({
+    where: { email: { equals: email, mode: "insensitive" } },
+    select: { role: true },
+  });
+  const staffRole = staffUser?.role;
+  if (!staffRole || (staffRole !== "ADMIN" && staffRole !== "MODERATOR")) {
+    return { error: "Нет прав сотрудника админки для этого аккаунта" };
+  }
+
   const redirectTo = resolvePostLoginRedirect(
-    "ADMIN",
+    staffRole,
     sanitizeRedirectPath(rawRedirect, "/admin/metrics"),
     "/admin/metrics",
   );
 
   if (!email.includes("@")) {
-    return { error: "Введите email администратора" };
-  }
-
-  const adminUser = await prisma.user.findFirst({
-    where: { email: { equals: email, mode: "insensitive" } },
-    select: { role: true },
-  });
-  if (!adminUser || adminUser.role !== "ADMIN") {
-    return { error: "Нет прав администратора для этого аккаунта" };
+    return { error: "Введите email" };
   }
 
   await signOut({ redirect: false });

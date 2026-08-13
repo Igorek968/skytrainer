@@ -37,7 +37,7 @@ export const INSTRUCTOR_CRM_STAGES: InstructorCrmStageMeta[] = [
     label: "Документы неполные",
     shortLabel: "Неполные доки",
     slaHours: 48,
-    nextActionHint: "Связаться: догрузить паспорт / НПД / страховку / акцепт",
+    nextActionHint: "Связаться: догрузить паспорт / НПД / акцепт",
     order: 2,
   },
   {
@@ -154,7 +154,6 @@ export function nextActionForInstructorCard(input: {
   if (input.stage === "docs_incomplete") {
     if (!input.agencyOfferAccepted) extras.push("нет акцепта договора");
     if (!input.taxDocumentApproved) extras.push("нет НПД/ЕГРИП");
-    if (!input.insuranceApproved) extras.push("нет страховки");
     if (input.requiresPassport && !input.passportApproved) extras.push("нет паспорта");
   }
   if (input.pendingDocCount > 0 && input.stage === "docs_review") {

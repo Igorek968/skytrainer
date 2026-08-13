@@ -64,6 +64,15 @@ export async function POST(req: Request, ctx: Ctx) {
         profileDraftRejectedAt: new Date(),
       },
     });
+    const { writeAdminAudit } = await import("@/lib/services/admin-audit");
+    await writeAdminAudit({
+      actorId: authResult.userId,
+      action: "profile_draft.reject",
+      entity: "InstructorProfile",
+      entityId: userId,
+      summary: `Отклонены правки профиля инструктора`,
+      meta: { rejectMessage: parsed.data.rejectMessage!.trim(), actorRole: authResult.role },
+    });
     return NextResponse.json({ ok: true });
   }
 
@@ -103,6 +112,16 @@ export async function POST(req: Request, ctx: Ctx) {
         profileDraftRejectedAt: null,
       },
     });
+  });
+
+  const { writeAdminAudit } = await import("@/lib/services/admin-audit");
+  await writeAdminAudit({
+    actorId: authResult.userId,
+    action: "profile_draft.approve",
+    entity: "InstructorProfile",
+    entityId: userId,
+    summary: `Одобрены правки профиля инструктора`,
+    meta: { actorRole: authResult.role },
   });
 
   return NextResponse.json({ ok: true });

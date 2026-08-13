@@ -104,9 +104,37 @@ export function AdminInstructorModerationSheet({ userId, onClose, onRejected }: 
         qc.invalidateQueries({ queryKey: ["admin-compliance-pending"] }),
         qc.invalidateQueries({ queryKey: ["admin-instructors-funnel"] }),
         qc.invalidateQueries({ queryKey: ["admin-alerts"] }),
+        qc.invalidateQueries({ queryKey: ["admin-instructor-moderation", userId] }),
       ]);
       if (vars.status === "REJECTED") onRejected();
       else onClose();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  /** Одобрить уже загруженные документы, когда анкета уже APPROVED. */
+  const reviewDocs = useMutation({
+    mutationFn: async (docs: { id: string; label: string }[]) => {
+      for (const d of docs) {
+        const r = await fetch(`/api/admin/instructors/${userId}/compliance`, {
+          method: "PATCH",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ documentId: d.id, status: "APPROVED" }),
+        });
+        const j = (await r.json().catch(() => ({}))) as { error?: string };
+        if (!r.ok) throw new Error(j.error ?? `Не удалось одобрить: ${d.label}`);
+      }
+    },
+    onSuccess: async () => {
+      toast.success("Документы одобрены");
+      setSelectedDocs(new Set());
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["admin-instructor-moderation", userId] }),
+        qc.invalidateQueries({ queryKey: ["admin-compliance-pending"] }),
+        qc.invalidateQueries({ queryKey: ["admin-instructors-funnel"] }),
+        qc.invalidateQueries({ queryKey: ["admin-agency-registry"] }),
+      ]);
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -148,10 +176,12 @@ export function AdminInstructorModerationSheet({ userId, onClose, onRejected }: 
         <div className="flex items-start justify-between gap-3 border-b border-border px-4 py-3 sm:px-5">
           <div className="min-w-0">
             <h2 id="moderation-sheet-title" className="text-lg font-semibold">
-              Подтверждение анкеты инструктора
+              {data?.moderationKind === "NEW_ACCOUNT"
+                ? "Подтверждение анкеты инструктора"
+                : "Профиль инструктора"}
             </h2>
             <p className="text-sm text-muted-foreground">
-              Все данные для договора и модерации в одном окне
+              Все данные, паспорт и документы НПД/ЕГРИП — в одном окне
             </p>
           </div>
           <Button type="button" variant="outline" size="sm" disabled={verify.isPending} onClick={onClose}>
@@ -258,7 +288,10 @@ export function AdminInstructorModerationSheet({ userId, onClose, onRejected }: 
                     </li>
                     <li>Паспорт: {data.compliance.passportApproved ? "одобрен" : "ожидает"}</li>
                     <li>
-                      Страхование: {data.compliance.insuranceApproved ? "одобрено" : "ожидает"}
+                      Страхование:{" "}
+                      {data.compliance.insuranceApproved
+                        ? "загружено"
+                        : "необязательно (не блокирует выплаты)"}
                     </li>
                   </ul>
                   {data.compliance.blockers.length > 0 ? (
@@ -326,18 +359,51 @@ export function AdminInstructorModerationSheet({ userId, onClose, onRejected }: 
                             >
                               Открыть файл
                             </a>
+                          ) : d.fileMissing ? (
+                            <p className="text-xs text-destructive">
+                              Файл утерян на сервере (часто после деплоя). Попросите инструктора снова загрузить
+                              документ: НПД/ЕГРИП — в анкете (правка после отказа), паспорт/страховку — в кабинете →
+                              «Соответствие и выплаты».
+                            </p>
                           ) : null}
                         </div>
                         {d.status === "PENDING" ? (
-                          <label className="flex items-center gap-2 text-sm">
+                          <label
+                            className={cn(
+                              "flex items-center gap-2 text-sm",
+                              d.fileMissing && "cursor-not-allowed opacity-50",
+                            )}
+                          >
                             <input
                               type="checkbox"
                               className="h-4 w-4"
                               checked={selectedDocs.has(d.id)}
+                              disabled={Boolean(d.fileMissing) || reviewDocs.isPending}
                               onChange={() => docToggle(d.id)}
                             />
-                            Одобрить вместе с анкетой
+                            {data.moderationKind === "NEW_ACCOUNT"
+                              ? "Одобрить вместе с анкетой"
+                              : "Одобрить документ"}
+                            {d.fileMissing ? " (сначала нужен файл)" : ""}
                           </label>
+                        ) : null}
+                        {d.status === "REJECTED" && !d.fileMissing ? (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            disabled={reviewDocs.isPending}
+                            onClick={() =>
+                              reviewDocs.mutate([{ id: d.id, label: d.typeLabel }])
+                            }
+                          >
+                            Всё же одобрить
+                          </Button>
+                        ) : null}
+                        {d.status === "REJECTED" && d.fileMissing ? (
+                          <p className="text-xs text-muted-foreground">
+                            Отклонён. Попросите инструктора загрузить новый скан.
+                          </p>
                         ) : null}
                       </li>
                     ))}
@@ -365,31 +431,59 @@ export function AdminInstructorModerationSheet({ userId, onClose, onRejected }: 
         <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border px-4 py-3 sm:px-5">
           {!rejectMode ? (
             <>
-              <Button
-                type="button"
-                variant="outline"
-                disabled={verify.isPending || !data}
-                onClick={() => setRejectMode(true)}
-              >
-                Отклонить…
-              </Button>
-              <Button
-                type="button"
-                variant="accent"
-                disabled={verify.isPending || !data || data.moderationKind !== "NEW_ACCOUNT"}
-                onClick={() =>
-                  verify.mutate({
-                    status: "APPROVED",
-                    approveDocumentIds: [...selectedDocs],
-                  })
-                }
-              >
-                {data?.moderationKind === "NEW_ACCOUNT"
-                  ? selectedDocs.size > 0
-                    ? `Одобрить анкету + документы (${selectedDocs.size})`
-                    : "Одобрить анкету"
-                  : "Анкета уже в статусе одобрена"}
-              </Button>
+              {data?.moderationKind === "NEW_ACCOUNT" ? (
+                <>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={verify.isPending || !data}
+                    onClick={() => setRejectMode(true)}
+                  >
+                    Отклонить…
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="accent"
+                    disabled={verify.isPending || !data}
+                    onClick={() =>
+                      verify.mutate({
+                        status: "APPROVED",
+                        approveDocumentIds: [...selectedDocs],
+                      })
+                    }
+                  >
+                    {selectedDocs.size > 0
+                      ? `Одобрить анкету + документы (${selectedDocs.size})`
+                      : "Одобрить анкету"}
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <p className="mr-auto text-xs text-muted-foreground">
+                    Анкета уже одобрена — здесь можно только подтвердить документы.
+                  </p>
+                  <Button
+                    type="button"
+                    variant="accent"
+                    disabled={
+                      reviewDocs.isPending || !data || selectedDocs.size === 0
+                    }
+                    onClick={() => {
+                      const docs =
+                        data?.documents
+                          .filter((d) => selectedDocs.has(d.id) && d.status === "PENDING")
+                          .map((d) => ({ id: d.id, label: d.typeLabel })) ?? [];
+                      if (docs.length) reviewDocs.mutate(docs);
+                    }}
+                  >
+                    {reviewDocs.isPending
+                      ? "Сохранение…"
+                      : selectedDocs.size > 0
+                        ? `Одобрить документы (${selectedDocs.size})`
+                        : "Выберите документы галочками"}
+                  </Button>
+                </>
+              )}
             </>
           ) : (
             <>

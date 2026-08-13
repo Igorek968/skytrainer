@@ -19,7 +19,7 @@ async function canAccessSensitiveFile(
   const filename = segments[1];
   if (!subdir || !filename) return false;
 
-  if (role === "ADMIN") return true;
+  if (role === "ADMIN" || role === "MODERATOR") return true;
 
   if (subdir === "compliance") {
     if (role !== "INSTRUCTOR") return false;

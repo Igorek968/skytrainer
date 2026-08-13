@@ -42,7 +42,7 @@ export async function GET(_req: Request, ctx: Ctx) {
 
   const isClient = order.clientId === userId;
   const isInstructor = order.instructorId === userId;
-  if (!isClient && !isInstructor && role !== "ADMIN") {
+  if (!isClient && !isInstructor && role !== "ADMIN" && role !== "MODERATOR") {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 

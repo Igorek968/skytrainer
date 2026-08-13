@@ -2,6 +2,7 @@ import { complianceDocTypeLabel } from "@/lib/instructor-agency-registry";
 import { computeComplianceFlags } from "@/lib/instructor-compliance";
 import { parseProfileDraft } from "@/lib/instructor-profile-draft";
 import { prisma } from "@/lib/prisma";
+import { readSensitiveUpload } from "@/lib/private-uploads";
 import { resolveSensitiveUploadDisplaySrc } from "@/lib/sensitive-upload-urls";
 
 export type InstructorModerationDocument = {
@@ -13,6 +14,8 @@ export type InstructorModerationDocument = {
   createdAt: string;
   /** URL для просмотра в админке (/api/private-media/...). */
   viewUrl: string | null;
+  /** Запись в БД есть, файла на диске нет (часто после деплоя без volume). */
+  fileMissing?: boolean;
 };
 
 export type InstructorModerationDossier = {
@@ -143,7 +146,6 @@ export async function fetchInstructorModerationDossier(
         : "Нужно одобрить справку «Мой налог» (НПД)",
     );
   }
-  if (!flags.insuranceApproved) blockers.push("Нужно одобрить страхование");
   if (p.passportSeries && p.passportNumber && !flags.passportApproved) {
     blockers.push("Нужно одобрить скан паспорта");
   }
@@ -169,15 +171,29 @@ export async function fetchInstructorModerationDossier(
   if (p.verificationStatus !== "APPROVED") moderationKind = "NEW_ACCOUNT";
   else if (p.profileDraftStatus === "PENDING_REVIEW") moderationKind = "PROFILE_UPDATE";
 
-  const documents: InstructorModerationDocument[] = docs.map((d) => ({
-    id: d.id,
-    type: d.type,
-    typeLabel: complianceDocTypeLabel(d.type),
-    status: d.status,
-    rejectNote: d.rejectNote,
-    createdAt: d.createdAt.toISOString(),
-    viewUrl: resolveSensitiveUploadDisplaySrc(d.fileUrl),
-  }));
+  const documents: InstructorModerationDocument[] = await Promise.all(
+    docs.map(async (d) => {
+      const viewUrl = resolveSensitiveUploadDisplaySrc(d.fileUrl);
+      let fileMissing = false;
+      if (viewUrl?.startsWith("/api/private-media/")) {
+        const segments = viewUrl.slice("/api/private-media/".length).split("/").filter(Boolean);
+        const buf = await readSensitiveUpload(segments);
+        fileMissing = !buf;
+      } else if (!viewUrl) {
+        fileMissing = true;
+      }
+      return {
+        id: d.id,
+        type: d.type,
+        typeLabel: complianceDocTypeLabel(d.type),
+        status: d.status,
+        rejectNote: d.rejectNote,
+        createdAt: d.createdAt.toISOString(),
+        viewUrl: fileMissing ? null : viewUrl,
+        fileMissing,
+      };
+    }),
+  );
 
   const pendingDocumentIds = documents.filter((d) => d.status === "PENDING").map((d) => d.id);
 

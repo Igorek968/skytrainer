@@ -10,6 +10,7 @@ import { devPollInterval } from "@/lib/query-poll";
 type AuditRow = {
   id: string;
   actorId: string | null;
+  actorLabel?: string | null;
   action: string;
   entity: string;
   entityId: string | null;
@@ -36,7 +37,9 @@ export function AdminAuditLogSection() {
     <Card>
       <CardHeader>
         <CardTitle className="text-base">Журнал действий админа</CardTitle>
-        <CardDescription>Последние операции: поддержка, заказы, блокировки, мероприятия.</CardDescription>
+        <CardDescription>
+          Кто что сделал: модерация анкет, документы, заказы, поддержка. Видно и админу, и модератору.
+        </CardDescription>
       </CardHeader>
       <CardContent>
         {query.isLoading ? (
@@ -58,7 +61,7 @@ export function AdminAuditLogSection() {
                 </div>
                 <p className="mt-0.5">{r.summary}</p>
                 <p className="mt-1 text-[11px] text-muted-foreground">
-                  {formatInAppTimeZone(r.createdAt)}
+                  {r.actorLabel ?? "—"} · {formatInAppTimeZone(r.createdAt)}
                 </p>
               </li>
             ))}

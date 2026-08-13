@@ -109,8 +109,8 @@ function InstructorApplyForm() {
           <CardTitle as="h1">Стать инструктором</CardTitle>
           <CardDescription>
             Анкета на площадку ТвойТренер.рф: заявки с карты, свой график, оплата онлайн. Укажите ФИО, паспортные
-            данные, телефон и ИНН (нужны для договора и выплат через ЮKassa). После модерации включите «онлайн» и
-            принимайте заявки.
+            данные, телефон, ИНН и документ НПД/ЕГРИП (нужны для договора и выплат через ЮKassa). После модерации
+            включите «онлайн» и принимайте заявки.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -319,6 +319,42 @@ function InstructorApplyForm() {
               />
               <p className="text-xs text-muted-foreground">
                 ИНН самозанятого или ИП — для выплат. Без него заявка не уйдёт на модерацию.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="taxDocumentScan">
+                {values.taxStatus === "IP"
+                  ? "Документ ИП (выписка ЕГРИП)"
+                  : "Документ НПД (справка из «Мой налог»)"}
+              </Label>
+              <Input
+                id="taxDocumentScan"
+                name="taxDocumentScan"
+                type="file"
+                required
+                accept="image/jpeg,image/png,image/webp,application/pdf"
+              />
+              <p className="text-xs text-muted-foreground">
+                {values.taxStatus === "IP" ? (
+                  <>
+                    Где взять: на{" "}
+                    <a
+                      className="text-accent underline"
+                      href="https://egrul.nalog.ru/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      egrul.nalog.ru
+                    </a>{" "}
+                    или в личном кабинете ИП на nalog.ru — выписка из ЕГРИП (PDF). JPG, PNG, WEBP или PDF, до 8 МБ.
+                  </>
+                ) : (
+                  <>
+                    Где взять: приложение или сайт «Мой налог» → раздел о статусе самозанятого → справка о постановке на
+                    учёт (или подтверждение статуса НПД). JPG, PNG, WEBP или PDF, до 8 МБ.
+                  </>
+                )}
               </p>
             </div>
 

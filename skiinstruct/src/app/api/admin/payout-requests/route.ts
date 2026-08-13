@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 
-import { isApiErrorResponse, requireAdminSession } from "@/lib/api-session";
+import { isApiErrorResponse, requireFullAdminSession } from "@/lib/api-session";
 import { prisma } from "@/lib/prisma";
 
 export async function GET() {
-  const auth = await requireAdminSession();
+  const auth = await requireFullAdminSession();
   if (isApiErrorResponse(auth)) return auth;
 
   const requests = await prisma.instructorPayoutRequest.findMany({

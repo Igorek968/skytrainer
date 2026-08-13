@@ -19,6 +19,8 @@ function adminRoleRu(role: string): string {
   switch (role) {
     case "ADMIN":
       return "Администратор";
+    case "MODERATOR":
+      return "Модератор";
     case "INSTRUCTOR":
       return "Инструктор";
     case "CLIENT":

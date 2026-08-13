@@ -43,5 +43,15 @@ export async function PATCH(req: Request, ctx: Ctx) {
     },
   });
 
+  const { writeAdminAudit } = await import("@/lib/services/admin-audit");
+  await writeAdminAudit({
+    actorId: auth.userId,
+    action: parsed.data.status === "APPROVED" ? "compliance.approve" : "compliance.reject",
+    entity: "InstructorComplianceDocument",
+    entityId: doc.id,
+    summary: `${parsed.data.status === "APPROVED" ? "Одобрен" : "Отклонён"} документ ${doc.type} инструктора`,
+    meta: { userId, type: doc.type, actorRole: auth.role, rejectNote: parsed.data.rejectNote ?? null },
+  });
+
   return NextResponse.json({ document: updated });
 }

@@ -16,13 +16,14 @@ export const ADMIN_ORDER_GROUP_LABELS: Record<Exclude<AdminOrderGroup, "all">, s
   completed: "Завершённые",
 };
 
-export type AdminUserRoleFilter = "all" | "CLIENT" | "INSTRUCTOR" | "ADMIN";
+export type AdminUserRoleFilter = "all" | "CLIENT" | "INSTRUCTOR" | "ADMIN" | "MODERATOR";
 
 export const ADMIN_USER_ROLE_LABELS: Record<AdminUserRoleFilter, string> = {
   all: "Все роли",
   CLIENT: "Клиенты",
   INSTRUCTOR: "Инструкторы",
   ADMIN: "Администраторы",
+  MODERATOR: "Модераторы",
 };
 
 export function parseAdminOrderGroup(raw: string | null | undefined): AdminOrderGroup {
@@ -31,7 +32,7 @@ export function parseAdminOrderGroup(raw: string | null | undefined): AdminOrder
 }
 
 export function parseAdminUserRoleFilter(raw: string | null | undefined): AdminUserRoleFilter {
-  if (raw === "CLIENT" || raw === "INSTRUCTOR" || raw === "ADMIN") return raw;
+  if (raw === "CLIENT" || raw === "INSTRUCTOR" || raw === "ADMIN" || raw === "MODERATOR") return raw;
   return "all";
 }
 

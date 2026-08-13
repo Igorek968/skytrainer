@@ -5,6 +5,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { useState } from "react";
 
 import { AdminDeleteUserButton } from "@/features/admin/admin-delete-user-button";
+import { AdminInstructorModerationSheet } from "@/features/admin/admin-instructor-moderation-sheet";
 import {
   AdminSendMessageModal,
   type AdminMessageTarget,
@@ -70,6 +71,7 @@ export function AdminUsersSection() {
   const focusParticipant = params.get("participant")?.trim() || null;
   const [messageTarget, setMessageTarget] = useState<AdminMessageTarget | null>(null);
   const [editUserId, setEditUserId] = useState<string | null>(null);
+  const [dossierUserId, setDossierUserId] = useState<string | null>(null);
   const [searchQ, setSearchQ] = useState("");
 
   const role = parseAdminUserRoleFilter(params.get("role"));
@@ -98,6 +100,12 @@ export function AdminUsersSection() {
       ) : null}
       {editUserId ? (
         <AdminUserEditSheet userId={editUserId} onClose={() => setEditUserId(null)} />
+      ) : null}
+      {dossierUserId ? (
+        <AdminInstructorModerationSheet
+          userId={dossierUserId}
+          onClose={() => setDossierUserId(null)}
+        />
       ) : null}
       <Card>
         <CardHeader>
@@ -134,6 +142,12 @@ export function AdminUsersSection() {
             href={href({ role: "ADMIN", online: false })}
             label="Администраторы"
             count={counts?.ADMIN}
+          />
+          <FilterChip
+            active={role === "MODERATOR" && !onlineOnly}
+            href={href({ role: "MODERATOR", online: false })}
+            label="Модераторы"
+            count={counts?.MODERATOR}
           />
           <FilterChip
             active={onlineOnly}
@@ -243,10 +257,24 @@ export function AdminUsersSection() {
                           variant="secondary"
                           size="sm"
                           className="h-7 text-xs"
-                          onClick={() => setEditUserId(u.id)}
+                          onClick={() => {
+                            if (u.role === "INSTRUCTOR") setDossierUserId(u.id);
+                            else setEditUserId(u.id);
+                          }}
                         >
                           Профиль
                         </Button>
+                        {u.role === "INSTRUCTOR" ? (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-7 text-xs"
+                            onClick={() => setEditUserId(u.id)}
+                          >
+                            Правки
+                          </Button>
+                        ) : null}
                         <Button
                           type="button"
                           variant="outline"

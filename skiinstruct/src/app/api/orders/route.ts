@@ -55,7 +55,7 @@ export async function GET() {
       ? { clientId: uid }
       : role === "INSTRUCTOR"
         ? { instructorId: uid, status: { not: "AWAITING_PAYMENT" as const } }
-        : role === "ADMIN"
+        : role === "ADMIN" || role === "MODERATOR"
           ? {}
           : { id: "___none___" };
 

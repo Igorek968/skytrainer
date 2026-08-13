@@ -3,6 +3,7 @@ import type { Session } from "next-auth";
 import type { UserRole } from "@prisma/client";
 
 import { auth } from "@/auth";
+import { isAdminStaffRole, isFullAdminRole } from "@/lib/admin-staff";
 import { prisma } from "@/lib/prisma";
 
 export type ResolvedApiSession = {
@@ -43,8 +44,8 @@ export async function requireAuthSession(): Promise<ResolvedApiSession | NextRes
 }
 
 function instructorForbiddenMessage(role: UserRole): string {
-  if (role === "ADMIN") {
-    return "Сейчас вы вошли как администратор. Выйдите и войдите как инструктор: /instructor/login";
+  if (role === "ADMIN" || role === "MODERATOR") {
+    return "Сейчас вы вошли как сотрудник админки. Выйдите и войдите как инструктор: /instructor/login";
   }
   if (role === "CLIENT") {
     return "Сейчас вы вошли как клиент. Войдите как инструктор: /instructor/login";
@@ -73,12 +74,26 @@ export async function requireInstructorSession(): Promise<ResolvedApiSession | N
   return resolved;
 }
 
+/** Админ или модератор — доступ в админку (кроме финансов). */
 export async function requireAdminSession(): Promise<ResolvedApiSession | NextResponse> {
   const resolved = await requireAuthSession();
   if (isApiErrorResponse(resolved)) return resolved;
-  if (resolved.role !== "ADMIN") {
+  if (!isAdminStaffRole(resolved.role)) {
     return NextResponse.json(
-      { error: "Нет прав администратора. Войдите через /admin/login" },
+      { error: "Нет прав сотрудника админки. Войдите через /admin/login" },
+      { status: 403 },
+    );
+  }
+  return resolved;
+}
+
+/** Только полный администратор (финансы, выплаты). */
+export async function requireFullAdminSession(): Promise<ResolvedApiSession | NextResponse> {
+  const resolved = await requireAdminSession();
+  if (isApiErrorResponse(resolved)) return resolved;
+  if (!isFullAdminRole(resolved.role)) {
+    return NextResponse.json(
+      { error: "Раздел доступен только администратору (не модератору)" },
       { status: 403 },
     );
   }
@@ -89,8 +104,8 @@ function clientForbiddenMessage(role: UserRole): string {
   if (role === "INSTRUCTOR") {
     return "Сейчас вы вошли как инструктор. Выйдите и войдите как клиент: /login";
   }
-  if (role === "ADMIN") {
-    return "Сейчас вы вошли как администратор. Выйдите и войдите как клиент: /login";
+  if (role === "ADMIN" || role === "MODERATOR") {
+    return "Сейчас вы вошли как сотрудник админки. Выйдите и войдите как клиент: /login";
   }
   return "Создавать заказы могут только клиенты";
 }

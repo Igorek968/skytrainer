@@ -56,7 +56,7 @@ export async function registerClientAction(
   const signedIn = await credentialsSignInNoRedirect(created.email, password);
   if (!signedIn.ok) {
     redirect(
-      `/login?registered=1&callbackUrl=${encodeURIComponent(redirectTo)}&email=${encodeURIComponent(created.email)}`,
+      `/login?registered=1&verifyEmail=1&callbackUrl=${encodeURIComponent(redirectTo)}&email=${encodeURIComponent(created.email)}`,
     );
   }
 

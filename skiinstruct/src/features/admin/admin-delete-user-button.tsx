@@ -29,7 +29,7 @@ export function AdminDeleteUserButton({
 }: Props) {
   const del = useAdminDeleteUserMutation();
 
-  if (role === "ADMIN") {
+  if (role === "ADMIN" || role === "MODERATOR") {
     return null;
   }
 

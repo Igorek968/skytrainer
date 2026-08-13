@@ -19,6 +19,7 @@
     "db:delete-demo-instructors": "tsx prisma/delete-demo-instructors.ts",
     "db:clear-instructors": "tsx prisma/delete-all-instructor-users.ts",
     "db:bootstrap-admin": "tsx prisma/bootstrap-admin.ts",
+    "db:bootstrap-moderator": "tsx prisma/bootstrap-moderator.ts",
     "db:backfill-instructor-profiles": "tsx scripts/backfill-instructor-profiles.ts",
     "db:enrich-instructor-trust": "tsx prisma/enrich-instructor-trust.ts",
     "export:agency-registry": "tsx scripts/export-agency-registry.ts",

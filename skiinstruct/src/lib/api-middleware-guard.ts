@@ -3,6 +3,11 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import type { UserRole } from "@prisma/client";
 
+import {
+  isAdminFinanceApiPath,
+  isAdminStaffRole,
+  isFullAdminRole,
+} from "@/lib/admin-staff";
 import { assertMutationSameOrigin } from "@/lib/mutating-request-guard";
 
 const ORIGIN_EXEMPT_PREFIXES = [
@@ -59,8 +64,14 @@ export function guardApiRequest(
     if (!session?.user) {
       return NextResponse.json({ error: "Войдите в аккаунт" }, { status: 401 });
     }
-    if (role !== "ADMIN") {
+    if (!isAdminStaffRole(role)) {
       return NextResponse.json({ error: "Недостаточно прав" }, { status: 403 });
+    }
+    if (isAdminFinanceApiPath(pathname) && !isFullAdminRole(role)) {
+      return NextResponse.json(
+        { error: "Финансы доступны только администратору" },
+        { status: 403 },
+      );
     }
     return null;
   }

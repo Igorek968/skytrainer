@@ -55,6 +55,10 @@ export async function instructorApplyAction(
       const f = formData.get("passportScan");
       return f instanceof File && f.size > 0 ? f : null;
     })(),
+    taxDocumentScan: (() => {
+      const f = formData.get("taxDocumentScan");
+      return f instanceof File && f.size > 0 ? f : null;
+    })(),
     acquisition: Object.keys(acquisition).length > 0 ? acquisition : undefined,
   });
 
@@ -68,7 +72,7 @@ export async function instructorApplyAction(
   const signedIn = await credentialsSignInNoRedirect(created.email, password);
   if (!signedIn.ok) {
     redirect(
-      `/instructor/login?applied=1&email=${encodeURIComponent(created.email)}&signin=required`,
+      `/instructor/login?applied=1&verifyEmail=1&email=${encodeURIComponent(created.email)}&signin=required`,
     );
   }
 

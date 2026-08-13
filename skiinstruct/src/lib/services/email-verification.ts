@@ -38,7 +38,9 @@ export async function createEmailVerificationToken(email: string): Promise<strin
   return raw;
 }
 
-export async function verifyEmailToken(rawToken: string): Promise<{ ok: true; email: string } | { ok: false }> {
+export async function verifyEmailToken(
+  rawToken: string,
+): Promise<{ ok: true; email: string; loginToken: string } | { ok: false }> {
   const tokenHash = sha256Hex(rawToken.trim());
   const row = await prisma.verificationToken.findUnique({ where: { token: tokenHash } });
   if (!row || row.expires.getTime() < Date.now()) {
@@ -46,12 +48,55 @@ export async function verifyEmailToken(rawToken: string): Promise<{ ok: true; em
     return { ok: false };
   }
 
+  // Не трогаем одноразовые токены авто-входа после подтверждения
+  if (row.identifier.startsWith("email-login:")) {
+    return { ok: false };
+  }
+
+  const email = row.identifier.trim().toLowerCase();
   await prisma.user.updateMany({
-    where: { email: { equals: row.identifier, mode: "insensitive" } },
+    where: { email: { equals: email, mode: "insensitive" } },
     data: { emailVerified: new Date() },
   });
   await prisma.verificationToken.delete({ where: { token: tokenHash } });
-  return { ok: true, email: row.identifier };
+
+  const loginRaw = generateEmailVerificationToken();
+  const loginHash = sha256Hex(loginRaw);
+  const loginId = `email-login:${email}`;
+  await prisma.verificationToken.deleteMany({ where: { identifier: loginId } });
+  await prisma.verificationToken.create({
+    data: {
+      identifier: loginId,
+      token: loginHash,
+      expires: new Date(Date.now() + 15 * 60 * 1000),
+    },
+  });
+
+  return { ok: true, email, loginToken: loginRaw };
+}
+
+/** Одноразовый вход после клика по ссылке подтверждения email (письма открываются без сессии). */
+export async function consumeEmailLoginToken(
+  rawToken: string,
+): Promise<{ ok: true; userId: string; email: string; role: string } | { ok: false }> {
+  const tokenHash = sha256Hex(rawToken.trim());
+  const row = await prisma.verificationToken.findUnique({ where: { token: tokenHash } });
+  if (!row || row.expires.getTime() < Date.now()) {
+    if (row) await prisma.verificationToken.delete({ where: { token: tokenHash } }).catch(() => undefined);
+    return { ok: false };
+  }
+  if (!row.identifier.startsWith("email-login:")) {
+    return { ok: false };
+  }
+  const email = row.identifier.slice("email-login:".length).trim().toLowerCase();
+  await prisma.verificationToken.delete({ where: { token: tokenHash } }).catch(() => undefined);
+
+  const user = await prisma.user.findFirst({
+    where: { email: { equals: email, mode: "insensitive" } },
+    select: { id: true, email: true, role: true, name: true, image: true },
+  });
+  if (!user) return { ok: false };
+  return { ok: true, userId: user.id, email: user.email, role: user.role };
 }
 
 export function buildEmailVerificationLink(rawToken: string): string {

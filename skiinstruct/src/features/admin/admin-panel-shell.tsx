@@ -33,12 +33,14 @@ import {
 } from "@/features/admin/admin-search-params";
 import { PushEnableBanner } from "@/features/push/push-enable-banner";
 import { SitePushForegroundBridge } from "@/features/push/site-push-foreground-bridge";
+import { isFullAdminRole } from "@/lib/admin-staff";
 import { cn } from "@/lib/utils";
 import { SiteLogo } from "@/shared/brand/site-logo";
 import { getPublicProductName } from "@/shared/lib/product";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
+import { useSession } from "next-auth/react";
 
 type NavItem = {
   href: string;
@@ -97,6 +99,8 @@ function AdminSidebarNav() {
   const pathname = usePathname();
   const router = useRouter();
   const params = useSearchParams();
+  const { data: session } = useSession();
+  const isFullAdmin = isFullAdminRole(session?.user?.role);
   const userFilter = params.get("user")?.trim() || params.get("email")?.trim() || "";
   const activityFilter = params.get("activity")?.trim() || "";
   const participantFilter = params.get("participant")?.trim() || "";
@@ -107,6 +111,13 @@ function AdminSidebarNav() {
   const [activityDraft, setActivityDraft] = useState(activityFilter);
   const product = getPublicProductName();
   const canSubmit = adminSearchCanSubmit(draft, activityDraft);
+
+  const visibleGroups = navGroups
+    .map((g) => ({
+      ...g,
+      items: g.items.filter((item) => isFullAdmin || item.href !== "/admin/finance"),
+    }))
+    .filter((g) => g.items.length > 0);
 
   useEffect(() => {
     setDraft(userFilter);
@@ -161,6 +172,7 @@ function AdminSidebarNav() {
           <div className="mt-0.5 flex items-center justify-between gap-2">
             <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
               {product} · CRM
+              {!isFullAdmin ? " · модератор" : ""}
             </p>
             <div className="hidden lg:block">
               <AdminAlertsBell />
@@ -231,7 +243,7 @@ function AdminSidebarNav() {
         )}
         aria-label={`Разделы CRM ${product}`}
       >
-        {navGroups.map((group) => (
+        {visibleGroups.map((group) => (
           <div key={group.title} className="space-y-0.5">
             <p className="px-2 pb-0.5 pt-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
               {group.title}

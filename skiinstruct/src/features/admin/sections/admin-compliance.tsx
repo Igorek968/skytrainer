@@ -98,10 +98,10 @@ export function AdminComplianceSection() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Очередь документов (паспорт, НПД/ЕГРИП, страхование)</CardTitle>
+          <CardTitle>Очередь документов (паспорт, НПД/ЕГРИП)</CardTitle>
           <CardDescription>
             Для допуска к оплаченным заявкам модератор обязан подтвердить статус НПД («Мой налог») или выписку ЕГРИП
-            (ИП). Без этого инструктор не примет оплату.
+            (ИП) и паспорт. Страховка необязательна и не блокирует выплаты.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">

@@ -13,6 +13,7 @@ enum UserRole {
   CLIENT
   INSTRUCTOR
   ADMIN
+  MODERATOR
 }
 
 enum SkillLevel {

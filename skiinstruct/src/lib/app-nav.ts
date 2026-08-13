@@ -26,7 +26,7 @@ export function resolveBrandingHref(pathname: string | null, role?: UserRole | s
   if (path.startsWith("/instructor") || path.startsWith("/admin")) {
     return "/client";
   }
-  if (role === "INSTRUCTOR" || role === "ADMIN") {
+  if (role === "INSTRUCTOR" || role === "ADMIN" || role === "MODERATOR") {
     return "/client";
   }
   return "/client";
@@ -50,13 +50,13 @@ function navForRole(role: UserRole): AppNavLinks {
     };
   }
 
-  if (role === "ADMIN") {
+  if (role === "ADMIN" || role === "MODERATOR") {
     return {
       area: "admin",
       bookHref: "/client",
       bookLabel: "Заказать занятие",
       dashboardHref: "/admin/metrics",
-      dashboardLabel: "Админ-панель",
+      dashboardLabel: role === "MODERATOR" ? "Кабинет модератора" : "Админ-панель",
       ordersHref: "/admin/orders",
       ordersLabel: "Заказы (админ)",
     };
@@ -114,7 +114,7 @@ export function resolveAppNav(pathname: string | null, role?: UserRole | string)
 
 
 
-  if (role === "INSTRUCTOR" || role === "ADMIN" || role === "CLIENT") {
+  if (role === "INSTRUCTOR" || role === "ADMIN" || role === "MODERATOR" || role === "CLIENT") {
 
     return navForRole(role);
 
@@ -177,7 +177,7 @@ export function sessionConflictsWithNavArea(
 
   if (area === "instructor") return role !== "INSTRUCTOR";
 
-  if (area === "admin") return role !== "ADMIN";
+  if (area === "admin") return role !== "ADMIN" && role !== "MODERATOR";
 
   if (area === "client") return role !== "CLIENT";
 

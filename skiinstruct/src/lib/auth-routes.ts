@@ -5,7 +5,7 @@ import { sanitizeRedirectPath } from "@/lib/sanitize-auth-redirect";
 /** Куда отправлять после signOut, чтобы не вернуться в кабинет через редирект с главной. */
 export function signOutCallbackForRole(role: UserRole | string | undefined): string {
   if (role === "INSTRUCTOR") return "/instructor/login";
-  if (role === "ADMIN") return "/admin/login";
+  if (role === "ADMIN" || role === "MODERATOR") return "/admin/login";
   return "/login";
 }
 
@@ -26,7 +26,7 @@ export function isClientBookingReturnPath(path: string): boolean {
 export function cabinetPathForRole(role: UserRole | undefined): string | null {
   if (role === "INSTRUCTOR") return "/instructor";
   if (role === "CLIENT") return "/client";
-  if (role === "ADMIN") return "/admin/metrics";
+  if (role === "ADMIN" || role === "MODERATOR") return "/admin/metrics";
   return null;
 }
 
@@ -72,7 +72,7 @@ export function resolvePostLoginRedirect(
     return safe;
   }
 
-  if (role === "ADMIN") {
+  if (role === "ADMIN" || role === "MODERATOR") {
     if (bare === "/" || bare.startsWith("/client") || bare.startsWith("/instructor")) {
       return cabinet;
     }

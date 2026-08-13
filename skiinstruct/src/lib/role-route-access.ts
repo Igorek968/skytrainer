@@ -7,7 +7,7 @@ export function roleHomePath(role: UserRole): string {
 }
 
 export function loginPathForRole(role: UserRole): string {
-  if (role === "ADMIN") return "/admin/login";
+  if (role === "ADMIN" || role === "MODERATOR") return "/admin/login";
   if (role === "INSTRUCTOR") return "/instructor/login";
   return "/login";
 }
@@ -32,6 +32,10 @@ export function isInstructorPanelPath(pathname: string): boolean {
 
 export function isAdminPanelPath(pathname: string): boolean {
   return pathname.startsWith("/admin") && pathname !== "/admin/login";
+}
+
+export function isAdminFinancePagePath(pathname: string): boolean {
+  return pathname === "/admin/finance" || pathname.startsWith("/admin/finance/");
 }
 
 export function clientAuthLoginRedirect(pathname: string): string {

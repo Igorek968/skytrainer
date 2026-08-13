@@ -19,6 +19,7 @@ type DocRow = {
   rejectNote: string | null;
   createdAt: string;
   viewUrl: string | null;
+  fileMissing?: boolean;
 };
 
 type UserPayload = {
@@ -300,7 +301,7 @@ export function AdminUserEditSheet({ userId, onClose }: Props) {
                   </section>
 
                   <section className="space-y-2">
-                    <h3 className="text-sm font-semibold">Документы</h3>
+                    <h3 className="text-sm font-semibold">Документы (паспорт, НПД/ЕГРИП)</h3>
                     {(u.documents?.length ?? 0) === 0 ? (
                       <p className="text-xs text-muted-foreground">Файлы ещё не загружены</p>
                     ) : (
@@ -310,11 +311,14 @@ export function AdminUserEditSheet({ userId, onClose }: Props) {
                             key={d.id}
                             className="flex flex-col gap-2 rounded-md border border-border p-2 sm:flex-row sm:items-center sm:justify-between"
                           >
-                            <div>
+                            <div className="min-w-0 space-y-1">
                               <p className="font-medium">
                                 {d.typeLabel}{" "}
                                 <span className="text-xs text-muted-foreground">({d.status})</span>
                               </p>
+                              {d.rejectNote ? (
+                                <p className="text-xs text-muted-foreground">Отклонение: {d.rejectNote}</p>
+                              ) : null}
                               {d.viewUrl ? (
                                 <a
                                   className="text-xs text-accent underline"
@@ -324,7 +328,13 @@ export function AdminUserEditSheet({ userId, onClose }: Props) {
                                 >
                                   Открыть файл
                                 </a>
-                              ) : null}
+                              ) : d.fileMissing ? (
+                                <p className="text-xs text-destructive">
+                                  Файл отсутствует на сервере — попросите инструктора загрузить снова.
+                                </p>
+                              ) : (
+                                <p className="text-xs text-muted-foreground">Ссылка на файл недоступна</p>
+                              )}
                             </div>
                             {d.status === "PENDING" ? (
                               <label className="flex items-center gap-2 text-xs">

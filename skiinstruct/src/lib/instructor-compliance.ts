@@ -32,7 +32,8 @@ export function computeComplianceFlags(input: {
     taxDocumentApproved: taxOk,
     insuranceApproved: insuranceOk,
     passportApproved: passportUploadedOk,
-    canAcceptPaidOrders: agencyOfferAccepted && taxOk && insuranceOk && passportOk,
+    // Страховка опциональна: не блокирует выплаты и приём оплаченных заявок.
+    canAcceptPaidOrders: agencyOfferAccepted && taxOk && passportOk,
   };
 }
 
@@ -89,7 +90,7 @@ export async function getInstructorComplianceStatus(userId: string) {
 }
 
 export const COMPLIANCE_BLOCK_MESSAGE =
-  "Для приёма оплаченных заявок нужны: акцепт агентского договора, паспорт, одобренные документы НПД/ИП и страхование. Загрузите их в разделе «Соответствие и выплаты».";
+  "Для приёма оплаченных заявок нужны: акцепт агентского договора, паспорт и одобренный документ НПД/ИП. Документ НПД/ЕГРИП загружается в анкете при регистрации; паспорт и реквизиты — в кабинете при необходимости.";
 
 export async function assertInstructorCanAcceptPaidOrders(userId: string): Promise<string | null> {
   const status = await getInstructorComplianceStatus(userId);

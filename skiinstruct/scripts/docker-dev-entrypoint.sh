@@ -35,6 +35,8 @@ npx prisma generate
 
 echo "[entry] bootstrap admin..."
 npm run db:bootstrap-admin
+echo "[entry] bootstrap moderator..."
+npm run db:bootstrap-moderator || true
 
 if [ "${SKIINSTRUCT_RUN_SEED:-0}" = "1" ]; then
   npm run db:seed:instructors

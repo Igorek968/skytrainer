@@ -28,7 +28,7 @@ export async function adminDeleteUser(params: {
     return { ok: false, error: "Пользователь не найден", status: 404 };
   }
 
-  if (target.role === "ADMIN") {
+  if (target.role === "ADMIN" || target.role === "MODERATOR") {
     return { ok: false, error: "Нельзя удалить учётную запись администратора", status: 403 };
   }
 

@@ -97,6 +97,8 @@ export async function createInstructorApplication(input: {
   passportDepartmentCode?: string;
   /** Скан/фото разворота паспорта (стр. 2–3). */
   passportScan?: File | null;
+  /** Справка НПД («Мой налог») или выписка ЕГРИП. */
+  taxDocumentScan?: File | null;
   /** UTM / источник заявки (Авито, Директ, SEO…). */
   acquisition?: Record<string, string>;
 }): Promise<CreateInstructorApplicationResult> {
@@ -140,6 +142,25 @@ export async function createInstructorApplication(input: {
   const passportBuffer = Buffer.from(await passportScan.arrayBuffer());
   if (!validateUploadedBytes(passportScan.type, passportBuffer)) {
     return { ok: false, error: "Содержимое файла паспорта не соответствует формату", status: 400 };
+  }
+
+  const taxDocumentScan = input.taxDocumentScan;
+  if (!(taxDocumentScan instanceof File) || taxDocumentScan.size <= 0) {
+    return {
+      ok: false,
+      error: "Прикрепите документ НПД («Мой налог») или выписку ЕГРИП",
+      status: 400,
+    };
+  }
+  if (!PASSPORT_UPLOAD_ALLOWED.has(taxDocumentScan.type)) {
+    return { ok: false, error: "Документ НПД/ИП: допустимы JPG, PNG, WEBP или PDF", status: 400 };
+  }
+  if (taxDocumentScan.size > PASSPORT_UPLOAD_MAX_BYTES) {
+    return { ok: false, error: "Файл НПД/ИП: максимум 8 MB", status: 400 };
+  }
+  const taxDocumentBuffer = Buffer.from(await taxDocumentScan.arrayBuffer());
+  if (!validateUploadedBytes(taxDocumentScan.type, taxDocumentBuffer)) {
+    return { ok: false, error: "Содержимое файла НПД/ИП не соответствует формату", status: 400 };
   }
 
   const parsed = applySchema.safeParse({
@@ -310,6 +331,23 @@ export async function createInstructorApplication(input: {
   } catch (e) {
     console.error("[instructor-apply] passport upload", e instanceof Error ? e.message : e);
     // Аккаунт уже создан — скан можно догрузить в кабинете.
+  }
+
+  try {
+    const taxType = taxStatus === "IP" ? ("TAX_STATUS_IP" as const) : ("TAX_STATUS_NPD" as const);
+    const ext = passportFileExt(taxDocumentScan.type);
+    const filename = `${createdUserId}-${taxType}-${randomUUID()}.${ext}`;
+    const fileUrl = await writePrivateUpload("compliance", filename, taxDocumentBuffer);
+    await prisma.instructorComplianceDocument.create({
+      data: {
+        userId: createdUserId,
+        type: taxType,
+        fileUrl,
+        status: "PENDING",
+      },
+    });
+  } catch (e) {
+    console.error("[instructor-apply] tax document upload", e instanceof Error ? e.message : e);
   }
 
   try {

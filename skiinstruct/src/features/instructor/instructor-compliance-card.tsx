@@ -41,7 +41,6 @@ function phoneForInput(digits: string | null | undefined): string {
 
 export function InstructorComplianceCard() {
   const qc = useQueryClient();
-  const taxInput = useRef<HTMLInputElement>(null);
   const insInput = useRef<HTMLInputElement>(null);
   const passportInput = useRef<HTMLInputElement>(null);
   const [taxStatus, setTaxStatus] = useState<"SELF_EMPLOYED" | "IP">("SELF_EMPLOYED");
@@ -137,15 +136,13 @@ export function InstructorComplianceCard() {
     );
   }
 
-  const taxType = taxStatus === "IP" ? "TAX_STATUS_IP" : "TAX_STATUS_NPD";
-
   return (
     <Card>
       <CardHeader>
         <CardTitle>Соответствие и выплаты</CardTitle>
         <CardDescription>
-          Для приёма оплаченных заявок: агентский договор, паспорт, документы НПД/ИП, страхование. Минимальный вывод —{" "}
-          {PAYOUT_MIN_WITHDRAWAL_RUB} ₽. Чек НПД — в течение {NPD_RECEIPT_DEADLINE_HOURS} ч после каждого урока.
+          Для приёма оплаченных заявок и выплат: агентский договор, паспорт и документ НПД/ИП (из анкеты). Минимальный
+          вывод — {PAYOUT_MIN_WITHDRAWAL_RUB} ₽. Чек НПД — в течение {NPD_RECEIPT_DEADLINE_HOURS} ч после каждого урока.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4 text-sm">
@@ -160,9 +157,15 @@ export function InstructorComplianceCard() {
               </Link>
             )}
           </li>
-          <li>Налоговый статус: {data.taxDocumentApproved ? "одобрен" : "требуется загрузка"}</li>
+          <li>
+            Налоговый документ (НПД/ЕГРИП):{" "}
+            {data.taxDocumentApproved ? "одобрен" : "ожидает проверки (загружается в анкете)"}
+          </li>
           <li>Паспорт: {data.passportApproved ? "одобрен" : "требуется загрузка / проверка"}</li>
-          <li>Страхование: {data.insuranceApproved ? "одобрено" : "требуется загрузка"}</li>
+          <li>
+            Страхование:{" "}
+            {data.insuranceApproved ? "загружено" : "необязательно — можно приложить ниже"}
+          </li>
           <li>
             Приём заявок:{" "}
             <span className="font-medium text-foreground">
@@ -224,17 +227,6 @@ export function InstructorComplianceCard() {
 
         <div className="flex flex-wrap gap-2">
           <input
-            ref={taxInput}
-            type="file"
-            accept="image/*,application/pdf"
-            className="hidden"
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) upload.mutate({ file: f, type: taxType });
-              e.target.value = "";
-            }}
-          />
-          <input
             ref={insInput}
             type="file"
             accept="image/*,application/pdf"
@@ -256,11 +248,8 @@ export function InstructorComplianceCard() {
               e.target.value = "";
             }}
           />
-          <Button type="button" variant="secondary" onClick={() => taxInput.current?.click()}>
-            Загрузить НПД/ИП
-          </Button>
           <Button type="button" variant="secondary" onClick={() => insInput.current?.click()}>
-            Загрузить страховку
+            Загрузить страховку (необязательно)
           </Button>
           <Button type="button" variant="secondary" onClick={() => passportInput.current?.click()}>
             Загрузить паспорт

@@ -85,6 +85,7 @@ export async function GET(_req: Request, ctx: Ctx) {
   const { resolveSensitiveUploadDisplaySrc } = await import("@/lib/sensitive-upload-urls");
   const { complianceDocTypeLabel } = await import("@/lib/instructor-agency-registry");
   const { instructorAnketaMissingFields } = await import("@/lib/instructor-anketa-status");
+  const { readSensitiveUpload } = await import("@/lib/private-uploads");
 
   const p = user.instructorProfile;
   const docs = user.complianceDocuments;
@@ -106,6 +107,30 @@ export async function GET(_req: Request, ctx: Ctx) {
         hasTaxDocument: docs.some((d) => d.type === "TAX_STATUS_NPD" || d.type === "TAX_STATUS_IP"),
       })
     : [];
+
+  const documents = await Promise.all(
+    docs.map(async (d) => {
+      const viewUrl = resolveSensitiveUploadDisplaySrc(d.fileUrl);
+      let fileMissing = false;
+      if (viewUrl?.startsWith("/api/private-media/")) {
+        const segments = viewUrl.slice("/api/private-media/".length).split("/").filter(Boolean);
+        const buf = await readSensitiveUpload(segments);
+        fileMissing = !buf;
+      } else if (!viewUrl) {
+        fileMissing = true;
+      }
+      return {
+        id: d.id,
+        type: d.type,
+        typeLabel: complianceDocTypeLabel(d.type),
+        status: d.status,
+        rejectNote: d.rejectNote,
+        createdAt: d.createdAt.toISOString(),
+        viewUrl: fileMissing ? null : viewUrl,
+        fileMissing,
+      };
+    }),
+  );
 
   return NextResponse.json({
     user: {
@@ -145,15 +170,7 @@ export async function GET(_req: Request, ctx: Ctx) {
             passportDepartmentCode: p.passportDepartmentCode,
           }
         : null,
-      documents: docs.map((d) => ({
-        id: d.id,
-        type: d.type,
-        typeLabel: complianceDocTypeLabel(d.type),
-        status: d.status,
-        rejectNote: d.rejectNote,
-        createdAt: d.createdAt.toISOString(),
-        viewUrl: resolveSensitiveUploadDisplaySrc(d.fileUrl),
-      })),
+      documents,
     },
   });
 }

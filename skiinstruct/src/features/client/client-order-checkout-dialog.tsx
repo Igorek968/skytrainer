@@ -8,17 +8,22 @@ import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { signInClientSessionAction } from "@/app/actions/client-order-sign-in";
+import { forceEmailVerificationGate } from "@/lib/email-gate-force";
 import {
   clearClientCheckoutDraft,
   readClientCheckoutDraft,
   saveClientCheckoutDraft,
 } from "@/lib/client-checkout-draft";
 import type { ClientCheckoutInstructorSummary } from "@/lib/client-checkout-instructor";
-import { CLIENT_BOOKING_RETURN_PATH } from "@/lib/client-pending-checkout";
+import {
+  CLIENT_BOOKING_RETURN_PATH,
+  savePendingCheckout,
+} from "@/lib/client-pending-checkout";
 import { LEGAL_ROUTES } from "@/lib/legal";
 import { InstructorServiceExecutorNotice } from "@/shared/legal/instructor-service-executor-notice";
 import { LegalConsentCheckbox } from "@/shared/legal/legal-consent-checkbox";
 import { YM_GOALS, trackYandexGoal } from "@/shared/analytics/yandex-metrika-client";
+import { TurnstileWidget } from "@/shared/security/turnstile-widget";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { PasswordInput } from "@/shared/ui/password-input";
@@ -129,11 +134,65 @@ export function ClientOrderCheckoutDialog({ open, onOpenChange, instructor, onCr
     onOpenChange(false);
   }
 
+  /** Сохранить черновик заказа и вернуться к оплате после подтверждения email. */
+  function pauseCheckoutForEmailGate() {
+    if (instructor) {
+      savePendingCheckout({
+        instructorId: instructor.id,
+        instructorName: instructor.name,
+        hourlyRate: instructor.hourlyRate,
+        taxStatus: instructor.taxStatus ?? null,
+      });
+      saveClientCheckoutDraft({
+        instructorId: instructor.id,
+        instructorName: instructor.name,
+        hourlyRate: instructor.hourlyRate,
+        taxStatus: instructor.taxStatus ?? null,
+        step: "pay",
+        authMode,
+        email,
+        password: "",
+        passwordConfirm: "",
+        name,
+        acceptLegal,
+      });
+    }
+    forceEmailVerificationGate();
+    onOpenChange(false);
+    router.replace(`${CLIENT_BOOKING_RETURN_PATH}&verifyEmail=1`);
+    toast.message("Подтвердите email", {
+      description: "После подтверждения вернёмся к оформлению заказа.",
+    });
+  }
+
+  /** Если email не подтверждён — стоп-окно, без перехода к оплате. */
+  async function blockIfEmailUnverified(opts?: { afterRegister?: boolean }): Promise<boolean> {
+    if (opts?.afterRegister) {
+      pauseCheckoutForEmailGate();
+      return true;
+    }
+    try {
+      const r = await fetch("/api/auth/email-verification", {
+        credentials: "include",
+        cache: "no-store",
+      });
+      if (!r.ok) return false;
+      const j = (await r.json()) as { verified?: boolean; required?: boolean; email?: string | null };
+      if (!j.required || j.verified || !j.email) return false;
+      pauseCheckoutForEmailGate();
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   async function submitAccount(e: React.FormEvent) {
     e.preventDefault();
     setStep("busy");
     try {
       if (authMode === "register") {
+        const form = e.currentTarget as HTMLFormElement;
+        const captchaToken = String(new FormData(form).get("captchaToken") ?? "");
         const r = await fetch("/api/auth/register", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -142,6 +201,7 @@ export function ClientOrderCheckoutDialog({ open, onOpenChange, instructor, onCr
             password,
             passwordConfirm,
             name: name.trim() || undefined,
+            captchaToken: captchaToken || undefined,
           }),
         });
         const j = (await r.json().catch(() => ({}))) as { error?: string };
@@ -162,6 +222,8 @@ export function ClientOrderCheckoutDialog({ open, onOpenChange, instructor, onCr
       }
       await getSession();
       router.refresh();
+      const blocked = await blockIfEmailUnverified({ afterRegister: authMode === "register" });
+      if (blocked) return;
       setStep("pay");
     } catch {
       toast.error("Сеть недоступна");
@@ -183,6 +245,7 @@ export function ClientOrderCheckoutDialog({ open, onOpenChange, instructor, onCr
       toast.error("Войдите или зарегистрируйтесь как клиент");
       return;
     }
+    if (await blockIfEmailUnverified()) return;
     setStep("busy");
     try {
       const orderId = await onCreateOrder();
@@ -297,12 +360,13 @@ export function ClientOrderCheckoutDialog({ open, onOpenChange, instructor, onCr
                 />
               </div>
             ) : null}
+            {authMode === "register" ? <TurnstileWidget className="pt-1" /> : null}
             <div className="flex justify-end gap-2 pt-2">
               <Button type="button" variant="outline" onClick={() => closeAll()}>
                 Отмена
               </Button>
               <Button type="submit" variant="accent">
-                Продолжить
+                {authMode === "register" ? "Зарегистрироваться" : "Войти и продолжить"}
               </Button>
             </div>
           </form>

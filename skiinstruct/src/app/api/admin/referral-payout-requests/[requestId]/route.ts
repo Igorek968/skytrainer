@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { auth } from "@/auth";
+import { isApiErrorResponse, requireFullAdminSession } from "@/lib/api-session";
 import { updateReferralPayoutRequestStatus } from "@/lib/services/referral-payout";
 
 const patchSchema = z.object({
@@ -12,10 +12,8 @@ const patchSchema = z.object({
 type Ctx = { params: Promise<{ requestId: string }> };
 
 export async function PATCH(req: Request, ctx: Ctx) {
-  const session = await auth();
-  if (!session?.user || session.user.role !== "ADMIN") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const authResult = await requireFullAdminSession();
+  if (isApiErrorResponse(authResult)) return authResult;
 
   const { requestId } = await ctx.params;
   let json: unknown;

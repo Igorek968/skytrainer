@@ -2,10 +2,11 @@ import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
 
-import { auth } from "@/auth";
 import { draftToProfileUpdate, parseProfileDraft } from "@/lib/instructor-profile-draft";
+import { isApiErrorResponse, requireAdminSession } from "@/lib/api-session";
 import { prisma } from "@/lib/prisma";
 import { notifyBotInstructorApproved } from "@/lib/bot-api";
+import { writeAdminAudit } from "@/lib/services/admin-audit";
 import { notifyInstructorVerificationResult } from "@/lib/services/instructor-verification-notify";
 import { findDuplicateParticipantByDisplayName } from "@/lib/services/user-display-name-uniqueness";
 import { DISPLAY_NAME_DUPLICATE_MESSAGE } from "@/lib/user-display-name";
@@ -25,10 +26,8 @@ const bodySchema = z
 type Ctx = { params: Promise<{ userId: string }> };
 
 export async function POST(req: Request, ctx: Ctx) {
-  const session = await auth();
-  if (!session?.user || session.user.role !== "ADMIN") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const auth = await requireAdminSession();
+  if (isApiErrorResponse(auth)) return auth;
 
   const { userId } = await ctx.params;
 
@@ -56,6 +55,12 @@ export async function POST(req: Request, ctx: Ctx) {
     return NextResponse.json({ error: "Профиль не найден" }, { status: 404 });
   }
 
+  const target = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { email: true, name: true },
+  });
+  const targetLabel = target?.name?.trim() || target?.email || userId;
+
   if (parsed.data.status === "REJECTED") {
     await prisma.instructorProfile.update({
       where: { userId },
@@ -72,6 +77,14 @@ export async function POST(req: Request, ctx: Ctx) {
       userId,
       status: "REJECTED",
       rejectMessage: parsed.data.rejectMessage!.trim(),
+    });
+    await writeAdminAudit({
+      actorId: auth.userId,
+      action: "instructor.reject",
+      entity: "InstructorProfile",
+      entityId: userId,
+      summary: `Отклонена заявка инструктора ${targetLabel}`,
+      meta: { rejectMessage: parsed.data.rejectMessage!.trim(), actorRole: auth.role },
     });
     return NextResponse.json({ ok: true });
   }
@@ -148,5 +161,16 @@ export async function POST(req: Request, ctx: Ctx) {
     .catch((e) =>
       console.error("[yookassa-contract] approve", e instanceof Error ? e.message : e),
     );
+  await writeAdminAudit({
+    actorId: auth.userId,
+    action: "instructor.approve",
+    entity: "InstructorProfile",
+    entityId: userId,
+    summary: `Одобрена заявка инструктора ${targetLabel}`,
+    meta: {
+      approveDocumentIds: parsed.data.approveDocumentIds ?? [],
+      actorRole: auth.role,
+    },
+  });
   return NextResponse.json({ ok: true });
 }

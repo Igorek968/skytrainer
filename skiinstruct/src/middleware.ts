@@ -3,11 +3,13 @@ import NextAuth from "next-auth";
 import { authConfig } from "@/auth.config";
 import { guardApiRequest } from "@/lib/api-middleware-guard";
 import {
+  isAdminFinancePagePath,
   isAdminPanelPath,
   isClientAuthRequiredPath,
   isInstructorPanelPath,
   roleHomePath,
 } from "@/lib/role-route-access";
+import { isAdminStaffRole } from "@/lib/admin-staff";
 import { attachReferralCookie } from "@/lib/referral-cookie";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
@@ -168,8 +170,11 @@ export default NextAuth(authConfig).auth((req) => {
   const role = req.auth.user?.role as UserRole | undefined;
   const roleHome = role ? roleHomePath(role) : "/login";
 
-  if (isAdminPanelPath(pathname) && role !== "ADMIN") {
+  if (isAdminPanelPath(pathname) && !isAdminStaffRole(role)) {
     return withRefCookie(req, redirectTo(req, roleHome));
+  }
+  if (isAdminFinancePagePath(pathname) && role === "MODERATOR") {
+    return withRefCookie(req, redirectTo(req, "/admin/metrics"));
   }
   if (isInstructorPanelPath(pathname) && role !== "INSTRUCTOR") {
     return withRefCookie(req, redirectTo(req, roleHome));

@@ -97,13 +97,15 @@ export async function GET(req: Request) {
     return w;
   };
 
-  const [allCount, clientCount, instructorCount, adminCount, onlineCount] = await Promise.all([
-    prisma.user.count(),
-    prisma.user.count({ where: countWhere("CLIENT") }),
-    prisma.user.count({ where: countWhere("INSTRUCTOR") }),
-    prisma.user.count({ where: countWhere("ADMIN") }),
-    prisma.user.count({ where: countWhere("INSTRUCTOR", true) }),
-  ]);
+  const [allCount, clientCount, instructorCount, adminCount, moderatorCount, onlineCount] =
+    await Promise.all([
+      prisma.user.count(),
+      prisma.user.count({ where: countWhere("CLIENT") }),
+      prisma.user.count({ where: countWhere("INSTRUCTOR") }),
+      prisma.user.count({ where: countWhere("ADMIN") }),
+      prisma.user.count({ where: countWhere("MODERATOR") }),
+      prisma.user.count({ where: countWhere("INSTRUCTOR", true) }),
+    ]);
 
   return NextResponse.json({
     role: roleFilter,
@@ -153,6 +155,7 @@ export async function GET(req: Request) {
       CLIENT: clientCount,
       INSTRUCTOR: instructorCount,
       ADMIN: adminCount,
+      MODERATOR: moderatorCount,
       online: onlineCount,
     },
   });

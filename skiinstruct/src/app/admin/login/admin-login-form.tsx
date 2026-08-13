@@ -29,15 +29,19 @@ function SubmitButton() {
 export function AdminLoginForm({ callbackUrl = "/admin/metrics" }: { callbackUrl?: string }) {
   const { data: session } = useSession();
   const [state, formAction] = useFormState(signInAdminCredentialsAction, initialState);
-  const signedInAsOther = Boolean(session?.user?.role && session.user.role !== "ADMIN");
+  const signedInAsOther = Boolean(
+    session?.user?.role && session.user.role !== "ADMIN" && session.user.role !== "MODERATOR",
+  );
   const productName = getPublicProductName();
 
   return (
     <div className="mx-auto max-w-md space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle as="h1">{productName} — вход администратора</CardTitle>
-          <CardDescription>Кабинет привязан к этому приложению. Доступ только для роли ADMIN.</CardDescription>
+          <CardTitle as="h1">{productName} — вход в админку</CardTitle>
+          <CardDescription>
+            Для администратора и модератора. Модератор работает без раздела «Финансы».
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {signedInAsOther ? (

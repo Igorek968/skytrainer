@@ -10,6 +10,7 @@ import { prisma } from "@/lib/prisma";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
 import { verifyTurnstileToken } from "@/lib/security/turnstile";
 import { validatePasswordResetToken } from "@/lib/services/password-reset";
+import { consumeEmailLoginToken } from "@/lib/services/email-verification";
 import { bindReferralFromCookie, ensureUserReferralCode } from "@/lib/services/referral";
 
 const credentialsSchema = z
@@ -17,11 +18,20 @@ const credentialsSchema = z
     email: z.string().optional(),
     password: z.string().optional(),
     resetToken: z.string().optional(),
+    emailLoginToken: z.string().optional(),
     captchaToken: z.string().optional(),
   })
-  .refine((d) => Boolean(d.resetToken?.trim().length || d.password?.length), {
-    message: "password or resetToken required",
-  });
+  .refine(
+    (d) =>
+      Boolean(
+        d.resetToken?.trim().length ||
+          d.emailLoginToken?.trim().length ||
+          d.password?.length,
+      ),
+    {
+      message: "password, resetToken or emailLoginToken required",
+    },
+  );
 
 async function findUserForCredentials(email: string) {
   const trimmed = email.trim();
@@ -37,6 +47,7 @@ const credentialsProvider = Credentials({
     email: { label: "Email", type: "text" },
     password: { label: "Пароль", type: "password" },
     resetToken: { label: "Токен сброса пароля", type: "text" },
+    emailLoginToken: { label: "Токен входа после email", type: "text" },
     captchaToken: { label: "Turnstile", type: "text" },
     /** Только Server Actions: значение = AUTH_SECRET (после уже проверенного captcha). */
     trustedServerSignIn: { label: "Trusted", type: "text" },
@@ -45,6 +56,8 @@ const credentialsProvider = Credentials({
     const requestHeaders = await headers();
     const ip = clientIp(requestHeaders);
     const resetToken = typeof raw?.resetToken === "string" ? raw.resetToken.trim() : "";
+    const emailLoginToken =
+      typeof raw?.emailLoginToken === "string" ? raw.emailLoginToken.trim() : "";
     const captchaToken = typeof raw?.captchaToken === "string" ? raw.captchaToken.trim() : "";
     const trustedRaw =
       typeof raw?.trustedServerSignIn === "string" ? raw.trustedServerSignIn.trim() : "";
@@ -59,6 +72,26 @@ const credentialsProvider = Credentials({
     if (!trustedServer) {
       const humanOk = await verifyTurnstileToken(captchaToken, ip);
       if (!humanOk) return null;
+    }
+
+    if (emailLoginToken) {
+      if (!rateLimit(`email-login:${emailLoginToken.slice(0, 16)}`, 8, 900_000)) {
+        return null;
+      }
+      const login = await consumeEmailLoginToken(emailLoginToken);
+      if (!login.ok) return null;
+      const user = await prisma.user.findUnique({
+        where: { id: login.userId },
+        select: { id: true, email: true, name: true, image: true, role: true },
+      });
+      if (!user) return null;
+      return {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        image: user.image,
+        role: user.role,
+      };
     }
 
     if (resetToken) {
@@ -81,6 +114,7 @@ const credentialsProvider = Credentials({
       email: typeof raw?.email === "string" ? raw.email.trim() : "",
       password: typeof raw?.password === "string" ? raw.password : "",
       resetToken: "",
+      emailLoginToken: "",
       captchaToken,
     };
     const parsed = credentialsSchema.safeParse(normalized);

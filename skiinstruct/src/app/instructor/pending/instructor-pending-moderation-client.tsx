@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signOut } from "next-auth/react";
@@ -7,7 +8,10 @@ import { useEffect, useRef, useState, Suspense } from "react";
 import { toast } from "sonner";
 
 import { isWebPushAvailable, subscribeWebPush } from "@/features/push/web-push-client";
-import { EmailVerificationGate } from "@/features/auth/email-verification-gate";
+import {
+  EmailVerificationGate,
+  forceEmailVerificationGate,
+} from "@/features/auth/email-verification-gate";
 import { SupportLauncher } from "@/features/support/support-launcher";
 import { signOutCallbackForRole } from "@/lib/auth-routes";
 import {
@@ -66,14 +70,25 @@ export function InstructorPendingModerationClient() {
   const appliedGoalSent = useRef(false);
 
   useEffect(() => {
-    if (searchParams.get("applied") === "1" && !appliedGoalSent.current) {
-      appliedGoalSent.current = true;
-      trackYandexGoal(YM_GOALS.instructorApplySuccess, readStoredUtm());
-      toast.success("Заявка отправлена на модерацию. Дождитесь решения администратора.", {
+    if (searchParams.get("applied") !== "1" || appliedGoalSent.current) return;
+    appliedGoalSent.current = true;
+    trackYandexGoal(YM_GOALS.instructorApplySuccess, readStoredUtm());
+
+    const needVerifyEmail = searchParams.get("verifyEmail") === "1";
+    if (needVerifyEmail) {
+      forceEmailVerificationGate();
+      toast.message("Подтвердите email", {
+        description: "Сначала откройте письмо и подтвердите адрес — затем заявка уйдёт на модерацию.",
         duration: 10_000,
       });
-      router.replace("/instructor/pending", { scroll: false });
+      router.replace("/instructor/pending?verifyEmail=1", { scroll: false });
+      return;
     }
+
+    toast.success("Заявка отправлена на модерацию. Дождитесь решения администратора.", {
+      duration: 10_000,
+    });
+    router.replace("/instructor/pending", { scroll: false });
   }, [router, searchParams]);
 
   useEffect(() => {
@@ -169,7 +184,7 @@ export function InstructorPendingModerationClient() {
           </CardTitle>
           <CardDescription>
             {status === "REJECTED"
-              ? "Администратор отклонил регистрацию. Исправьте данные через поддержку или отправьте заявку повторно."
+              ? "Администратор отклонил регистрацию. Исправьте анкету и отправьте снова — или напишите в поддержку."
               : "Анкета на модерации. Кабинет инструктора откроется только после одобрения администратором."}
           </CardDescription>
         </CardHeader>
@@ -196,14 +211,19 @@ export function InstructorPendingModerationClient() {
               Включить оповещение о модерации
             </Button>
             {status === "REJECTED" ? (
-              <Button
-                type="button"
-                variant="secondary"
-                disabled={resubmitting}
-                onClick={() => void resubmit()}
-              >
-                {resubmitting ? "Отправка…" : "Отправить повторно"}
-              </Button>
+              <>
+                <Button type="button" variant="accent" asChild>
+                  <Link href="/instructor/pending/edit">Вернуться в анкету</Link>
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  disabled={resubmitting}
+                  onClick={() => void resubmit()}
+                >
+                  {resubmitting ? "Отправка…" : "Отправить повторно без правок"}
+                </Button>
+              </>
             ) : null}
             <SupportLauncher className="sm:ml-auto" />
           </div>

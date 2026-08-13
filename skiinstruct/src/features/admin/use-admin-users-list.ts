@@ -34,6 +34,7 @@ export type AdminUsersListResponse = {
     CLIENT: number;
     INSTRUCTOR: number;
     ADMIN: number;
+    MODERATOR?: number;
     online: number;
   };
 };

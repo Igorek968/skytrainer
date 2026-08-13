@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { auth } from "@/auth";
+import { isApiErrorResponse, requireFullAdminSession } from "@/lib/api-session";
 import { prisma } from "@/lib/prisma";
 import { updateReferralPayoutRequestStatus } from "@/lib/services/referral-payout";
 
@@ -11,10 +11,8 @@ const patchSchema = z.object({
 });
 
 export async function GET() {
-  const session = await auth();
-  if (!session?.user || session.user.role !== "ADMIN") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const authResult = await requireFullAdminSession();
+  if (isApiErrorResponse(authResult)) return authResult;
 
   const requests = await prisma.referralPayoutRequest.findMany({
     orderBy: { createdAt: "desc" },
@@ -40,10 +38,8 @@ export async function GET() {
 type Ctx = { params: Promise<{ requestId: string }> };
 
 export async function PATCH(req: Request, ctx: Ctx) {
-  const session = await auth();
-  if (!session?.user || session.user.role !== "ADMIN") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const authResult = await requireFullAdminSession();
+  if (isApiErrorResponse(authResult)) return authResult;
 
   const { requestId } = await ctx.params;
   let json: unknown;
