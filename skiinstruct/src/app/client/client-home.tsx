@@ -63,6 +63,7 @@ import {
   buildLessonBookingPreview,
   defaultLessonTimeWindow,
   earliestBookableStartHm,
+  hmToMinutes,
   lessonEndHmFromStartAndDuration,
   LESSON_BOOKING_MIN_LEAD_MINUTES,
   localTodayYmd,
@@ -350,9 +351,9 @@ export default function ClientHomePage() {
   };
 
   const applyCurrentLessonStartTime = () => {
-    const nowHm = appNowHm();
-    setLessonStartTime(nowHm);
-    syncLessonEndTime(nowHm, lessonDuration);
+    const startHm = earliestBookableStartHm();
+    setLessonStartTime(startHm);
+    syncLessonEndTime(startHm, lessonDuration);
     refreshStartTimeZoneHint();
   };
 
@@ -977,9 +978,21 @@ export default function ClientHomePage() {
                   value={lessonStartTime}
                   onFocus={refreshStartTimeZoneHint}
                   onChange={(next) => {
-                    setLessonStartTime(next);
+                    let value = next;
                     const normalized = normalizeTimeInput24(next);
-                    if (normalized) syncLessonEndTime(normalized, lessonDuration);
+                    if (normalized) {
+                      const activeDate = showAdvancedParams ? lessonDate : todayIso;
+                      if (activeDate === localTodayYmd()) {
+                        const earliest = earliestBookableStartHm();
+                        if (hmToMinutes(normalized) < hmToMinutes(earliest)) {
+                          value = earliest;
+                        }
+                      }
+                      setLessonStartTime(value);
+                      syncLessonEndTime(normalizeTimeInput24(value) ?? value, lessonDuration);
+                      return;
+                    }
+                    setLessonStartTime(next);
                   }}
                   className="min-w-[8.5rem] flex-1"
                 />
@@ -1042,7 +1055,8 @@ export default function ClientHomePage() {
                   <span className="leading-snug">
                     <span className="font-semibold text-foreground">⚡ Срочно — нужен инструктор сейчас</span>
                     <span className="mt-1 block text-muted-foreground">
-                      Только инструкторы «на линии». После оплаты у выбранного{" "}
+                      Только инструкторы «на линии». Начало не раньше чем через{" "}
+                      <strong>{LESSON_BOOKING_MIN_LEAD_MINUTES} мин</strong>. После оплаты у выбранного{" "}
                       <strong>{URGENT_INSTRUCTOR_DEADLINE_MIN} минут</strong> на принятие — иначе полный
                       возврат.
                     </span>
@@ -1057,19 +1071,11 @@ export default function ClientHomePage() {
               <p className="font-medium text-foreground">На что вы подписываетесь</p>
               <p className="mt-1 text-foreground">{quickSearchPreview.scheduleLine}</p>
               <p className="mt-1 text-muted-foreground">
-                {showAdvancedParams ? (
-                  <>
-                    Окно занятия: <strong>{normalizeHm(lessonStartTime)}</strong>
-                    {" — "}
-                    <strong>{normalizeHm(lessonEndTime)}</strong>
-                  </>
-                ) : (
-                  <>
-                    Длительность: <strong>{lessonDurationLabelRu(lessonDuration)}</strong>
-                    {" "}
-                    · начало <strong>{normalizeHm(lessonStartTime)}</strong>
-                  </>
-                )}
+                Длительность: <strong>{lessonDurationLabelRu(lessonDuration)}</strong>
+                {" · "}
+                начало <strong>{normalizeHm(lessonStartTime)}</strong>
+                {" — "}
+                окончание <strong>{normalizeHm(lessonEndTime)}</strong>
               </p>
               <p className="mt-2 text-xs text-muted-foreground">{quickSearchPreview.tariffLine}</p>
               {todayLeadLine ? (
@@ -1139,9 +1145,20 @@ export default function ClientHomePage() {
                 value={lessonStartTime}
                 onFocus={refreshStartTimeZoneHint}
                 onChange={(next) => {
-                  setLessonStartTime(next);
+                  let value = next;
                   const normalized = normalizeTimeInput24(next);
-                  if (normalized) syncLessonEndTime(normalized, lessonDuration);
+                  if (normalized) {
+                    if (lessonDate === localTodayYmd()) {
+                      const earliest = earliestBookableStartHm();
+                      if (hmToMinutes(normalized) < hmToMinutes(earliest)) {
+                        value = earliest;
+                      }
+                    }
+                    setLessonStartTime(value);
+                    syncLessonEndTime(normalizeTimeInput24(value) ?? value, lessonDuration);
+                    return;
+                  }
+                  setLessonStartTime(next);
                 }}
               />
               <p className="text-xs text-muted-foreground">

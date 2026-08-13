@@ -1,3 +1,6 @@
+import { APP_TIME_ZONE } from "@/shared/lib/app-timezone";
+import { lessonCalendarYmdMoscow } from "@/shared/lib/order-flex";
+
 /**
  * Время первого/последнего дня брони кодируется в `notes` (см. POST /api/orders),
  * чтобы не зависеть от отдельных колонок Prisma и старых сгенерированных клиентов.
@@ -36,6 +39,7 @@ export function orderLessonSpanMinutes(order: {
 
 function formatLessonClockHm(date: Date | string): string {
   return new Date(date).toLocaleTimeString("ru-RU", {
+    timeZone: APP_TIME_ZONE,
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
@@ -43,7 +47,7 @@ function formatLessonClockHm(date: Date | string): string {
 }
 
 function lessonCalendarYmdFromDate(date: Date | string): string {
-  return new Date(date).toISOString().slice(0, 10);
+  return lessonCalendarYmdMoscow(date) ?? "";
 }
 
 export function hasOrderLessonActualTime(order: {

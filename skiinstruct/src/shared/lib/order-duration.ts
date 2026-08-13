@@ -67,5 +67,5 @@ export function formatOrderSumWithDuration(
   const amount =
     amountTotal != null && amountTotal !== "" ? `${Number(amountTotal)} ₽` : "—";
   if (!duration || !(duration in DURATION_LABEL_RU)) return amount;
-  return `${amount} · ${lessonDurationLabelRu(duration as LessonDuration)}`;
+  return `за ${lessonDurationLabelRu(duration as LessonDuration)} ${amount}`;
 }

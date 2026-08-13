@@ -4,8 +4,8 @@ import { durationHours } from "@/lib/pricing";
 import { appNowHm, appTodayYmd } from "@/shared/lib/app-timezone";
 import { billableHoursFromLessonWallWindow } from "@/shared/lib/lesson-wall-datetime";
 
-/** Минимальный запас до начала занятия при заказе «на сегодня». */
-export const LESSON_BOOKING_MIN_LEAD_MINUTES = 30;
+/** Минимальный запас до начала занятия при заказе «на сегодня» (1 час). */
+export const LESSON_BOOKING_MIN_LEAD_MINUTES = 60;
 
 const MIN_SPAN_MINUTES = 30;
 
@@ -25,6 +25,12 @@ export function minutesToHm(total: number): string {
   const h = Math.floor(clamped / 60);
   const min = clamped % 60;
   return `${String(h).padStart(2, "0")}:${String(min).padStart(2, "0")}`;
+}
+
+function formatYmdRu(ymd: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd.trim());
+  if (!m) return ymd;
+  return `${m[3]}.${m[2]}.${m[1]}`;
 }
 
 /** В браузере: дата+время как на экране (локальный TZ). */
@@ -86,7 +92,7 @@ export function buildLessonBookingPreview(input: {
   const startHm =
     input.lessonStartTime.trim().match(/^(\d{2}:\d{2})/)?.[1] ?? input.lessonStartTime.trim();
   const endHm = input.lessonEndTime.trim().match(/^(\d{2}:\d{2})/)?.[1] ?? input.lessonEndTime.trim();
-  const dateRu = new Date(`${input.lessonDate}T12:00:00`).toLocaleDateString("ru-RU");
+  const dateRu = formatYmdRu(input.lessonDate);
   const sameDay = input.lessonDate === input.lessonEndDate;
   const spanMin = sameDay ? lessonSpanMinutesSameDay(startHm, endHm) : null;
 
@@ -98,7 +104,7 @@ export function buildLessonBookingPreview(input: {
       scheduleLine += ` (${hours} ч)`;
     }
   } else {
-    const endDateRu = new Date(`${input.lessonEndDate}T12:00:00`).toLocaleDateString("ru-RU");
+    const endDateRu = formatYmdRu(input.lessonEndDate);
     scheduleLine = `${dateRu} ${startHm} — ${endDateRu} ${endHm} (${input.lessonDays} дн.)`;
   }
 

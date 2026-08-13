@@ -1,3 +1,5 @@
+import { APP_TIME_ZONE, appTodayYmd } from "@/shared/lib/app-timezone";
+
 /** Минут на принятие срочной заявки инструктором. */
 export const URGENT_INSTRUCTOR_DEADLINE_MIN = 15;
 
@@ -21,30 +23,45 @@ export function instructorCanAcceptAfterDeadline(
  */
 
 export function lessonCalendarYmd(date: Date | string | null | undefined): string | null {
+  return lessonCalendarYmdMoscow(date);
+}
+
+/** YYYY-MM-DD календарного дня занятия в Europe/Moscow. */
+export function lessonCalendarYmdMoscow(date: Date | string | null | undefined): string | null {
   if (date == null) return null;
   const d = date instanceof Date ? date : new Date(date);
   if (!Number.isFinite(d.getTime())) return null;
-  return d.toISOString().slice(0, 10);
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: APP_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(d);
+  const y = parts.find((p) => p.type === "year")?.value;
+  const m = parts.find((p) => p.type === "month")?.value;
+  const day = parts.find((p) => p.type === "day")?.value;
+  if (!y || !m || !day) return null;
+  return `${y}-${m}-${day}`;
 }
 
 export function todayCalendarYmd(now: Date = new Date()): string {
-  return now.toISOString().slice(0, 10);
+  return appTodayYmd(now);
 }
 
-/** Урок запланирован на календарный день «сегодня» (день в день). */
+/** Урок запланирован на календарный день «сегодня» (день в день, МСК). */
 export function orderIsTodayLessonDay(order: {
   requestedStartDate?: Date | string | null;
 }): boolean {
-  const lesson = lessonCalendarYmd(order.requestedStartDate);
+  const lesson = lessonCalendarYmdMoscow(order.requestedStartDate);
   if (!lesson) return false;
   return lesson === todayCalendarYmd();
 }
 
-/** Урок запланирован на календарный день позже «сегодня». */
+/** Урок запланирован на календарный день позже «сегодня» (МСК). */
 export function orderIsFutureLessonDay(order: {
   requestedStartDate?: Date | string | null;
 }): boolean {
-  const lesson = lessonCalendarYmd(order.requestedStartDate);
+  const lesson = lessonCalendarYmdMoscow(order.requestedStartDate);
   if (!lesson) return false;
   return lesson > todayCalendarYmd();
 }

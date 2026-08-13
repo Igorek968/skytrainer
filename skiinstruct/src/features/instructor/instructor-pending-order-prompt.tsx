@@ -26,6 +26,7 @@ import {
   instructorCanAcceptAfterDeadline,
 } from "@/shared/lib/order-flex";
 import { isLongInstructorEtaMinutes, LONG_INSTRUCTOR_ETA_MINUTES } from "@/shared/lib/order-long-eta";
+import { APP_TIME_ZONE } from "@/shared/lib/app-timezone";
 import { getPublicProductName } from "@/shared/lib/product";
 import { OrderLessonTimeBlock } from "@/shared/ui/order-lesson-time-block";
 import { orderHasMeetAddress, resolveMeetAddress } from "@/shared/lib/order-meet-address";
@@ -367,7 +368,9 @@ export function InstructorPendingOrderPrompt() {
             <div>
               <span className="text-xs text-muted-foreground">Создан</span>
               <div className="font-medium">
-                {new Date(activeOrder.createdAt).toLocaleString("ru-RU")}
+                {new Date(activeOrder.createdAt).toLocaleString("ru-RU", {
+                  timeZone: APP_TIME_ZONE,
+                })}
               </div>
             </div>
             <div className="sm:col-span-2">
@@ -397,9 +400,14 @@ export function InstructorPendingOrderPrompt() {
           ) : null}
           {activeOrder.requestedStartDate ? (
             <div>
-              Даты: {new Date(activeOrder.requestedStartDate).toLocaleDateString("ru-RU")}
+              Даты:{" "}
+              {new Date(activeOrder.requestedStartDate).toLocaleDateString("ru-RU", {
+                timeZone: APP_TIME_ZONE,
+              })}
               {activeOrder.requestedEndDate
-                ? ` - ${new Date(activeOrder.requestedEndDate).toLocaleDateString("ru-RU")}`
+                ? ` - ${new Date(activeOrder.requestedEndDate).toLocaleDateString("ru-RU", {
+                    timeZone: APP_TIME_ZONE,
+                  })}`
                 : ""}
               {activeOrder.requestedDays ? ` (${activeOrder.requestedDays} дн.)` : ""}
             </div>

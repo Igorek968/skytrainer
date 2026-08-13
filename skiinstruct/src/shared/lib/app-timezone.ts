@@ -54,13 +54,14 @@ export function appNowHm(now = new Date()): string {
 }
 
 /**
- * Смещение как у Date#getTimezoneOffset: UTC − локаль, в минутах.
- * Для Europe/Moscow обычно −180.
+ * Смещение как у Date#getTimezoneOffset: UTC − локаль (Europe/Moscow), в минутах.
+ * Для Москвы обычно −180 (UTC+3). Используется в parseWallDateTime.
  */
 export function appTimezoneOffsetMinutes(now = new Date()): number {
   const p = zonedParts(now, APP_TIME_ZONE);
   const hour = p.hour === "24" ? 0 : Number(p.hour);
-  const asUtc = Date.UTC(
+  /** Мгновенный «стенной» момент Москвы, ошибочно взятый как UTC. */
+  const wallAsIfUtc = Date.UTC(
     Number(p.year),
     Number(p.month) - 1,
     Number(p.day),
@@ -68,7 +69,8 @@ export function appTimezoneOffsetMinutes(now = new Date()): number {
     Number(p.minute),
     Number(p.second),
   );
-  return Math.round((asUtc - now.getTime()) / 60_000);
+  // getTimezoneOffset = (UTC − local): now − wallAsIfUtc
+  return Math.round((now.getTime() - wallAsIfUtc) / 60_000);
 }
 
 export function formatInAppTimeZone(

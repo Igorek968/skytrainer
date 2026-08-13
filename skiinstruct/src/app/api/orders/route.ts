@@ -16,6 +16,7 @@ import { inferLessonDurationFromBillableHours } from "@/shared/lib/order-duratio
 import { parseWallDateTime } from "@/shared/lib/lesson-wall-datetime";
 import { resolveBillableHours } from "@/shared/lib/order-billing-hours";
 import { orderIsTodayLessonDay } from "@/shared/lib/order-flex";
+import { appTimezoneOffsetMinutes } from "@/shared/lib/app-timezone";
 
 /** Счёт календарных дней по YYYY-MM-DD в UTC полдень (без сдвига из‑за DST у полуночи). */
 function calendarSpanDaysInclusive(startIso: string, endIso: string): number {
@@ -124,7 +125,7 @@ export async function POST(req: Request) {
     urgentInvite,
     lessonStartTime: lessonStartTimeRaw,
     lessonEndTime: lessonEndTimeRaw,
-    lessonTimeZoneOffsetMinutes,
+    lessonTimeZoneOffsetMinutes: _lessonTimeZoneOffsetMinutes,
   } =
     parsed.data;
 
@@ -143,9 +144,9 @@ export async function POST(req: Request) {
     return Math.min(30, Math.max(1, n));
   })();
 
-  const tzOffset = Number.isFinite(lessonTimeZoneOffsetMinutes)
-    ? Number(lessonTimeZoneOffsetMinutes)
-    : 0;
+  // Стена времени всегда Europe/Moscow на сервере — не доверяем смещению с клиента
+  // (ошибочный знак давал +6 ч и дату «завтра»).
+  const tzOffset = appTimezoneOffsetMinutes();
 
   let requestedStartDate: Date | null = null;
   let requestedEndDate: Date | null = null;
