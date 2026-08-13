@@ -19,10 +19,18 @@ function homeForRole(role: UserRole | undefined): string {
   return cabinetPathForRole(role) ?? "/login";
 }
 
+function loginPathForRole(role: UserRole | undefined, email?: string | null): string {
+  const base = role === "INSTRUCTOR" ? "/instructor/login" : "/login";
+  const sp = new URLSearchParams();
+  sp.set("passwordReset", "1");
+  if (email?.trim()) sp.set("email", email.trim());
+  return `${base}?${sp.toString()}`;
+}
+
 function ResetPasswordForm() {
   const search = useSearchParams();
   const { data: session } = useSession();
-  const token = search.get("token");
+  const token = search.get("token")?.trim() || null;
   const signedIn = search.get("signedIn") === "1";
   const linkError = search.get("error");
   const cabinetHref = homeForRole(session?.user?.role);
@@ -30,18 +38,12 @@ function ResetPasswordForm() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [debugToken, setDebugToken] = useState<string | null>(null);
-
   const [newPassword, setNewPassword] = useState("");
-
-  useEffect(() => {
-    if (!token || signedIn) return;
-    const enterUrl = `/api/auth/password-reset/enter?token=${encodeURIComponent(token)}&next=reset`;
-    window.location.replace(enterUrl);
-  }, [token, signedIn]);
+  const [newPasswordConfirm, setNewPasswordConfirm] = useState("");
 
   useEffect(() => {
     if (linkError === "invalid") {
-      toast.error("Ссылка недействительна или устарела.");
+      toast.error("Ссылка недействительна или устарела. Запросите новую.");
     }
   }, [linkError]);
 
@@ -77,9 +79,7 @@ function ResetPasswordForm() {
       } else if (data.sent) {
         toast.success("Ссылка отправлена на email. Проверьте входящие и папку «Спам».");
       } else {
-        toast.error(
-          "Не удалось отправить письмо. Попробуйте позже или напишите в поддержку.",
-        );
+        toast.error("Не удалось отправить письмо. Попробуйте позже или напишите в поддержку.");
       }
     } catch {
       toast.error("Ошибка сети");
@@ -91,6 +91,14 @@ function ResetPasswordForm() {
   const onConfirm = async (e: FormEvent) => {
     e.preventDefault();
     if (!token) return;
+    if (newPassword.length < 8) {
+      toast.error("Пароль не короче 8 символов");
+      return;
+    }
+    if (newPassword !== newPasswordConfirm) {
+      toast.error("Пароли не совпадают");
+      return;
+    }
     setLoading(true);
     try {
       const r = await fetch("/api/auth/password-reset/confirm", {
@@ -99,25 +107,23 @@ function ResetPasswordForm() {
         body: JSON.stringify({ token, newPassword }),
       });
 
-      const data = (await r.json().catch(() => ({}))) as { error?: unknown; role?: UserRole };
+      const data = (await r.json().catch(() => ({}))) as {
+        error?: unknown;
+        role?: UserRole;
+        email?: string;
+      };
       if (!r.ok) {
         toast.error(typeof data.error === "string" ? data.error : "Ошибка подтверждения");
         return;
       }
-      toast.success("Пароль успешно обновлён.");
-      window.location.href = homeForRole(data.role);
+      toast.success("Пароль обновлён — войдите с новым паролем.");
+      window.location.href = loginPathForRole(data.role, data.email);
     } catch {
       toast.error("Ошибка сети");
     } finally {
       setLoading(false);
     }
   };
-
-  if (token && !signedIn) {
-    return (
-      <div className="mx-auto max-w-md p-6 text-sm text-muted-foreground">Вход по ссылке…</div>
-    );
-  }
 
   return (
     <div className="mx-auto max-w-md space-y-6">
@@ -133,9 +139,7 @@ function ResetPasswordForm() {
             <>
               <CardTitle as="h1">Установка нового пароля</CardTitle>
               <CardDescription>
-                {signedIn
-                  ? "Вы вошли по ссылке из письма. Можно задать новый пароль или перейти в кабинет."
-                  : "Введите новый пароль для аккаунта."}
+                Придумайте новый пароль для входа. Ссылка из письма действует 1 час.
               </CardDescription>
             </>
           ) : (
@@ -162,12 +166,23 @@ function ResetPasswordForm() {
                   minLength={8}
                 />
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="newPasswordConfirm">Повторите пароль</Label>
+                <PasswordInput
+                  id="newPasswordConfirm"
+                  autoComplete="new-password"
+                  value={newPasswordConfirm}
+                  onChange={(e) => setNewPasswordConfirm(e.target.value)}
+                  required
+                  minLength={8}
+                />
+              </div>
 
               <Button className="w-full" type="submit" disabled={loading}>
                 {loading ? "Сохранение..." : "Сохранить пароль"}
               </Button>
 
-              {signedIn ? (
+              {signedIn || session?.user ? (
                 <Button className="w-full" variant="outline" type="button" asChild>
                   <Link href={cabinetHref}>Перейти в кабинет без смены пароля</Link>
                 </Button>
@@ -201,13 +216,11 @@ function ResetPasswordForm() {
                 <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-100">
                   <p className="font-medium">Локальный стенд: письмо не уходит</p>
                   <p className="mt-1 text-xs opacity-90">
-                    Нажмите кнопку ниже — откроется кабинет (ссылка действует 1 час).
+                    Нажмите кнопку ниже — откроется форма нового пароля (ссылка действует 1 час).
                   </p>
                   <Button className="mt-3 w-full" variant="accent" asChild>
-                    <a
-                      href={`/api/auth/password-reset/enter?token=${encodeURIComponent(debugToken)}`}
-                    >
-                      Войти по ссылке
+                    <a href={`/reset-password?token=${encodeURIComponent(debugToken)}`}>
+                      Открыть смену пароля
                     </a>
                   </Button>
                 </div>

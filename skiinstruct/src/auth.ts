@@ -66,11 +66,12 @@ const credentialsProvider = Credentials({
       process.env.AUTH_SECRET?.trim() || process.env.NEXTAUTH_SECRET?.trim() || "";
     const trustedServer =
       Boolean(authSecret) && Boolean(trustedRaw) && trustedRaw === authSecret;
+    // Одноразовые токены из письма — сами по себе фактор входа; Turnstile не требуем.
+    const oneTimeToken = Boolean(resetToken || emailLoginToken);
 
-    // Браузерный вход — Turnstile обязателен (если секрет задан).
-    // Авто-вход после регистрации/заявки: captcha уже проверен в action, токен одноразовый —
-    // передаём trustedServerSignIn=AUTH_SECRET только из Server Action.
-    if (!trustedServer) {
+    // Браузерный вход по паролю — Turnstile обязателен (если секрет задан).
+    // Server Action / письмо: trustedServerSignIn или one-time token.
+    if (!trustedServer && !oneTimeToken) {
       const humanOk = await verifyTurnstileToken(captchaToken, ip);
       if (!humanOk) return null;
     }
@@ -195,7 +196,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.sub ?? "";
-        session.user.role = token.role as import("@prisma/client").UserRole;
+        session.user.role = token.role as UserRole;
         if (typeof token.email === "string" && token.email.trim()) {
           session.user.email = token.email;
         }

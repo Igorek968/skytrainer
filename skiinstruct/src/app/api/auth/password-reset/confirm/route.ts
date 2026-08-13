@@ -38,7 +38,7 @@ export async function POST(req: Request) {
 
   const record = await prisma.passwordResetToken.findUnique({
     where: { tokenHash },
-    include: { user: { select: { id: true, role: true } } },
+    include: { user: { select: { id: true, role: true, email: true } } },
   });
 
   if (!record?.user?.id) {
@@ -62,12 +62,15 @@ export async function POST(req: Request) {
       where: { tokenHash },
       data: { usedAt: now },
     });
-    // Чтобы повторное использование токена было невозможно, удаляем остальные токены пользователя.
     await tx.passwordResetToken.deleteMany({
       where: { userId: record.userId, tokenHash: { not: tokenHash } },
     });
   });
 
-  return NextResponse.json({ ok: true, role: record.user.role });
+  return NextResponse.json({
+    ok: true,
+    role: record.user.role,
+    email: record.user.email,
+  });
 }
 

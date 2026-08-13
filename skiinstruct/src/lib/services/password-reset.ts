@@ -34,7 +34,8 @@ export function getPasswordResetBaseUrl(): string {
 
 export function buildPasswordResetEnterLink(rawToken: string): string {
   const base = getPasswordResetBaseUrl().replace(/\/+$/, "");
-  return `${base}/api/auth/password-reset/enter?token=${encodeURIComponent(rawToken)}&next=reset`;
+  // Прямо на форму: не зависим от Credentials auto-login (на проде он иногда падает).
+  return `${base}/reset-password?token=${encodeURIComponent(rawToken)}`;
 }
 
 export type PasswordResetUser = {
