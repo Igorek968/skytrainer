@@ -59,6 +59,7 @@ function copyForRole(role: GateRole) {
         ),
       hint: "Письма нет? Загляните в «Спам». Окно закроется само после подтверждения — можно открыть почту в другой вкладке.",
       unlocked: "Email подтверждён — теперь дождитесь решения модератора",
+      unlockedCheckout: "Email подтверждён — теперь дождитесь решения модератора",
     };
   }
   return {
@@ -78,6 +79,7 @@ function copyForRole(role: GateRole) {
       ),
     hint: "Письма нет? Загляните в «Спам» / «Промоакции». Окно закроется само после подтверждения — можно открыть почту в другой вкладке.",
     unlocked: "Email подтверждён — добро пожаловать!",
+    unlockedCheckout: "Email подтверждён — возвращаемся к оформлению заказа",
   };
 }
 
@@ -101,6 +103,9 @@ export function EmailVerificationGate({ role }: { role: GateRole }) {
 
   const justRegistered = searchParams.get("verifyEmail") === "1";
   const justVerified = searchParams.get("emailVerified") === "1";
+  const resumeCheckout = searchParams.get("checkout") === "1";
+  const unlockedToast =
+    resumeCheckout && role === "CLIENT" ? copy.unlockedCheckout : copy.unlocked;
   const forceFlag = mounted && isEmailVerificationGateForced();
   const forceShow = justRegistered || forceFlag;
 
@@ -141,13 +146,13 @@ export function EmailVerificationGate({ role }: { role: GateRole }) {
       required: true,
       role,
     }));
-    toast.success(copy.unlocked);
+    toast.success(unlockedToast);
     const sp = new URLSearchParams(searchParams.toString());
     sp.delete("emailVerified");
     sp.delete("verifyEmail");
     const q = sp.toString();
     router.replace(q ? `${pathname}?${q}` : pathname, { scroll: false });
-  }, [justVerified, qc, router, pathname, searchParams, session?.user?.email, role, copy.unlocked]);
+  }, [justVerified, qc, router, pathname, searchParams, session?.user?.email, role, unlockedToast]);
 
   useEffect(() => {
     if (!status.data) return;
@@ -173,7 +178,7 @@ export function EmailVerificationGate({ role }: { role: GateRole }) {
       clearForcedEmailVerificationGate();
       if (!celebrated.current && wasForced) {
         celebrated.current = true;
-        toast.success(copy.unlocked);
+        toast.success(unlockedToast);
       }
       if (justRegistered) {
         const sp = new URLSearchParams(searchParams.toString());
@@ -184,7 +189,7 @@ export function EmailVerificationGate({ role }: { role: GateRole }) {
         }
       }
     }
-  }, [status.data, justRegistered, role, copy.unlocked, router, pathname, searchParams]);
+  }, [status.data, justRegistered, role, unlockedToast, router, pathname, searchParams]);
 
   useEffect(() => {
     const onVis = () => {

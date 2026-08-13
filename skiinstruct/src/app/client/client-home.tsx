@@ -155,23 +155,33 @@ function ResumeCheckoutFromQuery({
       return;
     }
     if (searchParams.get("checkout") !== "1") return;
+    // Пока ждём подтверждение email — только gate, оформление не открываем и pending не трогаем.
+    if (searchParams.get("verifyEmail") === "1") return;
+
     const pending = readPendingCheckout();
-    if (!pending) {
+    const draft = !pending ? readClientCheckoutDraft() : null;
+    if (!pending && !draft) {
       router.replace("/client", { scroll: false });
       return;
     }
-    setSelectedId(pending.instructorId);
-    const row = data?.instructors.find((i) => i.id === pending.instructorId);
+    const instructorId = pending?.instructorId ?? draft!.instructorId;
+    const instructorName = pending?.instructorName ?? draft!.instructorName;
+    const hourlyRate = pending?.hourlyRate ?? draft!.hourlyRate;
+    const taxStatus = pending?.taxStatus ?? draft!.taxStatus ?? null;
+
+    setSelectedId(instructorId);
+    const row = data?.instructors.find((i) => i.id === instructorId);
     setCheckoutInstructor({
-      id: pending.instructorId,
-      name: row?.name ?? pending.instructorName,
-      hourlyRate: row?.hourlyRate ?? pending.hourlyRate,
-      taxStatus: row?.taxStatus ?? pending.taxStatus ?? null,
+      id: instructorId,
+      name: row?.name ?? instructorName,
+      hourlyRate: row?.hourlyRate ?? hourlyRate,
+      taxStatus: row?.taxStatus ?? taxStatus,
     });
     setCheckoutOpen(true);
     clearPendingCheckout();
     const sp = new URLSearchParams(searchParams.toString());
     sp.delete("checkout");
+    sp.delete("emailVerified");
     const q = sp.toString();
     router.replace(q ? `/client?${q}` : "/client", { scroll: false });
   }, [searchParams, router, data, setSelectedId, setCheckoutInstructor, setCheckoutOpen]);

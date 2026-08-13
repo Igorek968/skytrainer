@@ -69,10 +69,6 @@ function VerifyEmailInner() {
         }
 
         let redirectTo = fallbackHomeForRole(j.role, j.redirectTo ?? null);
-        if (j.role === "CLIENT") {
-          const resumeOrder = Boolean(readPendingCheckout() || readClientCheckoutDraft());
-          if (resumeOrder) redirectTo = `${CLIENT_BOOKING_RETURN_PATH}&emailVerified=1`;
-        }
 
         if (j.loginToken) {
           const sessionRes = await fetch("/api/auth/email-verification/session", {
@@ -92,6 +88,12 @@ function VerifyEmailInner() {
           } else if (!sessionRes.ok && j.role === "CLIENT") {
             redirectTo = `/login?emailVerified=1&email=${encodeURIComponent(j.email ?? "")}&callbackUrl=${encodeURIComponent(redirectTo)}`;
           }
+        }
+
+        // После session API снова проверяем черновик заказа — иначе redirectTo сбрасывается в /client.
+        if (j.role === "CLIENT") {
+          const resumeOrder = Boolean(readPendingCheckout() || readClientCheckoutDraft());
+          if (resumeOrder) redirectTo = `${CLIENT_BOOKING_RETURN_PATH}&emailVerified=1`;
         }
 
         if (cancelled) return;
