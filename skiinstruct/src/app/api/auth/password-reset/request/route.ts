@@ -50,9 +50,9 @@ export async function POST(req: Request) {
     select: { id: true },
   });
 
-  // Не раскрываем существование аккаунтов.
+  // Не раскрываем существование аккаунтов — всегда «успех» как при реальной отправке.
   if (!user) {
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, sent: true });
   }
 
   const token = generatePasswordResetToken();
@@ -74,9 +74,9 @@ export async function POST(req: Request) {
   const resetLink = buildPasswordResetEnterLink(token);
 
   const sent = await trySendPasswordResetEmail({ to: email, resetLink });
-  if (!sent && process.env.NODE_ENV === "production") {
+  if (!sent) {
     console.error(
-      "[password-reset] письмо не отправлено: задайте SMTP_HOST, SMTP_USER, SMTP_PASSWORD (Beget) или PASSWORD_RESET_EMAIL_WEBHOOK_URL",
+      "[password-reset] письмо не отправлено: задайте SMTP_HOST, SMTP_USER, SMTP_PASSWORD или PASSWORD_RESET_EMAIL_WEBHOOK_URL",
     );
   }
   const allowDebugLink =
@@ -85,6 +85,11 @@ export async function POST(req: Request) {
       (!isPasswordResetEmailConfigured() && !sent));
   const debugToken = !sent && allowDebugLink ? token : undefined;
 
-  return NextResponse.json({ ok: true, sent, debugToken, resetLink: debugToken ? resetLink : undefined });
+  return NextResponse.json({
+    ok: true,
+    sent: Boolean(sent),
+    debugToken,
+    resetLink: debugToken ? resetLink : undefined,
+  });
 }
 

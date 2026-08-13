@@ -76,10 +76,11 @@ function ResetPasswordForm() {
       if (data.debugToken) {
         setDebugToken(data.debugToken);
         toast.message("Письмо на локальном стенде не отправляется — используйте ссылку ниже.");
-      } else if (data.sent) {
-        toast.success("Ссылка отправлена на email. Проверьте входящие и папку «Спам».");
-      } else {
+      } else if (data.sent === false) {
         toast.error("Не удалось отправить письмо. Попробуйте позже или напишите в поддержку.");
+      } else {
+        // sent === true или аккаунта нет (тот же ответ — не раскрываем существование)
+        toast.success("Если такой email есть в системе — ссылка уже в письме. Проверьте входящие и «Спам».");
       }
     } catch {
       toast.error("Ошибка сети");
