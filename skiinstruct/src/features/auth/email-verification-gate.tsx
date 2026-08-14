@@ -23,6 +23,7 @@ import {
   forceEmailVerificationGate,
   isEmailVerificationGateForced,
 } from "@/lib/email-gate-force";
+import { YM_GOALS, trackYandexGoal } from "@/shared/analytics/yandex-metrika-client";
 
 type Status = {
   email: string | null;
@@ -99,6 +100,7 @@ export function EmailVerificationGate({ role }: { role: GateRole }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const celebrated = useRef(false);
+  const registerSuccessTracked = useRef(false);
   const product = getPublicProductName();
   const [mounted, setMounted] = useState(false);
   const [locked, setLocked] = useState(false);
@@ -137,8 +139,12 @@ export function EmailVerificationGate({ role }: { role: GateRole }) {
     if (justRegistered || isEmailVerificationGateForced()) {
       forceEmailVerificationGate();
       setLocked(true);
+      if (justRegistered && role === "CLIENT" && !registerSuccessTracked.current) {
+        registerSuccessTracked.current = true;
+        trackYandexGoal(YM_GOALS.registerSuccess);
+      }
     }
-  }, [mounted, justVerified, justRegistered]);
+  }, [mounted, justVerified, justRegistered, role]);
 
   useEffect(() => {
     if (!justVerified) return;

@@ -35,7 +35,7 @@ export function MarketplaceHome() {
           <p className="mx-auto mt-4 max-w-2xl text-pretty text-muted-foreground md:text-lg">{MARKETPLACE_TAGLINE}</p>
           <div className="mt-8 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center sm:justify-center">
             <Button variant="accent" size="lg" className="min-w-[220px]" asChild>
-              <Link href="/">
+              <Link href="/?utm_source=site&utm_medium=marketplace&utm_campaign=find_trainer">
                 Найти тренера сейчас
                 <ArrowRight className="ml-2 inline h-4 w-4" />
               </Link>
@@ -47,13 +47,9 @@ export function MarketplaceHome() {
             </Button>
           </div>
           <p className="mt-4 text-sm text-muted-foreground">
-            Уже есть аккаунт?{" "}
+            Аккаунт создаётся при заказе. Уже есть?{" "}
             <Link className="text-accent underline" href="/login">
               Войти
-            </Link>
-            {" · "}
-            <Link className="text-accent underline" href="/register">
-              Регистрация клиента
             </Link>
           </p>
         </div>

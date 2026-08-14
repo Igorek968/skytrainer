@@ -12,12 +12,17 @@ export const YM_GOALS = {
   supportOpen: "support_open",
   loginStepEmail: "login_step_email",
   loginSubmit: "login_submit",
+  /** Клиент нажал «Зарегистрироваться» и форма прошла базовую проверку (не каждый клик). */
   registerSubmit: "register_submit",
+  /** Клиент создан и попал в поток подтверждения email / кабинет. */
+  registerSuccess: "register_success",
   instructorLoginOpen: "instructor_login_open",
   clientLoginOpen: "client_login_open",
   googleAuthStart: "google_auth_start",
   emailClick: "email_click",
+  /** Анкета инструктора отправлена и прошла базовую проверку полей. */
   instructorApplySubmit: "instructor_apply_submit",
+  /** Заявка создана (экран pending / login с applied=1). */
   instructorApplySuccess: "instructor_apply_success",
   orderCreate: "order_create",
   orderPaid: "order_paid",

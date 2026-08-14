@@ -7,7 +7,7 @@ import { useFormState, useFormStatus } from "react-dom";
 
 import { registerClientAction, type RegisterClientState } from "@/app/actions/register-client";
 import { FORM_DRAFT_KEYS } from "@/lib/form-draft-storage";
-import { RUSSIAN_EMAIL_EXAMPLES, RUSSIAN_EMAIL_HINT } from "@/lib/russian-email";
+import { RUSSIAN_EMAIL_EXAMPLES, RUSSIAN_EMAIL_HINT, assertRussianEmail } from "@/lib/russian-email";
 import { YM_GOALS, trackYandexGoal } from "@/shared/analytics/yandex-metrika-client";
 import { TurnstileWidget } from "@/shared/security/turnstile-widget";
 import { Button } from "@/shared/ui/button";
@@ -17,6 +17,7 @@ import { Input } from "@/shared/ui/input";
 import { PasswordInput } from "@/shared/ui/password-input";
 import { Label } from "@/shared/ui/label";
 import { useFormDraft } from "@/shared/hooks/use-form-draft";
+import { toast } from "sonner";
 
 const initialState: RegisterClientState = { error: null };
 
@@ -96,19 +97,39 @@ function RegisterForm() {
         <CardHeader>
           <CardTitle as="h1">Регистрация клиента</CardTitle>
           <CardDescription>
-            Укажите email и пароль — после регистрации вы сразу войдёте и сможете оформить заказ на{" "}
-            <Link className="text-accent underline" href="/client">
-              /client
-            </Link>
-            .
+            Почта российского сервиса (Mail.ru, Яндекс) и пароль — после регистрации подтвердите email и сразу
+            оформите заказ инструктора на карте.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <form
             className="space-y-4"
             action={formAction}
-            noValidate
-            onSubmitCapture={() => trackYandexGoal(YM_GOALS.registerSubmit)}
+            onSubmit={(e) => {
+              const form = e.currentTarget;
+              if (!form.checkValidity()) {
+                e.preventDefault();
+                form.reportValidity();
+                return;
+              }
+              if (!values.acceptLegal) {
+                e.preventDefault();
+                toast.error("Примите условия договора и политики ПДн");
+                return;
+              }
+              if (values.password !== values.passwordConfirm) {
+                e.preventDefault();
+                toast.error("Пароли не совпадают");
+                return;
+              }
+              const ruErr = assertRussianEmail(values.email);
+              if (ruErr) {
+                e.preventDefault();
+                toast.error(ruErr);
+                return;
+              }
+              trackYandexGoal(YM_GOALS.registerSubmit);
+            }}
           >
             <input type="hidden" name="redirectTo" value={callbackUrl} />
             {referralCode ? <input type="hidden" name="referralCode" value={referralCode} /> : null}

@@ -9,7 +9,7 @@ import { instructorApplyAction, type InstructorApplyState } from "@/app/actions/
 import { FORM_DRAFT_KEYS } from "@/lib/form-draft-storage";
 import { LEGAL_ROUTES } from "@/lib/legal";
 import { instructorActivityLabelsAlphabetical } from "@/lib/services/instructor-match";
-import { RUSSIAN_EMAIL_EXAMPLES, RUSSIAN_EMAIL_HINT } from "@/lib/russian-email";
+import { RUSSIAN_EMAIL_EXAMPLES, RUSSIAN_EMAIL_HINT, assertRussianEmail } from "@/lib/russian-email";
 import { resolveUtmForForm } from "@/shared/analytics/utm-capture";
 import { useFormDraft } from "@/shared/hooks/use-form-draft";
 import { useDisplayNameDuplicateCheck } from "@/shared/hooks/use-display-name-duplicate-check";
@@ -19,6 +19,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/sha
 import { Input } from "@/shared/ui/input";
 import { PasswordInput } from "@/shared/ui/password-input";
 import { Label } from "@/shared/ui/label";
+import { toast } from "sonner";
 
 const initialState: InstructorApplyState = { error: null, success: false };
 
@@ -103,6 +104,12 @@ function InstructorApplyForm() {
     setUtm(next);
   }, [searchParams]);
 
+  useEffect(() => {
+    if (!state.error) return;
+    const el = document.getElementById("instructor-apply-error");
+    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [state.error]);
+
   return (
     <div className="mx-auto max-w-lg space-y-6 py-4">
       <Card>
@@ -119,10 +126,34 @@ function InstructorApplyForm() {
             className="space-y-4"
             action={formAction}
             encType="multipart/form-data"
-            noValidate
-            onSubmitCapture={() =>
-              trackYandexGoal(YM_GOALS.instructorApplySubmit, Object.keys(utm).length ? utm : undefined)
-            }
+            onSubmit={(e) => {
+              const form = e.currentTarget;
+              if (!form.checkValidity()) {
+                e.preventDefault();
+                form.reportValidity();
+                return;
+              }
+              if (values.password !== values.passwordConfirm) {
+                e.preventDefault();
+                toast.error("Пароли не совпадают");
+                return;
+              }
+              const ruErr = assertRussianEmail(values.email);
+              if (ruErr) {
+                e.preventDefault();
+                toast.error(ruErr);
+                return;
+              }
+              if (!values.acceptAgencyOffer || !values.acceptPrivacy) {
+                e.preventDefault();
+                toast.error("Примите агентскую оферту и политику ПДн");
+                return;
+              }
+              trackYandexGoal(
+                YM_GOALS.instructorApplySubmit,
+                Object.keys(utm).length ? utm : undefined,
+              );
+            }}
           >
             {Object.entries(utm).map(([key, value]) => (
               <input key={key} type="hidden" name={key} value={value} />
@@ -502,7 +533,20 @@ function InstructorApplyForm() {
               </label>
             </div>
 
-            {state.error ? <p className="text-sm text-destructive">{state.error}</p> : null}
+            {state.error ? (
+              <div
+                id="instructor-apply-error"
+                role="alert"
+                className="sticky bottom-20 z-10 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive shadow-sm sm:static"
+              >
+                <p className="font-medium">Не удалось отправить анкету</p>
+                <p className="mt-1">{state.error}</p>
+                <p className="mt-1 text-xs text-destructive/80">
+                  Частые причины: почта не Mail.ru/Яндекс, ИНН 10/12 цифр, скан паспорта и НПД/ЕГРИП, пароли не
+                  совпадают.
+                </p>
+              </div>
+            ) : null}
 
             <SubmitButton disabledByName={displayNameDuplicate.duplicate} />
           </form>

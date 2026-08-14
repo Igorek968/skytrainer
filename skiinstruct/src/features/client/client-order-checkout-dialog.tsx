@@ -211,6 +211,8 @@ export function ClientOrderCheckoutDialog({ open, onOpenChange, instructor, onCr
           setStep("account");
           return;
         }
+        trackYandexGoal(YM_GOALS.registerSubmit);
+        trackYandexGoal(YM_GOALS.registerSuccess);
       }
       const fd = new FormData();
       fd.set("email", email.trim());
