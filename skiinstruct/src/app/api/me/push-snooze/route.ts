@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { auth } from "@/auth";
+import { sanitizeAppRelativeUrl } from "@/lib/sanitize-auth-redirect";
 import { verifyPushSnoozeToken } from "@/lib/support-push-token";
 import { schedulePushSnooze, PUSH_SNOOZE_DELAY_MS } from "@/lib/services/push-snooze";
 
@@ -33,7 +34,7 @@ export async function POST(req: Request) {
   let userId: string | null = null;
   let title = parsed.data.title?.trim() || "Напоминание";
   let body = parsed.data.body?.trim() || "Отложенное сообщение";
-  let url = parsed.data.url?.trim() || "/";
+  let url = sanitizeAppRelativeUrl(parsed.data.url, "/");
   let tag = parsed.data.tag?.trim() || `snooze-${Date.now()}`;
 
   if (parsed.data.token) {
@@ -44,7 +45,7 @@ export async function POST(req: Request) {
     userId = snooze.userId;
     title = snooze.title;
     body = snooze.body;
-    url = snooze.url;
+    url = sanitizeAppRelativeUrl(snooze.url, "/");
     tag = snooze.tag;
   } else {
     const session = await auth();

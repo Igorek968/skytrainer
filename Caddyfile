@@ -5,6 +5,11 @@ www.{$APP_DOMAIN} {
 {$APP_DOMAIN} {
   encode zstd gzip
 
+  @legacySensitive {
+    path /uploads/compliance/* /uploads/npd-receipts/*
+  }
+  respond @legacySensitive 404
+
   # Optional QA gate (Basic Auth).
   # 1) Generate hash:
   #    docker run --rm caddy:2-alpine caddy hash-password --plaintext "YourStrongPassword"

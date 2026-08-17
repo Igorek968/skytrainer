@@ -1,17 +1,17 @@
 "use client";
 
 import { Download, Share, Smartphone, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import {
   dismissPwaHint,
   getDeferredInstallPrompt,
-  getPwaPlatform,
+  getPwaInstallGuide,
   isPwaHintDismissed,
   promptPwaInstall,
-  pwaInstallSteps,
   shouldOfferPwaInstall,
   subscribeInstallPrompt,
+  type PwaInstallGuide,
 } from "@/features/share/pwa-install";
 import { Button } from "@/shared/ui/button";
 
@@ -27,8 +27,17 @@ function useCanNativeInstall() {
   return canInstall;
 }
 
-function InstallSteps({ className }: { className?: string }) {
-  const steps = pwaInstallSteps();
+function useInstallGuide(canNativeInstall: boolean): PwaInstallGuide | null {
+  const [guide, setGuide] = useState<PwaInstallGuide | null>(null);
+
+  useEffect(() => {
+    setGuide(getPwaInstallGuide(canNativeInstall));
+  }, [canNativeInstall]);
+
+  return guide;
+}
+
+function InstallSteps({ steps, className }: { steps: string[]; className?: string }) {
   return (
     <ol className={className ?? "list-decimal space-y-1.5 pl-4 text-xs text-muted-foreground"}>
       {steps.map((step) => (
@@ -40,41 +49,55 @@ function InstallSteps({ className }: { className?: string }) {
   );
 }
 
-/** Нижний баннер на мобильных: системная установка (Android) или пошаговая инструкция (iOS / Яндекс). */
+/**
+ * Всплывающее окно установки PWA под браузеры РФ (Android + iOS):
+ * Chrome, Яндекс, Safari, Samsung, Opera, Firefox, MIUI, Edge.
+ */
 export function PwaInstallBanner() {
   const [visible, setVisible] = useState(false);
-  const [expanded, setExpanded] = useState(false);
+  const [showSteps, setShowSteps] = useState(false);
   const [installing, setInstalling] = useState(false);
   const canInstall = useCanNativeInstall();
-  const platform = typeof window === "undefined" ? "android" : getPwaPlatform();
+  const guide = useInstallGuide(canInstall);
+
+  const forceSteps = useMemo(() => {
+    if (!guide) return false;
+    return guide.strategy === "manual_steps" || guide.strategy === "safari_required" || !guide.useNativePrompt;
+  }, [guide]);
 
   useEffect(() => {
     if (!shouldOfferPwaInstall() || isPwaHintDismissed()) return;
-    // Небольшая пауза — SW успевает зарегистрироваться, beforeinstallprompt — дойти.
-    const t = window.setTimeout(() => setVisible(true), 1200);
+    const t = window.setTimeout(() => {
+      setVisible(true);
+      const g = getPwaInstallGuide(Boolean(getDeferredInstallPrompt()));
+      if (g.strategy !== "native_prompt" || !g.useNativePrompt) {
+        setShowSteps(true);
+      }
+    }, 800);
     return () => window.clearTimeout(t);
   }, []);
 
   useEffect(() => {
-    if (!canInstall) return;
-    setVisible((v) => (isPwaHintDismissed() ? v : true));
-    setExpanded(true);
+    if (!canInstall || isPwaHintDismissed()) return;
+    setVisible(true);
   }, [canInstall]);
 
-  if (!visible) return null;
+  if (!visible || !guide) return null;
+
+  const nativeReady = guide.useNativePrompt && canInstall;
 
   function close() {
     dismissPwaHint();
     setVisible(false);
   }
 
-  async function onAdd() {
-    if (!canInstall) {
-      if (expanded) {
+  async function onInstall() {
+    if (!nativeReady) {
+      if (showSteps || forceSteps) {
         close();
         return;
       }
-      setExpanded(true);
+      setShowSteps(true);
       return;
     }
     setInstalling(true);
@@ -86,71 +109,77 @@ export function PwaInstallBanner() {
     }
   }
 
+  const primaryLabel = installing
+    ? "Установка…"
+    : nativeReady
+      ? "Установить"
+      : showSteps || forceSteps
+        ? "Понятно"
+        : "Как установить";
+
   return (
     <div
-      className="fixed inset-x-0 bottom-0 z-[60] border-t border-border bg-background/95 p-3 shadow-[0_-8px_30px_rgba(0,0,0,0.12)] backdrop-blur-md md:hidden"
+      className="fixed inset-0 z-[70] flex items-end justify-center bg-black/45 p-4 sm:items-center md:hidden"
       role="dialog"
-      aria-label="Установить приложение"
+      aria-modal="true"
+      aria-labelledby="pwa-install-title"
+      aria-describedby="pwa-install-desc"
     >
-      <div className="mx-auto flex max-w-lg items-start gap-3">
-        <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent/15 text-accent">
-          {platform === "ios" ? (
-            <Share className="h-5 w-5" aria-hidden />
-          ) : (
-            <Smartphone className="h-5 w-5" aria-hidden />
-          )}
-        </div>
-        <div className="min-w-0 flex-1 space-y-2">
-          <div className="space-y-0.5">
-            <p className="text-sm font-semibold leading-snug">Установить ТвойТренер</p>
-            <p className="text-xs text-muted-foreground">
-              {canInstall
-                ? "Версия для Android — ярлык как у обычного приложения."
-                : platform === "ios"
-                  ? "Версия для iPhone / iPad — добавьте на экран «Домой» через Safari."
-                  : "Версия для Android — установите из меню браузера или кнопкой ниже."}
+      <button type="button" className="absolute inset-0 cursor-default" aria-label="Закрыть" onClick={close} />
+      <div className="relative z-[1] w-full max-w-md overflow-hidden rounded-2xl border border-border bg-background shadow-2xl">
+        <div className="flex items-start gap-3 border-b border-border bg-accent/10 px-4 py-3.5">
+          <div className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-accent text-accent-foreground">
+            {guide.platform === "ios" ? (
+              <Share className="h-5 w-5" aria-hidden />
+            ) : (
+              <Smartphone className="h-5 w-5" aria-hidden />
+            )}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p id="pwa-install-title" className="text-base font-semibold leading-snug">
+              {guide.title}
+            </p>
+            <p className="mt-0.5 text-[11px] font-medium text-accent">{guide.browserLabel}</p>
+            <p id="pwa-install-desc" className="mt-1 text-sm text-muted-foreground">
+              {guide.description}
             </p>
           </div>
-          {expanded || !canInstall ? <InstallSteps /> : null}
-          <div className="flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 shrink-0"
+            aria-label="Скрыть"
+            onClick={close}
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+
+        <div className="space-y-3 px-4 py-3.5">
+          {showSteps || forceSteps || guide.platform === "ios" ? (
+            <InstallSteps steps={guide.steps} />
+          ) : null}
+
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
             <Button
               type="button"
-              size="sm"
-              className="h-9 gap-1.5 px-3"
+              className="h-11 w-full gap-2 sm:w-auto sm:flex-1"
               disabled={installing}
-              onClick={() => void onAdd()}
+              onClick={() => void onInstall()}
             >
-              <Download className="h-3.5 w-3.5" aria-hidden />
-              {installing
-                ? "Установка…"
-                : canInstall
-                  ? "Установить"
-                  : expanded
-                    ? "Понятно"
-                    : "Как установить"}
+              <Download className="h-4 w-4" aria-hidden />
+              {primaryLabel}
             </Button>
-            {!canInstall && !expanded ? (
-              <Button type="button" size="sm" variant="outline" className="h-9" onClick={() => setExpanded(true)}>
-                Показать шаги
-              </Button>
-            ) : null}
-            {expanded && !canInstall ? (
-              <Button type="button" size="sm" variant="ghost" className="h-9" onClick={close}>
-                Закрыть
-              </Button>
-            ) : null}
+            <Button type="button" variant="outline" className="h-11 w-full sm:w-auto" onClick={close}>
+              Не сейчас
+            </Button>
           </div>
+
+          {guide.footnote ? (
+            <p className="text-[11px] leading-snug text-muted-foreground">{guide.footnote}</p>
+          ) : null}
         </div>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8 shrink-0"
-          aria-label="Скрыть"
-          onClick={close}
-        >
-          <X className="h-4 w-4" />
-        </Button>
       </div>
     </div>
   );
@@ -161,15 +190,18 @@ export function PwaInstallMenuItem({ onNavigate }: { onNavigate?: () => void }) 
   const [installing, setInstalling] = useState(false);
   const [showSteps, setShowSteps] = useState(false);
   const canInstall = useCanNativeInstall();
+  const guide = useInstallGuide(canInstall);
 
   useEffect(() => {
     setVisible(shouldOfferPwaInstall());
   }, []);
 
-  if (!visible) return null;
+  if (!visible || !guide) return null;
+
+  const nativeReady = guide.useNativePrompt && canInstall;
 
   async function onAdd() {
-    if (!canInstall) {
+    if (!nativeReady) {
       setShowSteps(true);
       return;
     }
@@ -185,12 +217,11 @@ export function PwaInstallMenuItem({ onNavigate }: { onNavigate?: () => void }) 
   return (
     <div className="rounded-md border border-dashed border-border bg-muted/20 px-3 py-2 text-left text-sm">
       <p className="font-medium">Мобильное приложение</p>
-      <p className="mt-0.5 text-xs text-muted-foreground">
-        {canInstall
-          ? "Установите на телефон одним нажатием — ярлык на главном экране."
-          : "Добавьте ТвойТренер на главный экран (Android и iOS)."}
-      </p>
-      {showSteps ? <InstallSteps className="mt-2 list-decimal space-y-1 pl-4 text-xs text-muted-foreground" /> : null}
+      <p className="mt-0.5 text-[11px] text-accent">{guide.browserLabel}</p>
+      <p className="mt-0.5 text-xs text-muted-foreground">{guide.description}</p>
+      {showSteps || !nativeReady ? (
+        <InstallSteps steps={guide.steps} className="mt-2 list-decimal space-y-1 pl-4 text-xs text-muted-foreground" />
+      ) : null}
       <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
         <button
           type="button"
@@ -199,7 +230,7 @@ export function PwaInstallMenuItem({ onNavigate }: { onNavigate?: () => void }) 
           onClick={() => void onAdd()}
         >
           <Download className="h-3.5 w-3.5" aria-hidden />
-          {installing ? "Установка…" : canInstall ? "Установить" : "Как установить"}
+          {installing ? "Установка…" : nativeReady ? "Установить" : "Как установить"}
         </button>
         {onNavigate ? (
           <button

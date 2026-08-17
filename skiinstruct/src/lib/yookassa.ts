@@ -281,15 +281,27 @@ export function extractYooCardLabel(method?: {
   };
 }
 
+function webhookClientIp(req: Request): string | null {
+  const realIp = req.headers.get("x-real-ip")?.trim();
+  if (realIp) return realIp;
+  const forwarded = req.headers.get("x-forwarded-for");
+  if (!forwarded) return null;
+  // Правый доверенный hop (Caddy → app): не XFF[0] — его может подставить клиент.
+  const trusted = process.env.TRUSTED_PROXY_COUNT?.trim();
+  const count = trusted ? Math.max(1, parseInt(trusted, 10) || 1) : 1;
+  const parts = forwarded.split(",").map((s) => s.trim()).filter(Boolean);
+  if (!parts.length) return null;
+  const idx = Math.max(0, parts.length - count);
+  return parts[idx] ?? parts[parts.length - 1] ?? null;
+}
+
 /** Проверка IP webhook (опционально, YOOKASSA_WEBHOOK_VERIFY_IP=1). */
 export function isYooKassaWebhookIpAllowed(req: Request): boolean {
   const verify =
     process.env.YOOKASSA_WEBHOOK_VERIFY_IP === "1" ||
     (process.env.YOOKASSA_WEBHOOK_VERIFY_IP !== "0" && process.env.NODE_ENV === "production");
   if (!verify) return true;
-  const forwarded = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
-  const realIp = req.headers.get("x-real-ip")?.trim();
-  const ip = forwarded || realIp;
+  const ip = webhookClientIp(req);
   if (!ip) return false;
 
   const allowedPrefixes = [

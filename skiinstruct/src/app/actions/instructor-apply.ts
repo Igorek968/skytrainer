@@ -1,10 +1,13 @@
 "use server";
 
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { signOut } from "@/auth";
 import { credentialsSignInNoRedirect, isNextRedirect } from "@/lib/credentials-sign-in-core";
 import { createInstructorApplication } from "@/lib/instructor-application";
+import { clientIp, rateLimit } from "@/lib/rate-limit";
+import { captchaTokenFromFormData, verifyTurnstileToken } from "@/lib/security/captcha";
 
 export type InstructorApplyState = {
   error: string | null;
@@ -28,6 +31,22 @@ export async function instructorApplyAction(
 }
 
 async function instructorApplyActionInner(formData: FormData): Promise<InstructorApplyState> {
+  const h = await headers();
+  const ip = clientIp(h);
+  const emailKey = String(formData.get("email") ?? "").trim().toLowerCase().slice(0, 120);
+  if (
+    !rateLimit(`instructor-apply:ip:${ip}`, 8, 3600_000) ||
+    (emailKey && !rateLimit(`instructor-apply:email:${emailKey}`, 4, 3600_000))
+  ) {
+    return { error: "Слишком много попыток. Подождите и попробуйте позже.", success: false };
+  }
+
+  const captchaToken = captchaTokenFromFormData(formData);
+  const humanOk = await verifyTurnstileToken(captchaToken, ip);
+  if (!humanOk) {
+    return { error: "Подтвердите, что вы не робот, и отправьте анкету снова.", success: false };
+  }
+
   const extra = formData.getAll("extraSpecializations").map((v) => String(v));
   const password = String(formData.get("password") ?? "");
 

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { handleMaxSupportUpdate } from "@/lib/max-support";
+import { timingSafeEqualString } from "@/lib/security/timing-safe";
 
 export const dynamic = "force-dynamic";
 
@@ -12,8 +13,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Webhook not configured" }, { status: 503 });
     }
   } else {
-    const header = req.headers.get("x-max-bot-api-secret");
-    if (header !== expected) {
+    const header = req.headers.get("x-max-bot-api-secret") ?? "";
+    if (!timingSafeEqualString(header, expected)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
   }

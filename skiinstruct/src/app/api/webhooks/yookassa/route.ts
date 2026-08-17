@@ -72,6 +72,10 @@ async function handlePaymentMethodActive(paymentMethodId: string): Promise<void>
 }
 
 export async function POST(req: Request) {
+  if (!isYooKassaConfigured()) {
+    return NextResponse.json({ error: "YooKassa not configured" }, { status: 503 });
+  }
+
   if (!isYooKassaWebhookIpAllowed(req)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
@@ -101,21 +105,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ received: true });
   }
 
-  let metadata = obj?.metadata;
-  let status = obj?.status;
-  let paymentMethod = obj as YooWebhookBody["object"];
-
-  if (isYooKassaConfigured()) {
-    const verified = await fetchYooKassaPayment(paymentId);
-    if (!verified || verified.status !== "succeeded") {
-      return NextResponse.json({ received: true });
-    }
-    metadata = verified.metadata;
-    status = verified.status;
-    paymentMethod = verified.payment_method;
-  } else if (status !== "succeeded") {
+  const verified = await fetchYooKassaPayment(paymentId);
+  if (!verified || verified.status !== "succeeded") {
     return NextResponse.json({ received: true });
   }
+  const metadata = verified.metadata;
+  const paymentMethod = verified.payment_method;
 
   const paymentType = metadata?.type;
   const eventRegistrationId = eventRegistrationIdFromYooMetadata(metadata);

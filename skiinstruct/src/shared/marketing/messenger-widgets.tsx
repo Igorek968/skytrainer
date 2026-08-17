@@ -2,15 +2,16 @@
 
 import { MessageCircle } from "lucide-react";
 
-import { supportTelegramUrl, supportWhatsAppUrl } from "@/lib/support-config";
+import { useSupportLauncher } from "@/features/support/support-provider";
 import { YM_GOALS, trackYandexGoal } from "@/shared/analytics/yandex-metrika-client";
 import { cn } from "@/lib/utils";
 
-/** Плавающие кнопки WhatsApp / Telegram для быстрой связи с рекламного трафика. */
+/**
+ * Плавающая кнопка: веб-чат поддержки ↔ MAX.
+ * Сообщения уходят оператору в MAX; ответ — Reply на сообщение бота → снова в чат на сайте.
+ */
 export function MessengerWidgets({ className }: { className?: string }) {
-  const tg = supportTelegramUrl();
-  const wa = supportWhatsAppUrl();
-  if (!tg && !wa) return null;
+  const { openSupport } = useSupportLauncher();
 
   return (
     <div
@@ -20,32 +21,18 @@ export function MessengerWidgets({ className }: { className?: string }) {
       )}
       aria-label="Быстрая связь"
     >
-      {wa ? (
-        <a
-          href={wa}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="pointer-events-auto inline-flex h-12 w-12 items-center justify-center rounded-full bg-[#25D366] text-white shadow-lg hover:opacity-95"
-          aria-label="Написать в WhatsApp"
-          onClick={() => trackYandexGoal(YM_GOALS.messengerWhatsapp)}
-        >
-          <span className="text-lg font-bold" aria-hidden>
-            WA
-          </span>
-        </a>
-      ) : null}
-      {tg ? (
-        <a
-          href={tg}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="pointer-events-auto inline-flex h-12 w-12 items-center justify-center rounded-full bg-[#2AABEE] text-white shadow-lg hover:opacity-95"
-          aria-label="Написать в Telegram"
-          onClick={() => trackYandexGoal(YM_GOALS.messengerTelegram)}
-        >
-          <MessageCircle className="h-6 w-6" aria-hidden />
-        </a>
-      ) : null}
+      <button
+        type="button"
+        className="pointer-events-auto inline-flex h-12 w-12 items-center justify-center rounded-full bg-[#2E3E55] text-white shadow-lg hover:opacity-95"
+        aria-label="Связаться через мессенджер"
+        aria-haspopup="dialog"
+        onClick={() => {
+          trackYandexGoal(YM_GOALS.supportOpen);
+          openSupport();
+        }}
+      >
+        <MessageCircle className="h-6 w-6" aria-hidden />
+      </button>
     </div>
   );
 }

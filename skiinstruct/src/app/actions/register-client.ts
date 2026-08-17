@@ -7,7 +7,7 @@ import { resolvePostLoginRedirect } from "@/lib/auth-routes";
 import { credentialsSignInNoRedirect } from "@/lib/credentials-sign-in-core";
 import { createClientUser } from "@/lib/client-registration";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
-import { verifyTurnstileToken } from "@/lib/security/turnstile";
+import { verifyTurnstileToken, captchaTokenFromFormData } from "@/lib/security/captcha";
 import { sanitizeRedirectPath } from "@/lib/sanitize-auth-redirect";
 
 export type RegisterClientState = {
@@ -22,7 +22,7 @@ export async function registerClientAction(
   const password = String(formData.get("password") ?? "");
   const passwordConfirm = String(formData.get("passwordConfirm") ?? "");
   const name = String(formData.get("name") ?? "");
-  const captchaToken = String(formData.get("captchaToken") ?? "");
+  const captchaToken = captchaTokenFromFormData(formData);
   const rawRedirect = String(formData.get("redirectTo") ?? "");
   const redirectTo = resolvePostLoginRedirect("CLIENT", sanitizeRedirectPath(rawRedirect, "/client"), "/client");
   const acceptLegal = formData.get("acceptLegal") === "on";

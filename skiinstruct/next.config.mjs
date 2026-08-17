@@ -43,10 +43,10 @@ function resolvedNextAuthUrlForClient() {
   );
 }
 
+/** Только публичный ключ карт — серверный YANDEX_GEOCODER_API_KEY в бандл не попадает. */
 function resolvedYandexMapsApiKeyForClient() {
   return (
     process.env.NEXT_PUBLIC_YANDEX_MAPS_API_KEY?.trim() ||
-    process.env.YANDEX_GEOCODER_API_KEY?.trim() ||
     process.env.VITE_YANDEX_MAPS_API_KEY?.trim() ||
     ""
   );
@@ -74,12 +74,12 @@ const siteUsesHttps = configuredSiteUsesHttps();
 
 const cspDirectives = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://api-maps.yandex.ru https://yastatic.net https://mc.yandex.ru https://www.googletagmanager.com https://challenges.cloudflare.com",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://api-maps.yandex.ru https://yastatic.net https://mc.yandex.ru https://www.googletagmanager.com https://challenges.cloudflare.com https://smartcaptcha.cloud.yandex.ru https://smartcaptcha.yandexcloud.net",
   "style-src 'self' 'unsafe-inline' https://yastatic.net",
   isProd ? "img-src 'self' data: blob: https:" : "img-src 'self' data: blob: https: http:",
   "font-src 'self' data: https://yastatic.net",
-  "connect-src 'self' https://api-maps.yandex.ru https://geocode-maps.yandex.ru https://*.yandex.ru https://mc.yandex.ru https://www.google-analytics.com https://region1.google-analytics.com https://challenges.cloudflare.com wss:",
-  "frame-src 'self' https://yoomoney.ru https://*.yookassa.ru https://challenges.cloudflare.com",
+  "connect-src 'self' https://api-maps.yandex.ru https://geocode-maps.yandex.ru https://*.yandex.ru https://mc.yandex.ru https://www.google-analytics.com https://region1.google-analytics.com https://challenges.cloudflare.com https://smartcaptcha.cloud.yandex.ru https://smartcaptcha.yandexcloud.net wss:",
+  "frame-src 'self' https://yoomoney.ru https://*.yookassa.ru https://challenges.cloudflare.com https://smartcaptcha.cloud.yandex.ru https://smartcaptcha.yandexcloud.net",
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",
@@ -106,11 +106,16 @@ if (isProd && siteUsesHttps) {
   });
 }
 
+function resolvedSmartCaptchaClientKey() {
+  return process.env.NEXT_PUBLIC_SMARTCAPTCHA_CLIENT_KEY?.trim() || "";
+}
+
 const nextConfig = {
   env: {
     NEXTAUTH_URL: resolvedNextAuthUrlForClient(),
     NEXT_PUBLIC_YANDEX_MAPS_API_KEY: resolvedYandexMapsApiKeyForClient(),
     NEXT_PUBLIC_VAPID_PUBLIC_KEY: resolvedVapidPublicKeyForClient(),
+    NEXT_PUBLIC_SMARTCAPTCHA_CLIENT_KEY: resolvedSmartCaptchaClientKey(),
   },
   async redirects() {
     return [
@@ -121,6 +126,15 @@ const nextConfig = {
       { source: "/moskva", destination: "/gorod/moskva", permanent: true },
       { source: "/moskva/:sport", destination: "/gorod/moskva/:sport", permanent: true },
     ];
+  },
+  /** До filesystem: старые паспорт/НПД в public/uploads не отдаём. */
+  async rewrites() {
+    return {
+      beforeFiles: [
+        { source: "/uploads/compliance/:path*", destination: "/api/security/blocked" },
+        { source: "/uploads/npd-receipts/:path*", destination: "/api/security/blocked" },
+      ],
+    };
   },
   async headers() {
     return [{ source: "/(.*)", headers: securityHeaders }];

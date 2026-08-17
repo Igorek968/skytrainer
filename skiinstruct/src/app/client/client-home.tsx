@@ -70,7 +70,6 @@ import {
 } from "@/shared/lib/lesson-booking-time";
 import { lessonDurationLabelRu } from "@/shared/lib/order-duration";
 import { SectionErrorBoundary } from "@/shared/ui/section-error-boundary";
-import { PwaInstallBanner } from "@/features/share/pwa-install-hint";
 
 const PersonalDataDialog = dynamic(
   () => import("@/features/client/personal-data-dialog").then((m) => m.PersonalDataDialog),
@@ -820,7 +819,6 @@ export default function ClientHomePage() {
   return (
     <div className="space-y-6">
       <GeolocationPermissionDialog />
-      <PwaInstallBanner />
       <Suspense fallback={null}>
         <ResumeCheckoutFromQuery
           data={data}

@@ -5,9 +5,11 @@ import { useEffect, useState } from "react";
 
 import { YM_GOALS, trackYandexGoal } from "@/shared/analytics/yandex-metrika-client";
 import { Button } from "@/shared/ui/button";
+import { sanitizeRedirectPath } from "@/lib/sanitize-auth-redirect";
 
 export function SocialSignInButtons({ callbackUrl }: { callbackUrl: string }) {
   const [google, setGoogle] = useState(false);
+  const safeCallback = sanitizeRedirectPath(callbackUrl, "/client");
 
   useEffect(() => {
     fetch("/api/auth/social-providers")
@@ -29,7 +31,7 @@ export function SocialSignInButtons({ callbackUrl }: { callbackUrl: string }) {
         className="w-full"
         onClick={() => {
           trackYandexGoal(YM_GOALS.googleAuthStart);
-          void signIn("google", { callbackUrl });
+          void signIn("google", { callbackUrl: safeCallback });
         }}
       >
         Войти через Google

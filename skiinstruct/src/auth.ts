@@ -49,7 +49,7 @@ const credentialsProvider = Credentials({
     password: { label: "Пароль", type: "password" },
     resetToken: { label: "Токен сброса пароля", type: "text" },
     emailLoginToken: { label: "Токен входа после email", type: "text" },
-    captchaToken: { label: "Turnstile", type: "text" },
+    captchaToken: { label: "Captcha", type: "text" },
     /** Только Server Actions: значение = AUTH_SECRET (после уже проверенного captcha). */
     trustedServerSignIn: { label: "Trusted", type: "text" },
   },
@@ -66,10 +66,10 @@ const credentialsProvider = Credentials({
       process.env.AUTH_SECRET?.trim() || process.env.NEXTAUTH_SECRET?.trim() || "";
     const trustedServer =
       Boolean(authSecret) && Boolean(trustedRaw) && trustedRaw === authSecret;
-    // Одноразовые токены из письма — сами по себе фактор входа; Turnstile не требуем.
+    // Одноразовые токены из письма — сами по себе фактор входа; капчу не требуем.
     const oneTimeToken = Boolean(resetToken || emailLoginToken);
 
-    // Браузерный вход по паролю — Turnstile обязателен (если секрет задан).
+    // Браузерный вход по паролю — SmartCaptcha обязательна (если серверный ключ задан).
     // Server Action / письмо: trustedServerSignIn или one-time token.
     if (!trustedServer && !oneTimeToken) {
       const humanOk = await verifyTurnstileToken(captchaToken, ip);

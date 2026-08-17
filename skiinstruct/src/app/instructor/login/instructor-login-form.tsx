@@ -12,6 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/sha
 import { Input } from "@/shared/ui/input";
 import { PasswordInput } from "@/shared/ui/password-input";
 import { Label } from "@/shared/ui/label";
+import { sanitizeRedirectPath } from "@/lib/sanitize-auth-redirect";
 
 export function InstructorLoginForm({
   applied = false,
@@ -30,7 +31,10 @@ export function InstructorLoginForm({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const signedInAsOther = Boolean(session?.user?.role && session.user.role !== "INSTRUCTOR");
-  const safeCallback = useMemo(() => callbackUrl.trim() || "/instructor/pending", [callbackUrl]);
+  const safeCallback = useMemo(
+    () => sanitizeRedirectPath(callbackUrl, "/instructor/pending"),
+    [callbackUrl],
+  );
 
   useEffect(() => {
     if (!applied) return;

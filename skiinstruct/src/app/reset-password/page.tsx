@@ -52,7 +52,9 @@ function ResetPasswordForm() {
     setLoading(true);
     setDebugToken(null);
     const formData = new FormData(e.currentTarget);
-    const captchaToken = String(formData.get("captchaToken") ?? "");
+    const captchaToken =
+      String(formData.get("captchaToken") ?? "").trim() ||
+      String(formData.get("smart-token") ?? "").trim();
     try {
       const r = await fetch("/api/auth/password-reset/request", {
         method: "POST",

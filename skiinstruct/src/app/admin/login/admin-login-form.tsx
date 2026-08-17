@@ -8,12 +8,14 @@ import {
   signInAdminCredentialsAction,
   type CredentialsSignInState,
 } from "@/app/actions/credentials-sign-in";
+import { sanitizeRedirectPath } from "@/lib/sanitize-auth-redirect";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Input } from "@/shared/ui/input";
 import { PasswordInput } from "@/shared/ui/password-input";
 import { Label } from "@/shared/ui/label";
 import { getPublicProductName } from "@/shared/lib/product";
+import { useMemo } from "react";
 
 const initialState: CredentialsSignInState = { error: null };
 
@@ -33,6 +35,10 @@ export function AdminLoginForm({ callbackUrl = "/admin/metrics" }: { callbackUrl
     session?.user?.role && session.user.role !== "ADMIN" && session.user.role !== "MODERATOR",
   );
   const productName = getPublicProductName();
+  const safeCallback = useMemo(
+    () => sanitizeRedirectPath(callbackUrl, "/admin/metrics"),
+    [callbackUrl],
+  );
 
   return (
     <div className="mx-auto max-w-md space-y-6">
@@ -52,7 +58,7 @@ export function AdminLoginForm({ callbackUrl = "/admin/metrics" }: { callbackUrl
             </p>
           ) : null}
           <form className="space-y-4" action={formAction} noValidate>
-            <input type="hidden" name="redirectTo" value={callbackUrl} />
+            <input type="hidden" name="redirectTo" value={safeCallback} />
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input

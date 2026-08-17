@@ -47,8 +47,10 @@
 curl -X POST "https://platform-api.max.ru/subscriptions" \
   -H "Authorization: <MAX_BOT_TOKEN>" \
   -H "Content-Type: application/json" \
-  -d "{\"url\":\"https://ваш-домен.ru/api/webhooks/max\",\"update_types\":[\"message_created\"],\"secret\":\"<случайная_строка>\"}"
+  -d "{\"url\":\"https://xn--b1agaovdpdkd.xn--p1ai/api/webhooks/max\",\"update_types\":[\"message_created\"],\"secret\":\"<случайная_строка>\"}"
 ```
+
+Прод: webhook должен указывать на **твойтренер.рф** (punycode выше), не на старый `utrainer.ru`.
 
 В `.env`:
 

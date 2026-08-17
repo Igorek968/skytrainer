@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useEffect } from "react";
+import { Suspense, useEffect, useMemo } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 
 import { registerClientAction, type RegisterClientState } from "@/app/actions/register-client";
 import { FORM_DRAFT_KEYS } from "@/lib/form-draft-storage";
 import { RUSSIAN_EMAIL_EXAMPLES, RUSSIAN_EMAIL_HINT, assertRussianEmail } from "@/lib/russian-email";
+import { sanitizeRedirectPath } from "@/lib/sanitize-auth-redirect";
 import { YM_GOALS, trackYandexGoal } from "@/shared/analytics/yandex-metrika-client";
 import { TurnstileWidget } from "@/shared/security/turnstile-widget";
 import { Button } from "@/shared/ui/button";
@@ -49,7 +50,10 @@ function SubmitButton({ acceptLegal }: { acceptLegal: boolean }) {
 function RegisterForm() {
   const router = useRouter();
   const params = useSearchParams();
-  const callbackUrl = params.get("callbackUrl")?.trim() || "/client";
+  const callbackUrl = useMemo(
+    () => sanitizeRedirectPath(params.get("callbackUrl")?.trim() || "/client", "/client"),
+    [params],
+  );
   const referralCode = params.get("ref")?.trim() || undefined;
   const asInstructor =
     params.get("as") === "instructor" || params.get("role") === "instructor";

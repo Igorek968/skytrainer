@@ -6,7 +6,7 @@
   "start_url": "/client",
   "scope": "/",
   "display": "standalone",
-  "display_override": ["standalone", "minimal-ui", "browser"],
+  "display_override": ["standalone", "minimal-ui"],
   "orientation": "portrait-primary",
   "background_color": "#ffffff",
   "theme_color": "#027676",

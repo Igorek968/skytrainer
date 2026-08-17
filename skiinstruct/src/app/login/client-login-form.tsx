@@ -13,10 +13,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/sha
 import { Input } from "@/shared/ui/input";
 import { PasswordInput } from "@/shared/ui/password-input";
 import { Label } from "@/shared/ui/label";
+import { sanitizeRedirectPath } from "@/lib/sanitize-auth-redirect";
 
 function LoginFormInner() {
   const params = useSearchParams();
-  const callbackUrl = params.get("callbackUrl")?.trim() || "/client";
+  const callbackUrl = useMemo(
+    () => sanitizeRedirectPath(params.get("callbackUrl")?.trim() || "/client", "/client"),
+    [params],
+  );
   const authError = params.get("error");
   const returningToOrder = callbackUrl.includes("checkout=1");
   const registered = params.get("registered") === "1";

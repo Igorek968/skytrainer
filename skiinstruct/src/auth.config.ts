@@ -112,8 +112,14 @@ export const authConfig = {
       if (user && "role" in user && (user as { role?: UserRole }).role) {
         token.role = (user as { role: UserRole }).role;
       }
-      if (trigger === "update" && session?.role) {
-        token.role = session.role as UserRole;
+      // Не принимаем role из клиентского session.update — только из user/DB (см. auth.ts).
+      if (trigger === "update" && session && typeof session === "object") {
+        const patch = session as Record<string, unknown>;
+        if ("name" in patch && typeof patch.name === "string") token.name = patch.name;
+        if ("email" in patch && typeof patch.email === "string") token.email = patch.email;
+        if ("image" in patch && (typeof patch.image === "string" || patch.image === null)) {
+          token.picture = patch.image ?? undefined;
+        }
       }
       return token;
     },

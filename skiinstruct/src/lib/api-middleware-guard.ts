@@ -30,6 +30,7 @@ const PUBLIC_API_PREFIXES = [
   "/api/bot",
   "/api/media",
   "/api/support",
+  "/api/public",
 ] as const;
 
 function isPublicApiPath(pathname: string): boolean {

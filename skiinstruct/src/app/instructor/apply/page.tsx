@@ -16,6 +16,7 @@ import { resolveUtmForForm } from "@/shared/analytics/utm-capture";
 import { useFormDraft } from "@/shared/hooks/use-form-draft";
 import { useDisplayNameDuplicateCheck } from "@/shared/hooks/use-display-name-duplicate-check";
 import { YM_GOALS, trackYandexGoal } from "@/shared/analytics/yandex-metrika-client";
+import { TurnstileWidget } from "@/shared/security/turnstile-widget";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Input } from "@/shared/ui/input";
@@ -599,6 +600,8 @@ function InstructorApplyForm() {
                 </p>
               </div>
             ) : null}
+
+            <TurnstileWidget className="py-1" />
 
             <SubmitButton disabledByName={displayNameDuplicate.duplicate} />
           </form>
