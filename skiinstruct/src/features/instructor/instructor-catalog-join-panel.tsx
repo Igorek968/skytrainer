@@ -14,6 +14,7 @@ import {
   catalogStatusLabel,
   type EventCatalogItemDTO,
 } from "@/lib/event-catalog";
+import { catalogKindLabel } from "@/lib/event-catalog-kinds";
 import {
   formatEventDateRu,
   formatEventPriceRu,
@@ -347,10 +348,13 @@ export function InstructorCatalogJoinPanel({
                       <div className="flex flex-wrap items-baseline justify-between gap-2">
                         <div className="font-medium">{item.title}</div>
                         <Badge variant="outline" className="text-xs">
-                          {catalogStatusLabel(item.status)}
+                          {catalogKindLabel(item.kind)} · {catalogStatusLabel(item.status)}
                         </Badge>
                       </div>
                       <p className="text-xs text-muted-foreground">
+                        {item.listingOnly || item.kind === "VENUE"
+                          ? "Площадка без аренды · "
+                          : null}
                         {item.publishedOfferCount}{" "}
                         {item.publishedOfferCount === 1 ? "инструктор" : "инструкторов"}
                         {item.priceFromRub != null ? ` · от ${item.priceFromRub} ₽` : null}
@@ -382,7 +386,9 @@ export function InstructorCatalogJoinPanel({
                       >
                         {offer?.moderationStatus === "REJECTED" || offer?.moderationStatus === "DRAFT"
                           ? "Исправить заявку"
-                          : "Присоединиться"}
+                          : item.kind === "VENUE" || item.listingOnly
+                            ? "Работать на площадке"
+                            : "Присоединиться"}
                       </Button>
                     )}
                   </div>
@@ -390,12 +396,20 @@ export function InstructorCatalogJoinPanel({
                   {joinForId === item.id ? (
                     <div className="mt-3 space-y-3 rounded-md border border-dashed border-border p-3">
                       <div className="space-y-1.5">
-                        <Label htmlFor={`svc-${item.id}`}>Ваш сервис / условия</Label>
+                        <Label htmlFor={`svc-${item.id}`}>
+                          {item.kind === "VENUE" || item.listingOnly
+                            ? "Ваши условия занятий на площадке"
+                            : "Ваш сервис / условия"}
+                        </Label>
                         <textarea
                           id={`svc-${item.id}`}
                           className="min-h-[72px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                           maxLength={1000}
-                          placeholder="Что входит в вашу цену, экипировка, маршрут, опыт группы…"
+                          placeholder={
+                            item.kind === "VENUE" || item.listingOnly
+                              ? "Уровни учеников, ставка за час, что входит в занятие…"
+                              : "Что входит в вашу цену, экипировка, маршрут, опыт группы…"
+                          }
                           value={form.serviceNote}
                           onChange={(e) => setForm((f) => ({ ...f, serviceNote: e.target.value }))}
                         />
@@ -478,8 +492,8 @@ export function InstructorCatalogJoinPanel({
             Карточки каталога · {selectedCity.name}
           </h2>
           <p className="text-sm text-muted-foreground">
-            Присоединитесь к опубликованной карточке: укажите свою цену и описание сервиса. Клиент
-            увидит вас в списке инструкторов под описанием мероприятия.
+            Цепочка: админ публикует площадку или событие → вы присоединяетесь со своей ценой → клиент
+            видит вас в списке. Для кортов/баз аренда места не продаётся — только ваши занятия.
           </p>
         </div>
         {body}
@@ -492,8 +506,8 @@ export function InstructorCatalogJoinPanel({
       <CardHeader>
         <CardTitle>Каталог мероприятий</CardTitle>
         <CardDescription>
-          Присоединитесь к опубликованной карточке: укажите свою цену и описание сервиса. Клиент
-          увидит вас в списке инструкторов под описанием мероприятия и сможет записаться к вам.
+          Админ создаёт площадку или событие → вы присоединяетесь → клиент выбирает вас. На площадках
+          (корты) аренда места недоступна: клиент записывается к инструктору.
         </CardDescription>
       </CardHeader>
       <CardContent>{body}</CardContent>

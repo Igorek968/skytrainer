@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 
 import { signOut } from "@/auth";
-import { credentialsSignInNoRedirect } from "@/lib/credentials-sign-in-core";
+import { credentialsSignInNoRedirect, isNextRedirect } from "@/lib/credentials-sign-in-core";
 import { createInstructorApplication } from "@/lib/instructor-application";
 
 export type InstructorApplyState = {
@@ -15,6 +15,19 @@ export async function instructorApplyAction(
   _prev: InstructorApplyState,
   formData: FormData,
 ): Promise<InstructorApplyState> {
+  try {
+    return await instructorApplyActionInner(formData);
+  } catch (error) {
+    if (isNextRedirect(error)) throw error;
+    console.error("[instructor-apply]", error);
+    return {
+      error: "Не удалось сохранить заявку. Проверьте файлы и интернет, затем попробуйте снова.",
+      success: false,
+    };
+  }
+}
+
+async function instructorApplyActionInner(formData: FormData): Promise<InstructorApplyState> {
   const extra = formData.getAll("extraSpecializations").map((v) => String(v));
   const password = String(formData.get("password") ?? "");
 

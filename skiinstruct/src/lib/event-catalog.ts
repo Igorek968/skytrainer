@@ -7,6 +7,8 @@ export type EventCatalogItemDTO = {
   title: string;
   body: string;
   category: string | null;
+  kind: "EVENT" | "VENUE";
+  listingOnly: boolean;
   photoUrl: string | null;
   eventAt: string | null;
   venueAddress: string | null;
@@ -43,6 +45,8 @@ export type ClientEventFeedCardDTO =
       title: string;
       body: string;
       category: string | null;
+      catalogKind: "EVENT" | "VENUE";
+      listingOnly: boolean;
       photoUrl: string | null;
       eventAt: string | null;
       venueAddress: string | null;
@@ -98,6 +102,9 @@ export function feedCardBadgeValue(card: ClientEventFeedCardDTO): string {
     if (card.distanceKm != null && Number.isFinite(card.distanceKm) && card.distanceKm < 9000) {
       return card.distanceKm.toFixed(1).replace(".", ",");
     }
+    if (card.listingOnly || card.catalogKind === "VENUE") {
+      return String(card.offerCount);
+    }
     if (card.priceFromRub == null || card.priceFromRub <= 0) return String(card.offerCount);
     if (card.priceFromRub < 1000) return String(card.priceFromRub);
     return (card.priceFromRub / 1000).toFixed(1).replace(".", ",");
@@ -121,6 +128,8 @@ export function buildClientEventFeedCards(
       title: string;
       body: string;
       category: string | null;
+      kind?: "EVENT" | "VENUE";
+      listingOnly?: boolean;
       photoUrl: string | null;
       eventAt: string | null;
       venueAddress: string | null;
@@ -150,9 +159,11 @@ export function buildClientEventFeedCards(
   }
 
   const cards: ClientEventFeedCardDTO[] = [];
+  const usedCatalogIds = new Set<string>();
 
   for (const [catalogId, offers] of byCatalog) {
     if (!offers.length) continue;
+    usedCatalogIds.add(catalogId);
     const meta = catalogMeta.get(catalogId)!;
     const sortedOffers = [...offers].sort((a, b) => {
       const priceA = a.priceRub != null && a.priceRub > 0 ? a.priceRub : Number.POSITIVE_INFINITY;
@@ -165,6 +176,8 @@ export function buildClientEventFeedCards(
       .filter((p): p is number => p != null && p > 0);
     const priceFromRub = prices.length ? Math.min(...prices) : null;
     const distanceKm = sortedOffers[0]?.distanceKm;
+    const catalogKind = meta.kind === "VENUE" ? "VENUE" : "EVENT";
+    const listingOnly = Boolean(meta.listingOnly) || catalogKind === "VENUE";
     cards.push({
       kind: "catalog",
       catalogId,
@@ -174,6 +187,8 @@ export function buildClientEventFeedCards(
         meta.category ??
         sortedOffers.find((o) => o.category)?.category ??
         null,
+      catalogKind,
+      listingOnly,
       photoUrl: meta.photoUrl ?? sortedOffers.find((o) => o.photoUrl)?.photoUrl ?? null,
       eventAt: meta.eventAt ?? sortedOffers.find((o) => o.eventAt)?.eventAt ?? null,
       venueAddress: meta.venueAddress ?? sortedOffers.find((o) => o.venueAddress)?.venueAddress ?? null,
@@ -183,6 +198,33 @@ export function buildClientEventFeedCards(
       offerCount: sortedOffers.length,
       priceFromRub,
       offers: sortedOffers,
+    });
+  }
+
+  /** Площадки без офферов — всё равно в ленте/на карте (витрина). */
+  for (const [catalogId, meta] of catalogMeta) {
+    if (usedCatalogIds.has(catalogId)) continue;
+    if (meta.status !== "PUBLISHED") continue;
+    const catalogKind = meta.kind === "VENUE" ? "VENUE" : "EVENT";
+    const listingOnly = Boolean(meta.listingOnly) || catalogKind === "VENUE";
+    // Пустые EVENT без listingOnly в ленту не кладём.
+    if (!listingOnly) continue;
+    cards.push({
+      kind: "catalog",
+      catalogId,
+      title: meta.title,
+      body: meta.body,
+      category: meta.category,
+      catalogKind,
+      listingOnly,
+      photoUrl: meta.photoUrl,
+      eventAt: meta.eventAt,
+      venueAddress: meta.venueAddress,
+      venueLat: meta.venueLat,
+      venueLng: meta.venueLng,
+      offerCount: 0,
+      priceFromRub: null,
+      offers: [],
     });
   }
 

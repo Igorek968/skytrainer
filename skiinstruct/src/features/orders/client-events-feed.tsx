@@ -133,8 +133,16 @@ function CatalogCardDetails({
         ) : null}
       </div>
       <p className="mt-0.5 text-xs text-muted-foreground">
-        {card.offerCount} {card.offerCount === 1 ? "инструктор" : "инструктора"}
-        {card.priceFromRub != null ? ` · от ${card.priceFromRub} ₽` : null}
+        {card.listingOnly || card.catalogKind === "VENUE"
+          ? card.offerCount === 0
+            ? "Площадка · инструкторы скоро появятся"
+            : `${card.offerCount} ${card.offerCount === 1 ? "инструктор на площадке" : "инструктора на площадке"}`
+          : `${card.offerCount} ${card.offerCount === 1 ? "инструктор" : "инструктора"}`}
+        {!card.listingOnly && card.catalogKind !== "VENUE" && card.priceFromRub != null
+          ? ` · от ${card.priceFromRub} ₽`
+          : card.offerCount > 0 && card.priceFromRub != null
+            ? ` · занятия от ${card.priceFromRub} ₽`
+            : null}
       </p>
       {card.category ? (
         <p className="text-xs text-muted-foreground">{card.category}</p>
@@ -155,7 +163,13 @@ function CatalogCardDetails({
           {card.offerCount > names.length ? "…" : null}
         </p>
       ) : null}
-      <p className="pt-1 text-xs text-accent">Открыть — выбрать инструктора и оплатить</p>
+      <p className="pt-1 text-xs text-accent">
+        {card.listingOnly || card.catalogKind === "VENUE"
+          ? card.offerCount > 0
+            ? "Открыть — посмотреть инструкторов (аренда площадки недоступна)"
+            : "Площадка на карте · запись к инструкторам появится после их присоединения"
+          : "Открыть — выбрать инструктора и оплатить"}
+      </p>
     </div>
   );
 }

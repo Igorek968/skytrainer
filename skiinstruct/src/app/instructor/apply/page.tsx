@@ -8,8 +8,10 @@ import { useFormState, useFormStatus } from "react-dom";
 import { instructorApplyAction, type InstructorApplyState } from "@/app/actions/instructor-apply";
 import { FORM_DRAFT_KEYS } from "@/lib/form-draft-storage";
 import { LEGAL_ROUTES } from "@/lib/legal";
+import { PASSPORT_UPLOAD_MAX_BYTES } from "@/lib/instructor-passport";
 import { instructorActivityLabelsAlphabetical } from "@/lib/services/instructor-match";
 import { RUSSIAN_EMAIL_EXAMPLES, RUSSIAN_EMAIL_HINT, assertRussianEmail } from "@/lib/russian-email";
+import { userFacingErrorMessage } from "@/lib/user-facing-error";
 import { resolveUtmForForm } from "@/shared/analytics/utm-capture";
 import { useFormDraft } from "@/shared/hooks/use-form-draft";
 import { useDisplayNameDuplicateCheck } from "@/shared/hooks/use-display-name-duplicate-check";
@@ -22,6 +24,35 @@ import { Label } from "@/shared/ui/label";
 import { toast } from "sonner";
 
 const initialState: InstructorApplyState = { error: null, success: false };
+
+function isNextRedirectError(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "digest" in error &&
+    typeof (error as { digest?: unknown }).digest === "string" &&
+    String((error as { digest: string }).digest).startsWith("NEXT_REDIRECT")
+  );
+}
+
+/** Клиентская обёртка: сеть/лимит тела → сообщение в форме, а не экран «Failed to fetch». */
+async function instructorApplyFormAction(
+  prev: InstructorApplyState,
+  formData: FormData,
+): Promise<InstructorApplyState> {
+  try {
+    return await instructorApplyAction(prev, formData);
+  } catch (error) {
+    if (isNextRedirectError(error)) throw error;
+    return {
+      error: userFacingErrorMessage(
+        error,
+        "Не удалось отправить анкету. Уменьшите сканы паспорта и НПД (примерно до 4 МБ каждый) и попробуйте снова.",
+      ),
+      success: false,
+    };
+  }
+}
 
 type InstructorApplyDraft = {
   lastName: string;
@@ -87,7 +118,7 @@ function SubmitButton({ disabledByName }: { disabledByName: boolean }) {
 
 function InstructorApplyForm() {
   const searchParams = useSearchParams();
-  const [state, formAction] = useFormState(instructorApplyAction, initialState);
+  const [state, formAction] = useFormState(instructorApplyFormAction, initialState);
   const { values, setField } = useFormDraft<InstructorApplyDraft>(
     FORM_DRAFT_KEYS.instructorApply,
     defaultDraft,
@@ -147,6 +178,27 @@ function InstructorApplyForm() {
               if (!values.acceptAgencyOffer || !values.acceptPrivacy) {
                 e.preventDefault();
                 toast.error("Примите агентскую оферту и политику ПДн");
+                return;
+              }
+              const passport = (form.elements.namedItem("passportScan") as HTMLInputElement | null)
+                ?.files?.[0];
+              const taxDoc = (form.elements.namedItem("taxDocumentScan") as HTMLInputElement | null)
+                ?.files?.[0];
+              const maxEach = PASSPORT_UPLOAD_MAX_BYTES;
+              if (passport && passport.size > maxEach) {
+                e.preventDefault();
+                toast.error("Файл паспорта: максимум 8 МБ");
+                return;
+              }
+              if (taxDoc && taxDoc.size > maxEach) {
+                e.preventDefault();
+                toast.error("Файл НПД/ЕГРИП: максимум 8 МБ");
+                return;
+              }
+              const combined = (passport?.size ?? 0) + (taxDoc?.size ?? 0);
+              if (combined > 18 * 1024 * 1024) {
+                e.preventDefault();
+                toast.error("Оба скана вместе слишком тяжёлые — сожмите фото примерно до 4–6 МБ каждое");
                 return;
               }
               trackYandexGoal(

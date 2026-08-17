@@ -45,20 +45,39 @@ export async function POST(req: Request) {
   const { endpoint, keys } = parsed.data;
   const userId = session.user.id;
 
-  await prisma.pushSubscription.upsert({
-    where: { endpoint },
-    create: {
-      userId,
-      endpoint,
-      p256dh: keys.p256dh,
-      auth: keys.auth,
-    },
-    update: {
-      userId,
-      p256dh: keys.p256dh,
-      auth: keys.auth,
-    },
+  const userExists = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true },
   });
+  if (!userExists) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  try {
+    await prisma.pushSubscription.upsert({
+      where: { endpoint },
+      create: {
+        userId,
+        endpoint,
+        p256dh: keys.p256dh,
+        auth: keys.auth,
+      },
+      update: {
+        userId,
+        p256dh: keys.p256dh,
+        auth: keys.auth,
+      },
+    });
+  } catch (e) {
+    const code =
+      typeof e === "object" && e !== null && "code" in e
+        ? String((e as { code?: unknown }).code)
+        : "";
+    if (code === "P2003") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    throw e;
+  }
 
   return NextResponse.json({ ok: true });
 }

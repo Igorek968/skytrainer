@@ -32,6 +32,7 @@ import { Label } from "@/shared/ui/label";
 import { EventRegistrantsPanel } from "@/features/instructor/event-registrants-panel";
 import { EventVenuePicker, type EventVenueValue } from "@/features/instructor/event-venue-picker";
 import { compressImageFile } from "@/lib/compress-image-client";
+import { generateHourlySlots } from "@/lib/event-hourly-slots";
 import { parseApiErrorPayload, userFacingErrorMessage } from "@/lib/user-facing-error";
 import { cn } from "@/lib/utils";
 
@@ -48,9 +49,12 @@ type SlotFormRow = {
   date: string;
   time: string;
   title: string;
+  durationMinutes: string;
   maxSeats: string;
   priceRub: string;
 };
+
+type ScheduleMode = "single" | "tour" | "hourly";
 
 type InstructorEventApi = Omit<InstructorEventDTO, "slots" | "hasSlots"> & {
   hasSlots?: boolean;
@@ -63,6 +67,7 @@ type InstructorEventApi = Omit<InstructorEventDTO, "slots" | "hasSlots"> & {
     date?: string | null;
     time: string;
     title?: string | null;
+    durationMinutes?: number | null;
     maxSeats: number | null;
     priceRub: number | null;
     paidCount?: number;
@@ -114,6 +119,7 @@ function slotRowsFromApi(
     date: s.date?.trim() || (s.startsAt ? eventDayFromEventAt(s.startsAt) : fallbackDay) || todayYmd(),
     time: s.time ?? (s.startsAt ? formatSlotTimeRu(s.startsAt) : "10:00"),
     title: s.title?.trim() ?? "",
+    durationMinutes: s.durationMinutes != null ? String(s.durationMinutes) : "",
     maxSeats: s.maxSeats != null ? String(s.maxSeats) : "",
     priceRub: s.priceRub != null && s.priceRub > 0 ? String(s.priceRub) : "",
   }));
@@ -231,13 +237,17 @@ export function InstructorEventsEditor({
   const [body, setBody] = useState("");
   const [category, setCategory] = useState("");
   const [eventAt, setEventAt] = useState("");
-  const [useSlots, setUseSlots] = useState(true);
+  const [scheduleMode, setScheduleMode] = useState<ScheduleMode>("tour");
+  const useSlots = scheduleMode !== "single";
   const [slotRows, setSlotRows] = useState<SlotFormRow[]>(() => defaultSlotsForToday());
   const [draftSlotDate, setDraftSlotDate] = useState(() => todayYmd());
   const [draftSlotEndDate, setDraftSlotEndDate] = useState(() => todayYmd());
   const [draftSlotTime, setDraftSlotTime] = useState("10:00");
   const [draftSlotPrice, setDraftSlotPrice] = useState("");
   const [draftSlotSeats, setDraftSlotSeats] = useState("4");
+  const [hourlyFrom, setHourlyFrom] = useState("09:00");
+  const [hourlyTo, setHourlyTo] = useState("21:00");
+  const [hourlyDuration, setHourlyDuration] = useState("60");
   const [priceRub, setPriceRub] = useState("");
   const [maxRegistrations, setMaxRegistrations] = useState("");
   const [photoUrl, setPhotoUrl] = useState("");
@@ -386,7 +396,7 @@ export function InstructorEventsEditor({
     setEventAt("");
     const slotList = api.slots ?? [];
     const hasSlotRows = Boolean(api.hasSlots && slotList.length > 0);
-    setUseSlots(hasSlotRows || !ev.eventAt);
+    setScheduleMode(hasSlotRows || !ev.eventAt ? "tour" : "single");
     if (hasSlotRows && slotList.length) {
       setSlotRows(slotRowsFromApi(slotList, todayYmd()));
     } else if (!ev.eventAt) {
@@ -434,7 +444,7 @@ export function InstructorEventsEditor({
     setEventAt(toDatetimeLocalValue(ev.eventAt));
     const slotList = api.slots ?? [];
     const hasSlotRows = Boolean(api.hasSlots && slotList.length > 0);
-    setUseSlots(hasSlotRows || !ev.eventAt);
+    setScheduleMode(hasSlotRows || !ev.eventAt ? "tour" : "single");
     const nextSlots =
       hasSlotRows && slotList.length
         ? slotRowsFromApi(slotList, api.eventDay ?? (eventDayFromEventAt(ev.eventAt) || todayYmd()))
@@ -482,7 +492,7 @@ export function InstructorEventsEditor({
     setBody("");
     setCategory("");
     setEventAt("");
-    setUseSlots(true);
+    setScheduleMode("tour");
     setSlotRows(defaultSlotsForToday());
     setDraftSlotDate(todayYmd());
     setDraftSlotEndDate(todayYmd());
@@ -562,6 +572,14 @@ export function InstructorEventsEditor({
               date: s.date.trim(),
               time: s.time.trim(),
               title: titleTrim || null,
+              durationMinutes: (() => {
+                const d = s.durationMinutes.trim()
+                  ? Number.parseInt(s.durationMinutes.trim(), 10)
+                  : scheduleMode === "hourly"
+                    ? 60
+                    : NaN;
+                return Number.isFinite(d) && d >= 15 ? d : null;
+              })(),
               maxSeats: Number.isFinite(maxParsed) && maxParsed >= 1 ? maxParsed : null,
               priceRub: Number.isFinite(priceParsed) && priceParsed >= 0 ? priceParsed : null,
             };
@@ -945,6 +963,7 @@ export function InstructorEventsEditor({
           date,
           time,
           title: "",
+          durationMinutes: scheduleMode === "hourly" ? hourlyDuration.trim() || "60" : "",
           maxSeats: draftSlotSeats.trim(),
           priceRub: draftSlotPrice.trim(),
         });
@@ -997,6 +1016,9 @@ export function InstructorEventsEditor({
             id: s.id ?? `preview-slot-${idx}`,
             startsAt: slotStartsAtIso(s.date, s.time),
             title: s.title.trim() || null,
+            durationMinutes: s.durationMinutes.trim()
+              ? Number.parseInt(s.durationMinutes.trim(), 10)
+              : null,
             maxSeats,
             priceRub: priceRubVal,
             sortOrder: idx,
@@ -1347,9 +1369,19 @@ export function InstructorEventsEditor({
                 <input
                   type="radio"
                   name="event-format"
-                  checked={useSlots}
+                  checked={scheduleMode === "hourly"}
                   disabled={formLocked}
-                  onChange={() => setUseSlots(true)}
+                  onChange={() => setScheduleMode("hourly")}
+                />
+                По часам (уроки)
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="radio"
+                  name="event-format"
+                  checked={scheduleMode === "tour"}
+                  disabled={formLocked}
+                  onChange={() => setScheduleMode("tour")}
                 />
                 Многодневный тур
               </label>
@@ -1357,15 +1389,15 @@ export function InstructorEventsEditor({
                 <input
                   type="radio"
                   name="event-format"
-                  checked={!useSlots}
+                  checked={scheduleMode === "single"}
                   disabled={formLocked}
-                  onChange={() => setUseSlots(false)}
+                  onChange={() => setScheduleMode("single")}
                 />
                 Однодневный выход
               </label>
             </div>
 
-            {!useSlots ? (
+            {scheduleMode === "single" ? (
               <div className="space-y-2">
                 <Label htmlFor="event-at">Дата и время</Label>
                 <Input
@@ -1379,9 +1411,148 @@ export function InstructorEventsEditor({
               </div>
             ) : null}
 
+            {scheduleMode === "hourly" && !formLocked ? (
+              <div className="space-y-2 rounded-md border border-dashed border-border/80 bg-muted/20 p-3">
+                <Label>Сетка рабочих часов</Label>
+                <p className="text-xs text-muted-foreground">
+                  Например с 09:00 до 21:00, занятие 60 мин — появятся слоты 9, 10, 11… 20.
+                </p>
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                  <div className="space-y-1">
+                    <Label htmlFor="hourly-date" className="text-xs text-muted-foreground">
+                      День
+                    </Label>
+                    <Input
+                      id="hourly-date"
+                      type="date"
+                      value={draftSlotDate}
+                      onChange={(e) => {
+                        setDraftSlotDate(e.target.value);
+                        setDraftSlotEndDate(e.target.value);
+                      }}
+                      className="h-9"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="hourly-from" className="text-xs text-muted-foreground">
+                      С
+                    </Label>
+                    <Input
+                      id="hourly-from"
+                      type="time"
+                      value={hourlyFrom}
+                      onChange={(e) => setHourlyFrom(e.target.value)}
+                      className="h-9"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="hourly-to" className="text-xs text-muted-foreground">
+                      До
+                    </Label>
+                    <Input
+                      id="hourly-to"
+                      type="time"
+                      value={hourlyTo}
+                      onChange={(e) => setHourlyTo(e.target.value)}
+                      className="h-9"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="hourly-dur" className="text-xs text-muted-foreground">
+                      Длительность, мин
+                    </Label>
+                    <Input
+                      id="hourly-dur"
+                      type="number"
+                      min={15}
+                      max={240}
+                      step={15}
+                      value={hourlyDuration}
+                      onChange={(e) => setHourlyDuration(e.target.value)}
+                      className="h-9"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="hourly-price" className="text-xs text-muted-foreground">
+                      Цена слота, ₽
+                    </Label>
+                    <Input
+                      id="hourly-price"
+                      type="number"
+                      min={0}
+                      value={draftSlotPrice}
+                      onChange={(e) => setDraftSlotPrice(e.target.value)}
+                      className="h-9"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="hourly-seats" className="text-xs text-muted-foreground">
+                      Мест на слот
+                    </Label>
+                    <Input
+                      id="hourly-seats"
+                      type="number"
+                      min={1}
+                      value={draftSlotSeats}
+                      onChange={(e) => setDraftSlotSeats(e.target.value)}
+                      className="h-9"
+                    />
+                  </div>
+                  <div className="flex items-end sm:col-span-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="accent"
+                      className="h-9 w-full"
+                      onClick={() => {
+                        const duration = Number.parseInt(hourlyDuration.trim(), 10) || 60;
+                        const generated = generateHourlySlots({
+                          dateFrom: draftSlotDate,
+                          dateTo: draftSlotEndDate || draftSlotDate,
+                          timeFrom: hourlyFrom,
+                          timeTo: hourlyTo,
+                          durationMinutes: duration,
+                        });
+                        if (!generated.length) {
+                          toast.error("Проверьте день и окно часов (конец должен быть позже начала)");
+                          return;
+                        }
+                        let added = 0;
+                        setSlotRows((rows) => {
+                          const existing = new Set(rows.map((r) => `${r.date}T${r.time}`));
+                          const next = [...rows];
+                          for (const g of generated) {
+                            const key = `${g.date}T${g.time}`;
+                            if (existing.has(key)) continue;
+                            existing.add(key);
+                            added += 1;
+                            next.push({
+                              id: newLocalSlotId(),
+                              date: g.date,
+                              time: g.time,
+                              title: "",
+                              durationMinutes: String(g.durationMinutes),
+                              maxSeats: draftSlotSeats.trim(),
+                              priceRub: draftSlotPrice.trim(),
+                            });
+                          }
+                          return next.sort((a, b) =>
+                            `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`),
+                          );
+                        });
+                        toast.success(added > 0 ? `Добавлено слотов: ${added}` : "Такие слоты уже есть");
+                      }}
+                    >
+                      Сгенерировать слоты
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
             {useSlots ? (
               <div className="space-y-3">
-                {!formLocked ? (
+                {scheduleMode === "tour" && !formLocked ? (
                   <div className="space-y-2 rounded-md border border-dashed border-border/80 bg-muted/20 p-3">
                     <Label>Добавить день выхода</Label>
                     <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
@@ -1475,7 +1646,7 @@ export function InstructorEventsEditor({
 
                 <div className="space-y-2">
                   <Label>
-                    Дни мероприятия
+                    Дни и часы
                     {slotRows.length > 0 ? (
                       <span className="ml-1 font-normal text-muted-foreground">
                         ({slotRows.length})
@@ -1485,7 +1656,7 @@ export function InstructorEventsEditor({
 
                   {slotRows.length === 0 ? (
                     <p className="rounded-md border border-dashed border-border px-3 py-4 text-center text-xs text-muted-foreground">
-                      Пока нет дней — заполните поля выше и нажмите «+ Добавить»
+                      Пока нет слотов — сгенерируйте часы или добавьте дни тура
                     </p>
                   ) : (
                     <ul className="space-y-2 md:hidden">

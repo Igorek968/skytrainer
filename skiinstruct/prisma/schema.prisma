@@ -114,6 +114,12 @@ enum EventCatalogStatus {
   ARCHIVED
 }
 
+/// Тип карточки каталога: событие/тур или площадка (корты, база).
+enum EventCatalogKind {
+  EVENT
+  VENUE
+}
+
 enum EventRegistrationStatus {
   PENDING_PAYMENT
   PAID
@@ -533,6 +539,11 @@ model EventCatalogItem {
   photoUrl String?
   eventAt  DateTime?
 
+  /// EVENT — разовое/тур; VENUE — площадка (корты), к которой присоединяются инструкторы.
+  kind EventCatalogKind @default(EVENT)
+  /// Витрина без аренды самой площадки: клиент выбирает инструктора, не «арендует корт».
+  listingOnly Boolean @default(false)
+
   venueAddress String?
   venueLat     Float?
   venueLng     Float?
@@ -626,6 +637,8 @@ model EventSlot {
   event   InstructorEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
 
   startsAt  DateTime
+  /// Длительность занятия/выхода в минутах (часовая сетка — обычно 60; тур — 120).
+  durationMinutes Int?
   /// Краткое название выхода / дня (опционально), напр. «Утренний заезд».
   title     String?
   /// Push инструктору за ~1 ч до этого выхода.

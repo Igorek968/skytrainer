@@ -11,6 +11,8 @@ export function serializeEventCatalogItem(
     title: row.title,
     body: row.body,
     category: row.category ?? null,
+    kind: row.kind === "VENUE" ? "VENUE" : "EVENT",
+    listingOnly: Boolean(row.listingOnly) || row.kind === "VENUE",
     photoUrl: row.photoUrl,
     eventAt: row.eventAt?.toISOString() ?? null,
     venueAddress: row.venueAddress,

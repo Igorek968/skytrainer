@@ -17,6 +17,8 @@ export type EventSlotInput = {
   time: string;
   /** Название выхода / дня */
   title?: string | null;
+  /** Длительность занятия в минутах. */
+  durationMinutes?: number | null;
   maxSeats?: number | null;
   priceRub?: number | null;
 };
@@ -25,6 +27,7 @@ export type EventSlotDTO = {
   id: string;
   startsAt: string;
   title: string | null;
+  durationMinutes: number | null;
   maxSeats: number | null;
   priceRub: number | null;
   sortOrder: number;
@@ -118,10 +121,17 @@ export async function syncEventSlots(
       if (!day) return null;
       const startsAt = buildSlotStartsAt(day, row.time);
       if (!startsAt) return null;
+      const durationMinutes =
+        row.durationMinutes != null &&
+        Number.isFinite(row.durationMinutes) &&
+        row.durationMinutes >= 15
+          ? Math.min(24 * 60, Math.round(row.durationMinutes))
+          : null;
       return {
         id: row.id?.trim() || undefined,
         startsAt,
         title: normalizeSlotTitle(row.title),
+        durationMinutes,
         maxSeats: row.maxSeats ?? null,
         priceRub: row.priceRub ?? null,
         sortOrder: index,
@@ -161,6 +171,7 @@ export async function syncEventSlots(
         data: {
           startsAt: row.startsAt,
           title: row.title,
+          durationMinutes: row.durationMinutes,
           maxSeats: row.maxSeats,
           priceRub: row.priceRub,
           sortOrder: row.sortOrder,
@@ -173,6 +184,7 @@ export async function syncEventSlots(
           eventId,
           startsAt: row.startsAt,
           title: row.title,
+          durationMinutes: row.durationMinutes,
           maxSeats: row.maxSeats,
           priceRub: row.priceRub,
           sortOrder: row.sortOrder,
@@ -208,6 +220,7 @@ export async function serializeEventSlot(
     id: slot.id,
     startsAt: slot.startsAt.toISOString(),
     title: slot.title ?? null,
+    durationMinutes: slot.durationMinutes ?? null,
     maxSeats: slot.maxSeats,
     priceRub: slot.priceRub,
     sortOrder: slot.sortOrder,
@@ -266,6 +279,7 @@ export function slotsToFormInputs(slots: EventSlot[]): EventSlotInput[] {
     date: eventDayFromIso(s.startsAt.toISOString()),
     time: formatSlotTimeRu(s.startsAt),
     title: s.title ?? null,
+    durationMinutes: s.durationMinutes ?? null,
     maxSeats: s.maxSeats,
     priceRub: s.priceRub,
   }));

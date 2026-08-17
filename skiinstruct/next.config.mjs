@@ -133,7 +133,8 @@ const nextConfig = {
     instrumentationHook: true,
     serverActions: {
       allowedOrigins: serverActionsAllowedOrigins(),
-      bodySizeLimit: "8mb",
+      // Анкета инструктора: паспорт + НПД/ЕГРИП до 8 МБ каждый + поля формы
+      bodySizeLimit: "20mb",
     },
   },
   images: {

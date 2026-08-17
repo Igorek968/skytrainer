@@ -254,8 +254,12 @@ export function eventOccurrenceToDayBlock(
   return { ymd, fromMinutes, toMinutes };
 }
 
-function eventOccurrenceStillActive(startsAt: Date, now = new Date()): boolean {
-  return startsAt.getTime() + EVENT_SCHEDULE_BLOCK_MINUTES * 60_000 > now.getTime();
+function eventOccurrenceStillActive(
+  startsAt: Date,
+  now = new Date(),
+  durationMinutes = EVENT_SCHEDULE_BLOCK_MINUTES,
+): boolean {
+  return startsAt.getTime() + Math.max(30, durationMinutes) * 60_000 > now.getTime();
 }
 
 async function loadInstructorEventsForSchedule(
@@ -272,7 +276,7 @@ async function loadInstructorEventsForSchedule(
       title: true,
       eventAt: true,
       slots: {
-        select: { id: true, startsAt: true },
+        select: { id: true, startsAt: true, durationMinutes: true },
         orderBy: { startsAt: "asc" },
       },
     },
@@ -284,7 +288,7 @@ export function instructorEventsToBusyBlocks(
     id: string;
     title: string;
     eventAt: Date | null;
-    slots: Array<{ startsAt: Date }>;
+    slots: Array<{ startsAt: Date; durationMinutes?: number | null }>;
   }>,
   opts?: { onlyActive?: boolean; now?: Date },
 ): EventBusyBlock[] {
@@ -295,13 +299,18 @@ export function instructorEventsToBusyBlocks(
   for (const event of events) {
     const startsList =
       event.slots.length > 0
-        ? event.slots.map((s) => s.startsAt)
+        ? event.slots.map((s) => ({
+            startsAt: s.startsAt,
+            durationMinutes: s.durationMinutes ?? EVENT_SCHEDULE_BLOCK_MINUTES,
+          }))
         : event.eventAt
-          ? [event.eventAt]
+          ? [{ startsAt: event.eventAt, durationMinutes: EVENT_SCHEDULE_BLOCK_MINUTES }]
           : [];
-    for (const startsAt of startsList) {
-      if (onlyActive && !eventOccurrenceStillActive(startsAt, now)) continue;
-      const block = eventOccurrenceToDayBlock(startsAt);
+    for (const item of startsList) {
+      if (onlyActive && !eventOccurrenceStillActive(item.startsAt, now, item.durationMinutes)) {
+        continue;
+      }
+      const block = eventOccurrenceToDayBlock(item.startsAt, item.durationMinutes);
       out.push({
         ...block,
         eventId: event.id,

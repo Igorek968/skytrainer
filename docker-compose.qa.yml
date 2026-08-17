@@ -110,7 +110,8 @@ services:
       postgres:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -S -O - http://localhost:3000/api/health >/dev/null 2>&1 || exit 1"]
+      # 127.0.0.1: alpine wget → localhost часто идёт на ::1, а next слушает IPv4 → ложный unhealthy
+      test: ["CMD-SHELL", "wget -q -S -O - http://127.0.0.1:3000/api/health >/dev/null 2>&1 || exit 1"]
       interval: 20s
       timeout: 10s
       retries: 8

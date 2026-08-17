@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect } from "react";
 
+import { userFacingErrorMessage } from "@/lib/user-facing-error";
 import { Button } from "@/shared/ui/button";
 
 export default function GlobalError({
@@ -16,16 +17,21 @@ export default function GlobalError({
     console.error(error);
   }, [error]);
 
+  const detail = userFacingErrorMessage(
+    error,
+    "Временный сбой загрузки. Обновите страницу или войдите снова.",
+  );
+
   return (
     <div className="mx-auto max-w-lg space-y-4 rounded-lg border border-border bg-card p-6">
       <h1 className="text-lg font-semibold">Не удалось загрузить страницу</h1>
       <p className="text-sm text-muted-foreground">
-        Попробуйте обновить страницу. Если вы переключались между кабинетом клиента, инструктора и админа —
-        выйдите и войдите снова в нужный раздел.
+        Попробуйте обновить страницу. Если ошибка повторяется после регистрации инструктора — уменьшите
+        размер сканов паспорта и НПД и отправьте анкету ещё раз.
       </p>
-      {error.message ? (
-        <p className="rounded-md border border-border bg-muted/40 px-3 py-2 font-mono text-xs text-muted-foreground">
-          {error.message}
+      {detail ? (
+        <p className="rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+          {detail}
         </p>
       ) : null}
       <div className="flex flex-wrap gap-2">
@@ -39,7 +45,7 @@ export default function GlobalError({
           <Link href="/instructor/login">Вход инструктора</Link>
         </Button>
         <Button type="button" variant="outline" asChild>
-          <Link href="/admin/login">Вход администратора</Link>
+          <Link href="/instructor/apply?new=1">Анкета инструктора</Link>
         </Button>
       </div>
     </div>

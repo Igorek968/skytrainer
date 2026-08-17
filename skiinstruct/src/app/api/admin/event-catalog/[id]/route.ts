@@ -92,6 +92,8 @@ export async function PATCH(req: Request, ctx: Ctx) {
       ...(data.title !== undefined ? { title: data.title } : {}),
       ...(data.body !== undefined ? { body: data.body } : {}),
       ...(data.category !== undefined ? { category: data.category } : {}),
+      ...(data.kind !== undefined ? { kind: data.kind } : {}),
+      ...(data.listingOnly !== undefined ? { listingOnly: data.listingOnly } : {}),
       ...(data.photoUrl !== undefined ? { photoUrl: data.photoUrl || null } : {}),
       ...(eventAt !== undefined ? { eventAt } : {}),
       ...(venueAddress !== undefined ? { venueAddress } : {}),

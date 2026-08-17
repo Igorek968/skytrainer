@@ -11,6 +11,7 @@ import {
 } from "@/features/events/event-catalog-nav-shell";
 import { EventVenuePicker, type EventVenueValue } from "@/features/instructor/event-venue-picker";
 import { catalogStatusLabel, type EventCatalogItemDTO } from "@/lib/event-catalog";
+import { catalogKindHint, catalogKindLabel } from "@/lib/event-catalog-kinds";
 import { eventCategoryOptions } from "@/lib/event-category";
 import {
   FALLBACK_MAP_CITY,
@@ -106,6 +107,8 @@ export function AdminEventCatalogSection() {
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [category, setCategory] = useState("");
+  const [catalogKind, setCatalogKind] = useState<"EVENT" | "VENUE">("EVENT");
+  const [listingOnly, setListingOnly] = useState(false);
   const [eventAtLocal, setEventAtLocal] = useState("");
   const [selectedEventIds, setSelectedEventIds] = useState<string[]>([]);
   const [attachForId, setAttachForId] = useState<string | null>(null);
@@ -189,6 +192,8 @@ export function AdminEventCatalogSection() {
     setTitle("");
     setBody("");
     setCategory("");
+    setCatalogKind("EVENT");
+    setListingOnly(false);
     setEventAtLocal("");
     setSelectedEventIds([]);
   };
@@ -199,6 +204,9 @@ export function AdminEventCatalogSection() {
       if (venueAddress && (venue.lat == null || venue.lng == null)) {
         throw new Error("Поставьте точку на карте или найдите адрес кнопкой «Найти»");
       }
+      if (catalogKind === "VENUE" && !venueAddress) {
+        throw new Error("Для площадки укажите адрес и точку на карте");
+      }
       const eventAt = eventAtLocal ? new Date(eventAtLocal).toISOString() : null;
       const r = await fetch("/api/admin/event-catalog", {
         method: "POST",
@@ -208,7 +216,9 @@ export function AdminEventCatalogSection() {
           title: title.trim(),
           body: body.trim(),
           category: category.trim(),
-          eventAt,
+          kind: catalogKind,
+          listingOnly: catalogKind === "VENUE" ? true : listingOnly,
+          eventAt: catalogKind === "VENUE" ? null : eventAt,
           venueAddress: venueAddress || null,
           venueLat: venue.lat ?? selectedCity.lat,
           venueLng: venue.lng ?? selectedCity.lng,
@@ -515,15 +525,62 @@ export function AdminEventCatalogSection() {
                     Новая карточка · {selectedCity.name}
                   </h2>
                   <p className="text-sm text-muted-foreground">
-                    Одно событие в ленте — несколько инструкторов. Место на карте и фото, затем
-                    название.
+                    {catalogKindHint(catalogKind)}
                   </p>
+                </div>
+
+                <div className="space-y-2 rounded-md border border-border/80 bg-muted/20 p-3">
+                  <Label className="text-sm font-medium">Тип карточки</Label>
+                  <div className="flex flex-wrap gap-4">
+                    <label className="flex items-center gap-2 text-sm">
+                      <input
+                        type="radio"
+                        name="catalog-kind"
+                        checked={catalogKind === "EVENT"}
+                        onChange={() => {
+                          setCatalogKind("EVENT");
+                          setListingOnly(false);
+                        }}
+                      />
+                      Событие / тур
+                    </label>
+                    <label className="flex items-center gap-2 text-sm">
+                      <input
+                        type="radio"
+                        name="catalog-kind"
+                        checked={catalogKind === "VENUE"}
+                        onChange={() => {
+                          setCatalogKind("VENUE");
+                          setListingOnly(true);
+                        }}
+                      />
+                      Площадка (корты, база)
+                    </label>
+                  </div>
+                  {catalogKind === "EVENT" ? (
+                    <label className="flex items-start gap-2 text-sm text-muted-foreground">
+                      <input
+                        type="checkbox"
+                        className="mt-1"
+                        checked={listingOnly}
+                        onChange={(e) => setListingOnly(e.target.checked)}
+                      />
+                      <span>Только витрина (без аренды места) — клиент выбирает инструктора</span>
+                    </label>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      Площадка видна на карте без аренды. Инструкторы присоединяются в кабинете → клиент
+                      видит, кто работает на месте.
+                    </p>
+                  )}
                 </div>
 
                 <EventVenuePicker key={citySlug} value={venue} onChange={setVenue} mapFirst />
 
                 <div className="space-y-2">
-                  <Label htmlFor="catalog-photo">Фото мероприятия</Label>
+                  <Label htmlFor="catalog-photo">
+                    {catalogKind === "VENUE" ? "Фото площадки" : "Фото мероприятия"}
+                  </Label>
                   <Input
                     id="catalog-photo"
                     type="file"
@@ -579,12 +636,15 @@ export function AdminEventCatalogSection() {
                     />
                   </div>
                   <div className="space-y-1.5 sm:col-span-2">
-                    <Label htmlFor="catalog-at">Дата / время</Label>
+                    <Label htmlFor="catalog-at">
+                      Дата / время{catalogKind === "VENUE" ? " (не нужна для площадки)" : ""}
+                    </Label>
                     <Input
                       id="catalog-at"
                       type="datetime-local"
                       value={eventAtLocal}
                       onChange={(e) => setEventAtLocal(e.target.value)}
+                      disabled={catalogKind === "VENUE"}
                     />
                   </div>
                 </div>
@@ -686,7 +746,9 @@ export function AdminEventCatalogSection() {
                               <div className="flex flex-wrap items-baseline justify-between gap-2">
                                 <div className="font-medium">{item.title}</div>
                                 <span className="text-xs text-muted-foreground">
-                                  {catalogStatusLabel(item.status)} · офферов: {item.offerCount}
+                                  {catalogKindLabel(item.kind)} · {catalogStatusLabel(item.status)} ·{" "}
+                                  {item.listingOnly ? "без аренды · " : ""}
+                                  офферов: {item.offerCount}
                                 </span>
                               </div>
                               {item.category ? (

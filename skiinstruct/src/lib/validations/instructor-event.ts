@@ -30,6 +30,8 @@ const eventSlotInputSchema = z.object({
   time: z.string().trim().regex(/^\d{1,2}:\d{2}$/, "Время в формате ЧЧ:ММ"),
   /** Название выхода / дня */
   title: z.string().trim().max(80).optional().nullable(),
+  /** Длительность занятия в минутах (часовая сетка — 60). */
+  durationMinutes: z.number().int().min(15).max(24 * 60).optional().nullable(),
   maxSeats: z.number().int().min(1).max(10_000).optional().nullable(),
   priceRub: priceRubField,
 });

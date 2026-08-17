@@ -15,6 +15,10 @@ export const createEventCatalogSchema = z.object({
   title: z.string().trim().min(1).max(120),
   body: z.string().trim().min(1).max(2000),
   category: requiredEventCategorySchema,
+  /** EVENT — событие/тур; VENUE — площадка (корты). */
+  kind: z.enum(["EVENT", "VENUE"]).optional().default("EVENT"),
+  /** Витрина без аренды площадки (для VENUE обычно true). */
+  listingOnly: z.boolean().optional(),
   photoUrl: z.string().trim().max(500).optional().nullable(),
   eventAt: z.string().max(40).optional().nullable(),
   venueAddress: z.string().trim().max(500).optional().nullable(),
@@ -31,6 +35,8 @@ export const updateEventCatalogSchema = z.object({
   title: z.string().trim().min(1).max(120).optional(),
   body: z.string().trim().min(1).max(2000).optional(),
   category: requiredEventCategorySchema.optional(),
+  kind: z.enum(["EVENT", "VENUE"]).optional(),
+  listingOnly: z.boolean().optional(),
   photoUrl: z.string().trim().max(500).optional().nullable(),
   eventAt: z.string().max(40).optional().nullable(),
   venueAddress: z.string().trim().max(500).optional().nullable(),

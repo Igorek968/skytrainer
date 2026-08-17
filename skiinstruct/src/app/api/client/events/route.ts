@@ -8,7 +8,7 @@ import {
   instructorEventDistanceKm,
   resolveClientEventsOrigin,
 } from "@/lib/client-events-geo";
-import { buildClientEventFeedCards, feedCardCategory } from "@/lib/event-catalog";
+import { buildClientEventFeedCards, feedCardCategory, feedCardDistanceKm } from "@/lib/event-catalog";
 import { canonicalizeActivityLabel } from "@/lib/services/instructor-match";
 import { enrichClientEvent } from "@/lib/instructor-events";
 import { prisma } from "@/lib/prisma";
@@ -71,6 +71,8 @@ export async function GET(req: Request) {
           title: true,
           body: true,
           category: true,
+          kind: true,
+          listingOnly: true,
           photoUrl: true,
           eventAt: true,
           venueAddress: true,
@@ -79,6 +81,28 @@ export async function GET(req: Request) {
           status: true,
         },
       },
+    },
+  });
+
+  const venueCatalogRows = await prisma.eventCatalogItem.findMany({
+    where: {
+      status: "PUBLISHED",
+      OR: [{ kind: "VENUE" }, { listingOnly: true }],
+    },
+    take: 80,
+    select: {
+      id: true,
+      title: true,
+      body: true,
+      category: true,
+      kind: true,
+      listingOnly: true,
+      photoUrl: true,
+      eventAt: true,
+      venueAddress: true,
+      venueLat: true,
+      venueLng: true,
+      status: true,
     },
   });
 
@@ -122,6 +146,8 @@ export async function GET(req: Request) {
       title: string;
       body: string;
       category: string | null;
+      kind?: "EVENT" | "VENUE";
+      listingOnly?: boolean;
       photoUrl: string | null;
       eventAt: string | null;
       venueAddress: string | null;
@@ -131,6 +157,23 @@ export async function GET(req: Request) {
     }
   >();
 
+  for (const row of venueCatalogRows) {
+    catalogMeta.set(row.id, {
+      id: row.id,
+      title: row.title,
+      body: row.body,
+      category: row.category ?? null,
+      kind: row.kind === "VENUE" ? "VENUE" : "EVENT",
+      listingOnly: Boolean(row.listingOnly) || row.kind === "VENUE",
+      photoUrl: row.photoUrl,
+      eventAt: row.eventAt?.toISOString() ?? null,
+      venueAddress: row.venueAddress,
+      venueLat: row.venueLat,
+      venueLng: row.venueLng,
+      status: row.status,
+    });
+  }
+
   for (const row of rows) {
     if (!row.catalogItem) continue;
     const c = row.catalogItem;
@@ -139,6 +182,8 @@ export async function GET(req: Request) {
       title: c.title,
       body: c.body,
       category: c.category ?? null,
+      kind: c.kind === "VENUE" ? "VENUE" : "EVENT",
+      listingOnly: Boolean(c.listingOnly) || c.kind === "VENUE",
       photoUrl: c.photoUrl,
       eventAt: c.eventAt?.toISOString() ?? null,
       venueAddress: c.venueAddress,
@@ -150,17 +195,77 @@ export async function GET(req: Request) {
 
   let cards = buildClientEventFeedCards(sortedFlat, catalogMeta);
 
+  cards = cards.map((card) => {
+    if (card.kind !== "catalog" || card.distanceKm != null) return card;
+    if (card.venueLat == null || card.venueLng == null) return card;
+    const distanceKm = instructorEventDistanceKm(
+      origin.lat,
+      origin.lng,
+      null,
+      null,
+      card.venueLat,
+      card.venueLng,
+    );
+    return { ...card, distanceKm };
+  });
+
+  if (!unlimited) {
+    cards = cards.filter((card) => {
+      const d = feedCardDistanceKm(card);
+      return d == null || !Number.isFinite(d) || d <= radiusKm;
+    });
+  }
+
   if (categoryFilter) {
     cards = cards.filter((card) => feedCardCategory(card) === categoryFilter);
   }
 
-  cards = cards.slice(0, 50);
+  cards = cards
+    .sort((a, b) => (feedCardDistanceKm(a) ?? 99999) - (feedCardDistanceKm(b) ?? 99999))
+    .slice(0, 50);
 
   /** Плоский список для карты / совместимости: по одной точке на карточку каталога + одиночные. */
   const eventsForMap = cards.flatMap((card) => {
     if (card.kind === "single") return [card.event];
     const primary = card.offers[0];
-    if (!primary) return [];
+    if (!primary) {
+      // Площадка без инструкторов — пин по координатам карточки
+      if (card.venueLat == null || card.venueLng == null) return [];
+          return [
+        {
+          id: `catalog-pin:${card.catalogId}`,
+          instructorId: "",
+          title: card.title,
+          body: card.body,
+          category: card.category,
+          photoUrl: card.photoUrl,
+          eventAt: card.eventAt,
+          venueAddress: card.venueAddress,
+          venueLat: card.venueLat,
+          venueLng: card.venueLng,
+          distanceKm: card.distanceKm,
+          priceRub: null,
+          catalogItemId: card.catalogId,
+          moderationStatus: "PUBLISHED" as const,
+          isCompleted: false,
+          canEdit: false,
+          paidRegistrationCount: 0,
+          spotsLeft: null,
+          registrationOpen: false,
+          isFree: true,
+          myRegistration: null,
+          slots: [],
+          hasSlots: false,
+          rejectNote: null,
+          submittedAt: null,
+          publishedAt: null,
+          orderId: null,
+          maxRegistrations: null,
+          createdAt: new Date(0).toISOString(),
+          updatedAt: new Date(0).toISOString(),
+        } as unknown as import("@/lib/instructor-events").ClientInstructorEventDTO,
+      ];
+    }
     return [
       {
         ...primary,
@@ -174,7 +279,7 @@ export async function GET(req: Request) {
         venueLat: card.venueLat,
         venueLng: card.venueLng,
         distanceKm: card.distanceKm,
-        priceRub: card.priceFromRub,
+        priceRub: card.listingOnly ? null : card.priceFromRub,
         catalogItemId: card.catalogId,
       },
     ];

@@ -74,6 +74,9 @@ export async function POST(req: Request) {
 
   const publish = data.publish === true;
   const now = new Date();
+  const kind = data.kind === "VENUE" ? "VENUE" : "EVENT";
+  const listingOnly =
+    data.listingOnly != null ? data.listingOnly : kind === "VENUE";
 
   const item = await prisma.$transaction(async (tx) => {
     const created = await tx.eventCatalogItem.create({
@@ -81,6 +84,8 @@ export async function POST(req: Request) {
         title: data.title,
         body: data.body,
         category: data.category,
+        kind,
+        listingOnly,
         photoUrl: data.photoUrl || null,
         eventAt,
         venueAddress: data.venueAddress || null,
