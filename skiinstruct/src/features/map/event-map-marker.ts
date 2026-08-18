@@ -1,4 +1,4 @@
-/** Метка опубликованного мероприятия на карте клиента (по venueLat/venueLng). */
+/** Метка опубликованного события на карте клиента (по venueLat/venueLng). */
 
 import { publicUploadAbsoluteDisplaySrc } from "@/lib/public-uploads-display";
 
@@ -51,9 +51,9 @@ export function formatEventPinPrice(priceRub: number | null | undefined): string
   return `${Math.round(priceRub).toLocaleString("ru-RU")} ₽`;
 }
 
-/** Подпись на карте — название мероприятия. */
+/** Подпись на карте — название события. */
 export function eventMapLabel(pin: EventMapPin): string {
-  const title = pin.title.trim() || "Мероприятие";
+  const title = pin.title.trim() || "Событие";
   return title.length > 36 ? `${title.slice(0, 34)}…` : title;
 }
 
@@ -78,7 +78,7 @@ function buildStarRatingHtml(rating: number): string {
   return `<span class="event-map-marker__stars">${stars}</span><span class="event-map-marker__rating-value">${clamped.toFixed(1)}</span>`;
 }
 
-/** Круглый смайл-значок мероприятия (далеко). */
+/** Круглый смайл-значок события (далеко). */
 function buildEventSmileyHtml(): string {
   return `<div class="event-map-marker__smiley" aria-hidden="true">
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="36" height="36">
@@ -116,7 +116,7 @@ export function buildEventBalloonHtml(pin: EventMapPin): string {
     );
   }
   parts.push(
-    `<div style="margin-top:8px;font:11px/1.3 system-ui,sans-serif;color:#94a3b8">Двойной клик — открыть мероприятие</div>`,
+    `<div style="margin-top:8px;font:11px/1.3 system-ui,sans-serif;color:#94a3b8">Двойной клик — открыть событие</div>`,
   );
   return parts.join("");
 }

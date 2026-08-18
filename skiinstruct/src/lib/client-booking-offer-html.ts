@@ -32,7 +32,7 @@ export function renderClientOfferBodyHtml(): string {
     не является исполнителем услуг обучения.<br />
     <strong>Инструктор</strong> — самозанятый (НПД) или ИП, оказывает занятие лично.<br />
     <strong>Клиент</strong> — физическое лицо, бронирующее занятие.<br />
-    <strong>Комиссия Агента</strong> — ${PLATFORM_FEE_PERCENT}% от стоимости занятия / участия в мероприятии.<br />
+    <strong>Комиссия Агента</strong> — ${PLATFORM_FEE_PERCENT}% от стоимости занятия / участия в событии.<br />
     <strong>Услуга инструктора</strong> — обучение и проведение занятия; договор на неё — между Клиентом и Инструктором.
   </p>
 
@@ -65,7 +65,7 @@ export function renderClientOfferBodyHtml(): string {
     Подробности: ${escapeOfferHtml(site)}${LEGAL_ROUTES.returns}.
   </p>
 
-  <h2>5. Мероприятия</h2>
+  <h2>5. События</h2>
   <p>
     Комиссия Агента ${PLATFORM_FEE_PERCENT}%. Отмена клиентом за ${EVENT_CANCEL_FULL_REFUND_HOURS} ч и более — 100%;
     позже — без возврата. Отмена инструктором — полный возврат участникам.

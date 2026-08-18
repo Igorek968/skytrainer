@@ -37,19 +37,19 @@ export async function PATCH(req: Request, ctx: Ctx) {
     include: { slots: { orderBy: [{ sortOrder: "asc" }, { startsAt: "asc" }] } },
   });
   if (!existing) {
-    return NextResponse.json({ error: "Мероприятие не найдено" }, { status: 404 });
+    return NextResponse.json({ error: "Событие не найдено" }, { status: 404 });
   }
 
   if (existing.moderationStatus !== "PUBLISHED") {
     return NextResponse.json(
-      { error: "Автовыкладывание доступно только для опубликованных мероприятий" },
+      { error: "Автовыкладывание доступно только для опубликованных событий" },
       { status: 400 },
     );
   }
 
   if (isInstructorEventCompleted(existing.eventAt) && !existing.slots.length) {
     return NextResponse.json(
-      { error: "Мероприятие уже завершено — включите на актуальном опубликованном" },
+      { error: "Событие уже завершено — включите на актуальном опубликованном" },
       { status: 400 },
     );
   }

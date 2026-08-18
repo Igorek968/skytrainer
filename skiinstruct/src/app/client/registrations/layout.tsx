@@ -1,7 +1,7 @@
 import { redirectToRoleCabinetUnless } from "@/lib/auth-server-redirect";
 import { clientAuthLoginRedirect } from "@/lib/role-route-access";
 
-/** Заявки на мероприятия — только для роли CLIENT. */
+/** Заявки на события — только для роли CLIENT. */
 export default async function ClientRegistrationsLayout({
   children,
 }: {

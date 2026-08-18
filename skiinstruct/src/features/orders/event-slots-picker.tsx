@@ -77,7 +77,7 @@ export function EventSlotsPicker({
 
   return (
     <div className="mt-3 space-y-2">
-      <p className="text-xs font-medium text-foreground">Выберите день мероприятия</p>
+      <p className="text-xs font-medium text-foreground">Выберите день события</p>
       <LegalConsentCheckbox
         id={`event-slots-legal-${event.id}`}
         checked={acceptLegal}

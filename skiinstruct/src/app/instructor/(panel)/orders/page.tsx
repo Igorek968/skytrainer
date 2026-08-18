@@ -118,7 +118,7 @@ export default function InstructorOrdersPage() {
             </Button>
           ) : null}
           <Button asChild variant="outline">
-            <Link href="/instructor#events">Мероприятия</Link>
+            <Link href="/instructor#events">События</Link>
           </Button>
         </div>
       </div>
@@ -181,7 +181,7 @@ export default function InstructorOrdersPage() {
                           {instructorRegistrationStatusLabel(entry.registration.status)}
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          Мероприятие · {entry.registration.event.title}
+                          Событие · {entry.registration.event.title}
                           {entry.registration.event.eventAt
                             ? ` · ${formatEventDateRu(entry.registration.event.eventAt)}`
                             : ""}

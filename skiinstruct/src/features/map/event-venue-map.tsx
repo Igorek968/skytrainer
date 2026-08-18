@@ -81,7 +81,7 @@ export type EventVenueMapProps = {
   onPositionChange?: (lat: number, lng: number) => void;
 };
 
-/** Место мероприятия: Яндекс.Карты при ключе, иначе OSM/CARTO. */
+/** Место события: Яндекс.Карты при ключе, иначе OSM/CARTO. */
 export function EventVenueMap(props: EventVenueMapProps) {
   if (hasYandexMapsKey()) {
     return <YandexEventVenueMap {...props} />;
@@ -94,7 +94,7 @@ function LeafletEventVenueMap({
   lng,
   interactive = true,
   className,
-  markerLabel = "Место мероприятия",
+  markerLabel = "Место события",
   onPositionChange,
 }: EventVenueMapProps) {
   const center: LatLngExpression = [lat, lng];

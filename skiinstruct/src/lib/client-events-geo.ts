@@ -1,6 +1,6 @@
 import { DEFAULT_SKI_RESORT_CENTER, haversineKm } from "@/lib/services/geo";
 
-/** Радиус ленты мероприятий на главной клиента (км). */
+/** Радиус ленты событий на главной клиента (км). */
 export const CLIENT_EVENTS_RADIUS_KM = 60;
 
 export function resolveClientEventsOrigin(lat?: number | null, lng?: number | null): {

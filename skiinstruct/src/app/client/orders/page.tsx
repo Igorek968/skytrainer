@@ -180,7 +180,7 @@ export default function ClientOrdersPage() {
                           {clientRegistrationStatusLabel(entry.registration.status)}
                         </div>
                         <div className="line-clamp-2 text-xs text-muted-foreground">
-                          Мероприятие · {clientRegistrationListTitle(entry.registration)}
+                          Событие · {clientRegistrationListTitle(entry.registration)}
                         </div>
                         <div className="text-xs text-muted-foreground">
                           {new Date(entry.registration.createdAt).toLocaleString("ru-RU")}

@@ -31,7 +31,7 @@ export function isEventFree(priceRub: number | null | undefined): boolean {
   return priceRub == null || priceRub <= 0;
 }
 
-/** Запись: любое опубликованное мероприятие; привязка к заказу — только участникам этого заказа. */
+/** Запись: любое опубликованное событие; привязка к заказу — только участникам этого заказа. */
 export async function clientCanAccessEvent(
   clientId: string,
   event: Pick<InstructorEvent, "instructorId" | "orderId" | "moderationStatus">,

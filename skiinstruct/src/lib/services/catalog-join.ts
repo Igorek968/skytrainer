@@ -174,7 +174,7 @@ export function resolveCatalogOfferEventAt(
   if (raw != null && String(raw).trim() !== "") {
     const d = new Date(raw);
     if (!Number.isFinite(d.getTime())) {
-      return { ok: false, error: "Некорректная дата мероприятия" };
+      return { ok: false, error: "Некорректная дата события" };
     }
     return { ok: true, eventAt: d };
   }

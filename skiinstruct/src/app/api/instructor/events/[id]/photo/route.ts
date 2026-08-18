@@ -28,11 +28,11 @@ export async function POST(req: Request, ctx: Ctx) {
     where: { id, instructorId: userId },
   });
   if (!existing) {
-    return NextResponse.json({ error: "Мероприятие не найдено" }, { status: 404 });
+    return NextResponse.json({ error: "Событие не найдено" }, { status: 404 });
   }
   if (!canEditInstructorEventPhoto(existing)) {
     return NextResponse.json(
-      { error: "Фото можно изменить только в черновике, после отклонения или у опубликованного мероприятия до даты проведения" },
+      { error: "Фото можно изменить только в черновике, после отклонения или у опубликованного события до даты проведения" },
       { status: 400 },
     );
   }
@@ -78,11 +78,11 @@ export async function DELETE(_req: Request, ctx: Ctx) {
     where: { id, instructorId: userId },
   });
   if (!existing) {
-    return NextResponse.json({ error: "Мероприятие не найдено" }, { status: 404 });
+    return NextResponse.json({ error: "Событие не найдено" }, { status: 404 });
   }
   if (!canEditInstructorEventPhoto(existing)) {
     return NextResponse.json(
-      { error: "Фото можно удалить только пока мероприятие не завершено" },
+      { error: "Фото можно удалить только пока событие не завершено" },
       { status: 400 },
     );
   }

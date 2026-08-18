@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 
-/** Создаёт или находит каталоговое название мероприятия. */
+/** Создаёт или находит каталоговое название события. */
 export async function upsertInstructorEventTitle(instructorId: string, title: string) {
   const normalized = title.trim();
   return prisma.instructorEventTitle.upsert({
@@ -21,7 +21,7 @@ export async function listInstructorEventTitles(instructorId: string) {
   return rows;
 }
 
-/** Последнее мероприятие с этим названием — шаблон для нового (текст, цена, фото). */
+/** Последнее событие с этим названием — шаблон для нового (текст, цена, фото). */
 export async function findLatestEventByTitleForTemplate(instructorId: string, title: string) {
   const normalized = title.trim();
   return prisma.instructorEvent.findFirst({

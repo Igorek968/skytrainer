@@ -36,7 +36,7 @@ export async function POST(req: Request, ctx: Ctx) {
   });
   if (published.length !== eventIds.length) {
     return NextResponse.json(
-      { error: "Привязывать можно только опубликованные мероприятия" },
+      { error: "Привязывать можно только опубликованные события" },
       { status: 400 },
     );
   }
@@ -56,7 +56,7 @@ export async function POST(req: Request, ctx: Ctx) {
 
   return NextResponse.json({
     item: serializeEventCatalogItem(row),
-    message: `Привязано мероприятий: ${eventIds.length}`,
+    message: `Привязано событий: ${eventIds.length}`,
   });
 }
 
@@ -92,6 +92,6 @@ export async function DELETE(req: Request, ctx: Ctx) {
 
   return NextResponse.json({
     item: serializeEventCatalogItem(row),
-    message: "Мероприятия отвязаны от карточки",
+    message: "События отвязаны от карточки",
   });
 }

@@ -38,14 +38,14 @@ export type InstructorEventDTO = {
   updatedAt: string;
   submittedAt: string | null;
   publishedAt: string | null;
-  /** По дате/времени мероприятия */
+  /** По дате/времени события */
   isCompleted: boolean;
   canEdit: boolean;
   /** Только для инструктора */
   paidRegistrationCount?: number;
   registrationRevenueRub?: number;
   unconfirmedAttendanceCount?: number;
-  /** Автовыкладывание: после окончания дата сдвигается на этом же мероприятии */
+  /** Автовыкладывание: после окончания дата сдвигается на этом же событии */
   repeatDaily?: boolean;
   /** Место проведения */
   venueAddress?: string | null;
@@ -117,7 +117,7 @@ export function canEditInstructorEventPhoto(row: {
   );
 }
 
-/** Скрытое мероприятие можно вернуть в черновик (редактировать / отправить на модерацию). */
+/** Скрытое событие можно вернуть в черновик (редактировать / отправить на модерацию). */
 export function canRestoreArchivedEvent(
   row: Pick<InstructorEventDTO, "moderationStatus" | "isCompleted" | "paidRegistrationCount">,
 ): boolean {
@@ -137,7 +137,7 @@ export function showEventCardModeration(ev: InstructorEventDTO): boolean {
 
 /** Сообщение, если нет даты/времени (классика) и нет выходов со слотами. */
 export const EVENT_SCHEDULE_REQUIRED_MESSAGE =
-  "Укажите дату и время мероприятия — без них нельзя сохранить и отправить на модерацию";
+  "Укажите дату и время события — без них нельзя сохранить и отправить на модерацию";
 
 /** Есть расписание: дата/время eventAt или хотя бы один выход (слот). */
 export function instructorEventHasSchedule(input: {
@@ -170,7 +170,7 @@ export function showEventCardDelete(ev: InstructorEventDTO): boolean {
 }
 
 export function eventCardDeleteLabel(_ev: InstructorEventDTO): string {
-  return "Удалить мероприятие";
+  return "Удалить событие";
 }
 
 /** Завершённое по дате — удаление с проверкой подтверждений участников. */

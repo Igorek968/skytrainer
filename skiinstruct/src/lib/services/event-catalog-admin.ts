@@ -33,7 +33,7 @@ export function parseOptionalEventAt(raw: string | null | undefined): Date | nul
   if (raw == null || raw.trim() === "") return null;
   const d = new Date(raw);
   if (!Number.isFinite(d.getTime())) {
-    throw new Error("Некорректная дата мероприятия");
+    throw new Error("Некорректная дата события");
   }
   return d;
 }

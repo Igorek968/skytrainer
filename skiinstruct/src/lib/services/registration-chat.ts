@@ -29,7 +29,7 @@ export async function assertRegistrationChatAccess(input: {
     return {
       ok: false as const,
       status: 403 as const,
-      error: "Чат доступен после записи на мероприятие",
+      error: "Чат доступен после записи на событие",
     };
   }
 

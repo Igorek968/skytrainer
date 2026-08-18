@@ -119,7 +119,7 @@ export async function requireClientSession(): Promise<ResolvedApiSession | NextR
   return resolved;
 }
 
-/** Для публичной ленты мероприятий: только id клиента, без обязательного входа. */
+/** Для публичной ленты событий: только id клиента, без обязательного входа. */
 export async function resolveOptionalClientUserId(): Promise<string | null> {
   const session = await auth();
   const userId = session?.user?.id?.trim();

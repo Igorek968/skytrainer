@@ -303,7 +303,7 @@ export function InstructorCatalogJoinPanel({
                           variant="outline"
                           disabled={withdraw.isPending}
                           onClick={() => {
-                            if (confirm("Отозвать участие в этом мероприятии?")) {
+                            if (confirm("Отозвать участие в этом событии?")) {
                               withdraw.mutate(item.id);
                             }
                           }}
@@ -414,7 +414,7 @@ export function InstructorCatalogJoinPanel({
                           onChange={(e) => setForm((f) => ({ ...f, serviceNote: e.target.value }))}
                         />
                         <p className="text-xs text-muted-foreground">
-                          Это увидит клиент под вашим именем. Общее описание мероприятия уже в карточке.
+                          Это увидит клиент под вашим именем. Общее описание события уже в карточке.
                         </p>
                       </div>
                       <div className="grid gap-3 sm:grid-cols-3">
@@ -504,7 +504,7 @@ export function InstructorCatalogJoinPanel({
   return (
     <Card className="mb-6">
       <CardHeader>
-        <CardTitle>Каталог мероприятий</CardTitle>
+        <CardTitle>Каталог событий</CardTitle>
         <CardDescription>
           Админ создаёт площадку или событие → вы присоединяетесь → клиент выбирает вас. На площадках
           (корты) аренда места недоступна: клиент записывается к инструктору.

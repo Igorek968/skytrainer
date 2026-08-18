@@ -8,9 +8,9 @@ import { activePublishedEventWhere } from "@/lib/services/instructor-event-expir
 import { TrafficLanding } from "@/shared/marketing/traffic-landing";
 
 export const metadata: Metadata = pageMetadata({
-  title: "Мероприятия и туры — дата, место, запись | ТвойТренер.рф",
+  title: "События — дата, место, запись | ТвойТренер.рф",
   description:
-    "Актуальные мероприятия инструкторов: дата, место и запись онлайн. ТвойТренер.рф — продолжение объявления с понятной оплатой через ЮKassa.",
+    "Актуальные события инструкторов: дата, место и запись онлайн. ТвойТренер.рф — продолжение объявления с понятной оплатой через ЮKassa.",
   path: "/events",
 });
 
@@ -35,8 +35,8 @@ export default async function EventsTrafficLandingPage() {
 
   return (
     <TrafficLanding
-      eyebrow="ТвойТренер.рф · мероприятия"
-      title="Мероприятия с датой и местом — запишитесь онлайн"
+      eyebrow="ТвойТренер.рф · события"
+      title="События с датой и местом — запишитесь онлайн"
       lead="Смотрите ближайшие события инструкторов: когда, где и кто ведёт. Запись и оплата на сайте — без потери контекста после объявления."
       ctaLabel="Открыть карту и инструкторов"
       ctaHref="/?utm_source=landing&utm_campaign=events"
@@ -54,7 +54,7 @@ export default async function EventsTrafficLandingPage() {
         </h2>
         {events.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            Сейчас нет опубликованных мероприятий. Загляните на карту или подайте заявку
+            Сейчас нет опубликованных событий. Загляните на карту или подайте заявку
             инструктора, чтобы публиковать свои.
           </p>
         ) : (

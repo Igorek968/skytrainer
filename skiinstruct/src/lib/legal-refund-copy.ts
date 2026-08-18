@@ -24,7 +24,7 @@ export function instructorLateRefundSummary(): string {
   return `опоздание более ${INSTRUCTOR_LATE_GRACE_MINUTES} мин от заявленного ETA — полный возврат по кнопке в заказе`;
 }
 
-/** Отмена мероприятия клиентом. */
+/** Отмена события клиентом. */
 export function eventCancelRefundSummary(): string {
   return `за ${EVENT_CANCEL_FULL_REFUND_HOURS} ч и более до начала — 100%; позже — без возврата`;
 }

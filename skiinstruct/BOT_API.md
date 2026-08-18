@@ -17,7 +17,7 @@
 
 | Сайт | Бот канала |
 |------|------------|
-| Источник правды: инструкторы, online, мероприятия, отзывы, модерация | Публикация + CTA на сайт |
+| Источник правды: инструкторы, online, события, отзывы, модерация | Публикация + CTA на сайт |
 | Шлёт outbound webhook | Принимает `POST /hooks/…` (цель: `telegram_news_bot`; сейчас временно `channel-bot` в Docker сайта) |
 | Deep-link’и / `GET /api/bot/instructors` | Не выдумывает данные сайта |
 | **Не** держит `BOT_TOKEN` / `PROVOD_*` в идеале | Токен и Provod — только у бота |
@@ -196,7 +196,7 @@ X-Tvoytrener-Event: <name>
 
 ### 3. `POST /hooks/event-published`
 
-Когда: админ одобряет мероприятие (`PENDING_REVIEW → PUBLISHED`).
+Когда: админ одобряет событие (`PENDING_REVIEW → PUBLISHED`).
 
 ```json
 {
@@ -224,7 +224,7 @@ X-Tvoytrener-Event: <name>
 | SEO-лендинг вида спорта | `/sport/{slug}` |
 | Город | `/gorod/{citySlug}` |
 | Город + спорт | `/gorod/{citySlug}/{sportSlug}` |
-| Мероприятия (лендинг) | `/events` |
+| События (лендинг) | `/events` |
 | Запись с хука | `signup_url` из `event-published` |
 | Регистрация инструктора | `/instructor/apply` |
 | Найм / «Приходи» | `/landings/prichodi` |

@@ -9,7 +9,7 @@ type Ctx = { params: Promise<{ id: string }> };
 
 export const dynamic = "force-dynamic";
 
-/** Скрыть мероприятие и отменить все активные записи (с возвратом). */
+/** Скрыть событие и отменить все активные записи (с возвратом). */
 export async function POST(_req: Request, ctx: Ctx) {
   const authResult = await requireInstructorSession();
   if (isApiErrorResponse(authResult)) return authResult;
@@ -25,7 +25,7 @@ export async function POST(_req: Request, ctx: Ctx) {
   }
 
   if (isInstructorEventCompleted(event.eventAt)) {
-    return NextResponse.json({ error: "Мероприятие уже прошло" }, { status: 400 });
+    return NextResponse.json({ error: "Событие уже прошло" }, { status: 400 });
   }
 
   const activeRegs = await prisma.eventRegistration.findMany({
@@ -65,6 +65,6 @@ export async function POST(_req: Request, ctx: Ctx) {
     ok: true,
     archived: true,
     cancelledRegistrations: cancelled,
-    message: `Мероприятие скрыто. Отменено записей: ${cancelled}`,
+    message: `Событие скрыто. Отменено записей: ${cancelled}`,
   });
 }

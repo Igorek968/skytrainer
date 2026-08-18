@@ -69,7 +69,7 @@ export function HomeSeoContent() {
             </Link>
             {" · "}
             <Link href="/events" className="underline-offset-2 hover:underline">
-              Мероприятия
+              События
             </Link>
           </p>
         </div>

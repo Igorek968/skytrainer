@@ -215,7 +215,7 @@ export function renderClientBookingCertificateHtml(data: ClientBookingCertificat
     <tr><th>Версия оферты</th><td>${escapeOfferHtml(offerVersion)}</td></tr>
     <tr><th>Оплаченных заказов</th><td>${c.paidOrders}</td></tr>
     <tr><th>Завершённых занятий</th><td>${c.completedOrders}</td></tr>
-    <tr><th>Оплаченных записей на мероприятия</th><td>${c.paidEventRegistrations}</td></tr>
+    <tr><th>Оплаченных записей на события</th><td>${c.paidEventRegistrations}</td></tr>
   </table>
 
   <h2>Условия договора (текст публичной оферты)</h2>

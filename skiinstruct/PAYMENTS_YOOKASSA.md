@@ -48,7 +48,7 @@ YOOKASSA_SECRET_KEY=...
 ## Возвраты и события
 
 - Возвраты при отмене/истечении заявки — `POST /v3/refunds` через `order-refund.ts`
-- Оплата мероприятий — тот же webhook, metadata `type: "event"`
+- Оплата событий — тот же webhook, metadata `type: "event"`
 - На проде: `YOOKASSA_WEBHOOK_VERIFY_IP=1` (опционально)
 
 ## Проверка после подключения

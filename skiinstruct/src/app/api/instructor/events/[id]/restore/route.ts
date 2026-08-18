@@ -8,7 +8,7 @@ type Ctx = { params: Promise<{ id: string }> };
 
 export const dynamic = "force-dynamic";
 
-/** Вернуть скрытое мероприятие в черновик для правок и повторной модерации. */
+/** Вернуть скрытое событие в черновик для правок и повторной модерации. */
 export async function POST(_req: Request, ctx: Ctx) {
   const authResult = await requireInstructorSession();
   if (isApiErrorResponse(authResult)) return authResult;
@@ -24,12 +24,12 @@ export async function POST(_req: Request, ctx: Ctx) {
   }
 
   if (existing.moderationStatus !== "ARCHIVED") {
-    return NextResponse.json({ error: "Восстановить можно только скрытое мероприятие" }, { status: 400 });
+    return NextResponse.json({ error: "Восстановить можно только скрытое событие" }, { status: 400 });
   }
 
   if (isInstructorEventCompleted(existing.eventAt)) {
     return NextResponse.json(
-      { error: "Выполненное мероприятие нельзя восстановить. Создайте новое." },
+      { error: "Выполненное событие нельзя восстановить. Создайте новое." },
       { status: 400 },
     );
   }
@@ -41,7 +41,7 @@ export async function POST(_req: Request, ctx: Ctx) {
     return NextResponse.json(
       {
         error:
-          "У мероприятия есть оплаченные записи — восстановление недоступно. Создайте новое объявление.",
+          "У события есть оплаченные записи — восстановление недоступно. Создайте новое объявление.",
       },
       { status: 400 },
     );
@@ -59,6 +59,6 @@ export async function POST(_req: Request, ctx: Ctx) {
 
   return NextResponse.json({
     event: serializeInstructorEvent(row),
-    message: "Мероприятие снова в черновиках — можно редактировать и отправить на модерацию.",
+    message: "Событие снова в черновиках — можно редактировать и отправить на модерацию.",
   });
 }

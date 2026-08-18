@@ -151,7 +151,7 @@ export function EventViewerOverlay({
       onClick={onClose}
       role="dialog"
       aria-modal="true"
-      aria-label={`Мероприятие: ${title}`}
+      aria-label={`Событие: ${title}`}
       onTouchStart={(e) => {
         touchStartX.current = e.changedTouches[0]?.clientX ?? null;
       }}
@@ -187,7 +187,7 @@ export function EventViewerOverlay({
           variant="secondary"
           size="icon"
           className="absolute left-2 top-[28%] z-20 h-11 w-11 -translate-y-1/2 rounded-full border border-white/20 bg-black/55 text-white hover:bg-black/70 sm:left-4 sm:top-1/2"
-          aria-label="Предыдущее мероприятие"
+          aria-label="Предыдущее событие"
           onClick={(e) => {
             e.stopPropagation();
             goPrev();
@@ -203,7 +203,7 @@ export function EventViewerOverlay({
           variant="secondary"
           size="icon"
           className="absolute right-2 top-[28%] z-20 h-11 w-11 -translate-y-1/2 rounded-full border border-white/20 bg-black/55 text-white hover:bg-black/70 sm:right-4 sm:top-1/2"
-          aria-label="Следующее мероприятие"
+          aria-label="Следующее событие"
           onClick={(e) => {
             e.stopPropagation();
             goNext();
@@ -280,7 +280,7 @@ export function EventViewerOverlay({
                   <Link href="/login?callbackUrl=/client" className="font-medium text-accent underline">
                     Войдите как клиент
                   </Link>
-                  , чтобы записаться на мероприятие.
+                  , чтобы записаться на событие.
                 </p>
               ) : null}
             </div>
@@ -312,7 +312,7 @@ export function EventViewerOverlay({
                   <Link href="/login?callbackUrl=/client" className="font-medium text-accent underline">
                     Войдите как клиент
                   </Link>
-                  , чтобы записаться на мероприятие.
+                  , чтобы записаться на событие.
                 </p>
               )}
             </>

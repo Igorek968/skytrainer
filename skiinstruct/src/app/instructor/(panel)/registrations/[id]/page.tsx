@@ -113,7 +113,7 @@ export default function InstructorRegistrationDetailPage() {
     mutationFn: async () => {
       if (
         !confirm(
-          "Вернуть мероприятие в черновик для правок? После изменений отправьте его на модерацию администратору.",
+          "Вернуть событие в черновик для правок? После изменений отправьте его на модерацию администратору.",
         )
       ) {
         return null;
@@ -130,7 +130,7 @@ export default function InstructorRegistrationDetailPage() {
     },
     onSuccess: async (j) => {
       if (!j) return;
-      toast.success(j.message ?? "Мероприятие в черновиках");
+      toast.success(j.message ?? "Событие в черновиках");
       await qc.invalidateQueries({ queryKey: ["instructor-events"] });
       router.push("/instructor#events");
     },
@@ -153,7 +153,7 @@ export default function InstructorRegistrationDetailPage() {
         <>
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Запись на мероприятие</CardTitle>
+              <CardTitle className="text-lg">Запись на событие</CardTitle>
               <p className="text-sm text-muted-foreground">
                 {instructorRegistrationStatusLabel(reg.status)} ·{" "}
                 {reg.event.moderationStatusLabel}
@@ -228,7 +228,7 @@ export default function InstructorRegistrationDetailPage() {
                   </Button>
                 ) : null}
                 <Button type="button" variant="outline" asChild>
-                  <Link href="/instructor">К мероприятиям</Link>
+                  <Link href="/instructor">К событиям</Link>
                 </Button>
               </div>
             </CardContent>

@@ -224,12 +224,12 @@ export async function emitAdminModerationEventAlert(params: {
   title: string;
   instructorName?: string | null;
 }) {
-  const eventTitle = params.title.trim() || "Мероприятие";
+  const eventTitle = params.title.trim() || "Событие";
   const who = params.instructorName?.trim();
   return emitAdminAlert({
     category: "MODERATION",
-    title: `Мероприятие на модерации: ${eventTitle}`,
-    body: who ? `Отправитель: ${who}` : "Инструктор отправил мероприятие на проверку.",
+    title: `Событие на модерации: ${eventTitle}`,
+    body: who ? `Отправитель: ${who}` : "Инструктор отправил событие на проверку.",
     href: `/admin/moderation`,
     dedupeKey: `moderation:event:${params.eventId}`,
     entityId: params.eventId,

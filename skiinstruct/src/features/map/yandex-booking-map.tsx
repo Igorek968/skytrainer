@@ -44,7 +44,7 @@ export type BookingMapProps = {
   /** Повторный клик по выбранному / double-click — открыть анкету. */
   onInstructorFocus?: (id: string) => void;
   onEventSelect?: (id: string) => void;
-  /** Двойной клик по метке мероприятия — полноэкранный просмотр. */
+  /** Двойной клик по метке события — полноэкранный просмотр. */
   onEventOpen?: (feedCardId: string) => void;
   selectedInstructorId?: string | null;
   className?: string;
@@ -432,7 +432,7 @@ export function YandexBookingMap({
         <div
           ref={containerRef}
           className="h-full w-full"
-          aria-label="Яндекс.Карта — место встречи, инструкторы и мероприятия"
+          aria-label="Яндекс.Карта — место встречи, инструкторы и события"
         />
       </div>
       <MapLegalStrip />

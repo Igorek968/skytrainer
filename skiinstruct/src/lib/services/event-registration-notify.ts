@@ -70,7 +70,7 @@ export function buildEventRegistrationEmailContent(p: EventRegistrationNotifyPay
     p.maxSeats != null ? `${p.paidCount} из ${p.maxSeats}` : `${p.paidCount} участник(ов)`;
 
   const priceLine =
-    p.amountRub > 0 ? `${p.amountRub.toLocaleString("ru-RU")} ₽ (оплата после мероприятия)` : "Бесплатно";
+    p.amountRub > 0 ? `${p.amountRub.toLocaleString("ru-RU")} ₽ (оплата после события)` : "Бесплатно";
 
   const clientLine = [p.clientName?.trim(), p.clientEmail?.trim()].filter(Boolean).join(" · ") || "Клиент";
 
@@ -79,7 +79,7 @@ export function buildEventRegistrationEmailContent(p: EventRegistrationNotifyPay
   const text = [
     `Здравствуйте${p.instructorName ? `, ${p.instructorName}` : ""}!`,
     "",
-    "Новая запись на ваше мероприятие:",
+    "Новая запись на ваше событие:",
     "",
     `«${p.eventTitle}»`,
     `Когда: ${when}`,
@@ -97,7 +97,7 @@ export function buildEventRegistrationEmailContent(p: EventRegistrationNotifyPay
 <html lang="ru">
 <body style="font-family:sans-serif;line-height:1.5;color:#111;max-width:560px">
   <p>Здравствуйте${p.instructorName ? `, ${p.instructorName}` : ""}!</p>
-  <p><strong>Новая запись</strong> на мероприятие «${p.eventTitle}».</p>
+  <p><strong>Новая запись</strong> на событие «${p.eventTitle}».</p>
   <table style="border-collapse:collapse;margin:12px 0;font-size:14px">
     <tr><td style="padding:4px 12px 4px 0;color:#555">Когда</td><td><strong>${when}</strong></td></tr>
     <tr><td style="padding:4px 12px 4px 0;color:#555">Участник</td><td>${clientLine}</td></tr>
@@ -157,7 +157,7 @@ export async function notifyInstructorOfEventRegistration(registrationId: string
 
   const appName = getPublicProductName();
   const clientLabel = reg.client.name?.trim() || reg.client.email?.trim() || "Клиент";
-  const pushTitle = `${appName}: новая запись на мероприятие`;
+  const pushTitle = `${appName}: новая запись на событие`;
   const pushBody = `${clientLabel} · ${reg.event.title}. Откройте кабинет: ${siteHost}`;
 
   let pushSent = 0;

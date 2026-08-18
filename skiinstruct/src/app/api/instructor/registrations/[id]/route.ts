@@ -107,9 +107,9 @@ export async function GET(_req: Request, ctx: Ctx) {
       row.event.moderationStatus === "PUBLISHED" && !isInstructorEventCompleted(row.event.eventAt),
     eventEditHint:
       row.event.moderationStatus === "PUBLISHED"
-        ? "Изменения только через модерацию: мероприятие вернётся в черновик, после правок отправьте на проверку администратору."
+        ? "Изменения только через модерацию: событие вернётся в черновик, после правок отправьте на проверку администратору."
         : row.event.moderationStatus === "ARCHIVED"
-          ? "Скрытое мероприятие: восстановите черновик на странице профиля, затем «На модерацию»."
+          ? "Скрытое событие: восстановите черновик на странице профиля, затем «На модерацию»."
           : null,
   };
 
@@ -151,12 +151,12 @@ export async function PATCH(req: Request, ctx: Ctx) {
     const event = row.event;
     if (event.moderationStatus !== "PUBLISHED") {
       return NextResponse.json(
-        { error: "Редактирование через модерацию доступно для опубликованных мероприятий" },
+        { error: "Редактирование через модерацию доступно для опубликованных событий" },
         { status: 400 },
       );
     }
     if (isInstructorEventCompleted(event.eventAt)) {
-      return NextResponse.json({ error: "Мероприятие уже прошло" }, { status: 400 });
+      return NextResponse.json({ error: "Событие уже прошло" }, { status: 400 });
     }
     const paidCount = await prisma.eventRegistration.count({
       where: { eventId: event.id, status: "PAID" },
@@ -182,7 +182,7 @@ export async function PATCH(req: Request, ctx: Ctx) {
     return NextResponse.json({
       ok: true,
       eventId: event.id,
-      message: `Мероприятие «${event.title}» в черновиках. Измените и отправьте на модерацию.`,
+      message: `Событие «${event.title}» в черновиках. Измените и отправьте на модерацию.`,
     });
   }
 

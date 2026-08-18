@@ -21,7 +21,7 @@ export const BookingMapLazy = dynamic(
   },
 );
 
-/** Компактная карта места мероприятия (редактор / лента). */
+/** Компактная карта места события (редактор / лента). */
 export const EventVenueMapLazy = dynamic(
   () => import("./event-venue-map").then((m) => m.EventVenueMap),
   {

@@ -25,7 +25,7 @@ export function canRevealOrderContact(
   return true;
 }
 
-/** Запись на мероприятие: контакт сразу после записи (оплата часто после события). */
+/** Запись на событие: контакт сразу после записи (оплата часто после события). */
 export function canRevealRegistrationContact(
   status: EventRegistrationStatus,
   _amountRub?: number,

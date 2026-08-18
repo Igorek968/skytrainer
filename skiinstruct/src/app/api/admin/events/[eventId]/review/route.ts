@@ -21,7 +21,7 @@ export async function POST(req: Request, ctx: Ctx) {
 
   const { eventId } = await resolveRouteParams(ctx.params);
   if (!eventId?.trim()) {
-    return NextResponse.json({ error: "Не указан id мероприятия" }, { status: 400 });
+    return NextResponse.json({ error: "Не указан id события" }, { status: 400 });
   }
 
   let json: unknown;
@@ -45,7 +45,7 @@ export async function POST(req: Request, ctx: Ctx) {
   }
 
   if (existing.moderationStatus !== "PENDING_REVIEW") {
-    return NextResponse.json({ error: "Мероприятие не на модерации" }, { status: 400 });
+    return NextResponse.json({ error: "Событие не на модерации" }, { status: 400 });
   }
 
   if (parsed.data.action === "reject") {
@@ -59,7 +59,7 @@ export async function POST(req: Request, ctx: Ctx) {
     });
     return NextResponse.json({
       event: serializeInstructorEvent(row),
-      message: "Мероприятие отклонено, инструктор увидит комментарий.",
+      message: "Событие отклонено, инструктор увидит комментарий.",
     });
   }
 
@@ -71,7 +71,7 @@ export async function POST(req: Request, ctx: Ctx) {
   ) {
     return NextResponse.json(
       {
-        error: `${EVENT_SCHEDULE_REQUIRED_MESSAGE}. Отредактируйте мероприятие или отклоните заявку.`,
+        error: `${EVENT_SCHEDULE_REQUIRED_MESSAGE}. Отредактируйте событие или отклоните заявку.`,
       },
       { status: 400 },
     );
@@ -93,6 +93,6 @@ export async function POST(req: Request, ctx: Ctx) {
     event: serializeInstructorEvent(row),
     message: row.catalogItemId
       ? "Участие одобрено — инструктор появится в карточке каталога у клиентов."
-      : "Мероприятие опубликовано — появится в ленте и на карте клиентов (если указано место).",
+      : "Событие опубликовано — появится в ленте и на карте клиентов (если указано место).",
   });
 }

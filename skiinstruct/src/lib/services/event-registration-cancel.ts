@@ -53,7 +53,7 @@ export function computeEventRegistrationCancelQuote(
       canCancel: false,
       refundPercent: 0,
       refundAmount: 0,
-      reason: "Мероприятие уже прошло — отмена недоступна",
+      reason: "Событие уже прошло — отмена недоступна",
     };
   }
 
@@ -82,7 +82,7 @@ export function computeEventRegistrationCancelQuote(
         canCancel: true,
         refundPercent: 100,
         refundAmount: total,
-        reason: "Полный возврат при отмене до начала мероприятия",
+        reason: "Полный возврат при отмене до начала события",
       };
     }
     const hours = hoursUntilLesson(effectiveAt, new Date());
@@ -91,7 +91,7 @@ export function computeEventRegistrationCancelQuote(
         canCancel: false,
         refundPercent: 0,
         refundAmount: 0,
-        reason: `Менее ${EVENT_CANCEL_FULL_REFUND_HOURS} ч до мероприятия — отмена без возврата`,
+        reason: `Менее ${EVENT_CANCEL_FULL_REFUND_HOURS} ч до события — отмена без возврата`,
       };
     }
 
@@ -130,7 +130,7 @@ export function computeInstructorEventRegistrationCancelQuote(
       canCancel: false,
       refundPercent: 0,
       refundAmount: 0,
-      reason: "Мероприятие уже прошло",
+      reason: "Событие уже прошло",
     };
   }
 
@@ -256,7 +256,7 @@ async function applyRegistrationCancelByInstructor(
       instructorId: reg.event.instructorId,
       eventRegistrationId: reg.id,
       baseAmountRub,
-      reason: `Поздняя отмена мероприятия инструктором (менее ${INSTRUCTOR_CANCEL_NOTICE_HOURS} ч) — штраф ${INSTRUCTOR_NO_SHOW_PENALTY_PERCENT}%`,
+      reason: `Поздняя отмена события инструктором (менее ${INSTRUCTOR_CANCEL_NOTICE_HOURS} ч) — штраф ${INSTRUCTOR_NO_SHOW_PENALTY_PERCENT}%`,
     });
   }
 
@@ -330,7 +330,7 @@ export async function claimEventInstructorNoShowRefund(params: {
     instructorId: reg.event.instructorId,
     eventRegistrationId: reg.id,
     baseAmountRub: total,
-    reason: `Неявка инструктора на мероприятие — штраф ${INSTRUCTOR_NO_SHOW_PENALTY_PERCENT}%`,
+    reason: `Неявка инструктора на событие — штраф ${INSTRUCTOR_NO_SHOW_PENALTY_PERCENT}%`,
   });
 
   return {

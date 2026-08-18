@@ -121,7 +121,7 @@ export default function ClientRegistrationDetailPage() {
       ) : (
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Запись на мероприятие</CardTitle>
+            <CardTitle className="text-lg">Запись на событие</CardTitle>
             <p className="text-sm text-muted-foreground">
               {clientRegistrationStatusLabel(reg.status)}
               {reg.amountRub > 0 ? ` · ${reg.amountRub.toLocaleString("ru-RU")} ₽` : " · Бесплатно"}
@@ -160,7 +160,7 @@ export default function ClientRegistrationDetailPage() {
 
             {reg.needsAttendanceConfirmation ? (
               <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-100">
-                Мероприятие завершилось. Подтвердите, что вы были на нём
+                Событие завершилось. Подтвердите, что вы были на нём
                 {reg.amountRub > 0 && !reg.paidAt
                   ? " — после подтверждения спишется оплата, средства поступят инструктору."
                   : "."}
@@ -169,7 +169,7 @@ export default function ClientRegistrationDetailPage() {
 
             {!reg.eventCompleted && reg.status === "PENDING_PAYMENT" && reg.amountRub > 0 ? (
               <p className="rounded-md border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
-                Вы записаны. Оплата будет доступна после окончания мероприятия — подтвердите участие, и средства
+                Вы записаны. Оплата будет доступна после окончания события — подтвердите участие, и средства
                 поступят инструктору.
               </p>
             ) : null}

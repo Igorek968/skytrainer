@@ -433,7 +433,7 @@ export function AdminEventCatalogSection() {
     mutationFn: async (ev: PublishedEvent) => {
       if (!ev.category?.trim()) {
         throw new Error(
-          "У мероприятия нет категории. Создайте карточку вручную и выберите категорию, либо попросите инструктора указать её.",
+          "У события нет категории. Создайте карточку вручную и выберите категорию, либо попросите инструктора указать её.",
         );
       }
       const r = await fetch("/api/admin/event-catalog", {
@@ -542,7 +542,7 @@ export function AdminEventCatalogSection() {
                           setListingOnly(false);
                         }}
                       />
-                      Событие / тур
+                      Событие
                     </label>
                     <label className="flex items-center gap-2 text-sm">
                       <input
@@ -579,7 +579,7 @@ export function AdminEventCatalogSection() {
 
                 <div className="space-y-2">
                   <Label htmlFor="catalog-photo">
-                    {catalogKind === "VENUE" ? "Фото площадки" : "Фото мероприятия"}
+                    {catalogKind === "VENUE" ? "Фото площадки" : "Фото события"}
                   </Label>
                   <Input
                     id="catalog-photo"
@@ -860,7 +860,7 @@ export function AdminEventCatalogSection() {
                               onClick={() => {
                                 const offerHint =
                                   item.offerCount > 0
-                                    ? `\nОфферы инструкторов (${item.offerCount}) отвяжутся и останутся как отдельные мероприятия.`
+                                    ? `\nОфферы инструкторов (${item.offerCount}) отвяжутся и останутся как отдельные события.`
                                     : "";
                                 if (
                                   confirm(
@@ -937,7 +937,7 @@ export function AdminEventCatalogSection() {
                           {offersForId === item.id ? (
                             <div className="mt-3 space-y-2 rounded-md border border-dashed border-border p-2">
                               <p className="text-xs text-muted-foreground">
-                                Заявки и привязанные мероприятия инструкторов.
+                                Заявки и привязанные события инструкторов.
                               </p>
                               {offersLoading ? (
                                 <p className="text-sm text-muted-foreground">Загрузка…</p>
@@ -1050,19 +1050,19 @@ export function AdminEventCatalogSection() {
               <>
                 <div>
                   <h2 className="text-base font-semibold tracking-tight">
-                    Опубликованные мероприятия · {selectedCity.name}
+                    Опубликованные события · {selectedCity.name}
                   </h2>
                   <p className="text-sm text-muted-foreground">
                     {publishedInCity.length
                       ? `Показано ${publishedInCity.length} в этом городе.`
-                      : "В этом городе нет опубликованных мероприятий."}
+                      : "В этом городе нет опубликованных событий."}
                   </p>
                 </div>
                 {publishedLoading ? (
                   <p className="text-sm text-muted-foreground">Загрузка…</p>
                 ) : !publishedInCity.length ? (
                   <p className="text-sm text-muted-foreground">
-                    Нет опубликованных мероприятий для «{selectedCity.name}».
+                    Нет опубликованных событий для «{selectedCity.name}».
                   </p>
                 ) : (
                   <ul className="space-y-3">
@@ -1092,7 +1092,7 @@ export function AdminEventCatalogSection() {
                             variant="outline"
                             disabled={unpublishEvent.isPending}
                             onClick={() => {
-                              if (confirm("Скрыть мероприятие из ленты клиентов?")) {
+                              if (confirm("Скрыть событие из ленты клиентов?")) {
                                 unpublishEvent.mutate(ev.id);
                               }
                             }}

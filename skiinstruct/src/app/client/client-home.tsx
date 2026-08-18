@@ -457,7 +457,7 @@ export default function ClientHomePage() {
     void queryClient.invalidateQueries({ queryKey: ["instructor-profile"], exact: false });
   }, [dataUpdatedAt, queryClient]);
 
-  /** Опубликованные мероприятия для карты (те же, что в ленте; точка — только с venue). */
+  /** Опубликованные события для карты (те же, что в ленте; точка — только с venue). */
   const { data: mapEventsData } = useQuery({
     queryKey: ["client-events", String(meetLat), String(meetLng), "all"],
     queryFn: async () => {
@@ -882,7 +882,7 @@ export default function ClientHomePage() {
             className="w-full px-2 text-xs sm:text-sm"
             onClick={() => scrollToClientSection(CLIENT_SECTION_IDS.events)}
           >
-            Мероприятия
+            События
           </Button>
           <Button
             type="button"
@@ -1309,7 +1309,7 @@ export default function ClientHomePage() {
           fallback={<Skeleton className="h-48 w-full rounded-lg" aria-hidden />}
           rootMargin="400px"
         >
-          <SectionErrorBoundary title="Мероприятия временно недоступны">
+          <SectionErrorBoundary title="События временно недоступны">
             <ClientEventsFeed
               layout="carousel"
               onInstructorPick={focusInstructorFromEvent}

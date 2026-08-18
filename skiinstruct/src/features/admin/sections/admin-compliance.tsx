@@ -380,7 +380,7 @@ export function AdminComplianceSection() {
                   <th className="py-2 pr-3 font-medium">Телефон</th>
                   <th className="py-2 pr-3 font-medium">Акцепт оферты</th>
                   <th className="py-2 pr-3 font-medium">Заказы</th>
-                  <th className="py-2 pr-3 font-medium">Мероприятия</th>
+                  <th className="py-2 pr-3 font-medium">События</th>
                   <th className="py-2 font-medium">Договор</th>
                 </tr>
               </thead>

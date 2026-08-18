@@ -56,10 +56,10 @@ export async function sendEventAttendanceReminders(
     const paid = Number(row.amountRub) > 0;
     const body = paid
       ? `«${event.title}» — подтвердите участие и оплатите участие инструктору.`
-      : `«${event.title}» — подтвердите, что вы были на мероприятии.`;
+      : `«${event.title}» — подтвердите, что вы были на событии.`;
 
     const result = await sendWebPushToUser(row.clientId, {
-      title: "Подтвердите участие в мероприятии",
+      title: "Подтвердите участие в событии",
       body,
       url: `${origin}/client/registrations/${row.id}?confirm=1`,
       tag: `event-attendance-${row.id}`,
@@ -101,7 +101,7 @@ export async function confirmEventAttendance(params: {
   if (reg.status === "CANCELLED") throw new Error("Заявка отменена");
   if (reg.attendanceConfirmedAt) throw new Error("Участие уже подтверждено");
   if (!isInstructorEventCompleted(reg.event.eventAt)) {
-    throw new Error("Подтверждение доступно после окончания мероприятия");
+    throw new Error("Подтверждение доступно после окончания события");
   }
 
   const amount = Number(reg.amountRub);

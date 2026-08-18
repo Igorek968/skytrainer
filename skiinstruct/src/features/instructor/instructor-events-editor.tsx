@@ -172,7 +172,7 @@ function CatalogSoftDupeHint({ title }: { title: string }) {
     <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-100">
       <p className="font-medium">Похожее уже есть в каталоге</p>
       <p className="mt-1 text-amber-900/90 dark:text-amber-100/90">
-        Чтобы не дублировать ленту, присоединитесь к карточке выше (блок «Каталог мероприятий») со своей
+        Чтобы не дублировать ленту, присоединитесь к карточке выше (блок «Каталог событий») со своей
         ценой и сервисом:
       </p>
       <ul className="mt-1 list-inside list-disc">
@@ -539,7 +539,7 @@ export function InstructorEventsEditor({
       };
 
       if (!category.trim()) {
-        throw new Error("Выберите категорию мероприятия");
+        throw new Error("Выберите категорию события");
       }
 
       const venueAddress = venue.address.trim();
@@ -589,11 +589,11 @@ export function InstructorEventsEditor({
         }
       } else {
         if (!eventAt.trim()) {
-          throw new Error("Укажите дату и время мероприятия");
+          throw new Error("Укажите дату и время события");
         }
         const parsedAt = new Date(eventAt);
         if (!Number.isFinite(parsedAt.getTime())) {
-          throw new Error("Некорректная дата и время мероприятия");
+          throw new Error("Некорректная дата и время события");
         }
         payload.eventAt = parsedAt.toISOString();
         const priceParsed = priceRub.trim() ? Number.parseInt(priceRub.trim(), 10) : NaN;
@@ -715,7 +715,7 @@ export function InstructorEventsEditor({
       return j as { message?: string };
     },
     onSuccess: async (j) => {
-      toast.success(j.message ?? "Мероприятие отменено");
+      toast.success(j.message ?? "Событие отменено");
       if (editingId) resetForm();
       await qc.invalidateQueries({ queryKey: ["instructor-events"] });
       await qc.invalidateQueries({ queryKey: ["instructor-week-schedule"] });
@@ -819,7 +819,7 @@ export function InstructorEventsEditor({
     (ev: InstructorEventApi) => {
       fillTemplateFromEvent(ev);
       onRequestCreateView?.();
-      toast.message("Новое мероприятие по образцу — укажите дату и сохраните черновик");
+      toast.message("Новое событие по образцу — укажите дату и сохраните черновик");
     },
     [fillTemplateFromEvent, onRequestCreateView],
   );
@@ -851,19 +851,19 @@ export function InstructorEventsEditor({
         const unconfirmed = ev.unconfirmedAttendanceCount ?? 0;
         const msg = hasRegs
           ? unconfirmed > 0
-            ? `Удалить завершённое мероприятие? ${unconfirmed} участник(ов) ещё не подтвердили участие — им будет отправлено напоминание.`
-            : "Удалить завершённое мероприятие? Записи участников также будут удалены."
-          : "Удалить завершённое мероприятие?";
+            ? `Удалить завершённое событие? ${unconfirmed} участник(ов) ещё не подтвердили участие — им будет отправлено напоминание.`
+            : "Удалить завершённое событие? Записи участников также будут удалены."
+          : "Удалить завершённое событие?";
         if (confirm(msg)) remove.mutate({ id: ev.id, hard: true });
         return;
       }
       const msg =
         ev.moderationStatus === "PUBLISHED"
-          ? "Удалить мероприятие безвозвратно? Оно исчезнет из ленты и из списка."
+          ? "Удалить событие безвозвратно? Оно исчезнет из ленты и из списка."
           : ev.moderationStatus === "ARCHIVED"
-            ? "Удалить мероприятие безвозвратно?"
+            ? "Удалить событие безвозвратно?"
             : ev.moderationStatus === "PENDING_REVIEW"
-              ? "Удалить мероприятие с модерации?"
+              ? "Удалить событие с модерации?"
               : "Удалить черновик?";
       if (confirm(msg)) {
         remove.mutate({
@@ -879,8 +879,8 @@ export function InstructorEventsEditor({
     (ev: InstructorEventApi) => {
       const hasRegs = (ev.paidRegistrationCount ?? 0) > 0;
       const msg = hasRegs
-        ? "Отменить мероприятие? Все записи участников будут отменены (с возвратом при оплате), мероприятие скроется из ленты."
-        : "Отменить мероприятие? Оно будет скрыто или удалено.";
+        ? "Отменить событие? Все записи участников будут отменены (с возвратом при оплате), событие скроется из ленты."
+        : "Отменить событие? Оно будет скрыто или удалено.";
       if (confirm(msg)) cancelEvent.mutate(ev.id);
     },
     [cancelEvent],
@@ -915,7 +915,7 @@ export function InstructorEventsEditor({
 
   function validateEventForm(): string | null {
     if (!title.trim() || !body.trim()) return "Заполните заголовок и текст";
-    if (!category.trim()) return "Выберите категорию мероприятия";
+    if (!category.trim()) return "Выберите категорию события";
     if (useSlots && !slotRows.some((s) => s.date.trim() && s.time.trim())) {
       return "Добавьте хотя бы один выход с датой и временем";
     }
@@ -945,7 +945,7 @@ export function InstructorEventsEditor({
       guard += 1;
     }
     if (!dates.length) {
-      toast.error("Не удалось добавить дни тура");
+      toast.error("Не удалось добавить дни события");
       return;
     }
 
@@ -1105,7 +1105,7 @@ export function InstructorEventsEditor({
         const j = (await r.json()) as { message?: string };
         resetForm();
         onRequestCreateView?.();
-        toast.success(j.message ?? "Отправлено на модерацию — можно создать новое мероприятие");
+        toast.success(j.message ?? "Отправлено на модерацию — можно создать новое событие");
         await qc.invalidateQueries({ queryKey: ["instructor-events"] });
         await qc.invalidateQueries({ queryKey: ["instructor-week-schedule"] });
       } catch (e) {
@@ -1192,7 +1192,7 @@ export function InstructorEventsEditor({
           onSubmit={(e) => {
             e.preventDefault();
             if (formLocked) {
-              toast.error("Выполненное мероприятие нельзя редактировать");
+              toast.error("Выполненное событие нельзя редактировать");
               return;
             }
             if (!title.trim() || !body.trim()) {
@@ -1227,7 +1227,7 @@ export function InstructorEventsEditor({
               id="event-title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="Название мероприятия"
+              placeholder="Название события"
               maxLength={120}
               disabled={formLocked}
               required
@@ -1297,7 +1297,7 @@ export function InstructorEventsEditor({
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={displayPhotoSrc}
-                    alt="Фото мероприятия"
+                    alt="Фото события"
                     className="aspect-[16/9] w-full rounded-md border border-border object-cover"
                   />
                   {photoPreview ? (
@@ -1383,7 +1383,7 @@ export function InstructorEventsEditor({
                   disabled={formLocked}
                   onChange={() => setScheduleMode("tour")}
                 />
-                Многодневный тур
+                Многодневное событие
               </label>
               <label className="flex items-center gap-2 text-sm">
                 <input
@@ -1393,7 +1393,7 @@ export function InstructorEventsEditor({
                   disabled={formLocked}
                   onChange={() => setScheduleMode("single")}
                 />
-                Однодневный выход
+                Однодневное событие
               </label>
             </div>
 
@@ -1656,7 +1656,7 @@ export function InstructorEventsEditor({
 
                   {slotRows.length === 0 ? (
                     <p className="rounded-md border border-dashed border-border px-3 py-4 text-center text-xs text-muted-foreground">
-                      Пока нет слотов — сгенерируйте часы или добавьте дни тура
+                      Пока нет слотов — сгенерируйте часы или добавьте дни события
                     </p>
                   ) : (
                     <ul className="space-y-2 md:hidden">
@@ -1862,7 +1862,7 @@ export function InstructorEventsEditor({
               <span>
                 <span className="font-medium">Автовыкладывание каждый день</span>
                 <span className="mt-0.5 block text-xs text-muted-foreground">
-                  Одно мероприятие: после окончания дата сама сдвигается на следующий день (то же время,
+                  Одно событие: после окончания дата сама сдвигается на следующий день (то же время,
                   текст, фото). Новая копия не создаётся. Обновление — после полуночи (cron / при открытии
                   ленты).
                 </span>
@@ -1870,7 +1870,7 @@ export function InstructorEventsEditor({
             </label>
           ) : repeatDaily ? (
             <p className="text-xs text-muted-foreground">
-              Включено автовыкладывание — дата обновляется на этом же мероприятии после окончания.
+              Включено автовыкладывание — дата обновляется на этом же событии после окончания.
             </p>
           ) : null}
 
@@ -1904,12 +1904,12 @@ export function InstructorEventsEditor({
               </>
             ) : formIsCompleted ? (
               <p className="text-sm text-muted-foreground">
-                Мероприятие выполнено по дате — редактирование недоступно.
+                Событие выполнено по дате — редактирование недоступно.
               </p>
             ) : loadedStatus === "PENDING_REVIEW" ? (
               <p className="text-sm text-muted-foreground">На модерации — дождитесь решения администратора.</p>
             ) : loadedStatus === "PUBLISHED" ? (
-              <p className="text-sm text-muted-foreground">Опубликовано — для правок создайте новое мероприятие.</p>
+              <p className="text-sm text-muted-foreground">Опубликовано — для правок создайте новое событие.</p>
             ) : loadedStatus === "ARCHIVED" ? (
               <>
                 <p className="text-sm text-muted-foreground">
@@ -1939,7 +1939,7 @@ export function InstructorEventsEditor({
               </>
             ) : null}
             <Button type="button" variant="ghost" onClick={resetForm}>
-              Новое мероприятие
+              Новое событие
             </Button>
           </div>
         </form>
@@ -1963,7 +1963,7 @@ export function InstructorEventsEditor({
           <div className="rounded-lg border border-border bg-muted/10 p-4">
             <h3 className="text-sm font-medium">Заявки на участие</h3>
             <p className="mt-1 text-xs text-muted-foreground">
-              Все записавшиеся участники. После мероприятия они подтверждают участие; для платных событий оплата
+              Все записавшиеся участники. После события они подтверждают участие; для платных событий оплата
               списывается при подтверждении.
             </p>
             <EventRegistrantsPanel eventId={editingId} />
@@ -1976,10 +1976,10 @@ export function InstructorEventsEditor({
           <>
             {isLoading ? <p className="text-sm text-muted-foreground">Загрузка…</p> : null}
             <EventList
-              title="Сохранённые мероприятия"
+              title="Сохранённые события"
               events={groups.draft}
               isLoading={isLoading}
-              emptyMessage="Пока нет сохранённых мероприятий. Сохраните черновик на странице создания."
+              emptyMessage="Пока нет сохранённых событий. Сохраните черновик на странице создания."
               onEdit={handleCardEdit}
               onDuplicate={handleDuplicate}
               onSubmitModeration={(id) => submitModeration.mutate(id)}
@@ -1996,10 +1996,10 @@ export function InstructorEventsEditor({
           <>
             {isLoading ? <p className="text-sm text-muted-foreground">Загрузка…</p> : null}
             <EventList
-              title="Прошедшие мероприятия"
+              title="Прошедшие события"
               events={groups.past}
               isLoading={isLoading}
-              emptyMessage="Пока нет прошедших мероприятий."
+              emptyMessage="Пока нет прошедших событий."
               onDelete={handleCardDelete}
               actionsPending={remove.isPending}
               hint="Дата и время уже прошли — с ленты клиентов сняты автоматически."
@@ -2014,7 +2014,7 @@ export function InstructorEventsEditor({
             !groups.published.length &&
             !groups.rejected.length &&
             !groups.archived.length ? (
-              <p className="text-sm text-muted-foreground">Пока нет активных мероприятий.</p>
+              <p className="text-sm text-muted-foreground">Пока нет активных событий.</p>
             ) : null}
             {isLoading ? <p className="text-sm text-muted-foreground">Загрузка…</p> : null}
         <EventList
@@ -2078,9 +2078,9 @@ export function InstructorEventsEditor({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Мероприятия</CardTitle>
+        <CardTitle>События</CardTitle>
         <CardDescription>
-          Черновик → «На модерацию» → после одобрения админом мероприятие видно в ленте клиентов и на карте
+          Черновик → «На модерацию» → после одобрения админом событие видно в ленте клиентов и на карте
           (оранжевая точка по адресу места). Скрытое: «Восстановить черновик» для правок или «Восстановить и на
           модерацию» без правок.
         </CardDescription>
@@ -2296,7 +2296,7 @@ function EventList({
                   disabled={actionsPending}
                   onClick={() => onCancelEvent(ev)}
                 >
-                  Отменить мероприятие
+                  Отменить событие
                 </Button>
               ) : null}
             </div>

@@ -226,7 +226,7 @@ export async function createYooKassaLessonPayment(input: {
   });
 }
 
-/** Удобная обёртка для оплаты записи на мероприятие. */
+/** Удобная обёртка для оплаты записи на событие. */
 export async function createYooKassaEventPayment(input: {
   eventRegistrationId: string;
   amountRub: number;

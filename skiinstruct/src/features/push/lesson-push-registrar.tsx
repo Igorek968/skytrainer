@@ -11,7 +11,7 @@ import {
 import { Button } from "@/shared/ui/button";
 
 /**
- * Регистрация Web Push (VAPID): напоминания за ~1 ч до урока/мероприятия и по окончании урока.
+ * Регистрация Web Push (VAPID): напоминания за ~1 ч до урока/события и по окончании урока.
  */
 export function LessonPushRegistrar() {
   const { status, data: session } = useSession();
@@ -65,7 +65,7 @@ export function LessonPushRegistrar() {
 
   return (
     <div className="fixed bottom-4 right-4 z-50 max-w-xs rounded-lg border border-border bg-background p-3 text-xs shadow-lg">
-      <p className="font-medium">Напоминания об уроках и мероприятиях</p>
+      <p className="font-medium">Напоминания об уроках и событиях</p>
       <p className="mt-1 text-muted-foreground">
         За ~1 час до начала и после планового конца урока — push (звук/вибрация по настройкам устройства). Нажмите,
         чтобы разрешить уведомления и подписаться.

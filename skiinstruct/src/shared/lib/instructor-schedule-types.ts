@@ -4,7 +4,7 @@ import type { OrderStatus } from "@prisma/client";
 export const LESSON_SCHEDULE_GAP_MINUTES = 60;
 
 /**
- * Длительность занятости календаря на выход мероприятия (если нет отдельного «до»).
+ * Длительность занятости календаря на выход события (если нет отдельного «до»).
  * Слот/eventAt задают только старт.
  */
 export const EVENT_SCHEDULE_BLOCK_MINUTES = 120;
@@ -38,7 +38,7 @@ export type InstructorWeekSchedule = {
     clientName: string | null;
     status: OrderStatus;
   }>;
-  /** Занятость от мероприятий инструктора (выходы / eventAt). */
+  /** Занятость от событий инструктора (выходы / eventAt). */
   events: Array<{
     eventId: string;
     ymd: string;

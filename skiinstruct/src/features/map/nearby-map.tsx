@@ -33,14 +33,14 @@ export type NearbyMapProps = {
   meetLat: number;
   meetLng: number;
   instructors: InstructorPin[];
-  /** Опубликованные мероприятия с указанным местом (venue). */
+  /** Опубликованные события с указанным местом (venue). */
   events?: EventMapPin[];
   radiusKm: number;
   onMeetChange: (lat: number, lng: number) => void;
   onLocateMe?: () => Promise<void>;
   onInstructorSelect?: (id: string) => void;
   onInstructorFocus?: (id: string) => void;
-  /** Одиночный клик по метке мероприятия. */
+  /** Одиночный клик по метке события. */
   onEventSelect?: (id: string) => void;
   /** Двойной клик — открыть экран просмотра (как фото в ленте). */
   onEventOpen?: (feedCardId: string) => void;
@@ -175,7 +175,7 @@ function LeafletNearbyMap({
           zoom={13}
           className="h-full w-full"
           scrollWheelZoom
-          aria-label="Карта курорта, инструкторов и мероприятий"
+          aria-label="Карта курорта, инструкторов и событий"
         >
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>'

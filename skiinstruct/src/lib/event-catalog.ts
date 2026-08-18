@@ -37,7 +37,7 @@ export type InstructorCatalogBrowseItemDTO = EventCatalogItemDTO & {
   myOffer: InstructorCatalogMyOfferDTO | null;
 };
 
-/** Карточка ленты: каталог (несколько инструкторов) или одиночное мероприятие. */
+/** Карточка ленты: каталог (несколько инструкторов) или одиночное событие. */
 export type ClientEventFeedCardDTO =
   | {
       kind: "catalog";

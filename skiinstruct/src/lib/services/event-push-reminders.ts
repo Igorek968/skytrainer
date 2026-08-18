@@ -9,7 +9,7 @@ function formatStartLabel(at: Date): string {
 }
 
 /**
- * Web Push за ~1 час до мероприятия: клиентам с записью и инструктору (один раз на слот / событие).
+ * Web Push за ~1 час до события: клиентам с записью и инструктору (один раз на слот / событие).
  */
 export async function processEventPushReminders(): Promise<{
   clientReminders: number;
@@ -58,7 +58,7 @@ export async function processEventPushReminders(): Promise<{
 
     const startLabel = formatStartLabel(effectiveAt);
     const clientPush = await sendWebPushToUser(reg.clientId, {
-      title: "Скоро мероприятие",
+      title: "Скоро событие",
       body: `Через ~1 час: «${reg.event.title}» (${startLabel}). Откройте заявку.`,
       url: `/client/registrations/${reg.id}`,
       tag: `event-start-${reg.id}`,
@@ -78,7 +78,7 @@ export async function processEventPushReminders(): Promise<{
 
     if (!instructorAlreadySent) {
       const insPush = await sendWebPushToUser(reg.event.instructorId, {
-        title: "Скоро мероприятие",
+        title: "Скоро событие",
         body: `Через ~1 час начало «${reg.event.title}» (${startLabel}).`,
         url: "/instructor#events",
         tag: `event-start-inst-${reg.event.id}-${reg.slotId ?? "main"}`,

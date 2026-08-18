@@ -105,7 +105,7 @@ function EventFeedDetails({
           <Link href="/login?callbackUrl=/client" className="font-medium text-accent underline">
             Войдите как клиент
           </Link>
-          , чтобы записаться на мероприятие.
+          , чтобы записаться на событие.
         </p>
       )}
     </>
@@ -473,7 +473,7 @@ function EventsCarousel({
           ref={scrollerRef}
           className="flex items-start gap-3 overflow-x-auto px-10 pb-1 scroll-smooth snap-x snap-mandatory [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           role="list"
-          aria-label="Мероприятия — карусель"
+          aria-label="События — карусель"
         >
           {cards.map((card) => {
             const id = feedCardId(card);
@@ -499,7 +499,7 @@ function EventsCarousel({
             variant="secondary"
             size="icon"
             className="absolute -left-1 top-[38%] z-10 h-9 w-9 rounded-full border border-border bg-background shadow-md"
-            aria-label="Прокрутить мероприятия влево"
+            aria-label="Прокрутить события влево"
             onClick={() => scrollBy(-320)}
           >
             <ChevronLeft className="h-5 w-5" />
@@ -511,7 +511,7 @@ function EventsCarousel({
             variant="secondary"
             size="icon"
             className="absolute -right-1 top-[38%] z-10 h-9 w-9 rounded-full border border-border bg-background shadow-md"
-            aria-label="Прокрутить мероприятия вправо"
+            aria-label="Прокрутить события вправо"
             onClick={() => scrollBy(320)}
           >
             <ChevronRight className="h-5 w-5" />
@@ -583,7 +583,7 @@ function EventsList({
 
   return (
     <>
-      <div className="max-h-80 space-y-4 overflow-y-auto pr-1" role="feed" aria-label="Мероприятия">
+      <div className="max-h-80 space-y-4 overflow-y-auto pr-1" role="feed" aria-label="События">
         {cards.map((card) => (
           <EventFeedItem
             key={feedCardId(card)}
@@ -697,14 +697,14 @@ export function ClientEventsFeed({
       if (categoryPref.trim()) qs.set("category", categoryPref.trim());
       const r = await fetch(`/api/client/events?${qs}`, { credentials: "include" });
       if (!r.ok) {
-        let msg = "Не удалось загрузить мероприятия";
+        let msg = "Не удалось загрузить события";
         try {
           const j = (await r.json()) as { error?: string };
           if (typeof j.error === "string" && j.error.length > 0) msg = j.error;
         } catch {
           /* ignore */
         }
-        if (r.status === 401) msg = "Войдите как клиент, чтобы видеть мероприятия";
+        if (r.status === 401) msg = "Войдите как клиент, чтобы видеть события";
         throw new Error(msg);
       }
       return r.json() as Promise<{
@@ -727,14 +727,14 @@ export function ClientEventsFeed({
 
   const badgeHint =
     layout === "carousel"
-      ? "Одинаковые туры схлопываются в одну карточку. Зелёная метка: расстояние или цена. На телефоне — тап на весь экран."
-      : "Нажмите мероприятие, чтобы открыть на весь экран.";
+      ? "Одинаковые события схлопываются в одну карточку. Зелёная метка: расстояние или цена. На телефоне — тап на весь экран."
+      : "Нажмите событие, чтобы открыть на весь экран.";
 
   return (
     <Card>
       <CardHeader className="space-y-3">
         <div>
-          <CardTitle className="text-base">Мероприятия</CardTitle>
+          <CardTitle className="text-base">События</CardTitle>
           <CardDescription>
             {feedDescription}
             {badgeHint ? <span className="mt-1 block text-[11px]">{badgeHint}</span> : null}
@@ -764,7 +764,7 @@ export function ClientEventsFeed({
             onChange={(e) => toggleUnlimited(e.target.checked)}
           />
           <span>
-            <span className="font-medium text-foreground">Показать все мероприятия</span>
+            <span className="font-medium text-foreground">Показать все события</span>
             <span className="mt-0.5 block text-xs text-muted-foreground">
               Без ограничения по расстоянию; список отсортирован от ближайших к дальним
             </span>
@@ -783,8 +783,8 @@ export function ClientEventsFeed({
         ) : cards.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             {unlimited
-              ? "Пока нет опубликованных мероприятий."
-              : `В радиусе ${CLIENT_EVENTS_RADIUS_KM} км от вашей точки на карте мероприятий нет. Отметьте себя на карте или включите «Показать все мероприятия».`}
+              ? "Пока нет опубликованных событий."
+              : `В радиусе ${CLIENT_EVENTS_RADIUS_KM} км от вашей точки на карте событий нет. Отметьте себя на карте или включите «Показать все события».`}
           </p>
         ) : layout === "carousel" ? (
           <EventsCarousel

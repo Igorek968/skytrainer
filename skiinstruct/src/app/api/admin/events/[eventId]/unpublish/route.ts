@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 type Ctx = { params: Promise<{ eventId: string }> };
 
-/** Снять опубликованное мероприятие с ленты клиентов (как «Скрыть» у инструктора). */
+/** Снять опубликованное событие с ленты клиентов (как «Скрыть» у инструктора). */
 export async function POST(_req: Request, ctx: Ctx) {
   const authResult = await requireAdminSession();
   if (isApiErrorResponse(authResult)) return authResult;
@@ -16,11 +16,11 @@ export async function POST(_req: Request, ctx: Ctx) {
   const { eventId } = await ctx.params;
   const existing = await prisma.instructorEvent.findUnique({ where: { id: eventId } });
   if (!existing) {
-    return NextResponse.json({ error: "Мероприятие не найдено" }, { status: 404 });
+    return NextResponse.json({ error: "Событие не найдено" }, { status: 404 });
   }
   if (existing.moderationStatus !== "PUBLISHED") {
     return NextResponse.json(
-      { error: "Снять с публикации можно только опубликованное мероприятие" },
+      { error: "Снять с публикации можно только опубликованное событие" },
       { status: 400 },
     );
   }
@@ -32,6 +32,6 @@ export async function POST(_req: Request, ctx: Ctx) {
 
   return NextResponse.json({
     event: serializeInstructorEvent(row),
-    message: "Мероприятие снято с публикации (скрыто из ленты)",
+    message: "Событие снято с публикации (скрыто из ленты)",
   });
 }

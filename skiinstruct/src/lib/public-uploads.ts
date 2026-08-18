@@ -77,7 +77,7 @@ export function resolveLegacyPublicUploadPath(segments: string[]): string | null
   return resolved;
 }
 
-/** Копия файла обложки для нового мероприятия (отдельный файл в storage). */
+/** Копия файла обложки для нового события (отдельный файл в storage). */
 export async function duplicatePublicUploadForEvent(
   sourceUrl: string,
   eventId: string,

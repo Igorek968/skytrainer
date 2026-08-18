@@ -8,7 +8,7 @@ function previewBody(body: string, max = 160): string {
   return compact.length > max ? `${compact.slice(0, max).trim()}…` : compact;
 }
 
-/** Push второй стороне в чате записи на мероприятие. */
+/** Push второй стороне в чате записи на событие. */
 export async function notifyRegistrationChatMessage(params: {
   registrationId: string;
   messageId: string;
@@ -24,7 +24,7 @@ export async function notifyRegistrationChatMessage(params: {
     params.recipientRole === "client"
       ? `/client/registrations/${params.registrationId}`
       : `/instructor/registrations/${params.registrationId}`;
-  const title = `${appName}: сообщение по мероприятию`;
+  const title = `${appName}: сообщение по событию`;
   const body = `${senderLabel}: ${preview}`;
   const tag = `registration-chat-${params.messageId}`;
   const snoozeToken = createPushSnoozeToken({

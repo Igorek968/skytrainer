@@ -25,10 +25,10 @@ function isRecentRegistration(row: RegistrationAlertRow): boolean {
 
 function notifyInstructorAboutRegistration(reg: RegistrationAlertRow) {
   const clientLabel = reg.client.name?.trim() || reg.client.email?.trim() || "Клиент";
-  const title = reg.event.title.trim() || "Мероприятие";
+  const title = reg.event.title.trim() || "Событие";
   const registrationUrl = `/instructor/registrations/${reg.id}`;
   fireSiteAlert({
-    title: siteAlertTitle("новая запись на мероприятие"),
+    title: siteAlertTitle("новая запись на событие"),
     body: `${clientLabel} · ${title}`,
     sound: "order",
     tag: `event-registration-${reg.id}`,
@@ -99,7 +99,7 @@ export function InstructorEventRegistrationPrompt() {
   if (!activeAlert) return null;
 
   const clientLabel = activeAlert.client.name?.trim() || activeAlert.client.email?.trim() || "Клиент";
-  const eventTitle = activeAlert.event.title.trim() || "Мероприятие";
+  const eventTitle = activeAlert.event.title.trim() || "Событие";
 
   return (
     <div
@@ -109,7 +109,7 @@ export function InstructorEventRegistrationPrompt() {
       aria-describedby="instructor-event-registration-alert-body"
     >
       <h2 id="instructor-event-registration-alert-title" className="text-sm font-semibold">
-        Новая запись на мероприятие
+        Новая запись на событие
       </h2>
       <p className="mt-1 text-xs text-muted-foreground">{clientLabel}</p>
       <p id="instructor-event-registration-alert-body" className="mt-2 whitespace-pre-wrap text-sm">

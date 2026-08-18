@@ -234,14 +234,14 @@ export async function POST(req: Request) {
     }
     if (!eventDay && !allHaveDate) {
       return NextResponse.json(
-        { error: "Укажите дату для каждого выхода или общий день мероприятия" },
+        { error: "Укажите дату для каждого выхода или общий день события" },
         { status: 400 },
       );
     }
     eventAt = null;
   } else if (!eventAt) {
     return NextResponse.json(
-      { error: "Укажите дату и время мероприятия — без них нельзя сохранить" },
+      { error: "Укажите дату и время события — без них нельзя сохранить" },
       { status: 400 },
     );
   }
@@ -266,17 +266,17 @@ export async function POST(req: Request) {
       include: { slots: true },
     });
     if (!existing) {
-      return NextResponse.json({ error: "Мероприятие не найдено" }, { status: 404 });
+      return NextResponse.json({ error: "Событие не найдено" }, { status: 404 });
     }
     if (existing.moderationStatus === "ARCHIVED") {
       return NextResponse.json(
-        { error: "Скрытое мероприятие нельзя изменить. Создайте новое." },
+        { error: "Скрытое событие нельзя изменить. Создайте новое." },
         { status: 400 },
       );
     }
     if (!canEditInstructorEvent(existing)) {
       return NextResponse.json(
-        { error: "Выполненное или опубликованное мероприятие нельзя изменить" },
+        { error: "Выполненное или опубликованное событие нельзя изменить" },
         { status: 400 },
       );
     }

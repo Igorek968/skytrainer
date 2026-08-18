@@ -66,7 +66,7 @@ export async function POST(req: Request) {
     });
     if (published.length !== eventIds.length) {
       return NextResponse.json(
-        { error: "Привязывать можно только опубликованные мероприятия" },
+        { error: "Привязывать можно только опубликованные события" },
         { status: 400 },
       );
     }

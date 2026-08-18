@@ -90,8 +90,8 @@ export default function InstructorAgencyOfferPage() {
             Клиентом).
           </li>
           <li>
-            Комиссия по мероприятиям: {PLATFORM_FEE_PERCENT}% от стоимости участия каждого клиента, оплатившего запись
-            после проведения мероприятия; Инструктору перечисляется {100 - PLATFORM_FEE_PERCENT}% от суммы каждого
+            Комиссия по событиям: {PLATFORM_FEE_PERCENT}% от стоимости участия каждого клиента, оплатившего запись
+            после проведения события; Инструктору перечисляется {100 - PLATFORM_FEE_PERCENT}% от суммы каждого
             такого участника.
           </li>
           <li>Выплата Инструктору: {payoutHint}.</li>
@@ -120,7 +120,7 @@ export default function InstructorAgencyOfferPage() {
           </li>
           <li>
             Отмена менее чем за <strong>{INSTRUCTOR_CANCEL_NOTICE_HOURS} ч</strong> до занятия или неявка на занятие /
-            мероприятие — полный возврат Клиенту и штраф{" "}
+            событие — полный возврат Клиенту и штраф{" "}
             <strong>{INSTRUCTOR_NO_SHOW_PENALTY_PERCENT}%</strong> от суммы заявки в пользу платформы (удерживается из
             будущих выплат Инструктору).
           </li>

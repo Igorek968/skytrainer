@@ -16,7 +16,7 @@ export function YandexEventVenueMap({
   lng,
   interactive = true,
   className,
-  markerLabel = "Место мероприятия",
+  markerLabel = "Место события",
   onPositionChange,
 }: {
   lat: number;
@@ -123,7 +123,7 @@ export function YandexEventVenueMap({
         <div
           ref={containerRef}
           className="h-full w-full"
-          aria-label="Яндекс.Карта — место мероприятия"
+          aria-label="Яндекс.Карта — место события"
         />
       </div>
       <MapLegalStrip />

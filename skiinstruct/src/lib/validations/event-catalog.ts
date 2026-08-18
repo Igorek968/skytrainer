@@ -15,7 +15,7 @@ export const createEventCatalogSchema = z.object({
   title: z.string().trim().min(1).max(120),
   body: z.string().trim().min(1).max(2000),
   category: requiredEventCategorySchema,
-  /** EVENT — событие/тур; VENUE — площадка (корты). */
+  /** EVENT — событие; VENUE — площадка (корты). */
   kind: z.enum(["EVENT", "VENUE"]).optional().default("EVENT"),
   /** Витрина без аренды площадки (для VENUE обычно true). */
   listingOnly: z.boolean().optional(),
@@ -25,7 +25,7 @@ export const createEventCatalogSchema = z.object({
   venueLat: venueCoordField,
   venueLng: venueCoordField,
   citySlug: citySlugField,
-  /** Сразу привязать опубликованные мероприятия инструкторов. */
+  /** Сразу привязать опубликованные события инструкторов. */
   eventIds: z.array(z.string().cuid()).max(50).optional(),
   /** Создать и сразу опубликовать. */
   publish: z.boolean().optional(),

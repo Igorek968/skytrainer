@@ -7,7 +7,7 @@ import {
   rollForwardDailyRepeatEvents,
 } from "@/lib/services/instructor-event-daily-repeat";
 
-/** Опубликованные мероприятия с датой в будущем или без даты — для ленты клиента. */
+/** Опубликованные события с датой в будущем или без даты — для ленты клиента. */
 export function activePublishedEventWhere(now: Date = new Date()): Prisma.InstructorEventWhereInput {
   return {
     moderationStatus: "PUBLISHED",
@@ -27,7 +27,7 @@ export function isVisibleInClientEventFeed(
 }
 
 /**
- * 1) Автовыкладывание: прошедшие PUBLISHED + repeatDaily → сдвиг даты на том же мероприятии.
+ * 1) Автовыкладывание: прошедшие PUBLISHED + repeatDaily → сдвиг даты на том же событии.
  * 2) Остальные прошедшие PUBLISHED → ARCHIVED.
  */
 export async function archivePastPublishedInstructorEvents(options?: {

@@ -23,11 +23,11 @@ const CITY_STORAGE_KEY = "skiinstruct_instructor_catalog_city";
 type InstructorCatalogPanel = "create" | "cards" | "mine" | "saved" | "past";
 
 const PANEL_LABELS: Record<InstructorCatalogPanel, string> = {
-  create: "Создать мероприятие",
+  create: "Создать событие",
   cards: "Карточки каталога",
-  mine: "Мои мероприятия",
-  saved: "Сохранённые мероприятия",
-  past: "Прошедшие мероприятия",
+  mine: "Мои события",
+  saved: "Сохранённые события",
+  past: "Прошедшие события",
 };
 
 const INSTRUCTOR_PANELS: readonly CatalogNavPanelDef<InstructorCatalogPanel>[] = [
@@ -51,7 +51,7 @@ function readStoredCitySlug(): string {
 type ActiveOrderOption = { id: string; label: string };
 
 /**
- * Каталог мероприятий инструктора — тот же каркас, что у админа:
+ * Каталог событий инструктора — тот же каркас, что у админа:
  * город + кнопки с провалом в отдельный блок.
  * Без админских действий (публикация/архив каталога и т.п.).
  */
@@ -175,15 +175,15 @@ export function InstructorEventCatalogSection({
         activePanel={activePanel}
         onActivePanelChange={requestPanelChange}
         panelLabels={PANEL_LABELS}
-        cityDescription="Выберите город — каталог карточек и создание мероприятий ориентируются на него."
-        emptyHint="Выберите раздел выше: создать мероприятие, каталог, мои, сохранённые или прошедшие."
+        cityDescription="Выберите город — каталог карточек и создание событий ориентируются на него."
+        emptyHint="Выберите раздел выше: создать событие, каталог, мои, сохранённые или прошедшие."
       >
         {activePanel === "create" || (activePanel && listViews.includes(activePanel)) ? (
           <div className="space-y-3">
             {activePanel === "create" ? (
               <div>
                 <h2 className="text-base font-semibold tracking-tight">
-                  Новое мероприятие · {selectedCity.name}
+                  Новое событие · {selectedCity.name}
                 </h2>
                 <p className="text-sm text-muted-foreground">
                   Черновик → «На модерацию» → после одобрения видно в ленте и на карте.
@@ -192,7 +192,7 @@ export function InstructorEventCatalogSection({
             ) : activePanel === "saved" ? (
               <div>
                 <h2 className="text-base font-semibold tracking-tight">
-                  Сохранённые мероприятия · {selectedCity.name}
+                  Сохранённые события · {selectedCity.name}
                 </h2>
                 <p className="text-sm text-muted-foreground">
                   Черновики, которые вы сохранили и ещё не отправили на проверку.
@@ -201,16 +201,16 @@ export function InstructorEventCatalogSection({
             ) : activePanel === "past" ? (
               <div>
                 <h2 className="text-base font-semibold tracking-tight">
-                  Прошедшие мероприятия · {selectedCity.name}
+                  Прошедшие события · {selectedCity.name}
                 </h2>
                 <p className="text-sm text-muted-foreground">
-                  Мероприятия, у которых уже прошла дата и время.
+                  События, у которых уже прошла дата и время.
                 </p>
               </div>
             ) : (
               <div>
                 <h2 className="text-base font-semibold tracking-tight">
-                  Мои мероприятия · {selectedCity.name}
+                  Мои события · {selectedCity.name}
                 </h2>
                 <p className="text-sm text-muted-foreground">
                   На модерации, опубликованные, отклонённые и скрытые. Редактирование откроет форму
@@ -258,10 +258,10 @@ export function InstructorEventCatalogSection({
       >
         <DialogContent className="gap-0 p-0">
           <div className="space-y-2 border-b border-border px-4 py-3">
-            <h2 className="text-base font-semibold">Сохранить мероприятие?</h2>
+            <h2 className="text-base font-semibold">Сохранить событие?</h2>
             <p className="text-sm text-muted-foreground">
-              Вы уходите со страницы создания, не отправив мероприятие на проверку. Сохранить как
-              черновик в «Сохранённые мероприятия»?
+              Вы уходите со страницы создания, не отправив событие на проверку. Сохранить как
+              черновик в «Сохранённые события»?
             </p>
           </div>
           <div className="flex flex-col-reverse gap-2 p-4 sm:flex-row sm:justify-end">

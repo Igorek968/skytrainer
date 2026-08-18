@@ -5,7 +5,7 @@ import {
   instructorActivityLabelsAlphabetical,
 } from "@/lib/services/instructor-match";
 
-/** Те же направления, что у инструкторов на карте — единый каталог категорий мероприятий. */
+/** Те же направления, что у инструкторов на карте — единый каталог категорий событий. */
 export function eventCategoryOptions(): string[] {
   return instructorActivityLabelsAlphabetical();
 }
@@ -19,7 +19,7 @@ export function parseEventCategory(
   }
   const canon = canonicalizeActivityLabel(String(raw).trim());
   if (!canon) {
-    return { ok: false, error: "Неизвестная категория мероприятия" };
+    return { ok: false, error: "Неизвестная категория события" };
   }
   return { ok: true, category: canon };
 }
@@ -30,7 +30,7 @@ export function requireEventCategory(
   const parsed = parseEventCategory(raw);
   if (!parsed.ok) return parsed;
   if (!parsed.category) {
-    return { ok: false, error: "Выберите категорию мероприятия" };
+    return { ok: false, error: "Выберите категорию события" };
   }
   return { ok: true, category: parsed.category };
 }

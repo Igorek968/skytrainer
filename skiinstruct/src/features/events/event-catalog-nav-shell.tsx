@@ -44,7 +44,7 @@ export function EventCatalogNavShell<T extends string>({
   panelLabels,
   children,
   cityTitle = "Город каталога",
-  cityDescription = "Выберите город — карта создания и история карточек/мероприятий переключаются на него.",
+  cityDescription = "Выберите город — карта создания и история карточек/событий переключаются на него.",
   emptyHint = "Выберите раздел выше, чтобы открыть его содержимым.",
 }: EventCatalogNavShellProps<T>) {
   return (

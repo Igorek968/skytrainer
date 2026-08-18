@@ -209,7 +209,7 @@ export function notifyBotInstructorOnline(userId: string): void {
   })();
 }
 
-/** Fire-and-forget: мероприятие опубликовано. */
+/** Fire-and-forget: событие опубликовано. */
 export function notifyBotEventPublished(eventId: string): void {
   void (async () => {
     const payload = await buildEventBotPayload(eventId);

@@ -63,7 +63,7 @@ export function RegistrationChat({
   return (
     <div id="registration-chat" className="space-y-3 rounded-lg border border-border p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="text-sm font-medium">Связь по мероприятию</div>
+        <div className="text-sm font-medium">Связь по событию</div>
         <PaidContactCallButton contactUrl={contactUrl} label={callLabel} />
       </div>
       <div

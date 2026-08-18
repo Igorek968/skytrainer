@@ -481,7 +481,7 @@ async function composeEvent(p) {
   const href = siteLink(p.signup_url || "/events", campaign);
   const emoji = sportEmoji(p.sport);
   const when = [p.date, p.place].filter(Boolean).join(" · ");
-  const ai = await enrichWithProvod("мероприятие", {
+  const ai = await enrichWithProvod("событие", {
     title: p.title,
     date: p.date,
     place: p.place,
@@ -489,7 +489,7 @@ async function composeEvent(p) {
   });
   const title =
     ai?.title ||
-    `${p.title || "Мероприятие"}${when ? ` — ${when}` : ""}`;
+    `${p.title || "Событие"}${when ? ` — ${when}` : ""}`;
   const body =
     ai?.body ||
     `Новое событие на ТвойТренер.рф${p.sport ? ` (${p.sport})` : ""}. Запись и детали — на сайте.`;

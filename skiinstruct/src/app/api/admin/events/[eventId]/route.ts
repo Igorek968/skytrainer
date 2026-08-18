@@ -47,7 +47,7 @@ export async function GET(_req: Request, ctx: Ctx) {
     },
   });
   if (!row) {
-    return NextResponse.json({ error: "Мероприятие не найдено" }, { status: 404 });
+    return NextResponse.json({ error: "Событие не найдено" }, { status: 404 });
   }
 
   return NextResponse.json({
@@ -82,7 +82,7 @@ export async function PATCH(req: Request, ctx: Ctx) {
     include: { slots: { select: { id: true } } },
   });
   if (!existing) {
-    return NextResponse.json({ error: "Мероприятие не найдено" }, { status: 404 });
+    return NextResponse.json({ error: "Событие не найдено" }, { status: 404 });
   }
 
   const data = parsed.data;
@@ -179,7 +179,7 @@ export async function PATCH(req: Request, ctx: Ctx) {
     action: "event.update",
     entity: "InstructorEvent",
     entityId: eventId,
-    summary: `Обновлено мероприятие «${fresh?.title ?? eventId}»`,
+    summary: `Обновлено событие «${fresh?.title ?? eventId}»`,
   });
 
   return NextResponse.json({
@@ -189,7 +189,7 @@ export async function PATCH(req: Request, ctx: Ctx) {
       instructor: fresh!.instructor,
       catalogItem: fresh!.catalogItem,
     },
-    message: "Мероприятие обновлено",
+    message: "Событие обновлено",
   });
 }
 
@@ -203,7 +203,7 @@ export async function DELETE(req: Request, ctx: Ctx) {
 
   const existing = await prisma.instructorEvent.findUnique({ where: { id: eventId } });
   if (!existing) {
-    return NextResponse.json({ error: "Мероприятие не найдено" }, { status: 404 });
+    return NextResponse.json({ error: "Событие не найдено" }, { status: 404 });
   }
 
   if (!hard && existing.moderationStatus === "PUBLISHED") {
@@ -222,7 +222,7 @@ export async function DELETE(req: Request, ctx: Ctx) {
       ok: true,
       archived: true,
       event: serializeInstructorEvent(row),
-      message: "Мероприятие снято с публикации",
+      message: "Событие снято с публикации",
     });
   }
 
@@ -254,8 +254,8 @@ export async function DELETE(req: Request, ctx: Ctx) {
     action: "event.delete",
     entity: "InstructorEvent",
     entityId: eventId,
-    summary: `Удалено мероприятие «${existing.title}»`,
+    summary: `Удалено событие «${existing.title}»`,
   });
 
-  return NextResponse.json({ ok: true, message: "Мероприятие удалено" });
+  return NextResponse.json({ ok: true, message: "Событие удалено" });
 }

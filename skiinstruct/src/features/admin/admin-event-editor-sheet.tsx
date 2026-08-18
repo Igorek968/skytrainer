@@ -157,7 +157,7 @@ export function AdminEventEditorSheet({ eventId, onClose }: Props) {
       <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-lg border border-border bg-background p-4 shadow-lg">
         <div className="mb-3 flex items-start justify-between gap-2">
           <div>
-            <h2 className="text-base font-semibold">Редактирование мероприятия</h2>
+            <h2 className="text-base font-semibold">Редактирование события</h2>
             <p className="text-xs text-muted-foreground">
               {query.data?.event.instructor.name ?? query.data?.event.instructor.email ?? "…"}
             </p>
@@ -170,7 +170,7 @@ export function AdminEventEditorSheet({ eventId, onClose }: Props) {
         {query.isLoading ? (
           <p className="text-sm text-muted-foreground">Загрузка…</p>
         ) : query.error ? (
-          <p className="text-sm text-destructive">Не удалось загрузить мероприятие.</p>
+          <p className="text-sm text-destructive">Не удалось загрузить событие.</p>
         ) : (
           <div className="space-y-3 text-sm">
             <div className="space-y-1">
@@ -343,7 +343,7 @@ export function AdminEventEditorSheet({ eventId, onClose }: Props) {
                 variant="ghost"
                 disabled={remove.isPending}
                 onClick={() => {
-                  if (confirm("Удалить мероприятие безвозвратно?")) remove.mutate(true);
+                  if (confirm("Удалить событие безвозвратно?")) remove.mutate(true);
                 }}
               >
                 Удалить

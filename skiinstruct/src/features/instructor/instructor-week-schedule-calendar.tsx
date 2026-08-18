@@ -303,8 +303,8 @@ export function InstructorWeekScheduleCalendar({
       <CardHeader>
         <CardTitle>Расписание</CardTitle>
         <CardDescription>
-          Одна сетка: шаблон доступности, уроки, мероприятия и перерыв 1 ч. Красная ячейка — урок,
-          фиолетовая — мероприятие.
+          Одна сетка: шаблон доступности, уроки, события и перерыв 1 ч. Красная ячейка — урок,
+          фиолетовая — событие.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -501,7 +501,7 @@ export function InstructorWeekScheduleCalendar({
                                     className="flex h-5 w-full min-h-[1.25rem] items-center justify-center sm:h-6"
                                     title={
                                       visual.kind === "event"
-                                        ? `Мероприятие ${String(hour).padStart(2, "0")}:00`
+                                        ? `Событие ${String(hour).padStart(2, "0")}:00`
                                         : `Запись ${String(hour).padStart(2, "0")}:00`
                                     }
                                     onClick={() => {
@@ -516,7 +516,7 @@ export function InstructorWeekScheduleCalendar({
                                   >
                                     <span className="sr-only">
                                       {visual.kind === "event"
-                                        ? "Открыть мероприятие"
+                                        ? "Открыть событие"
                                         : "Открыть запись"}
                                     </span>
                                   </button>
@@ -548,7 +548,7 @@ export function InstructorWeekScheduleCalendar({
                     <span className="inline-block h-3 w-6 rounded bg-red-500/90" /> урок (клик)
                   </span>
                   <span className="inline-flex items-center gap-1">
-                    <span className="inline-block h-3 w-6 rounded bg-violet-500/90" /> мероприятие
+                    <span className="inline-block h-3 w-6 rounded bg-violet-500/90" /> событие
                   </span>
                 </div>
 
@@ -564,7 +564,7 @@ export function InstructorWeekScheduleCalendar({
                     </p>
                     {!lessonsForSelectedDay.length && !eventsForSelectedDay.length ? (
                       <p className="mt-2 text-sm text-muted-foreground">
-                        Нет занятий и мероприятий в этот день
+                        Нет занятий и событий в этот день
                       </p>
                     ) : (
                       <ul className="mt-2 space-y-2">
@@ -579,11 +579,11 @@ export function InstructorWeekScheduleCalendar({
                               </span>
                               <span className="ml-2 text-muted-foreground">{e.title}</span>
                               <span className="ml-2 text-xs text-violet-700 dark:text-violet-300">
-                                Мероприятие
+                                Событие
                               </span>
                             </div>
                             <Button asChild variant="outline" size="sm">
-                              <Link href="/instructor#events">К мероприятиям</Link>
+                              <Link href="/instructor#events">К событиям</Link>
                             </Button>
                           </li>
                         ))}
@@ -661,12 +661,12 @@ export function InstructorWeekScheduleCalendar({
                         </p>
                         <p className="text-sm text-muted-foreground">{e.title}</p>
                         <p className="mt-1 text-xs text-violet-700 dark:text-violet-300">
-                          Мероприятие · в это время нельзя вызвать на тренировку
+                          Событие · в это время нельзя вызвать на тренировку
                         </p>
                       </div>
                       <Button asChild size="sm" variant="outline">
                         <Link href="/instructor#events" onClick={() => setHourPick(null)}>
-                          К мероприятиям
+                          К событиям
                         </Link>
                       </Button>
                     </li>

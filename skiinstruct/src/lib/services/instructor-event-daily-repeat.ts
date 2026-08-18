@@ -10,7 +10,7 @@ function addDays(date: Date, days: number): Date {
   return d;
 }
 
-/** Мероприятие с выходами считается прошедшим, когда все слоты в прошлом. */
+/** Событие с выходами считается прошедшим, когда все слоты в прошлом. */
 export function isSlotEventPast(
   event: Pick<InstructorEvent, "eventAt"> & { slots: EventSlot[] },
   now: Date,
@@ -23,7 +23,7 @@ export function isSlotEventPast(
 }
 
 /**
- * Сколько суток сдвинуть, чтобы мероприятие снова было в будущем.
+ * Сколько суток сдвинуть, чтобы событие снова было в будущем.
  * Минимум 1, если уже прошло.
  */
 function daysToRollForward(event: EventWithSlots, now: Date): number {
@@ -57,7 +57,7 @@ function daysToRollForward(event: EventWithSlots, now: Date): number {
 }
 
 /**
- * Сдвигает дату/время того же мероприятия на N суток вперёд (без создания копии).
+ * Сдвигает дату/время того же события на N суток вперёд (без создания копии).
  * Сбрасывает флаги напоминаний, чтобы push снова отработали.
  */
 export async function rollForwardDailyRepeatEvent(

@@ -59,7 +59,7 @@ export function OrderEventsFeed({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Мероприятия</CardTitle>
+        <CardTitle className="text-base">События</CardTitle>
         <CardDescription>
           {instructorName
             ? `События и запись — ${instructorName}`
@@ -77,7 +77,7 @@ export function OrderEventsFeed({
         ) : events.length === 0 ? (
           <p className="text-sm text-muted-foreground">Пока нет объявлений по этому заказу.</p>
         ) : (
-          <div className="max-h-80 space-y-4 overflow-y-auto pr-1" role="feed" aria-label="Мероприятия">
+          <div className="max-h-80 space-y-4 overflow-y-auto pr-1" role="feed" aria-label="События">
             {events.map((ev) => (
               <EventFeedItem key={ev.id} event={ev} queryKey={queryKey} />
             ))}

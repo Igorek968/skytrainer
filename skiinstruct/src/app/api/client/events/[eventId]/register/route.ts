@@ -50,12 +50,12 @@ export async function POST(req: Request, ctx: Ctx) {
     include: { slots: { orderBy: [{ sortOrder: "asc" }, { startsAt: "asc" }] } },
   });
   if (!event) {
-    return NextResponse.json({ error: "Мероприятие не найдено" }, { status: 404 });
+    return NextResponse.json({ error: "Событие не найдено" }, { status: 404 });
   }
 
   const canAccess = await clientCanAccessEvent(resolved.userId, event);
   if (!canAccess) {
-    return NextResponse.json({ error: "Нет доступа к этому мероприятию" }, { status: 403 });
+    return NextResponse.json({ error: "Нет доступа к этому событию" }, { status: 403 });
   }
 
   const hasSlots = event.slots.length > 0;
@@ -133,14 +133,14 @@ export async function POST(req: Request, ctx: Ctx) {
       checkoutUrl: null,
       registrationPath: registrationId ? `/client/registrations/${registrationId}` : null,
       message: amounts.requiresPayment
-        ? "Вы записаны. Оплата будет доступна после мероприятия."
+        ? "Вы записаны. Оплата будет доступна после события."
         : "Вы записаны на выбранное время",
     });
   }
 
   const capacity = await getEventCapacityState(event);
   if (!registrationOpenForEvent(event, capacity.isFull)) {
-    return NextResponse.json({ error: "Запись на это мероприятие недоступна" }, { status: 400 });
+    return NextResponse.json({ error: "Запись на это событие недоступна" }, { status: 400 });
   }
 
   const amounts = buildRegistrationAmounts(event.priceRub);
@@ -218,7 +218,7 @@ export async function POST(req: Request, ctx: Ctx) {
       registration: myRegistration,
       checkoutUrl: null,
       registrationPath: `/client/registrations/${registrationId}`,
-      message: "Вы записаны на мероприятие",
+      message: "Вы записаны на событие",
     });
   }
 
@@ -233,6 +233,6 @@ export async function POST(req: Request, ctx: Ctx) {
     checkoutUrl: null,
     registrationPath: `/client/registrations/${registrationId}`,
     message:
-      "Вы записаны. Оплата будет доступна после мероприятия — подтвердите участие, и средства поступят инструктору.",
+      "Вы записаны. Оплата будет доступна после события — подтвердите участие, и средства поступят инструктору.",
   });
 }

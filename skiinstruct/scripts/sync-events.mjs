@@ -1,5 +1,5 @@
 /**
- * Экспорт / импорт опубликованных мероприятий (по email инструктора + title).
+ * Экспорт / импорт опубликованных событий (по email инструктора + title).
  *
  * export: DATABASE_URL=... node scripts/sync-events.mjs export > events.json
  * import: DATABASE_URL=... node scripts/sync-events.mjs import events.json

@@ -27,7 +27,7 @@ export async function POST(_req: Request, ctx: Ctx) {
     include: { slots: true },
   });
   if (!existing) {
-    return NextResponse.json({ error: "Мероприятие не найдено" }, { status: 404 });
+    return NextResponse.json({ error: "Событие не найдено" }, { status: 404 });
   }
 
   if (existing.moderationStatus === "PENDING_REVIEW") {
@@ -37,7 +37,7 @@ export async function POST(_req: Request, ctx: Ctx) {
   if (existing.moderationStatus === "ARCHIVED") {
     if (isInstructorEventCompleted(existing.eventAt)) {
       return NextResponse.json(
-        { error: "Выполненное мероприятие нельзя отправить на модерацию" },
+        { error: "Выполненное событие нельзя отправить на модерацию" },
         { status: 400 },
       );
     }
@@ -46,13 +46,13 @@ export async function POST(_req: Request, ctx: Ctx) {
     });
     if (paidCount > 0) {
       return NextResponse.json(
-        { error: "У мероприятия есть оплаченные записи — создайте новое объявление" },
+        { error: "У события есть оплаченные записи — создайте новое объявление" },
         { status: 400 },
       );
     }
   } else if (!canEditInstructorEvent(existing)) {
     return NextResponse.json(
-      { error: "Выполненное мероприятие нельзя отправить на модерацию" },
+      { error: "Выполненное событие нельзя отправить на модерацию" },
       { status: 400 },
     );
   }

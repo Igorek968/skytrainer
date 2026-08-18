@@ -6,7 +6,7 @@ import { AdminEventCatalogSection } from "@/features/admin/sections/admin-event-
 export default function AdminEventCatalogPage() {
   return (
     <AdminWorkspace
-      title="Каталог мероприятий"
+      title="Каталог событий"
       subtitle="Одно событие в ленте — несколько инструкторов. Снятие с публикации скрывает карточку у клиентов."
     >
       {() => <AdminEventCatalogSection />}

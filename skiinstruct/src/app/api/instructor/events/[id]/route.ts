@@ -54,14 +54,14 @@ export async function PATCH(req: Request, ctx: Ctx) {
 
   if (existing.moderationStatus === "ARCHIVED") {
     return NextResponse.json(
-      { error: "Скрытое мероприятие нельзя редактировать. Создайте новое." },
+      { error: "Скрытое событие нельзя редактировать. Создайте новое." },
       { status: 400 },
     );
   }
 
   if (!canEditInstructorEvent(existing)) {
     return NextResponse.json(
-      { error: "Выполненное или опубликованное мероприятие нельзя редактировать" },
+      { error: "Выполненное или опубликованное событие нельзя редактировать" },
       { status: 400 },
     );
   }
@@ -171,7 +171,7 @@ export async function DELETE(_req: Request, ctx: Ctx) {
       });
       if (paidCount > 0) {
         return NextResponse.json(
-          { error: "Нельзя удалить: есть оплаченные записи. Сначала отмените мероприятие." },
+          { error: "Нельзя удалить: есть оплаченные записи. Сначала отмените событие." },
           { status: 400 },
         );
       }

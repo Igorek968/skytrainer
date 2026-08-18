@@ -13,10 +13,10 @@ export default function AdminModerationPage() {
       >
         {(data) => <AdminModerationSection data={data} />}
       </AdminWorkspace>
-      {/* Не зависит от /api/admin/overview — очередь мероприятий доступна даже при сбое сводки. */}
+      {/* Не зависит от /api/admin/overview — очередь событий доступна даже при сбое сводки. */}
       <AdminEventsModerationSection />
       <p className="text-sm text-muted-foreground">
-        Группировка одинаковых туров и снятие с публикации — в разделе{" "}
+        Группировка одинаковых событий и снятие с публикации — в разделе{" "}
         <a href="/admin/event-catalog" className="font-medium text-accent underline">
           Каталог
         </a>

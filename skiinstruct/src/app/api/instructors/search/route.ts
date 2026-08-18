@@ -69,7 +69,7 @@ function textMatchesAllTokens(text: string, tokens: string[]): boolean {
   return tokens.every((t) => hay.includes(t.toLowerCase()));
 }
 
-/** Имя в тексте мероприятия → инструктор, который его ведёт. */
+/** Имя в тексте события → инструктор, который его ведёт. */
 async function instructorIdsFromPublishedEvents(tokens: string[]): Promise<string[]> {
   if (tokens.length === 0) return [];
   const events = await prisma.instructorEvent.findMany({

@@ -27,7 +27,7 @@ function hourOverlapsLesson(
   return rangesOverlap(cellFrom, cellTo, hmToMinutes(fromHm), hmToMinutes(toHm));
 }
 
-/** Визуальное состояние ячейки: шаблон доступности + занятость из заказов и мероприятий. */
+/** Визуальное состояние ячейки: шаблон доступности + занятость из заказов и событий. */
 export function resolveCalendarCellVisual(input: {
   weekday: number;
   hour: number;

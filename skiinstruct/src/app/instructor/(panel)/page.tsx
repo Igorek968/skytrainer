@@ -80,7 +80,7 @@ function nonNegIntOrEmpty(value: number | null | undefined): NonNegIntInput {
 const INSTRUCTOR_PANEL_SECTIONS = [
   { id: "lesson-schedule", label: "Календарь" },
   { id: "profile", label: "Профиль инструктора" },
-  { id: "events", label: "Мероприятия" },
+  { id: "events", label: "События" },
   { id: "compliance", label: "Соответствие и выплаты" },
   { id: "referral", label: "Рефералы" },
   { id: "finance", label: "Финансы" },

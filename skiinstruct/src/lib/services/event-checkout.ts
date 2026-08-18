@@ -71,7 +71,7 @@ export async function createEventCheckoutUrl(
 
   const effectiveAt = reg.slot?.startsAt ?? reg.event.eventAt;
   if (!isInstructorEventCompleted(effectiveAt)) {
-    throw new Error("Оплата будет доступна после окончания мероприятия");
+    throw new Error("Оплата будет доступна после окончания события");
   }
 
   const origin = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3001";

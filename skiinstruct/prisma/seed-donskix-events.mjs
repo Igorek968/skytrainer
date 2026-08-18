@@ -1,5 +1,5 @@
 /**
- * 10 мероприятий для donskix-48@yandex.ru.
+ * 10 событий для donskix-48@yandex.ru.
  * venue не задаём. repeatDaily=true.
  *
  * docker compose exec -T skiinstruct node prisma/seed-donskix-events.mjs

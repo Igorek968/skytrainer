@@ -167,7 +167,7 @@ export async function PATCH(req: Request, ctx: Ctx) {
     }
     if (!isInstructorEventCompleted(row.event.eventAt)) {
       return NextResponse.json(
-        { error: "Оплата будет доступна после окончания мероприятия. Сначала дождитесь даты события." },
+        { error: "Оплата будет доступна после окончания события. Сначала дождитесь даты события." },
         { status: 400 },
       );
     }

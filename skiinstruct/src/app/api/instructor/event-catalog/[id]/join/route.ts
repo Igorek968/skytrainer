@@ -61,7 +61,7 @@ export async function POST(req: Request, ctx: Ctx) {
         {
           error:
             existing.moderationStatus === "PUBLISHED"
-              ? "Вы уже участвуете в этом мероприятии"
+              ? "Вы уже участвуете в этом событии"
               : "Заявка уже на модерации",
           offer: serializeMyCatalogOffer(existing),
         },
@@ -121,7 +121,7 @@ export async function POST(req: Request, ctx: Ctx) {
     offer: serializeMyCatalogOffer(row),
     autoApproveEnabled: autoApprove,
     message: autoApprove
-      ? "Вы присоединились к мероприятию — клиенты увидят вас в списке инструкторов."
-      : "Заявка отправлена на модерацию. После одобрения вы появитесь в карточке мероприятия у клиентов.",
+      ? "Вы присоединились к событию — клиенты увидят вас в списке инструкторов."
+      : "Заявка отправлена на модерацию. После одобрения вы появитесь в карточке события у клиентов.",
   });
 }

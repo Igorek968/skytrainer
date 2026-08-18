@@ -114,7 +114,7 @@ enum EventCatalogStatus {
   ARCHIVED
 }
 
-/// Тип карточки каталога: событие/тур или площадка (корты, база).
+/// Тип карточки каталога: событие или площадка (корты, база).
 enum EventCatalogKind {
   EVENT
   VENUE
@@ -516,7 +516,7 @@ model Order {
   @@index([status])
 }
 
-/// Каталог названий мероприятий инструктора (для выбора из уже созданных).
+/// Каталог названий событий инструктора (для выбора из уже созданных).
 model InstructorEventTitle {
   id           String @id @default(cuid())
   instructorId String
@@ -530,7 +530,7 @@ model InstructorEventTitle {
   @@index([instructorId])
 }
 
-/// Карточка каталога: одно событие в ленте, несколько мероприятий инструкторов.
+/// Карточка каталога: одно событие в ленте, несколько событий инструкторов.
 model EventCatalogItem {
   id    String @id @default(cuid())
   title String
@@ -572,7 +572,7 @@ model EventCatalogItem {
   @@index([category])
 }
 
-/// Мероприятия / объявления инструктора (лента на странице заказа).
+/// События / объявления инструктора (лента на странице заказа).
 model InstructorEvent {
   id           String @id @default(cuid())
   instructorId String
@@ -593,10 +593,10 @@ model InstructorEvent {
   body    String @db.Text
   /// Категория / направление (канон из каталога активностей).
   category String?
-  /// Обложка мероприятия для ленты клиентов.
+  /// Обложка события для ленты клиентов.
   photoUrl String?
   eventAt DateTime?
-  /// Push инструктору за ~1 ч до начала (мероприятия без слотов).
+  /// Push инструктору за ~1 ч до начала (события без слотов).
   startReminderSentAt DateTime?
 
   moderationStatus InstructorEventModerationStatus @default(DRAFT)
@@ -612,7 +612,7 @@ model InstructorEvent {
   /// Автоматически создавать копию на следующий день после окончания (опубликованные).
   repeatDaily Boolean @default(false)
 
-  /// Место проведения мероприятия (для карты у клиентов).
+  /// Место проведения события (для карты у клиентов).
   venueAddress String?
   venueLat     Float?
   venueLng     Float?
@@ -630,7 +630,7 @@ model InstructorEvent {
   @@index([category])
 }
 
-/// Выход мероприятия (время, цена, лимит мест).
+/// Выход события (время, цена, лимит мест).
 model EventSlot {
   id      String          @id @default(cuid())
   eventId String
@@ -655,7 +655,7 @@ model EventSlot {
   @@index([eventId, startsAt])
 }
 
-/// Запись клиента на мероприятие инструктора.
+/// Запись клиента на событие инструктора.
 model EventRegistration {
   id       String @id @default(cuid())
   eventId  String
@@ -680,13 +680,13 @@ model EventRegistration {
   yookassaPaymentId       String? @unique
   paidAt                  DateTime?
 
-  /// Клиент подтвердил участие после окончания мероприятия.
+  /// Клиент подтвердил участие после окончания события.
   attendanceConfirmedAt   DateTime?
   attendanceReminderSentAt DateTime?
   /// Push клиенту за ~1 ч до начала (слот или eventAt).
   eventStartReminderSentAt DateTime?
 
-  /// Клиент запросил возврат из‑за неявки инструктора на мероприятие.
+  /// Клиент запросил возврат из‑за неявки инструктора на событие.
   instructorNoShowRefundClaimedAt DateTime?
   instructorPenaltyAmount Decimal? @db.Decimal(10, 2)
   instructorPenaltyAppliedAt DateTime?
@@ -703,7 +703,7 @@ model EventRegistration {
   @@index([clientId])
 }
 
-/// Чат по записи на мероприятие (клиент ↔ инструктор).
+/// Чат по записи на событие (клиент ↔ инструктор).
 model EventRegistrationMessage {
   id             String @id @default(cuid())
   registrationId String

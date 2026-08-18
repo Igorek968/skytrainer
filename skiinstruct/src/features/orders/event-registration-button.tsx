@@ -52,7 +52,7 @@ export function EventRegistrationButton({
       if (!r.ok) {
         const href = registrationHref(j.registration, j.registrationPath);
         const err = new Error(
-          typeof j.error === "string" ? j.error : "Не удалось записаться на мероприятие",
+          typeof j.error === "string" ? j.error : "Не удалось записаться на событие",
         ) as Error & { registrationPath?: string };
         if (href) err.registrationPath = href;
         throw err;
@@ -151,7 +151,7 @@ export function EventRegistrationButton({
           {my.attendanceConfirmedAt
             ? "Участие подтверждено"
             : my.status === "PENDING_PAYMENT" && !event.isFree
-              ? "Записаны · оплата после мероприятия"
+              ? "Записаны · оплата после события"
               : "Вы записаны"}
         </Badge>
         <Button
@@ -168,7 +168,7 @@ export function EventRegistrationButton({
 
   if (!event.registrationOpen) {
     if (event.isCompleted) {
-      return <p className="mt-2 text-xs text-muted-foreground">Мероприятие уже прошло</p>;
+      return <p className="mt-2 text-xs text-muted-foreground">Событие уже прошло</p>;
     }
     if (event.spotsLeft === 0) {
       return <p className="mt-2 text-xs text-muted-foreground">Мест нет</p>;
@@ -187,7 +187,7 @@ export function EventRegistrationButton({
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-xs font-medium text-foreground">{priceLabel}</span>
         {!event.isFree ? (
-          <span className="text-xs text-muted-foreground">Оплата после мероприятия</span>
+          <span className="text-xs text-muted-foreground">Оплата после события</span>
         ) : null}
         {event.spotsLeft != null ? (
           <span className="text-xs text-muted-foreground">Осталось мест: {event.spotsLeft}</span>

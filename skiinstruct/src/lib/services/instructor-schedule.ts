@@ -41,10 +41,10 @@ export const SCHEDULE_BLOCKING_STATUSES: OrderStatus[] = [
   "LESSON_STARTED",
 ];
 
-/** Мероприятия, которые блокируют вызов на тренировку. */
+/** События, которые блокируют вызов на тренировку. */
 const EVENT_BOOKING_BLOCK_STATUSES: InstructorEventModerationStatus[] = ["PUBLISHED"];
 
-/** Мероприятия, которые показываем занятыми в календаре инструктора. */
+/** События, которые показываем занятыми в календаре инструктора. */
 const EVENT_CALENDAR_STATUSES: InstructorEventModerationStatus[] = [
   "DRAFT",
   "PENDING_REVIEW",
@@ -243,7 +243,7 @@ export async function loadInstructorBlockingOrders(
   });
 }
 
-/** Старт мероприятия → блок занятости в календаре (длительность по умолчанию). */
+/** Старт события → блок занятости в календаре (длительность по умолчанию). */
 export function eventOccurrenceToDayBlock(
   startsAt: Date,
   durationMinutes = EVENT_SCHEDULE_BLOCK_MINUTES,
@@ -314,7 +314,7 @@ export function instructorEventsToBusyBlocks(
       out.push({
         ...block,
         eventId: event.id,
-        title: event.title.trim() || "Мероприятие",
+        title: event.title.trim() || "Событие",
       });
     }
   }
@@ -358,7 +358,7 @@ export async function findInstructorScheduleConflict(params: {
     if (hit) {
       return {
         ymd: hit.ymd,
-        message: `В это время у инструктора мероприятие «${eb.title}». Выберите другое время.`,
+        message: `В это время у инструктора событие «${eb.title}». Выберите другое время.`,
       };
     }
   }
@@ -443,7 +443,7 @@ export function buildInstructorWeekSchedule(
 
   for (const eb of eventBlocks) {
     if (eb.ymd < weekStartYmd || eb.ymd > weekEndYmd) continue;
-    // Мероприятие блокирует слот целиком; 1 ч перерыв — как у уроков.
+    // Событие блокирует слот целиком; 1 ч перерыв — как у уроков.
     expandedEvents.push({ ...expandBlockWithGap(eb), eventId: eb.eventId });
     events.push({
       eventId: eb.eventId,

@@ -72,7 +72,7 @@ export function AdminEventsModerationSection() {
       return ok;
     },
     onSuccess: async (result) => {
-      toast.success(result.message ?? `Опубликовано: ${result.event?.title ?? "мероприятие"}`);
+      toast.success(result.message ?? `Опубликовано: ${result.event?.title ?? "событие"}`);
       setRejectId(null);
       setRejectNote("");
       await qc.invalidateQueries({ queryKey: ["admin-pending-events"] });
@@ -91,7 +91,7 @@ export function AdminEventsModerationSection() {
         <AdminEventEditorSheet eventId={editEventId} onClose={() => setEditEventId(null)} />
       ) : null}
       <CardHeader>
-        <CardTitle>Мероприятия инструкторов</CardTitle>
+        <CardTitle>События инструкторов</CardTitle>
         <CardDescription>
           После одобрения публикация появляется в ленте клиентов. Заявки «присоединиться к каталогу»
           помечены бейджем — у инструктора своя цена и описание сервиса. Выполненные по дате
@@ -102,10 +102,10 @@ export function AdminEventsModerationSection() {
         {autoApproveEnabled ? (
           <p className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-100">
             Включён режим <strong>SKIINSTRUCT_AUTO_APPROVE_EVENTS=1</strong>: после кнопки «На модерацию» у
-            инструктора мероприятие сразу становится «Опубликовано», очередь здесь не заполняется. Чтобы видеть
+            инструктора событие сразу становится «Опубликовано», очередь здесь не заполняется. Чтобы видеть
             заявки в модерации, задайте <code className="text-xs">SKIINSTRUCT_AUTO_APPROVE_EVENTS=0</code> в{" "}
             <code className="text-xs">.env</code> и перезапустите контейнер{" "}
-            <code className="text-xs">skiinstruct</code>, затем отправьте мероприятие на модерацию снова.
+            <code className="text-xs">skiinstruct</code>, затем отправьте событие на модерацию снова.
           </p>
         ) : null}
         {isLoading ? (
@@ -114,7 +114,7 @@ export function AdminEventsModerationSection() {
           <p className="text-sm text-muted-foreground">
             {autoApproveEnabled
               ? "Очередь пуста из‑за автоодобрения (см. выше)."
-              : "Нет мероприятий на модерации."}
+              : "Нет событий на модерации."}
           </p>
         ) : (
           <ul className="space-y-3">
