@@ -55,7 +55,7 @@ const offerSchema = z.object({
 const updateSchema = z.object({
   firstName: z.string().max(80).optional(),
   lastName: z.string().max(80).optional(),
-  bio: z.string().max(2000).optional(),
+  bio: z.string().max(300, "О себе: не более 300 символов").optional(),
   certificationLevel: z.string().max(120).optional(),
   certifications: z.array(z.string().min(1).max(80)).max(12).optional(),
   skillLevels: z.array(z.string().min(1).max(40)).max(8).optional(),

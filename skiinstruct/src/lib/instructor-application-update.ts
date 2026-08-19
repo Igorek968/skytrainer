@@ -30,7 +30,7 @@ const updateSchema = z.object({
   firstName: namePart,
   middleName: namePart,
   nickname: z.string().trim().min(2).max(80),
-  bio: z.string().trim().min(20, "Кратко опишите опыт (от 20 символов)").max(4000),
+  bio: z.string().trim().min(20, "Кратко опишите опыт (от 20 символов)").max(300, "О себе: не более 300 символов"),
   hourlyRate: z.coerce.number().min(500).max(500_000),
   primarySpecialization: z.string().trim().min(1, "Выберите направление"),
   achievementsRaw: z.string().trim().max(2000).optional(),

@@ -317,6 +317,7 @@ function InstructorApplyForm() {
                 value={values.password}
                 onChange={(e) => setField("password", e.target.value)}
               />
+              <p className="text-xs text-muted-foreground">Пароль — не менее 8 знаков.</p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="passwordConfirm">Пароль ещё раз</Label>
@@ -370,12 +371,14 @@ function InstructorApplyForm() {
                 name="bio"
                 required
                 minLength={20}
+                maxLength={300}
                 rows={4}
                 className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 placeholder="Сертификаты, стаж, с кем работаете (дети, взрослые)…"
                 value={values.bio}
                 onChange={(e) => setField("bio", e.target.value)}
               />
+              <p className="text-xs text-muted-foreground">О себе — не менее 20 и не более 300 знаков.</p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="taxStatus">Налоговый статус</Label>

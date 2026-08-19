@@ -6,9 +6,11 @@ import {
   REFERRAL_COOKIE_MAX_AGE_DAYS,
   REFERRAL_COOKIE_NAME,
   REFERRAL_MAX_ORDERS_PER_CLIENT,
+  REFERRAL_PROGRAM_END_DATE,
   REFERRAL_REWARD_RUB,
 } from "@/lib/legal-config";
 import { normalizeReferralCode } from "@/lib/referral-cookie";
+import { slugifyRu } from "@/lib/seo-slug";
 import { prisma } from "@/lib/prisma";
 
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -24,15 +26,51 @@ function randomReferralCode(length = 8): string {
   return out;
 }
 
+function referralProgramEndsAtIso(): string {
+  return `${REFERRAL_PROGRAM_END_DATE}T23:59:59+03:00`;
+}
+
+function referralProgramActiveNow(): boolean {
+  const endsAt = Date.parse(referralProgramEndsAtIso());
+  return Number.isFinite(endsAt) ? Date.now() <= endsAt : true;
+}
+
+function buildInstructorReferralSlug(nickname: string | null | undefined): string | null {
+  const slug = slugifyRu(String(nickname ?? "").trim());
+  if (!slug || slug === "page") return null;
+  return normalizeReferralCode(slug);
+}
+
 export async function ensureUserReferralCode(userId: string): Promise<string> {
   const existing = await prisma.user.findUnique({
     where: { id: userId },
-    select: { referralCode: true },
+    select: { referralCode: true, role: true, nickname: true },
   });
   if (existing?.referralCode) return existing.referralCode;
 
+  // Для инструкторов фиксируем человекочитаемый slug по nickname.
+  if (existing?.role === "INSTRUCTOR") {
+    const baseSlug = buildInstructorReferralSlug(existing.nickname);
+    if (baseSlug) {
+      for (let n = 0; n < 20; n++) {
+        const candidate = n === 0 ? baseSlug : `${baseSlug}-${n + 1}`;
+        try {
+          const updated = await prisma.user.update({
+            where: { id: userId },
+            data: { referralCode: candidate },
+            select: { referralCode: true },
+          });
+          return updated.referralCode!;
+        } catch (e) {
+          if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") continue;
+          throw e;
+        }
+      }
+    }
+  }
+
   for (let attempt = 0; attempt < 8; attempt++) {
-    const code = randomReferralCode();
+    const code = randomReferralCode().toLowerCase();
     try {
       const updated = await prisma.user.update({
         where: { id: userId },
@@ -58,7 +96,7 @@ export async function bindReferralByCode(userId: string, rawCode: string | null 
       select: { id: true, role: true, referredById: true },
     }),
     prisma.user.findFirst({
-      where: { referralCode: code },
+      where: { referralCode: { equals: code, mode: "insensitive" } },
       select: { id: true, role: true },
     }),
   ]);
@@ -99,6 +137,8 @@ function orderEligibleForReferralReward(order: {
 
 /** Начисляет рефереру 250 ₽, если заказ завершён и оплачен (до 4 заказов на клиента). */
 export async function maybeAwardReferralReward(orderId: string): Promise<void> {
+  if (!referralProgramActiveNow()) return;
+
   const order = await prisma.order.findUnique({
     where: { id: orderId },
     select: {
@@ -199,6 +239,7 @@ export async function getReferralStats(userId: string) {
     earnedTotalRub: Number(rewardsAgg._sum.amountRub ?? 0),
     rewardPerOrderRub: REFERRAL_REWARD_RUB,
     maxOrdersPerInvitee: REFERRAL_MAX_ORDERS_PER_CLIENT,
+    programEndsAt: referralProgramEndsAtIso(),
     recentRewards: rewards.map((r) => ({
       id: r.id,
       amountRub: Number(r.amountRub),

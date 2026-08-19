@@ -257,11 +257,13 @@ export function InstructorApplicationEditClient() {
               name="bio"
               required
               minLength={20}
+              maxLength={300}
               rows={4}
               className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
               value={form.bio}
               onChange={(e) => setField("bio", e.target.value)}
             />
+            <p className="text-xs text-muted-foreground">О себе — не менее 20 и не более 300 знаков.</p>
           </div>
 
           <div className="space-y-2">

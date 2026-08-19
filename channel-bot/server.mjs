@@ -14,9 +14,9 @@ const CHANNEL_ID = (process.env.CHANNEL_ID || "@tvoitrenerrf").trim();
 const SITE_URL = (process.env.SITE_URL || "https://xn--b1agaovdpdkd.xn--p1ai").replace(/\/+$/, "");
 const DEFAULT_PHOTO_URL =
   process.env.DEFAULT_PHOTO_URL?.trim() ||
-  `${SITE_URL}/brand/logo-sign-photo.png`;
+  `${SITE_URL}/brand/tg-brand-scene-reference.png`;
 const DEFAULT_PHOTO_FILE =
-  process.env.DEFAULT_PHOTO_FILE?.trim() || "/brand/logo-sign-photo.png";
+  process.env.DEFAULT_PHOTO_FILE?.trim() || "/brand/tg-brand-scene-reference.png";
 /** По очереди: логотип намерче (куртка) или на штендере/фоне тренировки — рисует AI в кадре, без наклейки поверх */
 let brandPlacementTick = 0;
 

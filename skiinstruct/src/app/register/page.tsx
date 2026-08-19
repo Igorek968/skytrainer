@@ -179,7 +179,7 @@ function RegisterForm() {
                 value={values.password}
                 onChange={(e) => setField("password", e.target.value)}
               />
-              <p className="text-xs text-muted-foreground">Не меньше 8 символов.</p>
+              <p className="text-xs text-muted-foreground">Пароль — не менее 8 знаков.</p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="reg-password2">Пароль ещё раз</Label>

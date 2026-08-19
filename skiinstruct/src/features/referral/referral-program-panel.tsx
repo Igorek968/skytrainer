@@ -18,6 +18,7 @@ type ReferralMe = {
   earnedTotalRub: number;
   rewardPerOrderRub: number;
   maxOrdersPerInvitee: number;
+  programEndsAt: string;
   payoutMinRub: number;
   canWithdraw: boolean;
   payoutAccountHint: string | null;
@@ -121,7 +122,8 @@ export function ReferralProgramPanel({
     <div className="space-y-4 text-sm">
       <p className="text-muted-foreground">
         Приглашайте друзей по ссылке: за каждый из первых {data.maxOrdersPerInvitee} завершённых
-        оплаченных заказов приглашённого клиента — {data.rewardPerOrderRub} ₽ на ваш баланс. {referralCookieHelpText()}
+        оплаченных заказов приглашённого клиента — {data.rewardPerOrderRub} ₽ на ваш баланс. Программа
+        действует до {new Date(data.programEndsAt).toLocaleDateString("ru-RU")}. {referralCookieHelpText()}
       </p>
 
       <div className="space-y-2">
@@ -130,7 +132,9 @@ export function ReferralProgramPanel({
           <Input id="referral-link" readOnly value={data.referralLink} className="font-mono text-xs" />
           <ShareReferralButton referralLink={data.referralLink} showCopyButton />
         </div>
-        <p className="text-xs text-muted-foreground">Код: {data.referralCode}</p>
+        <p className="text-xs text-muted-foreground">
+          Код: {data.referralCode}. Ссылка фиксируется и не меняется до окончания программы.
+        </p>
       </div>
 
       <div className="grid gap-2 sm:grid-cols-2">

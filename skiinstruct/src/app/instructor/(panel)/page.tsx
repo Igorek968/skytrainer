@@ -1272,10 +1272,12 @@ export default function InstructorHomePage() {
                 <textarea
                   id="bio"
                   className="min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  maxLength={300}
                   value={bio}
                   onChange={(e) => setBio(e.target.value)}
                   placeholder="ISIA Level 3, стаж 12 лет, работал в Швейцарии..."
                 />
+                <p className="text-xs text-muted-foreground">О себе — не менее 20 и не более 300 знаков.</p>
               </div>
               <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-muted/40 p-3 text-sm">
                 <div className="inline-flex items-center gap-1">

@@ -7,8 +7,8 @@ export { REFERRAL_COOKIE_NAME, REFERRAL_COOKIE_MAX_AGE_DAYS };
 
 export function normalizeReferralCode(raw: string | null | undefined): string | null {
   if (!raw) return null;
-  const code = raw.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
-  if (code.length < 4 || code.length > 20) return null;
+  const code = raw.trim().toLowerCase().replace(/[^a-z0-9_-]/g, "");
+  if (code.length < 3 || code.length > 40) return null;
   return code;
 }
 

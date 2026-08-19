@@ -36,6 +36,8 @@ export const REFERRAL_REWARD_RUB = 250;
 export const REFERRAL_MAX_ORDERS_PER_CLIENT = 4;
 export const REFERRAL_COOKIE_NAME = "utr_ref";
 export const REFERRAL_COOKIE_MAX_AGE_DAYS = 30;
+/** Реферальная программа действует до 01.01.2028 включительно (МСК). */
+export const REFERRAL_PROGRAM_END_DATE = "2028-01-01";
 
 /** Чек НПД: срок загрузки после занятия (ч). */
 export const NPD_RECEIPT_DEADLINE_HOURS = 24;

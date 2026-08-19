@@ -40,7 +40,7 @@ const applySchema = z.object({
     .trim()
     .min(2, "Укажите никнейм (от 2 символов)")
     .max(80),
-  bio: z.string().trim().min(20, "Кратко опишите опыт (от 20 символов)").max(4000),
+  bio: z.string().trim().min(20, "Кратко опишите опыт (от 20 символов)").max(300, "О себе: не более 300 символов"),
   hourlyRate: z.coerce.number().min(500, "Минимальная ставка 500 ₽/ч").max(500_000),
   primarySpecialization: z.string().trim().min(1, "Выберите направление"),
   achievementsRaw: z.string().trim().max(2000).optional(),

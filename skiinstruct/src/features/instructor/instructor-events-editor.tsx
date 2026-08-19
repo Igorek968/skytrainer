@@ -2000,9 +2000,12 @@ export function InstructorEventsEditor({
               events={groups.past}
               isLoading={isLoading}
               emptyMessage="Пока нет прошедших событий."
+              onEdit={handleDuplicate}
               onDelete={handleCardDelete}
               actionsPending={remove.isPending}
-              hint="Дата и время уже прошли — с ленты клиентов сняты автоматически."
+              forceShowEdit
+              editLabel="Редактировать"
+              hint="Дата и время уже прошли — с ленты клиентов сняты автоматически. Нажмите «Редактировать», чтобы создать новое событие на основе этого и снова отправить на модерацию."
             />
           </>
         ) : null}
@@ -2106,6 +2109,8 @@ function EventList({
   onRepeatDaily,
   repeatDailyPending,
   actionsPending,
+  forceShowEdit,
+  editLabel,
 }: {
   title: string;
   events: InstructorEventApi[];
@@ -2122,6 +2127,8 @@ function EventList({
   onRepeatDaily?: (id: string, repeatDaily: boolean) => void;
   repeatDailyPending?: boolean;
   actionsPending?: boolean;
+  forceShowEdit?: boolean;
+  editLabel?: string;
 }) {
   if (isLoading) return null;
   if (!events.length) {
@@ -2224,7 +2231,7 @@ function EventList({
                   Похожее
                 </Button>
               ) : null}
-              {onEdit && showEventCardEdit(asEventCard(ev)) ? (
+              {onEdit && (forceShowEdit || showEventCardEdit(asEventCard(ev))) ? (
                 <Button
                   type="button"
                   size="sm"
@@ -2232,7 +2239,7 @@ function EventList({
                   disabled={actionsPending}
                   onClick={() => onEdit(ev)}
                 >
-                  Редактировать
+                  {editLabel ?? "Редактировать"}
                 </Button>
               ) : null}
               {onEdit &&
