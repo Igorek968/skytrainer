@@ -13,6 +13,9 @@ import { normalizeReferralCode, referralCookieHelpText } from "@/lib/referral-co
 import { slugifyRu } from "@/lib/seo-slug";
 import { prisma } from "@/lib/prisma";
 
+/** Посадочная для набора инструкторов — сюда крепится рефералка партнёров найма. */
+export const REFERRAL_HIRE_LANDING_PATH = "/landings/prichodi";
+
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
 export { REFERRAL_COOKIE_NAME, REFERRAL_COOKIE_MAX_AGE_DAYS, normalizeReferralCode };
@@ -228,12 +231,24 @@ export async function getReferralStats(userId: string) {
   ]);
 
   const code = user?.referralCode ?? (await ensureUserReferralCode(userId));
-  const origin = process.env.NEXT_PUBLIC_APP_URL?.trim() || "http://localhost:3001";
+  const origin = (process.env.NEXT_PUBLIC_APP_URL?.trim() || "http://localhost:3001").replace(
+    /\/+$/,
+    "",
+  );
   const programEndsAt = referralProgramEndsAtIso();
+  /** Клиент: сразу форма регистрации с ?ref=. */
+  const clientReferralLink = `${origin}/register?ref=${code}`;
+  /** Инструктор: лендинг набора с встроенным ?ref=. */
+  const instructorReferralLink = `${origin}${REFERRAL_HIRE_LANDING_PATH}?ref=${code}`;
 
   return {
     referralCode: code,
-    referralLink: `${origin.replace(/\/+$/, "")}/?ref=${code}`,
+    /** Совместимость: «пригласить друга» = клиентская регистрация. */
+    referralLink: clientReferralLink,
+    clientReferralLink,
+    instructorReferralLink,
+    /** @deprecated alias — то же, что instructorReferralLink */
+    hireReferralLink: instructorReferralLink,
     balanceRub: Number(user?.referralBalanceRub ?? 0),
     invitedCount,
     rewardsCount: rewardsAgg._count._all,

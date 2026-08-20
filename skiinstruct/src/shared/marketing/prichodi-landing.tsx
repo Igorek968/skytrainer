@@ -1,10 +1,13 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
 import { Manrope, Unbounded } from "next/font/google";
-import type { CSSProperties } from "react";
+import { Suspense, type CSSProperties } from "react";
 
 import { BRAND_LOGO_OFFICIAL_PNG, BRAND_WORDMARK } from "@/shared/brand/assets";
 import { TrackedHireCta } from "@/shared/marketing/tracked-hire-cta";
+import { useReferralAwareHref } from "@/shared/marketing/use-referral-aware-href";
 
 const display = Unbounded({
   subsets: ["latin", "cyrillic"],
@@ -37,11 +40,62 @@ const REASONS = [
   },
 ] as const;
 
-/** Визуальная посадочная «Приходи к нам» для набора инструкторов. */
+const UTM = { utm_source: "landing", utm_campaign: "prichodi" } as const;
+
+function PrichodiCtas() {
+  const applyHref = useReferralAwareHref("/instructor/apply", UTM);
+  const howHref = useReferralAwareHref("/landings/instructor", UTM);
+
+  return (
+    <>
+      <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
+        <TrackedHireCta
+          href={applyHref}
+          label="Стать инструктором"
+          className="rounded-md bg-[var(--prichodi-teal)] px-6 py-3.5 text-sm font-semibold text-white hover:brightness-110"
+        />
+        <Link
+          href={howHref}
+          className="inline-flex items-center justify-center px-2 py-2 text-sm font-medium text-white/85 underline-offset-4 hover:text-white hover:underline"
+          style={{ fontFamily: "var(--font-prichodi-body), system-ui" }}
+        >
+          Как это работает
+        </Link>
+        <a
+          href="https://t.me/tvoitrenerrf?utm_source=landing&utm_medium=telegram_invite&utm_campaign=prichodi"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center justify-center px-2 py-2 text-sm font-medium text-white/85 underline-offset-4 hover:text-white hover:underline"
+          style={{ fontFamily: "var(--font-prichodi-body), system-ui" }}
+        >
+          Канал в Telegram
+        </a>
+      </div>
+    </>
+  );
+}
+
+function PrichodiBottomCta() {
+  const applyHref = useReferralAwareHref("/instructor/apply", UTM);
+  return (
+    <div className="mt-12 flex flex-col gap-3 sm:flex-row sm:items-center">
+      <TrackedHireCta
+        href={applyHref}
+        label="Прийти в команду"
+        className="rounded-md bg-[var(--prichodi-ink)] px-6 py-3.5 text-sm font-semibold text-white hover:opacity-90"
+      />
+      <p className="text-sm text-[var(--prichodi-ink)]/60">
+        Самозанятый или ИП · модерация анкеты · выход «на линию»
+      </p>
+    </div>
+  );
+}
+
+/** Визуальная посадочная «Приходи к нам» для набора инструкторов (без chrome сайта). */
 export function PrichodiLanding() {
   return (
     <div
-      className={`${display.variable} ${body.variable} -mx-3 -mt-4 w-[100vw] max-w-[100vw] relative left-1/2 -translate-x-1/2 sm:-mx-4 sm:-mt-6`}
+      className={`${display.variable} ${body.variable} w-full`}
       style={
         {
           ["--prichodi-teal" as string]: "#027676",
@@ -82,7 +136,7 @@ export function PrichodiLanding() {
         }
       `}</style>
 
-      <section className="relative isolate min-h-[min(92dvh,920px)] overflow-hidden bg-[var(--prichodi-ink)] text-white">
+      <section className="relative isolate min-h-[min(100dvh,920px)] overflow-hidden bg-[var(--prichodi-ink)] text-white">
         <div className="prichodi-hero-media absolute inset-0">
           <Image
             src={HERO_SRC}
@@ -102,7 +156,7 @@ export function PrichodiLanding() {
           aria-hidden
         />
 
-        <div className="prichodi-hero-copy relative z-10 mx-auto flex min-h-[min(92dvh,920px)] max-w-6xl flex-col justify-end px-4 pb-14 pt-24 sm:justify-center sm:px-6 sm:pb-20 sm:pt-16 lg:px-8">
+        <div className="prichodi-hero-copy relative z-10 mx-auto flex min-h-[min(100dvh,920px)] max-w-6xl flex-col justify-end px-4 pb-14 pt-16 sm:justify-center sm:px-6 sm:pb-20 sm:pt-16 lg:px-8">
           <div className="inline-flex items-center rounded-md bg-white/95 px-2.5 py-1.5 shadow-sm">
             <Image
               src={BRAND_LOGO_OFFICIAL_PNG}
@@ -129,29 +183,9 @@ export function PrichodiLanding() {
             заработок на ТвойТренер.рф.
           </p>
 
-          <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
-            <TrackedHireCta
-              href="/instructor/apply?utm_source=landing&utm_campaign=prichodi"
-              label="Стать инструктором"
-              className="rounded-md bg-[var(--prichodi-teal)] px-6 py-3.5 text-sm font-semibold text-white hover:brightness-110"
-            />
-            <Link
-              href="/landings/instructor?utm_source=landing&utm_campaign=prichodi"
-              className="inline-flex items-center justify-center px-2 py-2 text-sm font-medium text-white/85 underline-offset-4 hover:text-white hover:underline"
-              style={{ fontFamily: "var(--font-prichodi-body), system-ui" }}
-            >
-              Как это работает
-            </Link>
-            <a
-              href="https://t.me/tvoitrenerrf?utm_source=landing&utm_medium=telegram_invite&utm_campaign=prichodi"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center justify-center px-2 py-2 text-sm font-medium text-white/85 underline-offset-4 hover:text-white hover:underline"
-              style={{ fontFamily: "var(--font-prichodi-body), system-ui" }}
-            >
-              Канал в Telegram
-            </a>
-          </div>
+          <Suspense fallback={null}>
+            <PrichodiCtas />
+          </Suspense>
         </div>
       </section>
 
@@ -185,16 +219,9 @@ export function PrichodiLanding() {
             ))}
           </ul>
 
-          <div className="mt-12 flex flex-col gap-3 sm:flex-row sm:items-center">
-            <TrackedHireCta
-              href="/instructor/apply?utm_source=landing&utm_campaign=prichodi"
-              label="Прийти в команду"
-              className="rounded-md bg-[var(--prichodi-ink)] px-6 py-3.5 text-sm font-semibold text-white hover:opacity-90"
-            />
-            <p className="text-sm text-[var(--prichodi-ink)]/60">
-              Самозанятый или ИП · модерация анкеты · выход «на линию»
-            </p>
-          </div>
+          <Suspense fallback={null}>
+            <PrichodiBottomCta />
+          </Suspense>
         </div>
       </section>
     </div>

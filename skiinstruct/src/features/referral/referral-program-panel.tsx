@@ -10,6 +10,8 @@ import { Label } from "@/shared/ui/label";
 
 type ReferralMe = {
   referralLink: string;
+  clientReferralLink: string;
+  instructorReferralLink: string;
   referralCode: string;
   balanceRub: number;
   invitedCount: number;
@@ -118,23 +120,55 @@ export function ReferralProgramPanel({
     return error ? <p className="text-sm text-destructive">{error}</p> : null;
   }
 
+  const instructorLink =
+    data.instructorReferralLink ||
+    // совместимость со старым полем API
+    (data as ReferralMe & { hireReferralLink?: string }).hireReferralLink ||
+    "";
+  const clientLink = data.clientReferralLink || data.referralLink;
+
   return (
     <div className="space-y-4 text-sm">
       <p className="text-muted-foreground">
-        Приглашайте друзей по ссылке: за каждый из первых {data.maxOrdersPerInvitee} завершённых
-        оплаченных заказов приглашённого клиента — {data.rewardPerOrderRub} ₽ на ваш баланс. Программа
-        действует до {new Date(data.programEndsAt).toLocaleDateString("ru-RU")}. {data.cookieHelpText}
+        Две ссылки с одним кодом: для инструкторов — лендинг «Приходи», для учеников — регистрация.
+        За каждый из первых {data.maxOrdersPerInvitee} завершённых оплаченных заказов приглашённого
+        клиента — {data.rewardPerOrderRub} ₽. Программа до{" "}
+        {new Date(data.programEndsAt).toLocaleDateString("ru-RU")}. {data.cookieHelpText}
       </p>
 
-      <div className="space-y-2">
-        <Label htmlFor="referral-link">Ваша ссылка</Label>
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <Input id="referral-link" readOnly value={data.referralLink} className="font-mono text-xs" />
-          <ShareReferralButton referralLink={data.referralLink} showCopyButton />
+      <p className="text-xs text-muted-foreground">
+        Код: <span className="font-mono text-foreground">{data.referralCode}</span>. Ссылки не меняются
+        до окончания программы.
+      </p>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="space-y-2 rounded-md border border-border bg-muted/15 p-3">
+          <Label htmlFor="instructor-referral-link">Для инструктора</Label>
+          <p className="text-xs text-muted-foreground">
+            Открывает лендинг набора «Приходи к нам» с вашим кодом.
+          </p>
+          <Input
+            id="instructor-referral-link"
+            readOnly
+            value={instructorLink}
+            className="font-mono text-xs"
+          />
+          <ShareReferralButton referralLink={instructorLink} showCopyButton />
         </div>
-        <p className="text-xs text-muted-foreground">
-          Код: {data.referralCode}. Ссылка фиксируется и не меняется до окончания программы.
-        </p>
+
+        <div className="space-y-2 rounded-md border border-border bg-muted/15 p-3">
+          <Label htmlFor="client-referral-link">Для пользователя</Label>
+          <p className="text-xs text-muted-foreground">
+            Сразу форма регистрации ученика с вашим кодом.
+          </p>
+          <Input
+            id="client-referral-link"
+            readOnly
+            value={clientLink}
+            className="font-mono text-xs"
+          />
+          <ShareReferralButton referralLink={clientLink} showCopyButton />
+        </div>
       </div>
 
       <div className="grid gap-2 sm:grid-cols-2">

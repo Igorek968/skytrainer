@@ -10,9 +10,7 @@ import { SiteAnalytics } from "@/shared/analytics/site-analytics";
 import { UtmCapture } from "@/shared/analytics/utm-capture";
 import { YandexMetrikaNoscript } from "@/shared/analytics/yandex-metrika-noscript";
 import { CookieConsentBanner } from "@/shared/legal/cookie-consent-banner";
-import { SiteFooter } from "@/shared/layout/site-footer";
-import { SiteHeader } from "@/shared/layout/site-header";
-import { MessengerWidgets } from "@/shared/marketing/messenger-widgets";
+import { AppShell } from "@/shared/layout/app-shell";
 
 import "./globals.css";
 
@@ -126,12 +124,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
         <AppProviders session={session}>
-          <SiteHeader />
-          <main className="mx-auto max-w-6xl px-3 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-4 sm:py-6">
-            {children}
-          </main>
-          <SiteFooter />
-          <MessengerWidgets />
+          <AppShell>{children}</AppShell>
           <CookieConsentBanner />
           <SiteAnalytics />
           <Suspense fallback={null}>
