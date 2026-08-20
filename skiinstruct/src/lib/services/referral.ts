@@ -9,7 +9,7 @@ import {
   REFERRAL_PROGRAM_END_DATE,
   REFERRAL_REWARD_RUB,
 } from "@/lib/legal-config";
-import { normalizeReferralCode } from "@/lib/referral-cookie";
+import { normalizeReferralCode, referralCookieHelpText } from "@/lib/referral-cookie";
 import { slugifyRu } from "@/lib/seo-slug";
 import { prisma } from "@/lib/prisma";
 
@@ -205,7 +205,7 @@ export async function getReferralStats(userId: string) {
   const [user, invitedCount, rewardsAgg, rewards] = await Promise.all([
     prisma.user.findUnique({
       where: { id: userId },
-      select: { referralBalanceRub: true, referralCode: true },
+      select: { referralBalanceRub: true, referralCode: true, email: true },
     }),
     prisma.user.count({ where: { referredById: userId } }),
     prisma.referralReward.aggregate({
@@ -229,6 +229,7 @@ export async function getReferralStats(userId: string) {
 
   const code = user?.referralCode ?? (await ensureUserReferralCode(userId));
   const origin = process.env.NEXT_PUBLIC_APP_URL?.trim() || "http://localhost:3001";
+  const programEndsAt = referralProgramEndsAtIso();
 
   return {
     referralCode: code,
@@ -239,7 +240,12 @@ export async function getReferralStats(userId: string) {
     earnedTotalRub: Number(rewardsAgg._sum.amountRub ?? 0),
     rewardPerOrderRub: REFERRAL_REWARD_RUB,
     maxOrdersPerInvitee: REFERRAL_MAX_ORDERS_PER_CLIENT,
-    programEndsAt: referralProgramEndsAtIso(),
+    programEndsAt,
+    cookieHelpText: referralCookieHelpText({
+      code,
+      email: user?.email,
+      programEndsAt,
+    }),
     recentRewards: rewards.map((r) => ({
       id: r.id,
       amountRub: Number(r.amountRub),

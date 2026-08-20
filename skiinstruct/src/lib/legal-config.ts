@@ -38,6 +38,12 @@ export const REFERRAL_COOKIE_NAME = "utr_ref";
 export const REFERRAL_COOKIE_MAX_AGE_DAYS = 30;
 /** Реферальная программа действует до 01.01.2028 включительно (МСК). */
 export const REFERRAL_PROGRAM_END_DATE = "2028-01-01";
+/**
+ * Персональные исключения: атрибуция cookie до конца программы (не 30 дней).
+ * Коды — lowercase; email — lowercase.
+ */
+export const REFERRAL_EXTENDED_ATTRIBUTION_CODES = ["letsgo"] as const;
+export const REFERRAL_EXTENDED_ATTRIBUTION_EMAILS = ["andrey_ershov_82@mail.ru"] as const;
 
 /** Чек НПД: срок загрузки после занятия (ч). */
 export const NPD_RECEIPT_DEADLINE_HOURS = 24;

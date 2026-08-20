@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
-import { referralCookieHelpText } from "@/lib/referral-cookie";
 import { ShareReferralButton } from "@/features/share/share-referral-button";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
@@ -19,6 +18,7 @@ type ReferralMe = {
   rewardPerOrderRub: number;
   maxOrdersPerInvitee: number;
   programEndsAt: string;
+  cookieHelpText: string;
   payoutMinRub: number;
   canWithdraw: boolean;
   payoutAccountHint: string | null;
@@ -123,7 +123,7 @@ export function ReferralProgramPanel({
       <p className="text-muted-foreground">
         Приглашайте друзей по ссылке: за каждый из первых {data.maxOrdersPerInvitee} завершённых
         оплаченных заказов приглашённого клиента — {data.rewardPerOrderRub} ₽ на ваш баланс. Программа
-        действует до {new Date(data.programEndsAt).toLocaleDateString("ru-RU")}. {referralCookieHelpText()}
+        действует до {new Date(data.programEndsAt).toLocaleDateString("ru-RU")}. {data.cookieHelpText}
       </p>
 
       <div className="space-y-2">
