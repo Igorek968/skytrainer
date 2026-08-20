@@ -139,8 +139,10 @@ export default NextAuth(authConfig).auth((req) => {
     pathname.startsWith("/support/");
   const isPublicGid = pathname.startsWith("/gid/") || pathname === "/faq";
   const publicPaths = ["/", "/login", "/register", "/instructor/login", "/instructor/apply"];
+  const isPublicRegister = pathname === "/register" || pathname.startsWith("/register/");
   if (
     publicPaths.includes(pathname) ||
+    isPublicRegister ||
     isClientBookingHome ||
     isPublicInstructorBrowse ||
     isPublicSeoLandings ||

@@ -68,3 +68,33 @@ export function publicSiteHostLabel(): string {
   }
   return "твойтренер.рф";
 }
+
+const BRAND_SHARE_ORIGIN = "https://твойтренер.рф";
+const BRAND_PUNY_HOSTS = new Set([
+  "твойтренер.рф",
+  "www.твойтренер.рф",
+  "xn--b1agaovdpdkd.xn--p1ai",
+  "www.xn--b1agaovdpdkd.xn--p1ai",
+]);
+
+/**
+ * Origin для реферальных/шаринговых ссылок: всегда читаемое «твойтренер.рф»,
+ * а не punycode xn--… (его подставляет APP_PUBLIC_URL на VPS).
+ */
+export function publicShareOrigin(): string {
+  const configured = configuredAppOrigin();
+  if (!configured) return BRAND_SHARE_ORIGIN;
+  try {
+    const u = new URL(configured);
+    const host = u.hostname.toLowerCase();
+    if (host === "localhost" || host === "127.0.0.1") {
+      return configured.replace(/\/+$/, "");
+    }
+    if (BRAND_PUNY_HOSTS.has(host)) {
+      return BRAND_SHARE_ORIGIN;
+    }
+    return configured.replace(/\/+$/, "");
+  } catch {
+    return BRAND_SHARE_ORIGIN;
+  }
+}

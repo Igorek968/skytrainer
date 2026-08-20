@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 
 import { registerClientAction, type RegisterClientState } from "@/app/actions/register-client";
 import { FORM_DRAFT_KEYS } from "@/lib/form-draft-storage";
+import { normalizeReferralCode } from "@/lib/referral-cookie";
 import { RUSSIAN_EMAIL_EXAMPLES, RUSSIAN_EMAIL_HINT, assertRussianEmail } from "@/lib/russian-email";
 import { sanitizeRedirectPath } from "@/lib/sanitize-auth-redirect";
 import { YM_GOALS, trackYandexGoal } from "@/shared/analytics/yandex-metrika-client";
@@ -49,12 +50,17 @@ function SubmitButton({ acceptLegal }: { acceptLegal: boolean }) {
 
 function RegisterForm() {
   const router = useRouter();
+  const pathname = usePathname();
   const params = useSearchParams();
   const callbackUrl = useMemo(
     () => sanitizeRedirectPath(params.get("callbackUrl")?.trim() || "/client", "/client"),
     [params],
   );
-  const referralCode = params.get("ref")?.trim() || undefined;
+  const pathCode = useMemo(() => {
+    const m = (pathname ?? "").replace(/\/+$/, "").match(/^\/register\/([^/]+)$/i);
+    return normalizeReferralCode(m?.[1] ?? null) ?? undefined;
+  }, [pathname]);
+  const referralCode = params.get("ref")?.trim() || pathCode;
   const asInstructor =
     params.get("as") === "instructor" || params.get("role") === "instructor";
 

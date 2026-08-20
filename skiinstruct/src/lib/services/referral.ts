@@ -9,12 +9,14 @@ import {
   REFERRAL_PROGRAM_END_DATE,
   REFERRAL_REWARD_RUB,
 } from "@/lib/legal-config";
+import { publicShareOrigin } from "@/lib/app-origin";
 import { normalizeReferralCode, referralCookieHelpText } from "@/lib/referral-cookie";
 import { slugifyRu } from "@/lib/seo-slug";
 import { prisma } from "@/lib/prisma";
 
 /** Посадочная для набора инструкторов — сюда крепится рефералка партнёров найма. */
 export const REFERRAL_HIRE_LANDING_PATH = "/landings/prichodi";
+export const REFERRAL_CLIENT_REGISTER_PATH = "/register";
 
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
@@ -231,15 +233,12 @@ export async function getReferralStats(userId: string) {
   ]);
 
   const code = user?.referralCode ?? (await ensureUserReferralCode(userId));
-  const origin = (process.env.NEXT_PUBLIC_APP_URL?.trim() || "http://localhost:3001").replace(
-    /\/+$/,
-    "",
-  );
+  const origin = publicShareOrigin();
   const programEndsAt = referralProgramEndsAtIso();
-  /** Клиент: сразу форма регистрации с ?ref=. */
-  const clientReferralLink = `${origin}/register?ref=${code}`;
-  /** Инструктор: лендинг набора с встроенным ?ref=. */
-  const instructorReferralLink = `${origin}${REFERRAL_HIRE_LANDING_PATH}?ref=${code}`;
+  /** Клиент: регистрация, код — хвост пути (…/register/ник). */
+  const clientReferralLink = `${origin}${REFERRAL_CLIENT_REGISTER_PATH}/${code}`;
+  /** Инструктор: лендинг «Приходи», код — хвост пути (…/landings/prichodi/ник). */
+  const instructorReferralLink = `${origin}${REFERRAL_HIRE_LANDING_PATH}/${code}`;
 
   return {
     referralCode: code,

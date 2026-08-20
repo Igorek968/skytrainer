@@ -145,7 +145,7 @@ export function ReferralProgramPanel({
         <div className="space-y-2 rounded-md border border-border bg-muted/15 p-3">
           <Label htmlFor="instructor-referral-link">Для инструктора</Label>
           <p className="text-xs text-muted-foreground">
-            Открывает лендинг набора «Приходи к нам» с вашим кодом.
+            Открывает лендинг «Приходи к нам»: …/landings/prichodi/ваш-ник
           </p>
           <Input
             id="instructor-referral-link"
@@ -159,7 +159,7 @@ export function ReferralProgramPanel({
         <div className="space-y-2 rounded-md border border-border bg-muted/15 p-3">
           <Label htmlFor="client-referral-link">Для пользователя</Label>
           <p className="text-xs text-muted-foreground">
-            Сразу форма регистрации ученика с вашим кодом.
+            Форма регистрации ученика: …/register/ваш-ник
           </p>
           <Input
             id="client-referral-link"

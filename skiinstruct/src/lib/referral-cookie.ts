@@ -73,7 +73,7 @@ function useSecureReferralCookie(): boolean {
 }
 
 export function attachReferralCookie(req: NextRequest, res: NextResponse): NextResponse {
-  const code = normalizeReferralCode(req.nextUrl.searchParams.get("ref"));
+  const code = referralCodeFromRequest(req);
   if (!code) return res;
 
   res.cookies.set(REFERRAL_COOKIE_NAME, code, {
@@ -84,4 +84,17 @@ export function attachReferralCookie(req: NextRequest, res: NextResponse): NextR
     secure: useSecureReferralCookie(),
   });
   return res;
+}
+
+/** Код из ?ref= или из хвоста пути: /landings/prichodi/ник, /register/ник. */
+export function referralCodeFromRequest(req: NextRequest): string | null {
+  const fromQuery = normalizeReferralCode(req.nextUrl.searchParams.get("ref"));
+  if (fromQuery) return fromQuery;
+
+  const path = req.nextUrl.pathname.replace(/\/+$/, "") || "/";
+  const hire = path.match(/^\/landings\/prichodi\/([^/]+)$/i);
+  if (hire?.[1]) return normalizeReferralCode(hire[1]);
+  const reg = path.match(/^\/register\/([^/]+)$/i);
+  if (reg?.[1]) return normalizeReferralCode(reg[1]);
+  return null;
 }
