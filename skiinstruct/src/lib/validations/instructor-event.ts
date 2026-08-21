@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { requiredEventCategorySchema } from "@/lib/event-category";
+import { EVENT_PRICE_HINT_RU, EVENT_PRICE_MIN_PAID_RUB, isValidEventPriceRub } from "@/lib/event-price";
 
 const priceRubField = z
   .number()
@@ -8,7 +9,12 @@ const priceRubField = z
   .min(0)
   .max(500_000)
   .optional()
-  .nullable();
+  .nullable()
+  .refine((v) => isValidEventPriceRub(v), {
+    message: EVENT_PRICE_HINT_RU,
+  });
+
+export { EVENT_PRICE_HINT_RU, EVENT_PRICE_MIN_PAID_RUB };
 
 const maxRegistrationsField = z
   .number()

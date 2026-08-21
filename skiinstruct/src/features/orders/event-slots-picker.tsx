@@ -60,6 +60,15 @@ export function EventSlotsPicker({
       await qc.invalidateQueries({ queryKey });
       await qc.invalidateQueries({ queryKey: ["client-registrations"] });
       await qc.invalidateQueries({ queryKey: ["client-events"] });
+      if (j.checkoutUrl) {
+        toast.message(j.message ?? "Переход к оплате…");
+        if (j.checkoutUrl.includes("/client/registrations/")) {
+          router.push(j.checkoutUrl.replace(/^https?:\/\/[^/]+/, "") || j.checkoutUrl);
+        } else {
+          window.location.href = j.checkoutUrl;
+        }
+        return;
+      }
       toast.success(j.message ?? "Вы записаны");
       const href = registrationHref(j.registration, j.registrationPath);
       if (href) router.push(href);
@@ -121,7 +130,7 @@ export function EventSlotsPicker({
                 <p className="truncate text-sm font-medium leading-snug">{line}</p>
                 <p className="mt-0.5 text-xs text-muted-foreground">
                   {seats}
-                  {!slot.isFree ? " · оплата после" : null}
+                  {!slot.isFree ? " · оплата при записи" : null}
                 </p>
               </div>
               <div className="flex shrink-0 items-center gap-2">
@@ -147,7 +156,7 @@ export function EventSlotsPicker({
                     disabled={register.isPending || !acceptLegal}
                     onClick={() => register.mutate(slot.id)}
                   >
-                    {register.isPending ? "…" : "Записаться"}
+                    {register.isPending ? "…" : slot.isFree ? "Записаться" : "Оплатить"}
                   </Button>
                 ) : (
                   <span className="text-xs text-muted-foreground">Недоступно</span>

@@ -37,7 +37,7 @@ export function attendanceStatusLabel(
   if (reg.attendanceConfirmedAt) return "Участие подтверждено";
   if (!isEventCompleted(eventAt)) {
     if (reg.status === "PENDING_PAYMENT" && Number(reg.amountRub) > 0) {
-      return "Записан · оплата после события";
+      return "Ожидает оплаты";
     }
     if (reg.status === "PAID") return "Записан";
     return "Ожидает оплаты";

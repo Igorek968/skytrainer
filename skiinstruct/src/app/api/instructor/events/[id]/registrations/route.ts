@@ -34,7 +34,7 @@ export async function GET(_req: Request, ctx: Ctx) {
   }
 
   const rows = await prisma.eventRegistration.findMany({
-    where: { eventId, status: { in: ["PAID", "PENDING_PAYMENT"] } },
+    where: { eventId, status: "PAID" },
     orderBy: [{ status: "asc" }, { createdAt: "desc" }],
     include: {
       client: { select: { id: true, name: true, email: true, image: true } },

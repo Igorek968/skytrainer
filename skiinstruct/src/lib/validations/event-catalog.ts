@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { requiredEventCategorySchema } from "@/lib/event-category";
+import { EVENT_PRICE_HINT_RU, isValidEventPriceRub } from "@/lib/event-price";
 import { MAP_CITY_CENTERS } from "@/lib/map-city-centers";
 
 const venueCoordField = z.number().optional().nullable();
@@ -59,7 +60,10 @@ const priceRubField = z
   .min(0)
   .max(500_000)
   .optional()
-  .nullable();
+  .nullable()
+  .refine((v) => isValidEventPriceRub(v), {
+    message: EVENT_PRICE_HINT_RU,
+  });
 
 const maxRegistrationsField = z
   .number()

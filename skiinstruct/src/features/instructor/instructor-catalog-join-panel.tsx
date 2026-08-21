@@ -21,6 +21,11 @@ import {
   moderationStatusLabel,
   toDatetimeLocalValue,
 } from "@/lib/instructor-events";
+import {
+  EVENT_PRICE_HINT_RU,
+  EVENT_PRICE_MIN_PAID_RUB,
+  eventPriceRubErrorFromInput,
+} from "@/lib/event-price";
 import { publicUploadDisplaySrc } from "@/lib/public-uploads-display";
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
@@ -160,6 +165,8 @@ export function InstructorCatalogJoinPanel({
       if (priceRaw !== "" && (!Number.isFinite(priceRub) || (priceRub ?? 0) < 0)) {
         throw new Error("Некорректная цена");
       }
+      const priceRuleErr = eventPriceRubErrorFromInput(priceRaw);
+      if (priceRuleErr) throw new Error(priceRuleErr);
       if (seatsRaw !== "" && (!Number.isFinite(maxRegistrations) || (maxRegistrations ?? 0) < 1)) {
         throw new Error("Некорректный лимит мест");
       }
@@ -423,10 +430,11 @@ export function InstructorCatalogJoinPanel({
                           <Input
                             id={`price-${item.id}`}
                             inputMode="numeric"
-                            placeholder="0 = бесплатно"
+                            placeholder={`0 или от ${EVENT_PRICE_MIN_PAID_RUB}`}
                             value={form.priceRub}
                             onChange={(e) => setForm((f) => ({ ...f, priceRub: e.target.value }))}
                           />
+                          <p className="text-[10px] text-muted-foreground">{EVENT_PRICE_HINT_RU}</p>
                         </div>
                         <div className="space-y-1.5">
                           <Label htmlFor={`seats-${item.id}`}>Мест (необяз.)</Label>

@@ -64,6 +64,16 @@ export function EventRegistrationButton({
       await qc.invalidateQueries({ queryKey: ["client-registrations"] });
       await qc.invalidateQueries({ queryKey: ["client-events"] });
 
+      if (j.checkoutUrl) {
+        toast.message(j.message ?? "Переход к оплате…");
+        if (j.checkoutUrl.includes("/client/registrations/")) {
+          router.push(j.checkoutUrl.replace(/^https?:\/\/[^/]+/, "") || j.checkoutUrl);
+        } else {
+          window.location.href = j.checkoutUrl;
+        }
+        return;
+      }
+
       const href = registrationHref(j.registration, j.registrationPath);
       toast.success(j.message ?? "Вы записаны");
       if (href) router.push(href);
@@ -113,11 +123,11 @@ export function EventRegistrationButton({
   const my = event.myRegistration;
 
   if (my?.needsAttendanceConfirmation) {
-    const paidEvent = !event.isFree && my.amountRub > 0;
+    const unpaid = !event.isFree && my.amountRub > 0 && my.status === "PENDING_PAYMENT";
     return (
       <div className="mt-2 flex flex-wrap items-center gap-2">
         <Badge variant="outline" className="text-xs">
-          {paidEvent ? "Подтвердите участие и оплатите" : "Подтвердите участие"}
+          {unpaid ? "Оплатите запись" : "Подтвердите участие"}
         </Badge>
         <Button
           type="button"
@@ -128,8 +138,8 @@ export function EventRegistrationButton({
         >
           {confirmAttendance.isPending
             ? "…"
-            : paidEvent
-              ? "Подтвердить и оплатить"
+            : unpaid
+              ? "Оплатить"
               : "Подтвердить участие"}
         </Button>
         <Button
@@ -151,7 +161,7 @@ export function EventRegistrationButton({
           {my.attendanceConfirmedAt
             ? "Участие подтверждено"
             : my.status === "PENDING_PAYMENT" && !event.isFree
-              ? "Записаны · оплата после события"
+              ? "Ожидает оплаты"
               : "Вы записаны"}
         </Badge>
         <Button
@@ -187,7 +197,7 @@ export function EventRegistrationButton({
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-xs font-medium text-foreground">{priceLabel}</span>
         {!event.isFree ? (
-          <span className="text-xs text-muted-foreground">Оплата после события</span>
+          <span className="text-xs text-muted-foreground">Оплата при записи</span>
         ) : null}
         {event.spotsLeft != null ? (
           <span className="text-xs text-muted-foreground">Осталось мест: {event.spotsLeft}</span>
@@ -206,7 +216,7 @@ export function EventRegistrationButton({
         disabled={register.isPending || !acceptLegal}
         onClick={() => register.mutate()}
       >
-        {register.isPending ? "Оформляем…" : "Записаться"}
+        {register.isPending ? "Оформляем…" : event.isFree ? "Записаться" : "Оплатить и записаться"}
       </Button>
     </div>
   );

@@ -5,6 +5,12 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { eventCategoryOptions } from "@/lib/event-category";
+import {
+  EVENT_PRICE_HINT_RU,
+  EVENT_PRICE_MIN_PAID_RUB,
+  eventPriceRubError,
+  eventPriceRubErrorFromInput,
+} from "@/lib/event-price";
 import type { InstructorEventSlotForm } from "@/lib/instructor-events";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
@@ -82,6 +88,12 @@ export function AdminEventEditorSheet({ eventId, onClose }: Props) {
 
   const save = useMutation({
     mutationFn: async () => {
+      const priceErr = eventPriceRubErrorFromInput(priceRub);
+      if (priceErr) throw new Error(priceErr);
+      for (const s of slots) {
+        const slotErr = eventPriceRubError(s.priceRub);
+        if (slotErr) throw new Error(`${slotErr} (слот ${s.date} ${s.time})`);
+      }
       const r = await fetch(`/api/admin/events/${eventId}`, {
         method: "PATCH",
         credentials: "include",
@@ -208,9 +220,11 @@ export function AdminEventEditorSheet({ eventId, onClose }: Props) {
                 <Input
                   id="ae-price"
                   inputMode="numeric"
+                  placeholder={`0 или от ${EVENT_PRICE_MIN_PAID_RUB}`}
                   value={priceRub}
                   onChange={(e) => setPriceRub(e.target.value)}
                 />
+                <p className="text-[10px] text-muted-foreground">{EVENT_PRICE_HINT_RU}</p>
               </div>
               <div className="space-y-1">
                 <Label htmlFor="ae-max">Мест</Label>

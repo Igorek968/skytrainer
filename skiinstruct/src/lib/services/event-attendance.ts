@@ -130,6 +130,6 @@ export async function confirmEventAttendance(params: {
   const checkoutUrl = await createEventCheckoutUrl(reg.id, reg.client.email);
   return {
     checkoutUrl,
-    message: "Перейдите к оплате — после неё участие будет подтверждено, средства поступят инструктору.",
+    message: "Перейдите к оплате — после неё запись подтвердится.",
   };
 }

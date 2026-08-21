@@ -1,5 +1,4 @@
 import { isMockCheckoutEnabled } from "@/lib/checkout-config";
-import { isInstructorEventCompleted } from "@/lib/instructor-events";
 import { prisma } from "@/lib/prisma";
 import { getStripe } from "@/lib/stripe";
 import { getPublicProductName } from "@/shared/lib/product";
@@ -9,6 +8,7 @@ import {
 } from "@/lib/yookassa";
 
 import { computeEventPaymentShares } from "./event-registration";
+import { notifyInstructorOfEventRegistration } from "./event-registration-notify";
 
 export async function markEventRegistrationPaid(params: {
   registrationId: string;
@@ -21,29 +21,29 @@ export async function markEventRegistrationPaid(params: {
       id: true,
       status: true,
       attendanceConfirmedAt: true,
+      paidAt: true,
       event: { select: { eventAt: true } },
       slot: { select: { startsAt: true } },
     },
   });
   if (!reg || reg.status === "PAID") return reg;
 
-  const effectiveAt = reg.slot?.startsAt ?? reg.event.eventAt;
-  const eventCompleted = isInstructorEventCompleted(effectiveAt);
-
-  return prisma.eventRegistration.update({
+  const updated = await prisma.eventRegistration.update({
     where: { id: params.registrationId },
     data: {
       status: "PAID",
       paidAt: new Date(),
-      ...(eventCompleted && !reg.attendanceConfirmedAt
-        ? { attendanceConfirmedAt: new Date() }
-        : {}),
       ...(params.stripePaymentIntentId
         ? { stripePaymentIntentId: params.stripePaymentIntentId }
         : {}),
       ...(params.yookassaPaymentId ? { yookassaPaymentId: params.yookassaPaymentId } : {}),
     },
   });
+
+  // Инструктору — только после успешной оплаты (предоплата).
+  void notifyInstructorOfEventRegistration(updated.id);
+
+  return updated;
 }
 
 export async function createEventCheckoutUrl(
@@ -67,11 +67,6 @@ export async function createEventCheckoutUrl(
     await markEventRegistrationPaid({ registrationId });
     const origin = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3001";
     return `${origin}/client/registrations/${registrationId}?paid=1`;
-  }
-
-  const effectiveAt = reg.slot?.startsAt ?? reg.event.eventAt;
-  if (!isInstructorEventCompleted(effectiveAt)) {
-    throw new Error("Оплата будет доступна после окончания события");
   }
 
   const origin = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3001";

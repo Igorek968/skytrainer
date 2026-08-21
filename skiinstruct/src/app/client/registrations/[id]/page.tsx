@@ -88,6 +88,32 @@ export default function ClientRegistrationDetailPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const payNow = useMutation({
+    mutationFn: async () => {
+      const r = await fetch(`/api/client/registrations/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ action: "pay" }),
+      });
+      const j = (await r.json()) as { checkoutUrl?: string; error?: string };
+      if (!r.ok) throw new Error(typeof j.error === "string" ? j.error : "Не удалось открыть оплату");
+      return j;
+    },
+    onSuccess: (j) => {
+      if (!j.checkoutUrl) {
+        toast.error("Ссылка на оплату не получена");
+        return;
+      }
+      if (j.checkoutUrl.includes("/client/registrations/")) {
+        router.push(j.checkoutUrl.replace(/^https?:\/\/[^/]+/, "") || j.checkoutUrl);
+      } else {
+        window.location.href = j.checkoutUrl;
+      }
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const reg = data?.registration;
 
   useEffect(() => {
@@ -142,7 +168,7 @@ export default function ClientRegistrationDetailPage() {
               {reg.event.body}
             </p>
 
-            {reg.status === "PAID" || reg.status === "PENDING_PAYMENT" ? (
+            {reg.status === "PAID" ? (
               <RegistrationChat
                 registrationId={reg.id}
                 contactUrl={`/api/client/registrations/${reg.id}/contact`}
@@ -162,15 +188,15 @@ export default function ClientRegistrationDetailPage() {
               <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-100">
                 Событие завершилось. Подтвердите, что вы были на нём
                 {reg.amountRub > 0 && !reg.paidAt
-                  ? " — после подтверждения спишется оплата, средства поступят инструктору."
+                  ? " — сначала завершите оплату записи."
                   : "."}
               </p>
             ) : null}
 
-            {!reg.eventCompleted && reg.status === "PENDING_PAYMENT" && reg.amountRub > 0 ? (
+            {reg.status === "PENDING_PAYMENT" && reg.amountRub > 0 && !reg.paidAt ? (
               <p className="rounded-md border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
-                Вы записаны. Оплата будет доступна после окончания события — подтвердите участие, и средства
-                поступят инструктору.
+                Запись ещё не подтверждена. Оплатите участие — после оплаты место закрепится, и
+                инструктор получит уведомление.
               </p>
             ) : null}
 
@@ -181,6 +207,16 @@ export default function ClientRegistrationDetailPage() {
             ) : null}
 
             <div className="flex flex-wrap gap-2">
+              {reg.status === "PENDING_PAYMENT" && reg.amountRub > 0 && !reg.paidAt ? (
+                <Button
+                  type="button"
+                  variant="accent"
+                  disabled={payNow.isPending}
+                  onClick={() => payNow.mutate()}
+                >
+                  {payNow.isPending ? "…" : "Оплатить"}
+                </Button>
+              ) : null}
               {reg.needsAttendanceConfirmation ? (
                 <Button
                   type="button"
@@ -191,7 +227,7 @@ export default function ClientRegistrationDetailPage() {
                   {confirmAttendance.isPending
                     ? "…"
                     : reg.amountRub > 0 && !reg.paidAt
-                      ? "Подтвердить участие и оплатить"
+                      ? "Оплатить"
                       : "Подтвердить участие"}
                 </Button>
               ) : null}

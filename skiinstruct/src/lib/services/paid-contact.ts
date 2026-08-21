@@ -25,12 +25,12 @@ export function canRevealOrderContact(
   return true;
 }
 
-/** Запись на событие: контакт сразу после записи (оплата часто после события). */
+/** Запись на событие: контакт только после оплаты (предоплата). Бесплатные — сразу PAID. */
 export function canRevealRegistrationContact(
   status: EventRegistrationStatus,
   _amountRub?: number,
 ): boolean {
-  return status === "PAID" || status === "PENDING_PAYMENT";
+  return status === "PAID";
 }
 
 export type PaidContactDTO = {

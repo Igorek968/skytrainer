@@ -70,7 +70,7 @@ export function buildEventRegistrationEmailContent(p: EventRegistrationNotifyPay
     p.maxSeats != null ? `${p.paidCount} из ${p.maxSeats}` : `${p.paidCount} участник(ов)`;
 
   const priceLine =
-    p.amountRub > 0 ? `${p.amountRub.toLocaleString("ru-RU")} ₽ (оплата после события)` : "Бесплатно";
+    p.amountRub > 0 ? `${p.amountRub.toLocaleString("ru-RU")} ₽ (оплачено)` : "Бесплатно";
 
   const clientLine = [p.clientName?.trim(), p.clientEmail?.trim()].filter(Boolean).join(" · ") || "Клиент";
 

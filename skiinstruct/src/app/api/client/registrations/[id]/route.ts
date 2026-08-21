@@ -165,12 +165,6 @@ export async function PATCH(req: Request, ctx: Ctx) {
     if (row.status !== "PENDING_PAYMENT" || row.paidAt) {
       return NextResponse.json({ error: "Оплата не требуется" }, { status: 400 });
     }
-    if (!isInstructorEventCompleted(row.event.eventAt)) {
-      return NextResponse.json(
-        { error: "Оплата будет доступна после окончания события. Сначала дождитесь даты события." },
-        { status: 400 },
-      );
-    }
     try {
       const checkoutUrl = await createEventCheckoutUrl(id, resolved.session.user.email);
       return NextResponse.json({ checkoutUrl });

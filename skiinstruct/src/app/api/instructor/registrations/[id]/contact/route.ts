@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 type Ctx = { params: Promise<{ id: string }> };
 
-/** Телефон клиента после записи на событие (в т.ч. до оплаты после события). */
+/** Телефон клиента после оплаты записи на событие. */
 export async function GET(_req: Request, ctx: Ctx) {
   const authResult = await requireInstructorSession();
   if (isApiErrorResponse(authResult)) return authResult;

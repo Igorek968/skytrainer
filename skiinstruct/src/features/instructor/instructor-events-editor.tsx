@@ -33,6 +33,11 @@ import { EventRegistrantsPanel } from "@/features/instructor/event-registrants-p
 import { EventVenuePicker, type EventVenueValue } from "@/features/instructor/event-venue-picker";
 import { compressImageFile } from "@/lib/compress-image-client";
 import { generateHourlySlots } from "@/lib/event-hourly-slots";
+import {
+  EVENT_PRICE_HINT_RU,
+  EVENT_PRICE_MIN_PAID_RUB,
+  eventPriceRubErrorFromInput,
+} from "@/lib/event-price";
 import { parseApiErrorPayload, userFacingErrorMessage } from "@/lib/user-facing-error";
 import { cn } from "@/lib/utils";
 
@@ -529,6 +534,9 @@ export function InstructorEventsEditor({
 
   const saveDraft = useMutation({
     mutationFn: async () => {
+      const formErr = validateEventForm();
+      if (formErr) throw new Error(formErr);
+
       const payload: Record<string, unknown> = {
         title: title.trim(),
         body: body.trim(),
@@ -920,12 +928,28 @@ export function InstructorEventsEditor({
       return "Добавьте хотя бы один выход с датой и временем";
     }
     if (!useSlots && !eventAt.trim()) return "Укажите дату и время";
+    if (useSlots) {
+      for (const s of slotRows.filter((row) => row.date.trim() && row.time.trim())) {
+        const priceErr = eventPriceRubErrorFromInput(s.priceRub);
+        if (priceErr) {
+          return `${priceErr} (слот ${s.date} ${s.time})`;
+        }
+      }
+    } else {
+      const priceErr = eventPriceRubErrorFromInput(priceRub);
+      if (priceErr) return priceErr;
+    }
     return null;
   }
 
   function addDraftSlot() {
     if (!draftSlotDate.trim() || !draftSlotTime.trim()) {
       toast.error("Укажите дату и время выхода");
+      return;
+    }
+    const priceErr = eventPriceRubErrorFromInput(draftSlotPrice);
+    if (priceErr) {
+      toast.error(priceErr);
       return;
     }
     const startDate = draftSlotDate.trim();
@@ -1480,10 +1504,14 @@ export function InstructorEventsEditor({
                       id="hourly-price"
                       type="number"
                       min={0}
+                      max={500000}
+                      step={1}
+                      placeholder={`0 или от ${EVENT_PRICE_MIN_PAID_RUB}`}
                       value={draftSlotPrice}
                       onChange={(e) => setDraftSlotPrice(e.target.value)}
                       className="h-9"
                     />
+                    <p className="text-[10px] text-muted-foreground">{EVENT_PRICE_HINT_RU}</p>
                   </div>
                   <div className="space-y-1">
                     <Label htmlFor="hourly-seats" className="text-xs text-muted-foreground">
@@ -1505,6 +1533,11 @@ export function InstructorEventsEditor({
                       variant="accent"
                       className="h-9 w-full"
                       onClick={() => {
+                        const priceErr = eventPriceRubErrorFromInput(draftSlotPrice);
+                        if (priceErr) {
+                          toast.error(priceErr);
+                          return;
+                        }
                         const duration = Number.parseInt(hourlyDuration.trim(), 10) || 60;
                         const generated = generateHourlySlots({
                           dateFrom: draftSlotDate,
@@ -1608,11 +1641,13 @@ export function InstructorEventsEditor({
                           type="number"
                           min={0}
                           max={500000}
-                          placeholder="0"
+                          step={1}
+                          placeholder={`0 или от ${EVENT_PRICE_MIN_PAID_RUB}`}
                           value={draftSlotPrice}
                           onChange={(e) => setDraftSlotPrice(e.target.value)}
                           className="h-9"
                         />
+                        <p className="text-[10px] text-muted-foreground">{EVENT_PRICE_HINT_RU}</p>
                       </div>
                       <div className="space-y-1">
                         <Label htmlFor="draft-slot-seats" className="text-xs text-muted-foreground">
@@ -1777,7 +1812,8 @@ export function InstructorEventsEditor({
                                   type="number"
                                   min={0}
                                   max={500000}
-                                  placeholder="0"
+                                  step={1}
+                                  placeholder={`0 / ${EVENT_PRICE_MIN_PAID_RUB}+`}
                                   value={row.priceRub}
                                   disabled={formLocked}
                                   onChange={(e) =>
@@ -1827,11 +1863,12 @@ export function InstructorEventsEditor({
                     min={0}
                     max={500000}
                     step={1}
-                    placeholder="0 — бесплатно"
+                    placeholder={`0 — бесплатно, иначе от ${EVENT_PRICE_MIN_PAID_RUB}`}
                     value={priceRub}
                     onChange={(e) => setPriceRub(e.target.value)}
                     disabled={formLocked}
                   />
+                  <p className="text-xs text-muted-foreground">{EVENT_PRICE_HINT_RU}</p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="event-max">Лимит мест</Label>

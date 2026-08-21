@@ -4,12 +4,14 @@ import { z } from "zod";
 import { isApiErrorResponse, requireClientSession } from "@/lib/api-session";
 import { enrichClientEvent } from "@/lib/instructor-events";
 import { prisma } from "@/lib/prisma";
-import { buildRegistrationAmounts } from "@/lib/services/event-checkout";
+import {
+  buildRegistrationAmounts,
+  createEventCheckoutUrl,
+} from "@/lib/services/event-checkout";
 import { notifyInstructorOfEventRegistration } from "@/lib/services/event-registration-notify";
 import {
   clientCanAccessEvent,
   getEventCapacityState,
-  isEventFree,
   registrationOpenForEvent,
 } from "@/lib/services/event-registration";
 import {
@@ -30,20 +32,66 @@ const bodySchema = z.object({
   }),
 });
 
+async function respondWithRegistration(opts: {
+  eventId: string;
+  registrationId: string;
+  clientId: string;
+  clientEmail: string | null | undefined;
+  requiresPayment: boolean;
+  event: Parameters<typeof enrichClientEvent>[0];
+}) {
+  const myRegistration = await prisma.eventRegistration.findUnique({
+    where: { id: opts.registrationId },
+  });
+  const enriched = await enrichClientEvent(opts.event, myRegistration, null, opts.clientId);
+  const registrationPath = `/client/registrations/${opts.registrationId}`;
+
+  if (!opts.requiresPayment) {
+    return NextResponse.json({
+      event: enriched,
+      registration: myRegistration,
+      checkoutUrl: null,
+      registrationPath,
+      message: "Вы записаны на событие",
+    });
+  }
+
+  try {
+    const checkoutUrl = await createEventCheckoutUrl(opts.registrationId, opts.clientEmail);
+    return NextResponse.json({
+      event: enriched,
+      registration: myRegistration,
+      checkoutUrl,
+      registrationPath,
+      message: "Перейдите к оплате — место бронируется после успешной оплаты",
+    });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Не удалось открыть оплату";
+    return NextResponse.json(
+      {
+        error: message,
+        registration: myRegistration,
+        registrationPath,
+        checkoutUrl: null,
+      },
+      { status: 502 },
+    );
+  }
+}
+
 export async function POST(req: Request, ctx: Ctx) {
   const resolved = await requireClientSession();
   if (isApiErrorResponse(resolved)) return resolved;
 
   const { eventId } = await ctx.params;
 
-  let slotId: string | undefined;
   const json = await req.json().catch(() => ({}));
   const parsed = bodySchema.safeParse(json);
   if (!parsed.success) {
     const msg = parsed.error.issues[0]?.message ?? "Некорректный запрос";
     return NextResponse.json({ error: msg }, { status: 400 });
   }
-  slotId = parsed.data.slotId;
+  const slotId = parsed.data.slotId;
 
   const event = await prisma.instructorEvent.findUnique({
     where: { id: eventId },
@@ -58,6 +106,7 @@ export async function POST(req: Request, ctx: Ctx) {
     return NextResponse.json({ error: "Нет доступа к этому событию" }, { status: 403 });
   }
 
+  const clientEmail = resolved.session.user.email;
   const hasSlots = event.slots.length > 0;
 
   if (hasSlots) {
@@ -83,7 +132,7 @@ export async function POST(req: Request, ctx: Ctx) {
         where: { slotId: slot.id, clientId: resolved.userId },
       }));
 
-    if (existing?.status === "PAID" || existing?.status === "PENDING_PAYMENT") {
+    if (existing?.status === "PAID") {
       return NextResponse.json({ error: "Вы уже записаны на это время" }, { status: 400 });
     }
 
@@ -104,7 +153,9 @@ export async function POST(req: Request, ctx: Ctx) {
         },
       });
       registrationId = created.id;
-      void notifyInstructorOfEventRegistration(created.id);
+      if (!amounts.requiresPayment) {
+        void notifyInstructorOfEventRegistration(created.id);
+      }
     } else if (existing.status === "CANCELLED") {
       const updated = await prisma.eventRegistration.update({
         where: { id: existing.id },
@@ -116,25 +167,36 @@ export async function POST(req: Request, ctx: Ctx) {
           paidAt: amounts.requiresPayment ? null : new Date(),
           stripeCheckoutSessionId: null,
           stripePaymentIntentId: null,
+          yookassaPaymentId: null,
         },
       });
       registrationId = updated.id;
-      void notifyInstructorOfEventRegistration(updated.id);
+      if (!amounts.requiresPayment) {
+        void notifyInstructorOfEventRegistration(updated.id);
+      }
+    } else if (existing.status === "PENDING_PAYMENT") {
+      await prisma.eventRegistration.update({
+        where: { id: existing.id },
+        data: {
+          amountRub: amounts.amountRub,
+          platformFeePercent: amounts.platformFeePercent,
+          instructorShareAmount: amounts.instructorShareAmount,
+        },
+      });
+      registrationId = existing.id;
     }
 
-    const myRegistration = registrationId
-      ? await prisma.eventRegistration.findUnique({ where: { id: registrationId } })
-      : null;
-    const enriched = await enrichClientEvent(event, myRegistration, null, resolved.userId);
+    if (!registrationId) {
+      return NextResponse.json({ error: "Не удалось создать запись" }, { status: 500 });
+    }
 
-    return NextResponse.json({
-      event: enriched,
-      registration: myRegistration,
-      checkoutUrl: null,
-      registrationPath: registrationId ? `/client/registrations/${registrationId}` : null,
-      message: amounts.requiresPayment
-        ? "Вы записаны. Оплата будет доступна после события."
-        : "Вы записаны на выбранное время",
+    return respondWithRegistration({
+      eventId,
+      registrationId,
+      clientId: resolved.userId,
+      clientEmail,
+      requiresPayment: amounts.requiresPayment,
+      event,
     });
   }
 
@@ -156,10 +218,6 @@ export async function POST(req: Request, ctx: Ctx) {
     return NextResponse.json({ error: "Вы уже записаны" }, { status: 400 });
   }
 
-  if (existing?.status === "PENDING_PAYMENT" && existing.paidAt) {
-    return NextResponse.json({ error: "Вы уже записаны" }, { status: 400 });
-  }
-
   let registrationId = existing?.id;
 
   if (!existing) {
@@ -176,7 +234,9 @@ export async function POST(req: Request, ctx: Ctx) {
       },
     });
     registrationId = created.id;
-    void notifyInstructorOfEventRegistration(created.id);
+    if (!amounts.requiresPayment) {
+      void notifyInstructorOfEventRegistration(created.id);
+    }
   } else if (existing.status === "CANCELLED") {
     const updated = await prisma.eventRegistration.update({
       where: { id: existing.id },
@@ -188,10 +248,13 @@ export async function POST(req: Request, ctx: Ctx) {
         paidAt: amounts.requiresPayment ? null : new Date(),
         stripeCheckoutSessionId: null,
         stripePaymentIntentId: null,
+        yookassaPaymentId: null,
       },
     });
     registrationId = updated.id;
-    void notifyInstructorOfEventRegistration(updated.id);
+    if (!amounts.requiresPayment) {
+      void notifyInstructorOfEventRegistration(updated.id);
+    }
   } else if (existing.status === "PENDING_PAYMENT") {
     await prisma.eventRegistration.update({
       where: { id: existing.id },
@@ -208,31 +271,12 @@ export async function POST(req: Request, ctx: Ctx) {
     return NextResponse.json({ error: "Не удалось создать запись" }, { status: 500 });
   }
 
-  if (!amounts.requiresPayment || isEventFree(event.priceRub)) {
-    const myRegistration = await prisma.eventRegistration.findUnique({
-      where: { id: registrationId },
-    });
-    const enriched = await enrichClientEvent(event, myRegistration, null, resolved.userId);
-    return NextResponse.json({
-      event: enriched,
-      registration: myRegistration,
-      checkoutUrl: null,
-      registrationPath: `/client/registrations/${registrationId}`,
-      message: "Вы записаны на событие",
-    });
-  }
-
-  const myRegistration = await prisma.eventRegistration.findUnique({
-    where: { id: registrationId },
-  });
-  const enriched = await enrichClientEvent(event, myRegistration, null, resolved.userId);
-
-  return NextResponse.json({
-    event: enriched,
-    registration: myRegistration,
-    checkoutUrl: null,
-    registrationPath: `/client/registrations/${registrationId}`,
-    message:
-      "Вы записаны. Оплата будет доступна после события — подтвердите участие, и средства поступят инструктору.",
+  return respondWithRegistration({
+    eventId,
+    registrationId,
+    clientId: resolved.userId,
+    clientEmail,
+    requiresPayment: amounts.requiresPayment,
+    event,
   });
 }
