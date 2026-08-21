@@ -1,5 +1,5 @@
 /** Единая дата редакции всех юридических документов (оферты, ПДн, возвраты, реквизиты). */
-export const LEGAL_DOCS_VERSION = "2026-07-29";
+export const LEGAL_DOCS_VERSION = "2026-08-21";
 
 /** Версия агентской оферты для инструкторов (акцепт в БД). */
 export const AGENCY_OFFER_VERSION = LEGAL_DOCS_VERSION;
@@ -56,6 +56,9 @@ export const INSTRUCTOR_NO_SHOW_PENALTY_PERCENT = 30;
 
 /** Отмена записи на событие клиентом: полный возврат при отмене за N ч и более. */
 export const EVENT_CANCEL_FULL_REFUND_HOURS = 24;
+
+/** Комментарий инструктора при форс-мажорной отмене события (символов). */
+export const EVENT_FORCE_MAJEURE_REASON_MAX = 100;
 
 /** Претензия по качеству урока: срок подачи после lessonEndedAt (ч). Совпадает с окном удержания выплаты. */
 export const QUALITY_CLAIM_WINDOW_HOURS = PAYOUT_CONFIRMATION_HOURS;

@@ -3,6 +3,7 @@ import type { EventRegistration, InstructorEvent, EventSlot } from "@prisma/clie
 import { isInstructorEventCompleted } from "@/lib/instructor-events";
 import {
   EVENT_CANCEL_FULL_REFUND_HOURS,
+  EVENT_FORCE_MAJEURE_REASON_MAX,
   INSTRUCTOR_CANCEL_NOTICE_HOURS,
   INSTRUCTOR_NO_SHOW_PENALTY_PERCENT,
 } from "@/lib/legal-config";
@@ -13,6 +14,8 @@ import {
   applyInstructorEventRegistrationPenalty,
   shouldChargeInstructorEventPenalty,
 } from "@/lib/services/instructor-penalty";
+import { emitAdminAlert } from "@/lib/services/admin-alerts";
+import { writeAdminAudit } from "@/lib/services/admin-audit";
 import { createYooKassaRefund, isYooKassaConfigured } from "@/lib/yookassa";
 
 export type EventRegistrationCancelQuote = {
@@ -219,6 +222,9 @@ async function applyRegistrationCancelByClient(
     data: {
       status: "CANCELLED",
       stripeCheckoutSessionId: null,
+      cancelReason: quote.reason.slice(0, 100),
+      cancelledAt: new Date(),
+      cancelledBy: "CLIENT",
     },
   });
 
@@ -247,6 +253,9 @@ async function applyRegistrationCancelByInstructor(
     data: {
       status: "CANCELLED",
       stripeCheckoutSessionId: null,
+      cancelReason: quote.reason.slice(0, 100),
+      cancelledAt: new Date(),
+      cancelledBy: "INSTRUCTOR",
     },
   });
 
@@ -323,6 +332,9 @@ export async function claimEventInstructorNoShowRefund(params: {
       status: "CANCELLED",
       instructorNoShowRefundClaimedAt: new Date(),
       stripeCheckoutSessionId: null,
+      cancelReason: `Неявка инструктора — полный возврат`.slice(0, 100),
+      cancelledAt: new Date(),
+      cancelledBy: "CLIENT_NO_SHOW",
     },
   });
 
@@ -341,4 +353,122 @@ export async function claimEventInstructorNoShowRefund(params: {
     reason: `Неявка инструктора — полный возврат ${total} ₽`,
     penaltyAmountRub,
   };
+}
+
+export function canForceMajeureCancelEvent(params: {
+  forceMajeureAt?: Date | null;
+  eventAt: Date | null;
+  slotStarts?: Array<Date | null | undefined>;
+  now?: Date;
+}): boolean {
+  if (params.forceMajeureAt) return false;
+  const now = params.now ?? new Date();
+  const starts = [
+    params.eventAt,
+    ...(params.slotStarts ?? []).filter((d): d is Date => d instanceof Date),
+  ].filter((d): d is Date => d instanceof Date && Number.isFinite(d.getTime()));
+  if (!starts.length) return false;
+  const earliest = starts.reduce((a, b) => (a.getTime() <= b.getTime() ? a : b));
+  return earliest.getTime() <= now.getTime();
+}
+
+/**
+ * Форс-мажор после начала события: полный возврат всем активным записям, без штрафа инструктору.
+ */
+export async function forceMajeureCancelEvent(params: {
+  eventId: string;
+  instructorId: string;
+  reason: string;
+}): Promise<{
+  cancelledRegistrations: number;
+  refundedRub: number;
+  reason: string;
+}> {
+  const reason = params.reason.trim().slice(0, EVENT_FORCE_MAJEURE_REASON_MAX);
+  if (reason.length < 3) {
+    throw new Error(`Укажите причину форс-мажора (от 3 до ${EVENT_FORCE_MAJEURE_REASON_MAX} символов)`);
+  }
+
+  const event = await prisma.instructorEvent.findFirst({
+    where: { id: params.eventId, instructorId: params.instructorId },
+    include: {
+      slots: { select: { startsAt: true } },
+      instructor: { select: { name: true, email: true } },
+    },
+  });
+  if (!event) throw new Error("NOT_FOUND");
+  if (event.forceMajeureAt) throw new Error("Форс-мажор по этому событию уже оформлен");
+
+  if (
+    !canForceMajeureCancelEvent({
+      forceMajeureAt: event.forceMajeureAt,
+      eventAt: event.eventAt,
+      slotStarts: event.slots.map((s) => s.startsAt),
+    })
+  ) {
+    throw new Error("Форс-мажор доступен только после начала события");
+  }
+
+  const activeRegs = await prisma.eventRegistration.findMany({
+    where: { eventId: event.id, status: { in: ["PAID", "PENDING_PAYMENT"] } },
+  });
+
+  let cancelledRegistrations = 0;
+  let refundedRub = 0;
+  const cancelNote = `Форс-мажор: ${reason}`.slice(0, 100);
+
+  for (const reg of activeRegs) {
+    const amount = Number(reg.amountRub);
+    if (reg.status === "PAID" && amount > 0) {
+      await executeRegistrationRefund(reg, amount);
+      refundedRub += amount;
+    }
+    await prisma.eventRegistration.update({
+      where: { id: reg.id },
+      data: {
+        status: "CANCELLED",
+        stripeCheckoutSessionId: null,
+        cancelReason: cancelNote,
+        cancelledAt: new Date(),
+        cancelledBy: "FORCE_MAJEURE",
+      },
+    });
+    cancelledRegistrations += 1;
+  }
+
+  await prisma.instructorEvent.update({
+    where: { id: event.id },
+    data: {
+      forceMajeureAt: new Date(),
+      forceMajeureReason: reason,
+      moderationStatus:
+        event.moderationStatus === "DRAFT" || event.moderationStatus === "REJECTED"
+          ? event.moderationStatus
+          : "ARCHIVED",
+    },
+  });
+
+  const who = event.instructor.name?.trim() || event.instructor.email;
+  void emitAdminAlert({
+    category: "ORDERS",
+    title: `Форс-мажор · отменено: ${event.title.slice(0, 60)}`,
+    body: `${who}: ${reason}. Записей: ${cancelledRegistrations}, возврат ≈ ${Math.round(refundedRub)} ₽.`,
+    href: `/admin/pipeline`,
+    dedupeKey: `orders:force-majeure:event:${event.id}`,
+    entityId: event.id,
+  });
+  void writeAdminAudit({
+    actorId: params.instructorId,
+    action: "event.force_majeure",
+    entity: "InstructorEvent",
+    entityId: event.id,
+    summary: `Форс-мажор: ${reason}`,
+    meta: {
+      cancelledRegistrations,
+      refundedRub,
+      reason,
+    },
+  });
+
+  return { cancelledRegistrations, refundedRub, reason };
 }

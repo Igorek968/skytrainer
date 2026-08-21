@@ -118,7 +118,21 @@ export type AdminOverview = {
     awaitingPayment: number;
     draftOrders: number;
     completedLast30d: number;
+    forceMajeureLast30d: number;
   };
+  forceMajeureRecent: {
+    id: string;
+    title: string;
+    forceMajeureAt: string | null;
+    forceMajeureReason: string | null;
+    instructorName: string;
+    registrations: {
+      id: string;
+      cancelReason: string | null;
+      amountRub: number;
+      clientLabel: string;
+    }[];
+  }[];
   ordersByStatus: Record<string, number>;
   finance: {
     paidOrdersCount: number;

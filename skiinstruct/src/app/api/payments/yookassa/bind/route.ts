@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { isApiErrorResponse, requireClientSession } from "@/lib/api-session";
 import { startYooCardBinding } from "@/lib/services/client-yookassa-card";
+import { yooKassaUserFacingError } from "@/lib/yookassa";
 
 const bodySchema = z.object({
   returnUrl: z.string().url().optional(),
@@ -30,7 +31,12 @@ export async function POST(req: Request) {
     const { url } = await startYooCardBinding(resolved.userId, returnUrl);
     return NextResponse.json({ url });
   } catch (e) {
-    const message = e instanceof Error ? e.message : "Не удалось начать привязку карты";
-    return NextResponse.json({ error: message }, { status: 400 });
+    return NextResponse.json(
+      {
+        error: yooKassaUserFacingError(e, "Не удалось начать привязку карты"),
+        code: "CARD_BIND_UNAVAILABLE",
+      },
+      { status: 400 },
+    );
   }
 }

@@ -617,6 +617,10 @@ model InstructorEvent {
   venueLat     Float?
   venueLng     Float?
 
+  /// Форс-мажорная отмена после начала (погода и т.п.) — полный возврат, без штрафа инструктору.
+  forceMajeureAt     DateTime?
+  forceMajeureReason String?   @db.VarChar(100)
+
   slots         EventSlot[]
   registrations EventRegistration[]
 
@@ -628,6 +632,7 @@ model InstructorEvent {
   @@index([orderId])
   @@index([catalogItemId])
   @@index([category])
+  @@index([forceMajeureAt])
 }
 
 /// Выход события (время, цена, лимит мест).
@@ -691,6 +696,19 @@ model EventRegistration {
   instructorPenaltyAmount Decimal? @db.Decimal(10, 2)
   instructorPenaltyAppliedAt DateTime?
 
+  /// Причина отмены (в т.ч. комментарий форс-мажора, до 100 символов).
+  cancelReason String? @db.VarChar(100)
+  cancelledAt  DateTime?
+  /// CLIENT | INSTRUCTOR | FORCE_MAJEURE | CLIENT_NO_SHOW
+  cancelledBy  String? @db.VarChar(32)
+
+  /// Отзыв клиента об инструкторе / событии (после окончания).
+  clientRating Int?
+  clientReview String? @db.Text
+  /// Отзыв инструктора о клиенте-участнике (кто подтвердил участие).
+  instructorRating Int?
+  instructorReview String? @db.Text
+
   penalties InstructorPlatformPenalty[]
 
   messages EventRegistrationMessage[]
@@ -701,6 +719,7 @@ model EventRegistration {
   @@index([eventId, status])
   @@index([slotId, status])
   @@index([clientId])
+  @@index([cancelledBy, cancelledAt])
 }
 
 /// Чат по записи на событие (клиент ↔ инструктор).

@@ -9,7 +9,9 @@ function formatStartLabel(at: Date): string {
 }
 
 /**
- * Web Push за ~1 час до события: клиентам с записью и инструктору (один раз на слот / событие).
+ * Web Push за ~1 час до события:
+ * — каждому участнику с активной записью;
+ * — инструктору (один раз на событие / слот), даже если записей ещё нет.
  */
 export async function processEventPushReminders(): Promise<{
   clientReminders: number;
@@ -18,6 +20,9 @@ export async function processEventPushReminders(): Promise<{
   const now = Date.now();
   const nowDate = new Date(now);
   const { min: startMin, max: startMax } = startReminderWindow(now);
+
+  let clientReminders = 0;
+  let instructorReminders = 0;
 
   const registrations = await prisma.eventRegistration.findMany({
     where: {
@@ -35,22 +40,16 @@ export async function processEventPushReminders(): Promise<{
     select: {
       id: true,
       clientId: true,
-      slotId: true,
-      slot: { select: { id: true, startsAt: true, startReminderSentAt: true } },
+      slot: { select: { startsAt: true } },
       event: {
         select: {
           id: true,
           title: true,
-          instructorId: true,
           eventAt: true,
-          startReminderSentAt: true,
         },
       },
     },
   });
-
-  let clientReminders = 0;
-  let instructorReminders = 0;
 
   for (const reg of registrations) {
     const effectiveAt = reg.slot?.startsAt ?? reg.event.eventAt;
@@ -62,43 +61,76 @@ export async function processEventPushReminders(): Promise<{
       body: `Через ~1 час: «${reg.event.title}» (${startLabel}). Откройте заявку.`,
       url: `/client/registrations/${reg.id}`,
       tag: `event-start-${reg.id}`,
+      kind: "lesson-reminder",
+      sound: "reminder",
     });
 
-    if (clientPush.sent > 0) {
-      await prisma.eventRegistration.update({
-        where: { id: reg.id },
-        data: { eventStartReminderSentAt: nowDate },
-      });
-      clientReminders += 1;
-    }
+    // Помечаем после попытки в окне — иначе без подписки push крутится зря;
+    // in-app оповещение работает отдельно через sessionStorage.
+    await prisma.eventRegistration.update({
+      where: { id: reg.id },
+      data: { eventStartReminderSentAt: nowDate },
+    });
+    if (clientPush.sent > 0) clientReminders += 1;
+  }
 
-    const instructorAlreadySent = reg.slot
-      ? reg.slot.startReminderSentAt
-      : reg.event.startReminderSentAt;
+  const eventsWithoutSlots = await prisma.instructorEvent.findMany({
+    where: {
+      moderationStatus: "PUBLISHED",
+      startReminderSentAt: null,
+      eventAt: { gte: startMin, lte: startMax },
+      slots: { none: {} },
+    },
+    select: { id: true, title: true, instructorId: true, eventAt: true },
+  });
 
-    if (!instructorAlreadySent) {
-      const insPush = await sendWebPushToUser(reg.event.instructorId, {
-        title: "Скоро событие",
-        body: `Через ~1 час начало «${reg.event.title}» (${startLabel}).`,
-        url: "/instructor#events",
-        tag: `event-start-inst-${reg.event.id}-${reg.slotId ?? "main"}`,
-      });
+  for (const event of eventsWithoutSlots) {
+    if (!event.eventAt || !isInStartReminderWindow(event.eventAt, now)) continue;
+    const startLabel = formatStartLabel(event.eventAt);
+    const insPush = await sendWebPushToUser(event.instructorId, {
+      title: "Скоро ваше событие",
+      body: `Через ~1 час начало «${event.title}» (${startLabel}).`,
+      url: "/instructor#events",
+      tag: `event-start-inst-${event.id}`,
+      kind: "lesson-reminder",
+      sound: "reminder",
+    });
+    await prisma.instructorEvent.update({
+      where: { id: event.id },
+      data: { startReminderSentAt: nowDate },
+    });
+    if (insPush.sent > 0) instructorReminders += 1;
+  }
 
-      if (insPush.sent > 0) {
-        if (reg.slot) {
-          await prisma.eventSlot.update({
-            where: { id: reg.slot.id },
-            data: { startReminderSentAt: nowDate },
-          });
-        } else {
-          await prisma.instructorEvent.update({
-            where: { id: reg.event.id },
-            data: { startReminderSentAt: nowDate },
-          });
-        }
-        instructorReminders += 1;
-      }
-    }
+  const slots = await prisma.eventSlot.findMany({
+    where: {
+      startReminderSentAt: null,
+      startsAt: { gte: startMin, lte: startMax },
+      event: { moderationStatus: "PUBLISHED" },
+    },
+    select: {
+      id: true,
+      startsAt: true,
+      event: { select: { id: true, title: true, instructorId: true } },
+    },
+  });
+
+  for (const slot of slots) {
+    if (!isInStartReminderWindow(slot.startsAt, now)) continue;
+    const startLabel = formatStartLabel(slot.startsAt);
+    const insPush = await sendWebPushToUser(slot.event.instructorId, {
+      title: "Скоро ваше событие",
+      body: `Через ~1 час начало «${slot.event.title}» (${startLabel}).`,
+      url: "/instructor#events",
+      tag: `event-start-inst-${slot.event.id}-${slot.id}`,
+      kind: "lesson-reminder",
+      sound: "reminder",
+    });
+    await prisma.eventSlot.update({
+      where: { id: slot.id },
+      data: { startReminderSentAt: nowDate },
+    });
+    if (insPush.sent > 0) instructorReminders += 1;
   }
 
   return { clientReminders, instructorReminders };

@@ -6,6 +6,7 @@ import { InstructorLessonSoonPrompt } from "@/features/instructor/instructor-les
 import { InstructorPendingOrderPrompt } from "@/features/instructor/instructor-pending-order-prompt";
 import { InstructorPushAlertsBanner } from "@/features/instructor/instructor-push-alerts-banner";
 import { EmailVerificationGate } from "@/features/auth/email-verification-gate";
+import { EventStartRemindersPrompt } from "@/features/events/event-start-reminders-prompt";
 import { OrderLessonRemindersPrompt } from "@/features/orders/order-lesson-reminders-prompt";
 import { TelegramChannelInvite } from "@/shared/marketing/telegram-channel-invite";
 import { useAutoWebPushSubscribe } from "@/features/push/use-auto-web-push-subscribe";
@@ -20,6 +21,7 @@ export function InstructorPanelShell({ children }: { children: React.ReactNode }
     ["instructor-order-alerts"],
     ["instructor-chat-alerts"],
     ["instructor-registration-alerts"],
+    ["instructor-event-start-reminders"],
   ]);
 
   useEffect(() => {
@@ -57,6 +59,7 @@ export function InstructorPanelShell({ children }: { children: React.ReactNode }
       <InstructorChatMessagePrompt />
       <InstructorLessonSoonPrompt />
       <OrderLessonRemindersPrompt role="instructor" />
+      <EventStartRemindersPrompt role="instructor" />
     </>
   );
 }

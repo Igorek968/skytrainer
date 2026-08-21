@@ -9,10 +9,16 @@ import { prisma } from "@/lib/prisma";
 import {
   computeEventRegistrationCancelQuote,
   cancelEventRegistrationByInstructor,
+  canForceMajeureCancelEvent,
 } from "@/lib/services/event-registration-cancel";
+import {
+  addEventRegistrationInstructorReview,
+  canInstructorReviewEventRegistration,
+} from "@/lib/services/event-registration-review";
 import { attendanceStatusLabel } from "@/lib/services/event-attendance-shared";
 import { formatSlotTimeRu } from "@/lib/instructor-events";
 import { serializeEventRegistration } from "@/lib/services/event-registration";
+import { z } from "zod";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -27,7 +33,14 @@ export async function GET(_req: Request, ctx: Ctx) {
 
   const event = await prisma.instructorEvent.findFirst({
     where: { id: eventId, instructorId: userId },
-    select: { id: true, title: true, eventAt: true },
+    select: {
+      id: true,
+      title: true,
+      eventAt: true,
+      forceMajeureAt: true,
+      forceMajeureReason: true,
+      slots: { select: { startsAt: true } },
+    },
   });
   if (!event) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -57,6 +70,8 @@ export async function GET(_req: Request, ctx: Ctx) {
     attendanceConfirmedAt: string | null;
     slotId: string | null;
     slotTime: string | null;
+    instructorRating: number | null;
+    canReviewAttendee: boolean;
   })[] = rows.map((r) => {
     const rating = ratings.get(r.clientId);
     const effectiveAt = r.slot?.startsAt ?? event.eventAt;
@@ -91,6 +106,14 @@ export async function GET(_req: Request, ctx: Ctx) {
       },
       canCancel: quote.canCancel,
       cancelReason: quote.canCancel ? null : quote.reason,
+      instructorRating: r.instructorRating,
+      canReviewAttendee: canInstructorReviewEventRegistration({
+        status: r.status,
+        instructorRating: r.instructorRating,
+        attendanceConfirmedAt: r.attendanceConfirmedAt,
+        event: { eventAt: event.eventAt },
+        slot: r.slot ? { startsAt: r.slot.startsAt } : null,
+      }),
     };
   });
 
@@ -98,6 +121,12 @@ export async function GET(_req: Request, ctx: Ctx) {
     registrations,
     paidCount: paid.length,
     revenueRub,
+    canForceMajeure: canForceMajeureCancelEvent({
+      forceMajeureAt: event.forceMajeureAt,
+      eventAt: event.eventAt,
+      slotStarts: event.slots.map((s) => s.startsAt),
+    }),
+    forceMajeureReason: event.forceMajeureReason,
   });
 }
 
@@ -115,16 +144,20 @@ export async function PATCH(req: Request, ctx: Ctx) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const registrationId =
-    typeof json === "object" && json !== null && "registrationId" in json
-      ? String((json as { registrationId: unknown }).registrationId)
-      : "";
-  const action =
-    typeof json === "object" && json !== null && "action" in json
-      ? String((json as { action: unknown }).action)
-      : "";
-
-  if (action !== "cancel_registration" || !registrationId) {
+  const patchSchema = z.discriminatedUnion("action", [
+    z.object({
+      action: z.literal("cancel_registration"),
+      registrationId: z.string().min(1),
+    }),
+    z.object({
+      action: z.literal("add_client_review"),
+      registrationId: z.string().min(1),
+      rating: z.number().int().min(1).max(5),
+      review: z.string().max(2000).optional(),
+    }),
+  ]);
+  const parsed = patchSchema.safeParse(json);
+  if (!parsed.success) {
     return NextResponse.json({ error: "Invalid action" }, { status: 400 });
   }
 
@@ -136,9 +169,24 @@ export async function PATCH(req: Request, ctx: Ctx) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
+  if (parsed.data.action === "add_client_review") {
+    try {
+      await addEventRegistrationInstructorReview({
+        registrationId: parsed.data.registrationId,
+        instructorId: userId,
+        rating: parsed.data.rating,
+        review: parsed.data.review,
+      });
+      return NextResponse.json({ ok: true });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Не удалось сохранить отзыв";
+      return NextResponse.json({ error: msg }, { status: 400 });
+    }
+  }
+
   try {
     const result = await cancelEventRegistrationByInstructor({
-      registrationId,
+      registrationId: parsed.data.registrationId,
       instructorId: userId,
     });
     return NextResponse.json({ ok: true, ...result });

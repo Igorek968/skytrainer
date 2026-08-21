@@ -67,12 +67,14 @@ export function ClientOrderCheckoutDialog({ open, onOpenChange, instructor, onCr
         brand: string | null;
         last4: string | null;
         testCheckout?: boolean;
+        recurringEnabled?: boolean;
       }>;
     },
     enabled: open && loggedInAsClient,
   });
   const hasCard = Boolean(cardQuery.data?.hasCard);
   const testCheckout = Boolean(cardQuery.data?.testCheckout);
+  const recurringEnabled = cardQuery.data?.recurringEnabled !== false;
 
   useEffect(() => {
     if (!open || !instructor) {
@@ -444,7 +446,9 @@ export function ClientOrderCheckoutDialog({ open, onOpenChange, instructor, onCr
                 <p className="mt-1 text-muted-foreground">
                   {testCheckout
                     ? "Карта ещё не привязана — на следующем шаге подставится тестовая карта и оплата пройдёт сразу."
-                    : "Карта не привязана. На следующем шаге откроется форма ЮKassa: привязка карты и оплата заказа. Без карты заказ инструктору не отправится."}
+                    : !recurringEnabled
+                      ? "Оплата разовой формой ЮKassa. После успешной оплаты заявка уйдёт инструктору."
+                      : "Карта не привязана. На следующем шаге откроется форма ЮKassa: привязка карты и оплата заказа. Без карты заказ инструктору не отправится."}
                 </p>
               )}
               {estimatedTotal ? <p className="mt-2 text-xs">{estimatedTotal}</p> : null}
@@ -460,7 +464,7 @@ export function ClientOrderCheckoutDialog({ open, onOpenChange, instructor, onCr
                 {loggedInAsClient ? "Отмена" : "Назад"}
               </Button>
               <Button type="button" variant="accent" disabled={!acceptLegal} onClick={() => void payAndSend()}>
-                {hasCard ? "Оформить заказ" : "Оформить заказ и привязать карту"}
+                {hasCard || !recurringEnabled ? "Оформить заказ" : "Оформить заказ и привязать карту"}
               </Button>
             </div>
           </div>

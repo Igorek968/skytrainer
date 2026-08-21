@@ -39,25 +39,36 @@ export function instructorRegistrationStatusLabel(status: EventRegistrationStatu
   return registrationStatusLabel(status);
 }
 
-/** Средняя оценка клиента по отзывам инструктора (instructorRating в заказах). */
+/** Средняя оценка клиента по отзывам инструктора (уроки + события). */
 export async function getClientRatingsByInstructor(
   instructorId: string,
   clientIds: string[],
 ): Promise<Map<string, { avg: number; count: number }>> {
   if (!clientIds.length) return new Map();
 
-  const orders = await prisma.order.findMany({
-    where: {
-      instructorId,
-      clientId: { in: clientIds },
-      status: "COMPLETED",
-      instructorRating: { not: null },
-    },
-    select: { clientId: true, instructorRating: true },
-  });
+  const [orders, eventRegs] = await Promise.all([
+    prisma.order.findMany({
+      where: {
+        instructorId,
+        clientId: { in: clientIds },
+        status: "COMPLETED",
+        instructorRating: { not: null },
+      },
+      select: { clientId: true, instructorRating: true },
+    }),
+    prisma.eventRegistration.findMany({
+      where: {
+        clientId: { in: clientIds },
+        event: { instructorId },
+        status: "PAID",
+        instructorRating: { not: null },
+      },
+      select: { clientId: true, instructorRating: true },
+    }),
+  ]);
 
   const sums = new Map<string, { sum: number; count: number }>();
-  for (const o of orders) {
+  for (const o of [...orders, ...eventRegs]) {
     const r = o.instructorRating;
     if (r == null) continue;
     const prev = sums.get(o.clientId) ?? { sum: 0, count: 0 };

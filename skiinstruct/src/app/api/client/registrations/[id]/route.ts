@@ -14,6 +14,10 @@ import {
   computeEventRegistrationCancelQuote,
   getEventRegistrationStartAt,
 } from "@/lib/services/event-registration-cancel";
+import {
+  addEventRegistrationClientReview,
+  canClientReviewEventRegistration,
+} from "@/lib/services/event-registration-review";
 import { createEventCheckoutUrl } from "@/lib/services/event-checkout";
 import { isInstructorEventCompleted } from "@/lib/instructor-events";
 import { prisma } from "@/lib/prisma";
@@ -22,9 +26,18 @@ type Ctx = { params: Promise<{ id: string }> };
 
 export const dynamic = "force-dynamic";
 
-const actionSchema = z.object({
-  action: z.enum(["preview_cancel", "cancel", "pay", "confirm_attendance", "claim_instructor_no_show_refund"]),
-});
+const actionSchema = z.discriminatedUnion("action", [
+  z.object({ action: z.literal("preview_cancel") }),
+  z.object({ action: z.literal("cancel") }),
+  z.object({ action: z.literal("pay") }),
+  z.object({ action: z.literal("confirm_attendance") }),
+  z.object({ action: z.literal("claim_instructor_no_show_refund") }),
+  z.object({
+    action: z.literal("add_review"),
+    rating: z.number().int().min(1).max(5),
+    review: z.string().max(2000).optional(),
+  }),
+]);
 
 function buildRegistrationDetail(
   row: Awaited<ReturnType<typeof loadRegistration>>,
@@ -60,6 +73,11 @@ function buildRegistrationDetail(
     }),
   );
 
+  const startsAt = getEventRegistrationStartAt({
+    event: { eventAt: row.event.eventAt },
+    slot: row.slot ? { startsAt: row.slot.startsAt } : null,
+  });
+
   return {
     id: row.id,
     status: row.status,
@@ -69,20 +87,36 @@ function buildRegistrationDetail(
     attendanceConfirmedAt: row.attendanceConfirmedAt?.toISOString() ?? null,
     needsAttendanceConfirmation,
     eventCompleted,
+    startsAt: startsAt?.toISOString() ?? null,
     event: {
       id: row.event.id,
       title: row.event.title,
       body: row.event.body,
       eventAt: row.event.eventAt?.toISOString() ?? null,
       priceRub: row.event.priceRub,
+      venueAddress: row.event.venueAddress ?? null,
+      venueLat: row.event.venueLat ?? null,
+      venueLng: row.event.venueLng ?? null,
     },
     instructor: {
       id: row.event.instructor.id,
       name: row.event.instructor.name,
     },
     canCancel: quote.canCancel,
-    cancelReason: quote.canCancel ? null : quote.reason,
+    cancelReason: row.status === "CANCELLED" && row.cancelReason
+      ? row.cancelReason
+      : quote.canCancel
+        ? null
+        : quote.reason,
     instructorNoShowRefundEligible,
+    clientRating: row.clientRating ?? null,
+    clientReview: row.clientReview ?? null,
+    canLeaveReview: canClientReviewEventRegistration({
+      status: row.status,
+      clientRating: row.clientRating,
+      event: { eventAt: row.event.eventAt },
+      slot: row.slot ? { startsAt: row.slot.startsAt } : null,
+    }),
   };
 }
 
@@ -98,6 +132,10 @@ async function loadRegistration(id: string, clientId: string) {
           body: true,
           eventAt: true,
           priceRub: true,
+          venueAddress: true,
+          venueLat: true,
+          venueLng: true,
+          forceMajeureReason: true,
           instructor: { select: { id: true, name: true } },
         },
       },
@@ -190,6 +228,28 @@ export async function PATCH(req: Request, ctx: Ctx) {
       });
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Не удалось оформить возврат";
+      if (msg === "NOT_FOUND") {
+        return NextResponse.json({ error: "Not found" }, { status: 404 });
+      }
+      return NextResponse.json({ error: msg }, { status: 400 });
+    }
+  }
+
+  if (parsed.data.action === "add_review") {
+    try {
+      await addEventRegistrationClientReview({
+        registrationId: id,
+        clientId: resolved.userId,
+        rating: parsed.data.rating,
+        review: parsed.data.review,
+      });
+      const updated = await loadRegistration(id, resolved.userId);
+      return NextResponse.json({
+        ok: true,
+        registration: updated ? buildRegistrationDetail(updated) : null,
+      });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Не удалось сохранить отзыв";
       if (msg === "NOT_FOUND") {
         return NextResponse.json({ error: "Not found" }, { status: 404 });
       }

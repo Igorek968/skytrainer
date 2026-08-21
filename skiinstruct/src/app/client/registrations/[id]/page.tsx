@@ -3,18 +3,21 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { CancelRegistrationButton } from "@/features/orders/cancel-registration-button";
+import { EventVenueDisplay } from "@/features/orders/event-venue-display";
 import { RegistrationChat } from "@/features/chat/registration-chat";
 import {
   clientRegistrationStatusLabel,
   type ClientRegistrationDetail,
 } from "@/lib/client-event-registration";
 import { formatEventDateRu, formatEventPriceRu } from "@/lib/instructor-events";
+import { syncYooEventRegistrationPayment } from "@/lib/payments/redirect-to-checkout";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
+import { Input } from "@/shared/ui/input";
 import { Skeleton } from "@/shared/ui/skeleton";
 
 export default function ClientRegistrationDetailPage() {
@@ -22,6 +25,9 @@ export default function ClientRegistrationDetailPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const qc = useQueryClient();
+  const paidToastShown = useRef(false);
+  const [rating, setRating] = useState(5);
+  const [review, setReview] = useState("");
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["client-registration", id],
@@ -34,6 +40,7 @@ export default function ClientRegistrationDetailPage() {
   });
 
   const autoConfirmStarted = useRef(false);
+  const pendingPaymentSyncTried = useRef(false);
 
   const confirmAttendance = useMutation({
     mutationFn: async () => {
@@ -114,13 +121,83 @@ export default function ClientRegistrationDetailPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const leaveReview = useMutation({
+    mutationFn: async () => {
+      const r = await fetch(`/api/client/registrations/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ action: "add_review", rating, review }),
+      });
+      const j = (await r.json()) as { error?: string };
+      if (!r.ok) throw new Error(typeof j.error === "string" ? j.error : "Не удалось сохранить отзыв");
+      return j;
+    },
+    onSuccess: async () => {
+      toast.success("Спасибо за отзыв");
+      await refetch();
+      await qc.invalidateQueries({ queryKey: ["client-registrations"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const reg = data?.registration;
 
   useEffect(() => {
+    if (paidToastShown.current || !id) return;
     const paid = searchParams.get("paid");
-    if (paid === "1") toast.success("Оплата прошла — участие подтверждено");
-    if (paid === "0") toast.message("Оплата не завершена");
-  }, [searchParams]);
+    if (paid === "1") {
+      paidToastShown.current = true;
+      const isMock = Boolean(searchParams.get("mock"));
+      void (async () => {
+        if (!isMock) {
+          try {
+            const synced = await syncYooEventRegistrationPayment(id);
+            await qc.invalidateQueries({ queryKey: ["client-registration", id] });
+            await qc.invalidateQueries({ queryKey: ["client-registrations"] });
+            await qc.invalidateQueries({ queryKey: ["client-events"] });
+            if (!synced.paid) {
+              toast.message(
+                "В ЮKassa оплата ещё не завершена. Нажмите «Оплатить» и дождитесь подтверждения банка.",
+              );
+              router.replace(`/client/registrations/${id}`, { scroll: false });
+              return;
+            }
+          } catch {
+            toast.message("Не удалось подтвердить оплату. Обновите страницу через минуту.");
+            router.replace(`/client/registrations/${id}`, { scroll: false });
+            return;
+          }
+        }
+        toast.success("Оплата прошла — участие подтверждено");
+        router.replace(`/client/registrations/${id}`, { scroll: false });
+      })();
+    } else if (paid === "0") {
+      paidToastShown.current = true;
+      toast.message("Оплата не завершена");
+      router.replace(`/client/registrations/${id}`, { scroll: false });
+    }
+  }, [searchParams, id, router, qc]);
+
+  // Если webhook не дошёл, а пользователь открыл заявку без ?paid=1 — дотягиваем статус.
+  useEffect(() => {
+    if (!id || !reg) return;
+    if (reg.status !== "PENDING_PAYMENT" || !(reg.amountRub > 0) || reg.paidAt) return;
+    if (searchParams.get("paid") === "1") return;
+    if (pendingPaymentSyncTried.current) return;
+    pendingPaymentSyncTried.current = true;
+    void (async () => {
+      try {
+        const synced = await syncYooEventRegistrationPayment(id);
+        if (!synced.paid) return;
+        await qc.invalidateQueries({ queryKey: ["client-registration", id] });
+        await qc.invalidateQueries({ queryKey: ["client-registrations"] });
+        toast.success("Оплата подтверждена");
+      } catch {
+        /* ignore — webhook или повторная оплата */
+      }
+    })();
+  }, [id, reg, searchParams, qc]);
 
   useEffect(() => {
     if (searchParams.get("confirm") !== "1" || autoConfirmStarted.current) return;
@@ -149,7 +226,7 @@ export default function ClientRegistrationDetailPage() {
           <CardHeader>
             <CardTitle className="text-lg">Запись на событие</CardTitle>
             <p className="text-sm text-muted-foreground">
-              {clientRegistrationStatusLabel(reg.status)}
+              {clientRegistrationStatusLabel(reg.status, { amountRub: reg.amountRub })}
               {reg.amountRub > 0 ? ` · ${reg.amountRub.toLocaleString("ru-RU")} ₽` : " · Бесплатно"}
             </p>
           </CardHeader>
@@ -161,12 +238,25 @@ export default function ClientRegistrationDetailPage() {
                 {reg.event.eventAt ? ` · ${formatEventDateRu(reg.event.eventAt)}` : ""}
               </p>
               <p className="mt-1 text-sm text-muted-foreground">
-                Участие: {formatEventPriceRu(reg.event.priceRub)}
+                Участие:{" "}
+                {reg.amountRub > 0
+                  ? `${reg.amountRub.toLocaleString("ru-RU")} ₽`
+                  : formatEventPriceRu(reg.event.priceRub)}
               </p>
             </div>
             <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
               {reg.event.body}
             </p>
+            <EventVenueDisplay
+              address={reg.event.venueAddress}
+              lat={reg.event.venueLat}
+              lng={reg.event.venueLng}
+            />
+            {!reg.event.venueAddress?.trim() ? (
+              <p className="rounded-md border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+                Адрес сбора в карточке события не указан — уточните место у инструктора в чате или по звонку.
+              </p>
+            ) : null}
 
             {reg.status === "PAID" ? (
               <RegistrationChat
@@ -203,6 +293,45 @@ export default function ClientRegistrationDetailPage() {
             {reg.attendanceConfirmedAt ? (
               <p className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-950 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-100">
                 Участие подтверждено. Спасибо!
+              </p>
+            ) : null}
+
+            {reg.canLeaveReview ? (
+              <div className="space-y-2 rounded-md border border-border p-3">
+                <p className="text-sm font-medium">Оценка инструктора</p>
+                <div className="flex flex-wrap gap-2">
+                  <label className="flex items-center gap-2 text-sm">
+                    Оценка
+                    <Input
+                      type="number"
+                      min={1}
+                      max={5}
+                      className="w-20"
+                      value={rating}
+                      onChange={(e) => setRating(Number(e.target.value))}
+                    />
+                  </label>
+                  <Input
+                    placeholder="Отзыв"
+                    value={review}
+                    onChange={(e) => setReview(e.target.value)}
+                  />
+                  <Button
+                    type="button"
+                    variant="accent"
+                    disabled={leaveReview.isPending}
+                    onClick={() => leaveReview.mutate()}
+                  >
+                    {leaveReview.isPending ? "…" : "Отправить отзыв"}
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+
+            {reg.clientRating != null ? (
+              <p className="text-sm text-muted-foreground">
+                Ваша оценка: {reg.clientRating}/5
+                {reg.clientReview ? ` · ${reg.clientReview}` : ""}
               </p>
             ) : null}
 

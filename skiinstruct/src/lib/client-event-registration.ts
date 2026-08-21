@@ -10,6 +10,8 @@ export type ClientRegistrationListItem = {
   attendanceConfirmedAt: string | null;
   needsAttendanceConfirmation: boolean;
   eventCompleted: boolean;
+  /** Фактическое начало: слот или eventAt. */
+  startsAt: string | null;
   createdAt: string;
   event: {
     id: string;
@@ -26,13 +28,25 @@ export type ClientRegistrationListItem = {
 export type ClientRegistrationDetail = ClientRegistrationListItem & {
   event: ClientRegistrationListItem["event"] & {
     body: string;
+    venueAddress: string | null;
+    venueLat: number | null;
+    venueLng: number | null;
   };
   canCancel: boolean;
   cancelReason: string | null;
   instructorNoShowRefundEligible?: boolean;
+  clientRating: number | null;
+  clientReview: string | null;
+  canLeaveReview: boolean;
 };
 
-export function clientRegistrationStatusLabel(status: EventRegistrationStatus): string {
+export function clientRegistrationStatusLabel(
+  status: EventRegistrationStatus,
+  opts?: { amountRub?: number },
+): string {
+  if (status === "PAID" && (opts?.amountRub == null || opts.amountRub <= 0)) {
+    return "Записан";
+  }
   return registrationStatusLabel(status);
 }
 

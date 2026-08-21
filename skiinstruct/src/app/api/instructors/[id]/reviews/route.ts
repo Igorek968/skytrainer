@@ -19,21 +19,55 @@ export async function GET(req: Request, ctx: Ctx) {
   }
 
   const { sort, limit } = parsed.data;
-  const rows = await prisma.order.findMany({
-    where: {
-      instructorId: id,
-      status: "COMPLETED",
-      clientRating: { not: null },
-    },
-    select: {
-      id: true,
-      createdAt: true,
-      clientRating: true,
-      clientReview: true,
-      client: { select: { name: true } },
-    },
-    take: limit,
-  });
+  const [orderRows, eventRows] = await Promise.all([
+    prisma.order.findMany({
+      where: {
+        instructorId: id,
+        status: "COMPLETED",
+        clientRating: { not: null },
+      },
+      select: {
+        id: true,
+        createdAt: true,
+        clientRating: true,
+        clientReview: true,
+        client: { select: { name: true } },
+      },
+      take: limit,
+    }),
+    prisma.eventRegistration.findMany({
+      where: {
+        event: { instructorId: id },
+        status: "PAID",
+        clientRating: { not: null },
+      },
+      select: {
+        id: true,
+        createdAt: true,
+        clientRating: true,
+        clientReview: true,
+        client: { select: { name: true } },
+      },
+      take: limit,
+    }),
+  ]);
+
+  const rows = [
+    ...orderRows.map((r) => ({
+      id: r.id,
+      createdAt: r.createdAt,
+      clientRating: r.clientRating,
+      clientReview: r.clientReview,
+      authorName: r.client.name,
+    })),
+    ...eventRows.map((r) => ({
+      id: `event-${r.id}`,
+      createdAt: r.createdAt,
+      clientRating: r.clientRating,
+      clientReview: r.clientReview,
+      authorName: r.client.name,
+    })),
+  ];
 
   const sorted = [...rows].sort((a, b) => {
     if (sort === "date_desc") return b.createdAt.getTime() - a.createdAt.getTime();
@@ -43,12 +77,12 @@ export async function GET(req: Request, ctx: Ctx) {
   });
 
   return NextResponse.json({
-    reviews: sorted.map((r) => ({
+    reviews: sorted.slice(0, limit).map((r) => ({
       id: r.id,
       createdAt: r.createdAt,
       rating: r.clientRating,
       text: r.clientReview,
-      authorName: r.client.name,
+      authorName: r.authorName,
     })),
   });
 }

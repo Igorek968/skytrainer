@@ -17,6 +17,7 @@ export async function GET() {
     orderBy: { createdAt: "desc" },
     take: 50,
     include: {
+      slot: { select: { startsAt: true } },
       event: {
         select: {
           id: true,
@@ -29,29 +30,33 @@ export async function GET() {
     },
   });
 
-  const registrations: ClientRegistrationListItem[] = rows.map((r) => ({
-    id: r.id,
-    status: r.status,
-    amountRub: Number(r.amountRub),
-    paidAt: r.paidAt?.toISOString() ?? null,
-    attendanceConfirmedAt: r.attendanceConfirmedAt?.toISOString() ?? null,
-    needsAttendanceConfirmation: registrationNeedsAttendanceConfirmation(
-      r,
-      r.event.eventAt,
-    ),
-    eventCompleted: isInstructorEventCompleted(r.event.eventAt),
-    createdAt: r.createdAt.toISOString(),
-    event: {
-      id: r.event.id,
-      title: r.event.title,
-      eventAt: r.event.eventAt?.toISOString() ?? null,
-      priceRub: r.event.priceRub,
-    },
-    instructor: {
-      id: r.event.instructor.id,
-      name: r.event.instructor.name,
-    },
-  }));
+  const registrations: ClientRegistrationListItem[] = rows.map((r) => {
+    const startsAt = r.slot?.startsAt ?? r.event.eventAt;
+    return {
+      id: r.id,
+      status: r.status,
+      amountRub: Number(r.amountRub),
+      paidAt: r.paidAt?.toISOString() ?? null,
+      attendanceConfirmedAt: r.attendanceConfirmedAt?.toISOString() ?? null,
+      needsAttendanceConfirmation: registrationNeedsAttendanceConfirmation(
+        r,
+        startsAt,
+      ),
+      eventCompleted: isInstructorEventCompleted(startsAt),
+      startsAt: startsAt?.toISOString() ?? null,
+      createdAt: r.createdAt.toISOString(),
+      event: {
+        id: r.event.id,
+        title: r.event.title,
+        eventAt: r.event.eventAt?.toISOString() ?? null,
+        priceRub: r.event.priceRub,
+      },
+      instructor: {
+        id: r.event.instructor.id,
+        name: r.event.instructor.name,
+      },
+    };
+  });
 
   return NextResponse.json({ registrations });
 }

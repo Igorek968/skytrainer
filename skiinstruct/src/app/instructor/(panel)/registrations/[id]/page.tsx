@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Image from "next/image";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
+import { useState } from "react";
 import { toast } from "sonner";
 
 import {
@@ -12,8 +13,10 @@ import {
 } from "@/lib/instructor-event-registration";
 import { formatEventDateRu, formatEventPriceRu } from "@/lib/instructor-events";
 import { RegistrationChat } from "@/features/chat/registration-chat";
+import { ForceMajeureCancelButton } from "@/features/instructor/force-majeure-cancel-button";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
+import { Input } from "@/shared/ui/input";
 import { Skeleton } from "@/shared/ui/skeleton";
 
 type RegistrationDetail = InstructorRegistrationListItem & {
@@ -30,6 +33,13 @@ type RegistrationDetail = InstructorRegistrationListItem & {
   cancelRegistrationReason: string | null;
   canRequestEventEdit: boolean;
   eventEditHint: string | null;
+  canForceMajeure?: boolean;
+  forceMajeureReason?: string | null;
+  storedCancelReason?: string | null;
+  attendanceConfirmedAt?: string | null;
+  instructorRating?: number | null;
+  instructorReview?: string | null;
+  canReviewAttendee?: boolean;
 };
 
 function ClientAvatar({ name, image }: { name: string | null; image: string | null }) {
@@ -57,6 +67,8 @@ export default function InstructorRegistrationDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const qc = useQueryClient();
+  const [clientRating, setClientRating] = useState(5);
+  const [clientReview, setClientReview] = useState("");
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["instructor-registration", id],
@@ -137,6 +149,30 @@ export default function InstructorRegistrationDetailPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const reviewAttendee = useMutation({
+    mutationFn: async () => {
+      const r = await fetch(`/api/instructor/registrations/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          action: "add_client_review",
+          rating: clientRating,
+          review: clientReview,
+        }),
+      });
+      const j = (await r.json()) as { error?: string };
+      if (!r.ok) throw new Error(typeof j.error === "string" ? j.error : "Не удалось сохранить отзыв");
+      return j;
+    },
+    onSuccess: async () => {
+      toast.success("Отзыв о клиенте сохранён");
+      await qc.invalidateQueries({ queryKey: ["instructor-registration", id] });
+      await qc.invalidateQueries({ queryKey: ["instructor-event-registrations"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const reg = data?.registration;
 
   return (
@@ -202,6 +238,62 @@ export default function InstructorRegistrationDetailPage() {
 
               {reg.eventEditHint ? (
                 <p className="text-xs text-muted-foreground">{reg.eventEditHint}</p>
+              ) : null}
+
+              {reg.storedCancelReason ? (
+                <p className="rounded-md border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+                  Причина отмены: {reg.storedCancelReason}
+                </p>
+              ) : null}
+
+              {reg.forceMajeureReason ? (
+                <p className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-950 dark:text-amber-100">
+                  Форс-мажор: {reg.forceMajeureReason}
+                </p>
+              ) : null}
+
+              <ForceMajeureCancelButton eventId={reg.event.id} enabled={Boolean(reg.canForceMajeure)} />
+
+              {reg.canReviewAttendee ? (
+                <div className="space-y-2 rounded-md border border-border p-3">
+                  <p className="text-sm font-medium">Оценка участника</p>
+                  <p className="text-xs text-muted-foreground">
+                    Участник подтвердил присутствие — можно оставить отзыв.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <label className="flex items-center gap-2 text-sm">
+                      Оценка
+                      <Input
+                        type="number"
+                        min={1}
+                        max={5}
+                        className="w-20"
+                        value={clientRating}
+                        onChange={(e) => setClientRating(Number(e.target.value))}
+                      />
+                    </label>
+                    <Input
+                      placeholder="Отзыв о клиенте"
+                      value={clientReview}
+                      onChange={(e) => setClientReview(e.target.value)}
+                    />
+                    <Button
+                      type="button"
+                      variant="accent"
+                      disabled={reviewAttendee.isPending}
+                      onClick={() => reviewAttendee.mutate()}
+                    >
+                      {reviewAttendee.isPending ? "…" : "Сохранить отзыв"}
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
+
+              {reg.instructorRating != null ? (
+                <p className="text-sm text-muted-foreground">
+                  Ваша оценка участника: {reg.instructorRating}/5
+                  {reg.instructorReview ? ` · ${reg.instructorReview}` : ""}
+                </p>
               ) : null}
 
               <div className="flex flex-wrap gap-2">

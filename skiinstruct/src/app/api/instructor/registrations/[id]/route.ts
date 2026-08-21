@@ -15,17 +15,29 @@ import {
 import { prisma } from "@/lib/prisma";
 import {
   cancelEventRegistrationByInstructor,
+  canForceMajeureCancelEvent,
   computeEventRegistrationCancelQuote,
   computeInstructorEventRegistrationCancelQuote,
 } from "@/lib/services/event-registration-cancel";
+import {
+  addEventRegistrationInstructorReview,
+  canInstructorReviewEventRegistration,
+} from "@/lib/services/event-registration-review";
 
 type Ctx = { params: Promise<{ id: string }> };
 
 export const dynamic = "force-dynamic";
 
-const actionSchema = z.object({
-  action: z.enum(["preview_cancel", "cancel", "request_event_edit"]),
-});
+const actionSchema = z.discriminatedUnion("action", [
+  z.object({ action: z.literal("preview_cancel") }),
+  z.object({ action: z.literal("cancel") }),
+  z.object({ action: z.literal("request_event_edit") }),
+  z.object({
+    action: z.literal("add_client_review"),
+    rating: z.number().int().min(1).max(5),
+    review: z.string().max(2000).optional(),
+  }),
+]);
 
 export async function GET(_req: Request, ctx: Ctx) {
   const authResult = await requireInstructorSession();
@@ -38,7 +50,7 @@ export async function GET(_req: Request, ctx: Ctx) {
     where: { id, event: { instructorId: userId } },
     include: {
       client: { select: { id: true, name: true, email: true, image: true } },
-      event: true,
+      event: { include: { slots: { select: { startsAt: true } } } },
       slot: { select: { startsAt: true } },
     },
   });
@@ -83,6 +95,13 @@ export async function GET(_req: Request, ctx: Ctx) {
     cancelRegistrationReason: string | null;
     canRequestEventEdit: boolean;
     eventEditHint: string | null;
+    canForceMajeure: boolean;
+    forceMajeureReason: string | null;
+    storedCancelReason: string | null;
+    attendanceConfirmedAt: string | null;
+    instructorRating: number | null;
+    instructorReview: string | null;
+    canReviewAttendee: boolean;
   } = {
     id: row.id,
     status: row.status,
@@ -111,6 +130,23 @@ export async function GET(_req: Request, ctx: Ctx) {
         : row.event.moderationStatus === "ARCHIVED"
           ? "Скрытое событие: восстановите черновик на странице профиля, затем «На модерацию»."
           : null,
+    canForceMajeure: canForceMajeureCancelEvent({
+      forceMajeureAt: row.event.forceMajeureAt,
+      eventAt: row.event.eventAt,
+      slotStarts: row.event.slots.map((s) => s.startsAt),
+    }),
+    forceMajeureReason: row.event.forceMajeureReason,
+    storedCancelReason: row.cancelReason,
+    attendanceConfirmedAt: row.attendanceConfirmedAt?.toISOString() ?? null,
+    instructorRating: row.instructorRating,
+    instructorReview: row.instructorReview,
+    canReviewAttendee: canInstructorReviewEventRegistration({
+      status: row.status,
+      instructorRating: row.instructorRating,
+      attendanceConfirmedAt: row.attendanceConfirmedAt,
+      event: { eventAt: row.event.eventAt },
+      slot: row.slot ? { startsAt: row.slot.startsAt } : null,
+    }),
   };
 
   return NextResponse.json({ registration });
@@ -184,6 +220,24 @@ export async function PATCH(req: Request, ctx: Ctx) {
       eventId: event.id,
       message: `Событие «${event.title}» в черновиках. Измените и отправьте на модерацию.`,
     });
+  }
+
+  if (parsed.data.action === "add_client_review") {
+    try {
+      await addEventRegistrationInstructorReview({
+        registrationId: id,
+        instructorId: userId,
+        rating: parsed.data.rating,
+        review: parsed.data.review,
+      });
+      return NextResponse.json({ ok: true });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Не удалось сохранить отзыв";
+      if (msg === "NOT_FOUND") {
+        return NextResponse.json({ error: "Not found" }, { status: 404 });
+      }
+      return NextResponse.json({ error: msg }, { status: 400 });
+    }
   }
 
   const quote = computeInstructorEventRegistrationCancelQuote({

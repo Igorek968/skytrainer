@@ -12,7 +12,13 @@ import {
 import { assertUserEmailVerified } from "@/lib/services/email-verification";
 import { completeOrderPrepayment } from "@/lib/services/order-prepayment";
 import { orderAmountDueRub } from "@/lib/services/referral";
-import { createYooKassaLessonPayment, isYooKassaConfigured } from "@/lib/yookassa";
+import {
+  createYooKassaLessonPayment,
+  isYooKassaConfigured,
+  isYooKassaRecurringEnabled,
+  isYooKassaRecurringForbiddenMessage,
+  yooKassaUserFacingError,
+} from "@/lib/yookassa";
 import { getPublicProductName } from "@/shared/lib/product";
 
 const bodySchema = z.object({
@@ -77,8 +83,10 @@ export async function POST(req: Request) {
     const amountRub = orderAmountDueRub(order);
     const hasCard = await clientHasBoundCard(resolved.userId);
     const bindAndPay = parsed.data.bindAndPay === true;
+    const recurring = isYooKassaRecurringEnabled();
 
-    if (!hasCard && !bindAndPay) {
+    // Без рекуррентов ЮKassa карта не нужна — разовая оплата через redirect.
+    if (recurring && !hasCard && !bindAndPay) {
       return NextResponse.json(
         {
           error: "Привяжите банковскую карту в личных данных или нажмите «Привязать карту и оплатить».",
@@ -98,10 +106,10 @@ export async function POST(req: Request) {
     }
 
     if (isMockCheckoutEnabled()) {
-      if (!hasCard && bindAndPay) {
+      if (!hasCard && (bindAndPay || !recurring)) {
         await markMockCardBound(resolved.userId);
       }
-      if (!(await clientHasBoundCard(resolved.userId))) {
+      if (recurring && !(await clientHasBoundCard(resolved.userId))) {
         return NextResponse.json(
           { error: "Сначала привяжите карту", code: "CARD_NOT_BOUND" },
           { status: 403 },
@@ -136,7 +144,7 @@ export async function POST(req: Request) {
 
     let pay;
     try {
-      if (hasCard && user?.yookassaPaymentMethodId) {
+      if (recurring && hasCard && user?.yookassaPaymentMethodId) {
         pay = await createYooKassaLessonPayment({
           orderId: order.id,
           amountRub,
@@ -145,7 +153,7 @@ export async function POST(req: Request) {
           returnUrl,
           paymentMethodId: user.yookassaPaymentMethodId,
         });
-      } else {
+      } else if (recurring && (bindAndPay || !hasCard)) {
         pay = await createYooKassaLessonPayment({
           orderId: order.id,
           amountRub,
@@ -154,23 +162,45 @@ export async function POST(req: Request) {
           returnUrl,
           savePaymentMethod: true,
         });
+      } else {
+        pay = await createYooKassaLessonPayment({
+          orderId: order.id,
+          amountRub,
+          description: `${getPublicProductName()} — заказ ${order.id.slice(0, 8)}`,
+          customerEmail: email,
+          returnUrl,
+        });
       }
     } catch (yooErr) {
-      if (process.env.NODE_ENV === "production" && process.env.ALLOW_MOCK_CHECKOUT !== "1") {
-        throw yooErr;
+      const raw = yooErr instanceof Error ? yooErr.message : String(yooErr);
+      if (isYooKassaRecurringForbiddenMessage(raw) && recurring) {
+        // Магазин без рекуррентов — fallback на разовую оплату.
+        pay = await createYooKassaLessonPayment({
+          orderId: order.id,
+          amountRub,
+          description: `${getPublicProductName()} — заказ ${order.id.slice(0, 8)}`,
+          customerEmail: email,
+          returnUrl,
+        });
+      } else if (process.env.NODE_ENV === "production" && process.env.ALLOW_MOCK_CHECKOUT !== "1") {
+        return NextResponse.json(
+          { error: yooKassaUserFacingError(yooErr, "Не удалось создать оплату") },
+          { status: 400 },
+        );
+      } else {
+        console.warn("[yookassa/create] API error, mock fallback:", yooErr);
+        if (!hasCard && bindAndPay) {
+          await markMockCardBound(resolved.userId);
+        }
+        const mockPaymentId = `mock_yoo_${order.id.slice(0, 12)}_${Date.now()}`;
+        await completeOrderPrepayment({
+          orderId: order.id,
+          paymentMethod: "CARD",
+          yookassaPaymentId: mockPaymentId,
+          paymentRecordAmount: amountRub,
+        });
+        return NextResponse.json({ url: `${returnUrl}&mock=1` });
       }
-      console.warn("[yookassa/create] API error, mock fallback:", yooErr);
-      if (!hasCard && bindAndPay) {
-        await markMockCardBound(resolved.userId);
-      }
-      const mockPaymentId = `mock_yoo_${order.id.slice(0, 12)}_${Date.now()}`;
-      await completeOrderPrepayment({
-        orderId: order.id,
-        paymentMethod: "CARD",
-        yookassaPaymentId: mockPaymentId,
-        paymentRecordAmount: amountRub,
-      });
-      return NextResponse.json({ url: `${returnUrl}&mock=1` });
     }
 
     if (pay.status === "succeeded") {
@@ -201,7 +231,9 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ url: pay.confirmationUrl, paymentId: pay.paymentId });
   } catch (e) {
-    const message = e instanceof Error ? e.message : "Не удалось создать оплату";
-    return NextResponse.json({ error: message }, { status: 400 });
+    return NextResponse.json(
+      { error: yooKassaUserFacingError(e, "Не удалось создать оплату") },
+      { status: 400 },
+    );
   }
 }

@@ -4,6 +4,41 @@ export function isYooKassaConfigured(): boolean {
   return Boolean(process.env.YOOKASSA_SHOP_ID?.trim() && process.env.YOOKASSA_SECRET_KEY?.trim());
 }
 
+/**
+ * Сохранение карты / автосписания (POST /v3/payment_methods, save_payment_method).
+ * Нужен договор с ЮMoney на рекурренты. Пока магазин без него — держим выкл.
+ * Включить: YOOKASSA_RECURRING_PAYMENTS=1
+ */
+export function isYooKassaRecurringEnabled(): boolean {
+  const v = process.env.YOOKASSA_RECURRING_PAYMENTS?.trim().toLowerCase();
+  return v === "1" || v === "true" || v === "yes";
+}
+
+export const YOO_RECURRING_UNAVAILABLE_RU =
+  "Привязка карты пока недоступна: у магазина ЮKassa не подключены автоплатежи. Оплатите заказ разово в форме ЮKassa — после оплаты заявка уйдёт инструктору.";
+
+export function isYooKassaRecurringForbiddenMessage(message: string): boolean {
+  const m = message.toLowerCase();
+  return (
+    m.includes("can't make recurring") ||
+    m.includes("cannot make recurring") ||
+    m.includes("recurring payments") ||
+    (m.includes("forbidden") && m.includes("recurring"))
+  );
+}
+
+export function yooKassaUserFacingError(err: unknown, fallback: string): string {
+  const message = err instanceof Error ? err.message : String(err ?? "");
+  if (isYooKassaRecurringForbiddenMessage(message)) {
+    return YOO_RECURRING_UNAVAILABLE_RU;
+  }
+  // Не отдаём сырой JSON ЮKassa в UI
+  if (/ЮKassa\s+\w+\s+HTTP\s+\d+/i.test(message) || message.includes('"type" : "error"')) {
+    return fallback;
+  }
+  return message.trim() || fallback;
+}
+
 function yooAuthHeader(): string {
   const shopId = process.env.YOOKASSA_SHOP_ID!.trim();
   const secretKey = process.env.YOOKASSA_SECRET_KEY!.trim();
@@ -47,7 +82,12 @@ export type YooKassaPaymentMethodObject = {
 export type YooKassaPaymentObject = {
   id: string;
   status: string;
+  paid?: boolean;
   metadata?: YooKassaPaymentMetadata;
+  confirmation?: {
+    type?: string;
+    confirmation_url?: string;
+  };
   payment_method?: {
     id?: string;
     saved?: boolean;

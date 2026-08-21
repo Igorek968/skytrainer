@@ -4,6 +4,7 @@ import { getStripe } from "@/lib/stripe";
 import { getPublicProductName } from "@/shared/lib/product";
 import {
   createYooKassaEventPayment,
+  fetchYooKassaPayment,
   isYooKassaConfigured,
 } from "@/lib/yookassa";
 
@@ -84,6 +85,27 @@ export async function createEventCheckoutUrl(
   if (isYooKassaConfigured()) {
     const email = (customerEmail ?? reg.client.email)?.trim();
     if (!email) throw new Error("Укажите email для чека");
+
+    // Не создавать новый платёж поверх существующего: иначе теряется id уже оплаченного.
+    const existingPaymentId = reg.yookassaPaymentId?.trim();
+    if (existingPaymentId) {
+      const existing = await fetchYooKassaPayment(existingPaymentId);
+      if (existing?.status === "succeeded") {
+        await markEventRegistrationPaid({
+          registrationId,
+          yookassaPaymentId: existingPaymentId,
+        });
+        return `${origin}/client/registrations/${registrationId}?paid=1`;
+      }
+      const reuseUrl = existing?.confirmation?.confirmation_url?.trim();
+      if (
+        existing &&
+        (existing.status === "pending" || existing.status === "waiting_for_capture") &&
+        reuseUrl
+      ) {
+        return reuseUrl;
+      }
+    }
 
     const pay = await createYooKassaEventPayment({
       eventRegistrationId: registrationId,

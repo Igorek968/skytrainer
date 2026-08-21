@@ -177,7 +177,9 @@ export default function ClientOrdersPage() {
                     >
                       <div className="min-w-0">
                         <div className="font-medium">
-                          {clientRegistrationStatusLabel(entry.registration.status)}
+                          {clientRegistrationStatusLabel(entry.registration.status, {
+                            amountRub: entry.registration.amountRub,
+                          })}
                         </div>
                         <div className="line-clamp-2 text-xs text-muted-foreground">
                           Событие · {clientRegistrationListTitle(entry.registration)}

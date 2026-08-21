@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 
 import { ClientChatMessagePrompt } from "@/features/client/client-chat-message-prompt";
 import { EmailVerificationGate } from "@/features/auth/email-verification-gate";
+import { EventStartRemindersPrompt } from "@/features/events/event-start-reminders-prompt";
 import { OrderLessonRemindersPrompt } from "@/features/orders/order-lesson-reminders-prompt";
 import { PushEnableBanner } from "@/features/push/push-enable-banner";
 import { useAutoWebPushSubscribe } from "@/features/push/use-auto-web-push-subscribe";
@@ -26,7 +27,11 @@ function ClientRemindersInner() {
     isEmailVerificationGateForced();
 
   useAutoWebPushSubscribe(isClient);
-  useVisibilityInvalidate([["client-order-reminders"], ["client-chat-alerts"]]);
+  useVisibilityInvalidate([
+    ["client-order-reminders"],
+    ["client-chat-alerts"],
+    ["client-event-start-reminders"],
+  ]);
 
   // Gate сразу после регистрации (?verifyEmail=1), не ждём isClient
   const showGate = isClient || forceEmailGate;
@@ -51,6 +56,7 @@ function ClientRemindersInner() {
             </div>
           </div>
           <OrderLessonRemindersPrompt role="client" />
+          <EventStartRemindersPrompt role="client" />
           <ClientChatMessagePrompt />
         </>
       ) : null}

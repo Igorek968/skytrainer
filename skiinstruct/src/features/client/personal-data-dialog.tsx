@@ -27,6 +27,7 @@ type CardStatus = {
   brand: string | null;
   last4: string | null;
   mock?: boolean;
+  recurringEnabled?: boolean;
 };
 
 export function PersonalDataDialog({
@@ -250,23 +251,30 @@ export function PersonalDataDialog({
                     {cardQuery.data.brand?.toUpperCase() ?? "CARD"} •••• {cardQuery.data.last4 ?? "****"}
                   </span>
                 </p>
+              ) : cardQuery.data?.recurringEnabled === false ? (
+                <p className="mt-1 text-muted-foreground">
+                  Сохранение карты в профиле пока недоступно (ЮKassa). Оплата заказа — разово в форме ЮKassa, после
+                  оплаты заявка уходит инструктору.
+                </p>
               ) : (
                 <p className="mt-1 text-muted-foreground">
                   Карта не привязана. Без карты заказ инструктору не отправится — привяжите её здесь или при первом
                   заказе (ЮKassa).
                 </p>
               )}
-              <div className="mt-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={setupCard.isPending}
-                  onClick={() => setupCard.mutate()}
-                >
-                  {cardQuery.data?.hasCard ? "Обновить карту" : "Привязать карту"}
-                </Button>
-              </div>
+              {cardQuery.data?.recurringEnabled === false && !cardQuery.data?.hasCard ? null : (
+                <div className="mt-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={setupCard.isPending}
+                    onClick={() => setupCard.mutate()}
+                  >
+                    {cardQuery.data?.hasCard ? "Обновить карту" : "Привязать карту"}
+                  </Button>
+                </div>
+              )}
             </div>
 
             <div className="rounded-md border border-border bg-muted/30 p-3 text-xs">

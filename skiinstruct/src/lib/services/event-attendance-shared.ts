@@ -39,7 +39,7 @@ export function attendanceStatusLabel(
     if (reg.status === "PENDING_PAYMENT" && Number(reg.amountRub) > 0) {
       return "Ожидает оплаты";
     }
-    if (reg.status === "PAID") return "Записан";
+    if (reg.status === "PAID") return "Оплачено";
     return "Ожидает оплаты";
   }
   if (Number(reg.amountRub) > 0 && !reg.paidAt) {

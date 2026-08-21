@@ -5,6 +5,10 @@ import {
   extractYooCardLabel,
   fetchYooKassaPaymentMethod,
   isYooKassaConfigured,
+  isYooKassaRecurringEnabled,
+  isYooKassaRecurringForbiddenMessage,
+  YOO_RECURRING_UNAVAILABLE_RU,
+  yooKassaUserFacingError,
 } from "@/lib/yookassa";
 
 export type ClientCardStatus = {
@@ -13,6 +17,8 @@ export type ClientCardStatus = {
   last4: string | null;
   mock?: boolean;
   pendingBind?: boolean;
+  /** Можно ли привязать карту через ЮKassa (рекурренты). */
+  recurringEnabled?: boolean;
 };
 
 const cardSelect = {
@@ -24,12 +30,13 @@ const cardSelect = {
 } as const;
 
 export async function getClientCardStatus(userId: string): Promise<ClientCardStatus> {
+  const recurringEnabled = isYooKassaRecurringEnabled();
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: cardSelect,
   });
   if (!user) {
-    return { hasCard: false, brand: null, last4: null };
+    return { hasCard: false, brand: null, last4: null, recurringEnabled };
   }
 
   if (user.mockCardBoundAt) {
@@ -38,6 +45,7 @@ export async function getClientCardStatus(userId: string): Promise<ClientCardSta
       brand: user.yookassaCardBrand ?? "mock",
       last4: user.yookassaCardLast4 ?? "4242",
       mock: true,
+      recurringEnabled,
     };
   }
 
@@ -46,6 +54,7 @@ export async function getClientCardStatus(userId: string): Promise<ClientCardSta
       hasCard: true,
       brand: user.yookassaCardBrand,
       last4: user.yookassaCardLast4,
+      recurringEnabled,
     };
   }
 
@@ -54,6 +63,7 @@ export async function getClientCardStatus(userId: string): Promise<ClientCardSta
     brand: null,
     last4: null,
     pendingBind: Boolean(user.yookassaPendingBindId),
+    recurringEnabled,
   };
 }
 
@@ -126,12 +136,19 @@ export async function startYooCardBinding(userId: string, returnUrl: string): Pr
     throw new Error("ЮKassa не настроена для привязки карты");
   }
 
+  if (!isYooKassaRecurringEnabled()) {
+    throw new Error(YOO_RECURRING_UNAVAILABLE_RU);
+  }
+
   let bind;
   try {
     bind = await createYooKassaCardBinding(returnUrl);
   } catch (e) {
+    if (isYooKassaRecurringForbiddenMessage(e instanceof Error ? e.message : String(e))) {
+      throw new Error(YOO_RECURRING_UNAVAILABLE_RU);
+    }
     if (process.env.NODE_ENV === "production" && process.env.ALLOW_MOCK_CHECKOUT !== "1") {
-      throw e;
+      throw new Error(yooKassaUserFacingError(e, "Не удалось начать привязку карты"));
     }
     console.warn("[yookassa/bind] API error, mock fallback:", e);
     await markMockCardBound(userId);

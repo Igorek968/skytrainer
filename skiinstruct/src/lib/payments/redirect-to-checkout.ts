@@ -89,6 +89,31 @@ export async function syncYooOrderPayment(orderId: string): Promise<{
   };
 }
 
+/** После return_url от ЮKassa — подтянуть статус оплаты записи на событие. */
+export async function syncYooEventRegistrationPayment(registrationId: string): Promise<{
+  paid: boolean;
+  status: string | null;
+}> {
+  const r = await fetch("/api/payments/yookassa/sync-registration", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ registrationId }),
+  });
+  const j = (await r.json().catch(() => ({}))) as {
+    paid?: boolean;
+    status?: string | null;
+    error?: string;
+  };
+  if (!r.ok) {
+    throw new Error(typeof j.error === "string" ? j.error : "Не удалось проверить оплату");
+  }
+  return {
+    paid: Boolean(j.paid),
+    status: j.status ?? null,
+  };
+}
+
 /** После return_url от ЮKassa — подтянуть статус привязки (если webhook не дошёл). */
 export async function syncYooCardBinding(): Promise<{ hasCard: boolean }> {
   const r = await fetch("/api/payments/yookassa/sync-card", {

@@ -266,12 +266,14 @@ function ClientOrderDetailContent({
         brand: string | null;
         last4: string | null;
         testCheckout?: boolean;
+        recurringEnabled?: boolean;
       }>;
     },
     enabled: statusEarly === "AWAITING_PAYMENT",
   });
   const hasBoundCard = Boolean(cardStatus?.hasCard);
   const testCheckout = Boolean(cardStatus?.testCheckout);
+  const recurringEnabled = cardStatus?.recurringEnabled !== false;
 
   const referralCreditApplied = Number(o.referralCreditAppliedRub ?? 0);
   const orderTotal = Number(o.amountTotal ?? 0);
@@ -561,7 +563,9 @@ function ClientOrderDetailContent({
               <p className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-amber-900 dark:text-amber-100">
                 {testCheckout
                   ? "Карта ещё не привязана — при оплате подставится тестовая карта автоматически."
-                  : "Банковская карта не привязана. Нажмите «Привязать карту и оплатить» — откроется форма ЮKassa. Без карты заказ инструктору не отправится."}
+                  : cardStatus?.recurringEnabled === false
+                    ? "Оплата разовой формой ЮKassa. После успешной оплаты заявка уйдёт инструктору."
+                    : "Банковская карта не привязана. Нажмите «Привязать карту и оплатить» — откроется форма ЮKassa. Без карты заказ инструктору не отправится."}
               </p>
             ) : (
               <p className="text-foreground">
@@ -631,12 +635,12 @@ function ClientOrderDetailContent({
                       toast.error("Подтвердите согласие с офертой и обработкой персональных данных");
                       return;
                     }
-                    payOrder.mutate({ bindAndPay: !hasBoundCard });
+                    payOrder.mutate({ bindAndPay: recurringEnabled && !hasBoundCard });
                   }}
                 >
                   {testCheckout
                     ? "Тестовая оплата и отправка заявки"
-                    : hasBoundCard
+                    : hasBoundCard || !recurringEnabled
                       ? "Оплатить и отправить заявку"
                       : "Привязать карту и оплатить"}
                 </Button>
@@ -938,7 +942,7 @@ export default function ClientOrderPage() {
     queryFn: async () => {
       const r = await fetch("/api/me/payment-method", { cache: "no-store" });
       if (!r.ok) throw new Error("card");
-      return r.json() as Promise<{ hasCard: boolean }>;
+      return r.json() as Promise<{ hasCard: boolean; recurringEnabled?: boolean }>;
     },
     enabled: Boolean(data?.order && data.order.status === "AWAITING_PAYMENT"),
   });
@@ -1032,7 +1036,7 @@ export default function ClientOrderPage() {
     if (cardStatus == null) return;
     autoPayStarted.current = true;
     router.replace(`/client/orders/${id}`, { scroll: false });
-    payOrder.mutate({ bindAndPay: !cardStatus.hasCard });
+    payOrder.mutate({ bindAndPay: cardStatus.recurringEnabled !== false && !cardStatus.hasCard });
   }, [searchParams, data, cardStatus, id, router, payOrder]);
 
   if (isLoading) {

@@ -6,6 +6,7 @@ import {
   CANCEL_CLIENT_PARTIAL_PERCENT,
   CANCEL_CLIENT_PARTIAL_REFUND_HOURS,
   EVENT_CANCEL_FULL_REFUND_HOURS,
+  EVENT_FORCE_MAJEURE_REASON_MAX,
   formatLegalEditionDate,
   INSTRUCTOR_CANCEL_NOTICE_HOURS,
   INSTRUCTOR_LATE_GRACE_MINUTES,
@@ -167,12 +168,20 @@ export default function ReturnsPolicyPage() {
           проведена); менее чем за <strong>{EVENT_CANCEL_FULL_REFUND_HOURS} ч</strong> — без возврата.
         </p>
         <p className="text-muted-foreground">
-          3.3. Отмена события инструктором — полный возврат всем оплатившим участникам.
+          3.3. Отмена события инструктором до начала — полный возврат всем оплатившим участникам.
         </p>
         <p className="text-muted-foreground">
           3.4. Неявка инструктора на событие или отмена менее чем за{" "}
-          <strong>{INSTRUCTOR_CANCEL_NOTICE_HOURS} ч</strong> — полный возврат клиенту; с инструктора удерживается штраф{" "}
-          <strong>{INSTRUCTOR_NO_SHOW_PENALTY_PERCENT}%</strong> от суммы записи в пользу платформы (из будущих выплат).
+          <strong>{INSTRUCTOR_CANCEL_NOTICE_HOURS} ч</strong> до начала — полный возврат клиенту; с инструктора
+          удерживается штраф <strong>{INSTRUCTOR_NO_SHOW_PENALTY_PERCENT}%</strong> от суммы записи в пользу платформы
+          (из будущих выплат).
+        </p>
+        <p className="text-muted-foreground">
+          3.5. <strong>Форс-мажор после начала события</strong> (погода, закрытие площадки, указания органов власти и
+          иные объективные причины, по которым событие не состоялось): инструктор указывает причину в интерфейсе
+          (до {EVENT_FORCE_MAJEURE_REASON_MAX} символов); всем оплатившим участникам возвращается <strong>100%</strong> стоимости; штраф с
+          инструктора не начисляется. Причина сохраняется как основание отмены записи и передаётся администратору
+          платформы.
         </p>
       </section>
 

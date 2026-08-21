@@ -200,7 +200,7 @@ export function registrationStatusLabel(status: EventRegistrationStatus): string
     case "PENDING_PAYMENT":
       return "Ожидает оплаты";
     case "PAID":
-      return "Записан";
+      return "Оплачено";
     case "CANCELLED":
       return "Отменена";
     default:

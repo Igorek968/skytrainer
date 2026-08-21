@@ -394,6 +394,28 @@ export async function GET(req: Request) {
     }),
   ]);
 
+  const forceMajeureLast30d = await prisma.instructorEvent.count({
+    where: { forceMajeureAt: { gte: thirtyDaysAgo } },
+  });
+
+  const recentForceMajeure = await prisma.instructorEvent.findMany({
+    where: { forceMajeureAt: { not: null } },
+    orderBy: { forceMajeureAt: "desc" },
+    take: 12,
+    select: {
+      id: true,
+      title: true,
+      forceMajeureAt: true,
+      forceMajeureReason: true,
+      instructor: { select: { name: true, email: true } },
+      registrations: {
+        where: { cancelledBy: "FORCE_MAJEURE" },
+        select: { id: true, cancelReason: true, amountRub: true, client: { select: { email: true, name: true } } },
+        take: 20,
+      },
+    },
+  });
+
   const recentOrdersBase = await prisma.order.findMany({
     take: 50,
     orderBy: { updatedAt: "desc" },
@@ -707,7 +729,21 @@ export async function GET(req: Request) {
           awaitingPayment,
           draftOrders,
           completedLast30d,
+          forceMajeureLast30d,
         },
+        forceMajeureRecent: recentForceMajeure.map((e) => ({
+          id: e.id,
+          title: e.title,
+          forceMajeureAt: e.forceMajeureAt?.toISOString() ?? null,
+          forceMajeureReason: e.forceMajeureReason,
+          instructorName: e.instructor.name?.trim() || e.instructor.email,
+          registrations: e.registrations.map((r) => ({
+            id: r.id,
+            cancelReason: r.cancelReason,
+            amountRub: Number(r.amountRub),
+            clientLabel: r.client.name?.trim() || r.client.email,
+          })),
+        })),
         ordersByStatus: statusCounts,
         finance: {
           paidOrdersCount: paidAggregate._count?._all ?? 0,
