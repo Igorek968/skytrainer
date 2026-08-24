@@ -180,3 +180,21 @@ export async function saveCardFromPaymentMethodPayload(
   const { last4, brand } = extractYooCardLabel(paymentMethod);
   await saveClientYooPaymentMethod(userId, paymentMethod.id, { last4, brand });
 }
+
+/**
+ * Отвязка карты в личном кабинете: удаляем токен из своей БД.
+ * Сообщать ЮKassa об отвязке не требуется (требование ЮMoney).
+ */
+export async function unbindClientYooPaymentMethod(userId: string): Promise<ClientCardStatus> {
+  await prisma.user.update({
+    where: { id: userId },
+    data: {
+      yookassaPaymentMethodId: null,
+      yookassaCardLast4: null,
+      yookassaCardBrand: null,
+      yookassaPendingBindId: null,
+      mockCardBoundAt: null,
+    },
+  });
+  return getClientCardStatus(userId);
+}

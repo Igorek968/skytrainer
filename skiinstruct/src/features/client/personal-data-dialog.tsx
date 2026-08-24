@@ -149,6 +149,22 @@ export function PersonalDataDialog({
     onError: (e: Error) => toast.error(e.message || "Не удалось открыть привязку карты"),
   });
 
+  const unbindCard = useMutation({
+    mutationFn: async () => {
+      const r = await fetch("/api/me/payment-method", {
+        method: "DELETE",
+        credentials: "same-origin",
+      });
+      const j = (await r.json().catch(() => ({}))) as { error?: unknown };
+      if (!r.ok) throw new Error(typeof j.error === "string" ? j.error : "Не удалось отвязать карту");
+    },
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ["me-card-status"] });
+      toast.success("Карта отвязана");
+    },
+    onError: (e: Error) => toast.error(e.message || "Не удалось отвязать карту"),
+  });
+
   if (!open) return null;
 
   const previewSrc = data?.image ?? null;
@@ -242,6 +258,10 @@ export function PersonalDataDialog({
 
             <div className="rounded-md border border-border bg-muted/30 p-3 text-xs">
               <p className="font-medium text-foreground">Банковская карта</p>
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                Сохранённую карту можно отвязать в любой момент — без обращения в поддержку. После отвязки карта
+                исчезнет из профиля, автосписания по ней выполняться не будут.
+              </p>
               {cardQuery.isLoading ? (
                 <p className="mt-1 text-muted-foreground">Проверяем статус карты…</p>
               ) : cardQuery.data?.hasCard ? (
@@ -258,23 +278,42 @@ export function PersonalDataDialog({
                 </p>
               ) : (
                 <p className="mt-1 text-muted-foreground">
-                  Карта не привязана. Без карты заказ инструктору не отправится — привяжите её здесь или при первом
-                  заказе (ЮKassa).
+                  Карта не привязана. Привяжите её здесь или при первом заказе (ЮKassa).
                 </p>
               )}
-              {cardQuery.data?.recurringEnabled === false && !cardQuery.data?.hasCard ? null : (
-                <div className="mt-2">
+              <div className="mt-2 flex flex-wrap gap-2">
+                {cardQuery.data?.recurringEnabled === false && !cardQuery.data?.hasCard ? null : (
                   <Button
                     type="button"
-                    variant="outline"
                     size="sm"
-                    disabled={setupCard.isPending}
+                    variant="outline"
+                    disabled={setupCard.isPending || unbindCard.isPending}
                     onClick={() => setupCard.mutate()}
                   >
                     {cardQuery.data?.hasCard ? "Обновить карту" : "Привязать карту"}
                   </Button>
-                </div>
-              )}
+                )}
+                {cardQuery.data?.hasCard ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="destructive"
+                    disabled={unbindCard.isPending || setupCard.isPending}
+                    onClick={() => {
+                      if (
+                        !confirm(
+                          "Отвязать карту? Её можно будет привязать снова. Автосписания по этой карте прекратятся.",
+                        )
+                      ) {
+                        return;
+                      }
+                      unbindCard.mutate();
+                    }}
+                  >
+                    {unbindCard.isPending ? "…" : "Отвязать карту"}
+                  </Button>
+                ) : null}
+              </div>
             </div>
 
             <div className="rounded-md border border-border bg-muted/30 p-3 text-xs">
