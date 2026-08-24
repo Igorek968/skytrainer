@@ -24,6 +24,7 @@ import {
   parseSpecializationOffers,
   type SpecializationOffer,
 } from "@/lib/instructor-specialization-offers";
+import { isValidLessonHourlyRate, LESSON_HOURLY_RATE_HINT_RU } from "@/lib/event-price";
 import {
   canonicalizeActivityLabel,
   canonicalizeActivityLabels,
@@ -47,7 +48,9 @@ const drivingDetailsSchema = z.object({
 
 const offerSchema = z.object({
   label: z.string().min(1).max(80),
-  hourlyRate: z.number().min(500).max(100_000),
+  hourlyRate: z
+    .number()
+    .refine(isValidLessonHourlyRate, { message: LESSON_HOURLY_RATE_HINT_RU }),
   lessonsCompleted: z.number().int().min(0).max(100_000).optional().default(0),
   drivingDetails: drivingDetailsSchema.optional(),
 });
@@ -84,7 +87,10 @@ const updateSchema = z.object({
   supportContact: z.string().max(160).optional(),
   legalInfo: z.string().max(2000).optional(),
   videoVisitUrl: z.union([z.string().url().max(1000), z.literal("")]).optional(),
-  hourlyRate: z.number().min(500).max(100000).optional(),
+  hourlyRate: z
+    .number()
+    .refine(isValidLessonHourlyRate, { message: LESSON_HOURLY_RATE_HINT_RU })
+    .optional(),
   photoUrl: z.preprocess(
     (val) => {
       if (typeof val !== "string") return val;

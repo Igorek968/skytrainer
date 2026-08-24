@@ -20,6 +20,11 @@ import {
   emptySpecializationOffer,
   normalizeInstructorActivityLabelInput,
 } from "@/lib/instructor-specialization-offers";
+import {
+  LESSON_HOURLY_RATE_HINT_RU,
+  LESSON_HOURLY_RATE_MIN_PAID_RUB,
+  normalizeLessonHourlyRate,
+} from "@/lib/event-price";
 import { instructorActivityLabelsAlphabetical } from "@/lib/services/instructor-match";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
@@ -180,6 +185,9 @@ export function SpecializationOffersEditor({ offers, onChange, error }: Props) {
           одобрения анкеты администратором направление появится в поиске у клиентов. Для
           «Автоинструктора» — дополнительные поля про авто, КПП и категории прав.
         </p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Минимальная стоимость: {LESSON_HOURLY_RATE_HINT_RU}.
+        </p>
       </div>
 
       <ul className="space-y-2">
@@ -207,13 +215,17 @@ export function SpecializationOffersEditor({ offers, onChange, error }: Props) {
                 <Input
                   id={`rate-${index}`}
                   type="number"
-                  min={500}
+                  min={0}
                   step={100}
                   className="h-9 w-28"
                   value={o.hourlyRate}
                   onChange={(e) =>
-                    patchRow(index, { hourlyRate: Math.max(500, Math.round(Number(e.target.value) || 500)) })
+                    patchRow(index, {
+                      hourlyRate: normalizeLessonHourlyRate(Number(e.target.value)),
+                    })
                   }
+                  placeholder={`0 / ${LESSON_HOURLY_RATE_MIN_PAID_RUB}+`}
+                  title={LESSON_HOURLY_RATE_HINT_RU}
                 />
                 <span className="text-xs text-muted-foreground">₽/ч</span>
               </div>

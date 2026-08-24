@@ -36,6 +36,7 @@ import {
   filledSpecializationOffers,
   ensureSpecializationOfferRows,
 } from "@/lib/instructor-specialization-offers";
+import { lessonHourlyRateError } from "@/lib/event-price";
 import { activityLabelSortKey } from "@/lib/services/instructor-match";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
@@ -621,19 +622,22 @@ export default function InstructorHomePage() {
     const filledOffers = filledSpecializationOffers(specializationOffers);
     if (!filledOffers.length) {
       errors.specializationOffers = "Укажите хотя бы одно направление и цену";
-    } else if (filledOffers.some((o) => o.hourlyRate < 500)) {
-      errors.specializationOffers = "Минимум 500 ₽/ч для каждого направления";
-    } else if (
-      new Set(filledOffers.map((o) => activityLabelSortKey(o.label))).size !== filledOffers.length
-    ) {
-      errors.specializationOffers = "Направления не должны повторяться";
     } else {
-      for (const o of filledOffers) {
-        if (!isAutoInstructorLabel(o.label)) continue;
-        const drivingErr = validateDrivingSchoolDetails(o.drivingDetails);
-        if (drivingErr) {
-          errors.specializationOffers = drivingErr;
-          break;
+      const badRate = filledOffers.find((o) => lessonHourlyRateError(o.hourlyRate));
+      if (badRate) {
+        errors.specializationOffers = lessonHourlyRateError(badRate.hourlyRate) ?? "Некорректная ставка";
+      } else if (
+        new Set(filledOffers.map((o) => activityLabelSortKey(o.label))).size !== filledOffers.length
+      ) {
+        errors.specializationOffers = "Направления не должны повторяться";
+      } else {
+        for (const o of filledOffers) {
+          if (!isAutoInstructorLabel(o.label)) continue;
+          const drivingErr = validateDrivingSchoolDetails(o.drivingDetails);
+          if (drivingErr) {
+            errors.specializationOffers = drivingErr;
+            break;
+          }
         }
       }
     }

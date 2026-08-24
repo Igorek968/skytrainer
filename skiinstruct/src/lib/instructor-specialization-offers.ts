@@ -6,6 +6,10 @@ import {
   type DrivingSchoolOfferDetails,
 } from "@/lib/auto-instructor-offer";
 import {
+  isValidLessonHourlyRate,
+  normalizeLessonHourlyRate,
+} from "@/lib/event-price";
+import {
   activityLabelSortKey,
   canonicalizeActivityLabel,
   canonicalizeActivityLabels,
@@ -82,7 +86,7 @@ export function normalizeSpecializationOffer(row: SpecializationOffer): Speciali
     trimmed;
   const base: SpecializationOffer = {
     label,
-    hourlyRate: Math.min(100_000, Math.max(500, Math.round(row.hourlyRate))),
+    hourlyRate: normalizeLessonHourlyRate(row.hourlyRate),
     lessonsCompleted: Math.max(0, Math.round(row.lessonsCompleted)),
   };
   if (!isAutoInstructorLabel(label)) return base;
@@ -100,7 +104,10 @@ export function parseSpecializationOffers(
   fallbackHourlyRate: number,
   legacySpecializations: string[],
 ): SpecializationOffer[] {
-  const fallbackRate = Number.isFinite(fallbackHourlyRate) && fallbackHourlyRate >= 500 ? fallbackHourlyRate : 2500;
+  const fallbackRate =
+    Number.isFinite(fallbackHourlyRate) && isValidLessonHourlyRate(fallbackHourlyRate)
+      ? Math.round(fallbackHourlyRate)
+      : 2500;
 
   if (Array.isArray(raw)) {
     const parsed: SpecializationOffer[] = [];
@@ -147,7 +154,7 @@ export function offersFromLabels(
 ): SpecializationOffer[] {
   const canon = canonicalizeActivityLabels(labels);
   const prevMap = new Map(prev.map((o) => [o.label, o]));
-  const rate = defaultRate >= 500 ? defaultRate : 2500;
+  const rate = isValidLessonHourlyRate(defaultRate) ? Math.round(defaultRate) : 2500;
   return canon.map((label) => {
     const existing = prevMap.get(label);
     if (existing) return normalizeSpecializationOffer(existing);

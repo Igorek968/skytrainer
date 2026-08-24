@@ -5,6 +5,7 @@ import {
   parseSpecializationOffers,
   resolveHourlyRateForDiscipline,
 } from "@/lib/instructor-specialization-offers";
+import { isValidLessonHourlyRate } from "@/lib/event-price";
 import {
   computePendingExpiresAt,
   INSTRUCTOR_ACCEPT_AFTER_DEADLINE_GRACE_MS,
@@ -107,7 +108,7 @@ export async function assignInstructorByQueue(orderId: string, reason: "initial"
     }
 
     const hourlyRate = hourlyRateForOrder(instr.instructorProfile, order);
-    if (!Number.isFinite(hourlyRate) || hourlyRate < 500) {
+    if (!Number.isFinite(hourlyRate) || !isValidLessonHourlyRate(hourlyRate)) {
       return markOrderExpired(tx, orderId, "unavailable");
     }
 
@@ -237,7 +238,7 @@ export async function prepareInstructorQueue(orderId: string): Promise<PrepareQu
   const queue = [chosenId];
 
   const hourlyRate = hourlyRateForOrder(profile, order);
-  if (!Number.isFinite(hourlyRate) || hourlyRate < 500) {
+  if (!Number.isFinite(hourlyRate) || !isValidLessonHourlyRate(hourlyRate)) {
     return { ok: false, reason: "NO_PROFILE" };
   }
 

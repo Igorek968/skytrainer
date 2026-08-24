@@ -3,6 +3,11 @@ export const EVENT_PRICE_MIN_PAID_RUB = 500;
 
 export const EVENT_PRICE_HINT_RU = "Бесплатно (пусто или 0) либо от 500 ₽";
 
+/** Минимальная платная ставка занятия ₽/ч. 0 = бесплатно. */
+export const LESSON_HOURLY_RATE_MIN_PAID_RUB = EVENT_PRICE_MIN_PAID_RUB;
+
+export const LESSON_HOURLY_RATE_HINT_RU = "Бесплатно (0) либо от 500 ₽/ч";
+
 export function parseEventPriceRubInput(raw: string | null | undefined): number | null {
   const t = String(raw ?? "").trim();
   if (!t) return null;
@@ -34,4 +39,26 @@ export function eventPriceRubErrorFromInput(raw: string | null | undefined): str
   const n = Number.parseInt(t, 10);
   if (!Number.isFinite(n) || n < 0) return "Некорректная цена";
   return eventPriceRubError(n);
+}
+
+/** Ставка занятия: 0 (бесплатно) или от LESSON_HOURLY_RATE_MIN_PAID_RUB до 100_000. */
+export function isValidLessonHourlyRate(rate: number | null | undefined): boolean {
+  if (rate == null || !Number.isFinite(rate)) return false;
+  const n = Math.round(rate);
+  if (n === 0) return true;
+  return n >= LESSON_HOURLY_RATE_MIN_PAID_RUB && n <= 100_000;
+}
+
+export function normalizeLessonHourlyRate(rate: number): number {
+  const n = Math.round(Number(rate));
+  if (!Number.isFinite(n) || n <= 0) return 0;
+  return Math.min(100_000, n);
+}
+
+export function lessonHourlyRateError(rate: number | null | undefined): string | null {
+  if (isValidLessonHourlyRate(rate)) return null;
+  if (rate != null && Number.isFinite(rate) && rate > 0 && rate < LESSON_HOURLY_RATE_MIN_PAID_RUB) {
+    return `Минимум: бесплатно (0) или от ${LESSON_HOURLY_RATE_MIN_PAID_RUB} ₽/ч`;
+  }
+  return LESSON_HOURLY_RATE_HINT_RU;
 }
