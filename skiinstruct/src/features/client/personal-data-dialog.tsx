@@ -273,8 +273,8 @@ export function PersonalDataDialog({
                 </p>
               ) : cardQuery.data?.recurringEnabled === false ? (
                 <p className="mt-1 text-muted-foreground">
-                  Сохранение карты в профиле пока недоступно (ЮKassa). Оплата заказа — разово в форме ЮKassa, после
-                  оплаты заявка уходит инструктору.
+                  Привязка через ЮKassa может быть недоступна, пока магазин не одобрит автоплатежи. Кнопка ниже всё
+                  равно открывает форму — при ошибке оплатите заказ разово в ЮKassa.
                 </p>
               ) : (
                 <p className="mt-1 text-muted-foreground">
@@ -282,17 +282,15 @@ export function PersonalDataDialog({
                 </p>
               )}
               <div className="mt-2 flex flex-wrap gap-2">
-                {cardQuery.data?.recurringEnabled === false && !cardQuery.data?.hasCard ? null : (
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    disabled={setupCard.isPending || unbindCard.isPending}
-                    onClick={() => setupCard.mutate()}
-                  >
-                    {cardQuery.data?.hasCard ? "Обновить карту" : "Привязать карту"}
-                  </Button>
-                )}
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={setupCard.isPending || unbindCard.isPending}
+                  onClick={() => setupCard.mutate()}
+                >
+                  {cardQuery.data?.hasCard ? "Обновить карту" : "Привязать карту"}
+                </Button>
                 {cardQuery.data?.hasCard ? (
                   <Button
                     type="button"
