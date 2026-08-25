@@ -130,7 +130,8 @@ export function ReferralProgramPanel({
   return (
     <div className="space-y-4 text-sm">
       <p className="text-muted-foreground">
-        Две ссылки с одним кодом: для инструкторов — лендинг «Приходи», для учеников — регистрация.
+        Две ссылки с одним кодом: для инструкторов — лендинг «Приходи», для учеников — лендинг
+        «Твой тренер рядом».
         За каждый из первых {data.maxOrdersPerInvitee} завершённых оплаченных заказов приглашённого
         клиента — {data.rewardPerOrderRub} ₽. Программа до{" "}
         {new Date(data.programEndsAt).toLocaleDateString("ru-RU")}. {data.cookieHelpText}
@@ -159,7 +160,7 @@ export function ReferralProgramPanel({
         <div className="space-y-2 rounded-md border border-border bg-muted/15 p-3">
           <Label htmlFor="client-referral-link">Для пользователя</Label>
           <p className="text-xs text-muted-foreground">
-            Форма регистрации ученика: …/register/ваш-ник
+            Открывает лендинг ученика: …/landings/uchenik/ваш-ник
           </p>
           <Input
             id="client-referral-link"

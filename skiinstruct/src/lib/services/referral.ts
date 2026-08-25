@@ -16,6 +16,8 @@ import { prisma } from "@/lib/prisma";
 
 /** Посадочная для набора инструкторов — сюда крепится рефералка партнёров найма. */
 export const REFERRAL_HIRE_LANDING_PATH = "/landings/prichodi";
+/** Посадочная для учеников по клиентской рефералке. Старый /register/{code} тоже работает. */
+export const REFERRAL_CLIENT_LANDING_PATH = "/landings/uchenik";
 export const REFERRAL_CLIENT_REGISTER_PATH = "/register";
 
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -235,8 +237,8 @@ export async function getReferralStats(userId: string) {
   const code = user?.referralCode ?? (await ensureUserReferralCode(userId));
   const origin = publicShareOrigin();
   const programEndsAt = referralProgramEndsAtIso();
-  /** Клиент: регистрация, код — хвост пути (…/register/ник). */
-  const clientReferralLink = `${origin}${REFERRAL_CLIENT_REGISTER_PATH}/${code}`;
+  /** Клиент: лендинг ученика, код — хвост пути (…/landings/uchenik/ник). Старый /register/{code} жив. */
+  const clientReferralLink = `${origin}${REFERRAL_CLIENT_LANDING_PATH}/${code}`;
   /** Инструктор: лендинг «Приходи», код — хвост пути (…/landings/prichodi/ник). */
   const instructorReferralLink = `${origin}${REFERRAL_HIRE_LANDING_PATH}/${code}`;
 

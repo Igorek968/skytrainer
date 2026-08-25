@@ -31,6 +31,7 @@ export const YM_GOALS = {
   messengerWhatsapp: "messenger_whatsapp",
   landingAutoCta: "landing_auto_cta",
   landingInstructorCta: "landing_instructor_cta",
+  landingUchenikCta: "landing_uchenik_cta",
   landingEventsCta: "landing_events_cta",
 } as const;
 

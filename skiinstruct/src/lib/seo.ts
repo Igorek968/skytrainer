@@ -86,6 +86,12 @@ export const SEO_PAGES = {
       "Присоединяйтесь к комьюнити инструкторов, тренеров и гидов на ТвойТренер.рф: заявки с карты, свободный график и оплата онлайн через ЮKassa.",
     path: "/landings/prichodi",
   },
+  landingUchenik: {
+    title: "Твой тренер рядом — найти инструктора на ТвойТренер.рф",
+    description:
+      "Друг пригласил вас на ТвойТренер.рф: найдите живого инструктора на карте, запишитесь и оплатите занятие онлайн через ЮKassa.",
+    path: "/landings/uchenik",
+  },
   support: {
     title: "Поддержка и помощь пользователям | ТвойТренер.рф",
     description:
@@ -155,6 +161,7 @@ export const PUBLIC_SITEMAP_PAGES: SeoPage[] = [
   SEO_PAGES.vakansiya,
   SEO_PAGES.landingInstructor,
   SEO_PAGES.landingPrichodi,
+  SEO_PAGES.landingUchenik,
   SEO_PAGES.support,
   SEO_PAGES.faq,
   SEO_PAGES.guideWhatIs,

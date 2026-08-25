@@ -86,15 +86,22 @@ export function attachReferralCookie(req: NextRequest, res: NextResponse): NextR
   return res;
 }
 
-/** Код из ?ref= или из хвоста пути: /landings/prichodi/ник, /register/ник. */
-export function referralCodeFromRequest(req: NextRequest): string | null {
-  const fromQuery = normalizeReferralCode(req.nextUrl.searchParams.get("ref"));
-  if (fromQuery) return fromQuery;
-
-  const path = req.nextUrl.pathname.replace(/\/+$/, "") || "/";
+/** Код из хвоста пути: /landings/prichodi/ник, /landings/uchenik/ник, /register/ник. */
+export function referralCodeFromPathname(pathname: string | null | undefined): string | null {
+  if (!pathname) return null;
+  const path = pathname.replace(/\/+$/, "") || "/";
   const hire = path.match(/^\/landings\/prichodi\/([^/]+)$/i);
   if (hire?.[1]) return normalizeReferralCode(hire[1]);
+  const uchenik = path.match(/^\/landings\/uchenik\/([^/]+)$/i);
+  if (uchenik?.[1]) return normalizeReferralCode(uchenik[1]);
   const reg = path.match(/^\/register\/([^/]+)$/i);
   if (reg?.[1]) return normalizeReferralCode(reg[1]);
   return null;
+}
+
+/** Код из ?ref= или из хвоста пути: /landings/prichodi/ник, /landings/uchenik/ник, /register/ник. */
+export function referralCodeFromRequest(req: NextRequest): string | null {
+  const fromQuery = normalizeReferralCode(req.nextUrl.searchParams.get("ref"));
+  if (fromQuery) return fromQuery;
+  return referralCodeFromPathname(req.nextUrl.pathname);
 }

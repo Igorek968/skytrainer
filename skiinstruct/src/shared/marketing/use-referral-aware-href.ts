@@ -3,7 +3,7 @@
 import { usePathname, useSearchParams } from "next/navigation";
 import { useMemo } from "react";
 
-import { normalizeReferralCode } from "@/lib/referral-cookie";
+import { normalizeReferralCode, referralCodeFromPathname } from "@/lib/referral-cookie";
 
 function paramsKey(params?: Record<string, string>): string {
   if (!params) return "";
@@ -11,16 +11,6 @@ function paramsKey(params?: Record<string, string>): string {
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([k, v]) => `${k}=${v}`)
     .join("&");
-}
-
-function referralCodeFromPath(pathname: string | null): string | null {
-  if (!pathname) return null;
-  const path = pathname.replace(/\/+$/, "") || "/";
-  const hire = path.match(/^\/landings\/prichodi\/([^/]+)$/i);
-  if (hire?.[1]) return normalizeReferralCode(hire[1]);
-  const reg = path.match(/^\/register\/([^/]+)$/i);
-  if (reg?.[1]) return normalizeReferralCode(reg[1]);
-  return null;
 }
 
 /** Сохраняет ref из пути/query (и utm) при переходах с реферального лендинга. */
@@ -36,7 +26,7 @@ export function useReferralAwareHref(basePath: string, extraParams?: Record<stri
       }
     }
     const ref =
-      normalizeReferralCode(searchParams.get("ref")) ?? referralCodeFromPath(pathname);
+      normalizeReferralCode(searchParams.get("ref")) ?? referralCodeFromPathname(pathname);
     if (ref) url.searchParams.set("ref", ref);
     for (const key of ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term"] as const) {
       const v = searchParams.get(key);
