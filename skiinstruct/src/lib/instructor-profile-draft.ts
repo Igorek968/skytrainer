@@ -7,6 +7,7 @@ import {
   type SpecializationOffer,
 } from "@/lib/instructor-specialization-offers";
 import { canonicalizeActivityLabels } from "@/lib/services/instructor-match";
+import { parseFullNameToParts } from "@/lib/user-display-name";
 
 export type InstructorProfileDraftPayload = {
   firstName?: string;
@@ -70,8 +71,9 @@ type ProfileRow = {
 export function snapshotProfileToDraft(
   profile: ProfileRow,
   userName: string | null,
+  extras?: { nickname?: string | null },
 ): InstructorProfileDraftPayload {
-  const [firstName = "", ...rest] = (userName ?? "").trim().split(/\s+/).filter(Boolean);
+  const { firstName, lastName } = parseFullNameToParts(userName ?? "");
   const offers = parseSpecializationOffers(
     profile.specializationOffers,
     Number(profile.hourlyRate),
@@ -79,7 +81,8 @@ export function snapshotProfileToDraft(
   );
   return {
     firstName,
-    lastName: rest.join(" "),
+    lastName,
+    nickname: extras?.nickname?.trim() || undefined,
     bio: profile.bio,
     certificationLevel: profile.certificationLevel,
     certifications: [...profile.certifications],
@@ -181,7 +184,7 @@ export function draftDisplayName(draft: InstructorProfileDraftPayload): string |
 /** Преобразует черновик в форму полей профиля для ответа API / отображения. */
 export function draftAsProfileView(
   draft: InstructorProfileDraftPayload,
-): ProfileRow & { firstName: string; lastName: string } {
+): ProfileRow & { firstName: string; lastName: string; nickname: string } {
   const specs = draft.specializations ?? draft.specializationOffers?.map((o) => o.label) ?? [];
   const offers = draft.specializationOffers ?? [];
   const hourly =
@@ -191,6 +194,7 @@ export function draftAsProfileView(
   return {
     firstName: draft.firstName ?? "",
     lastName: draft.lastName ?? "",
+    nickname: draft.nickname ?? "",
     bio: draft.bio ?? null,
     certificationLevel: draft.certificationLevel ?? null,
     certifications: draft.certifications ?? [],

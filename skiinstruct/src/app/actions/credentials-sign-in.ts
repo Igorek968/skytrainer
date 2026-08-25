@@ -74,12 +74,6 @@ export async function signInWithCredentialsAction(
         "Этот email — сотрудник админки. Войдите через /admin/login или зарегистрируйте отдельный клиентский аккаунт.",
     };
   }
-  if (role === "INSTRUCTOR") {
-    return {
-      error:
-        "Этот email — инструктор. Для заказа занятий нужен клиентский аккаунт: зарегистрируйтесь на /register или войдите через /instructor/login.",
-    };
-  }
 
   if (role) {
     redirectTo = resolvePostLoginRedirect(role, redirectTo, cabinetPathForRole(role) ?? fallback);
@@ -89,10 +83,7 @@ export async function signInWithCredentialsAction(
 
   if (role && role !== "CLIENT" && isClientBookingReturnPath(redirectTo)) {
     return {
-      error:
-        role === "ADMIN" || role === "MODERATOR"
-          ? "Этот email — сотрудник админки. Для заказа войдите как клиент или используйте /admin/login."
-          : "Этот email — инструктор. Для заказа зарегистрируйтесь как клиент с другим email.",
+      error: "Этот email — инструктор. Для заказа зарегистрируйтесь как клиент с другим email.",
     };
   }
 

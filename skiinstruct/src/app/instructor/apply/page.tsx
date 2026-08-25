@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { useFormState, useFormStatus } from "react-dom";
+import { useSession } from "next-auth/react";
 
 import { instructorApplyAction, type InstructorApplyState } from "@/app/actions/instructor-apply";
 import { FORM_DRAFT_KEYS } from "@/lib/form-draft-storage";
@@ -119,6 +120,7 @@ function SubmitButton({ disabledByName }: { disabledByName: boolean }) {
 
 function InstructorApplyForm() {
   const searchParams = useSearchParams();
+  const { data: session, status: sessionStatus } = useSession();
   const [state, formAction] = useFormState(instructorApplyFormAction, initialState);
   const { values, setField } = useFormDraft<InstructorApplyDraft>(
     FORM_DRAFT_KEYS.instructorApply,
@@ -126,6 +128,12 @@ function InstructorApplyForm() {
   );
   const displayNameDuplicate = useDisplayNameDuplicateCheck(values.firstName, values.lastName);
   const [utm, setUtm] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (sessionStatus === "authenticated" && session?.user?.role === "INSTRUCTOR") {
+      window.location.replace("/instructor");
+    }
+  }, [sessionStatus, session?.user?.role]);
 
   useEffect(() => {
     const resolved = resolveUtmForForm(searchParams);
@@ -148,6 +156,11 @@ function InstructorApplyForm() {
         <CardHeader>
           <CardTitle as="h1">Стать инструктором</CardTitle>
           <CardDescription>
+            Уже есть аккаунт?{" "}
+            <Link className="text-accent underline" href="/instructor/login?callbackUrl=%2Finstructor">
+              Войти в кабинет
+            </Link>
+            {" — не заполняйте анкету повторно. "}
             Анкета на площадку ТвойТренер.рф: заявки с карты, свой график, оплата онлайн. Укажите ФИО, паспортные
             данные, телефон, ИНН и документ НПД/ЕГРИП (нужны для договора и выплат через ЮKassa). После модерации
             включите «онлайн» и принимайте заявки.
@@ -597,6 +610,13 @@ function InstructorApplyForm() {
               >
                 <p className="font-medium">Не удалось отправить анкету</p>
                 <p className="mt-1">{state.error}</p>
+                {/уже зарегистрирован как инструктор/i.test(state.error) ? (
+                  <p className="mt-2">
+                    <Link className="font-medium text-accent underline" href="/instructor/login?callbackUrl=%2Finstructor">
+                      Войти в личный кабинет
+                    </Link>
+                  </p>
+                ) : null}
                 <p className="mt-1 text-xs text-destructive/80">
                   Частые причины: почта не Mail.ru/Яндекс, ИНН 10/12 цифр, скан паспорта и НПД/ЕГРИП, пароли не
                   совпадают.
@@ -610,8 +630,8 @@ function InstructorApplyForm() {
           </form>
 
           <p className="mt-4 text-center text-sm text-muted-foreground">
-            Уже одобрены?{" "}
-            <Link className="text-accent underline" href="/instructor/login">
+            Уже регистрировались?{" "}
+            <Link className="text-accent underline" href="/instructor/login?callbackUrl=%2Finstructor">
               Вход в кабинет
             </Link>
             {" · "}

@@ -48,6 +48,7 @@ import { instructorActivityLabelsAlphabetical } from "@/lib/services/instructor-
 import { INSTRUCTOR_NO_SHOW_PENALTY_PERCENT } from "@/lib/legal-config";
 import { useDisplayNameDuplicateCheck } from "@/shared/hooks/use-display-name-duplicate-check";
 import { compressImageFile } from "@/lib/compress-image-client";
+import { DEFAULT_PLACEHOLDER_BIO } from "@/lib/instructor-profile-defaults";
 
 const instructorFetch = (input: RequestInfo | URL, init?: RequestInit) =>
   fetch(input, { ...init, credentials: "include" });
@@ -225,6 +226,7 @@ export default function InstructorHomePage() {
         profile: {
           firstName: string;
           lastName: string;
+          nickname: string;
           bio: string;
           certificationLevel: string;
           certifications: string[];
@@ -352,6 +354,7 @@ export default function InstructorHomePage() {
   const [online, setOnline] = useState<boolean | null>(null);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
+  const [nickname, setNickname] = useState("");
   const [bio, setBio] = useState("");
   const [certificationLevel, setCertificationLevel] = useState("");
   const [skillLevelsRaw, setSkillLevelsRaw] = useState("");
@@ -363,8 +366,8 @@ export default function InstructorHomePage() {
   const [availabilitySlots, setAvailabilitySlots] = useState<AvailabilitySlot[]>([
     { day: 1, from: "09:00", to: "12:00", busy: false },
   ]);
-  const [age, setAge] = useState<NonNegIntInput>(25);
-  const [experienceYears, setExperienceYears] = useState<NonNegIntInput>(5);
+  const [age, setAge] = useState<NonNegIntInput>("");
+  const [experienceYears, setExperienceYears] = useState<NonNegIntInput>("");
   const [sportsExperienceYears, setSportsExperienceYears] = useState<NonNegIntInput>("");
   const [photoUrl, setPhotoUrl] = useState("");
   const [photoGallery, setPhotoGallery] = useState<string[]>([]);
@@ -520,7 +523,9 @@ export default function InstructorHomePage() {
     if (inited || !data?.profile) return;
     setFirstName(data.profile.firstName ?? "");
     setLastName(data.profile.lastName ?? "");
-    setBio(data.profile.bio ?? "");
+    setNickname(data.profile.nickname ?? "");
+    const loadedBio = data.profile.bio ?? "";
+    setBio(loadedBio.trim() === DEFAULT_PLACEHOLDER_BIO ? "" : loadedBio);
     setCertificationLevel(data.profile.certificationLevel ?? "");
     setSkillLevelsRaw(data.profile.skillLevels.join(", "));
     setLanguagesRaw(data.profile.languages.join(", "));
@@ -539,14 +544,8 @@ export default function InstructorHomePage() {
     setAdditionalServicesRaw(data.profile.additionalServices.join(", "));
     setOfferedDurationsRaw(data.profile.offeredDurations.join(", "));
     setAchievementsRaw(data.profile.achievements.join(", "));
-    setAge(typeof data.profile.age === "number" && data.profile.age > 0 ? data.profile.age : 25);
-    setExperienceYears(
-      typeof data.profile.experienceYears === "number" && data.profile.experienceYears > 0
-        ? data.profile.experienceYears
-        : data.profile.experienceYears == null
-          ? 5
-          : "",
-    );
+    setAge(nonNegIntOrEmpty(data.profile.age));
+    setExperienceYears(nonNegIntOrEmpty(data.profile.experienceYears));
     setSportsExperienceYears(nonNegIntOrEmpty(data.profile.sportsExperienceYears));
     setAvailabilitySlots(
       data.profile.availabilitySlots?.length
@@ -1033,6 +1032,18 @@ export default function InstructorHomePage() {
                     placeholder="Иванов"
                   />
                 </div>
+                {nickname ? (
+                  <div className="space-y-2 md:col-span-2">
+                    <Label htmlFor="instr-public-nick">Никнейм (как в анкете)</Label>
+                    <Input
+                      id="instr-public-nick"
+                      name="skiinstruct_instructor_public_nick"
+                      autoComplete="off"
+                      readOnly
+                      value={nickname}
+                    />
+                  </div>
+                ) : null}
                 {displayNameDuplicate.duplicate ? (
                   <p className="md:col-span-2 text-xs text-destructive">{displayNameDuplicate.message}</p>
                 ) : displayNameDuplicate.checking && firstName.trim() && lastName.trim() ? (

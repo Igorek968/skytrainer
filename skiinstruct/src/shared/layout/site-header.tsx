@@ -74,6 +74,14 @@ export function SiteHeader() {
   } = nav;
   const brandingHref = resolveBrandingHref(pathname, role);
   const onInstructorCabinet = pathname?.startsWith("/instructor");
+  const guestOnInstructorFunnel =
+    Boolean(pathname?.startsWith("/instructor")) ||
+    Boolean(pathname?.startsWith("/landings/instructor")) ||
+    pathname === "/vakansiya";
+  const guestLoginHref = guestOnInstructorFunnel
+    ? "/instructor/login?callbackUrl=%2Finstructor"
+    : "/login?callbackUrl=%2Fclient";
+  const guestInstructorHref = "/instructor/login?callbackUrl=%2Finstructor";
 
   function handleSignOut() {
     signOutAndClearCache(queryClient, role);
@@ -141,14 +149,14 @@ export function SiteHeader() {
             ) : (
               <>
                 <Link
-                  href="/login?callbackUrl=%2Fclient"
+                  href={guestLoginHref}
                   className={navLinkClass}
                   onClick={() => trackYandexGoal(YM_GOALS.clientLoginOpen)}
                 >
                   Войти
                 </Link>
                 <Link
-                  href="/landings/instructor?utm_source=site&utm_medium=header&utm_campaign=hire"
+                  href={guestInstructorHref}
                   className={navLinkOutlineClass}
                   onClick={() => trackYandexGoal(YM_GOALS.landingInstructorCta)}
                 >
@@ -295,7 +303,7 @@ export function SiteHeader() {
                 onClick={() => {
                   setOpen(false);
                   trackYandexGoal(YM_GOALS.clientLoginOpen);
-                  window.location.assign("/login?callbackUrl=%2Fclient");
+                  window.location.assign(guestLoginHref);
                 }}
               >
                 Войти
@@ -306,9 +314,7 @@ export function SiteHeader() {
                 onClick={() => {
                   setOpen(false);
                   trackYandexGoal(YM_GOALS.landingInstructorCta);
-                  window.location.assign(
-                    "/landings/instructor?utm_source=site&utm_medium=header&utm_campaign=hire",
-                  );
+                  window.location.assign(guestInstructorHref);
                 }}
               >
                 Инструктору

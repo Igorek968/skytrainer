@@ -3,7 +3,7 @@
  * Priority market (StatCounter / LiveInternet RU): Chrome, Safari, Yandex, Opera, Samsung, Firefox, MIUI.
  */
 
-export const PWA_HINT_DISMISS_STORAGE_KEY = "skiinstruct_pwa_hint_dismissed_v5";
+export const PWA_HINT_DISMISS_STORAGE_KEY = "skiinstruct_pwa_hint_dismissed_v6";
 
 export type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>;
@@ -30,7 +30,9 @@ export type InstallStrategy =
   /** Яндекс и др.: только ручные шаги (иначе часто закладка). */
   | "manual_steps"
   /** iOS не-Safari: установка только через Safari. */
-  | "safari_required";
+  | "safari_required"
+  /** Telegram / VK / Instagram WebView: PWA из встроенного браузера не ставится. */
+  | "external_browser";
 
 export type PwaInstallGuide = {
   browser: MobileBrowserKind;
@@ -125,18 +127,37 @@ export function isAndroidDevice(): boolean {
   return /Android/i.test(navigator.userAgent);
 }
 
+/**
+ * Встроенный браузер мессенджера / соцсети: Chrome не показывает установку PWA.
+ * Типичный сценарий: ссылка из Telegram / VK / Instagram.
+ */
+export function isInAppBrowser(): boolean {
+  if (typeof window === "undefined") return false;
+  const s = navigator.userAgent;
+  if (/Telegram|TelegramWebview/i.test(s)) return true;
+  if (/Instagram/i.test(s)) return true;
+  if (/FBAN|FBAV|FB_IAB|FBAN\//i.test(s)) return true;
+  if (/WhatsApp/i.test(s)) return true;
+  if (/VKAndroidApp|vk_app|VKiOS|VK\/\d/i.test(s)) return true;
+  if (/Line\//i.test(s)) return true;
+  if (/; wv\)/i.test(s) && /Android/i.test(s)) return true;
+  return false;
+}
+
 export function isMobileDevice(): boolean {
   return isAndroidDevice() || isIosDevice();
+}
+
+export function shouldOfferPwaInstall(): boolean {
+  if (isStandaloneDisplay()) return false;
+  if (isInAppBrowser()) return true;
+  return isMobileDevice();
 }
 
 export function getPwaPlatform(): PwaPlatform {
   if (isIosDevice()) return "ios";
   if (isAndroidDevice()) return "android";
   return "desktop";
-}
-
-export function shouldOfferPwaInstall(): boolean {
-  return isMobileDevice() && !isStandaloneDisplay();
 }
 
 export function isPwaHintDismissed(): boolean {
@@ -295,6 +316,19 @@ function androidOtherSteps(): string[] {
   ];
 }
 
+function inAppBrowserSteps(): string[] {
+  const ios = isIosDevice();
+  return [
+    "Сейчас сайт открыт внутри Telegram, VK или другой программы — оттуда приложение не ставится.",
+    ios
+      ? "Нажмите «···» или значок Safari / «Открыть в Safari» в меню этого окна."
+      : "Нажмите «⋮» (меню) → «Открыть в браузере» / Chrome.",
+    ios
+      ? "В Safari: «Поделиться» → «На экран „Домой“» → «Добавить»."
+      : "В Chrome: меню → «Установить приложение».",
+  ];
+}
+
 /**
  * Полный гайд установки под текущий браузер (RU Android + iOS).
  */
@@ -302,6 +336,21 @@ export function getPwaInstallGuide(canNativeInstall = Boolean(deferredPrompt)): 
   const platform = getPwaPlatform();
   const browser = detectMobileBrowser();
   const browserLabel = BROWSER_LABEL[browser];
+
+  if (isInAppBrowser()) {
+    return {
+      browser,
+      platform,
+      strategy: "external_browser",
+      browserLabel: "Telegram / VK / Instagram",
+      title: "Откройте сайт в браузере",
+      description:
+        "Из ленты Telegram, VK или Instagram приложение установить нельзя. Нужен Chrome (Android) или Safari (iPhone).",
+      steps: inAppBrowserSteps(),
+      footnote: "Скопируйте адрес tvoytrener.рф и вставьте в Chrome или Safari.",
+      useNativePrompt: false,
+    };
+  }
 
   if (platform === "ios") {
     if (browser === "safari") {

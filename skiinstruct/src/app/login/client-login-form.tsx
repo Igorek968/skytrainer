@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { signIn } from "next-auth/react";
+import { signIn, getSession } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useMemo, useState, type FormEvent } from "react";
 
@@ -72,6 +72,17 @@ function LoginFormInner() {
       if (result?.ok === false) {
         setError("Неверный email или пароль.");
         setPending(false);
+        return;
+      }
+
+      const session = await getSession();
+      const role = session?.user?.role;
+      if (role === "INSTRUCTOR") {
+        window.location.assign("/instructor");
+        return;
+      }
+      if (role === "ADMIN" || role === "MODERATOR") {
+        window.location.assign("/admin/metrics");
         return;
       }
 
@@ -163,11 +174,11 @@ function LoginFormInner() {
           <SocialSignInButtons callbackUrl={callbackUrl} />
 
           <p className="text-center text-sm text-muted-foreground">
-            Вы инструктор? Вход только через{" "}
+            Вы инструктор?{" "}
             <Link className="font-medium text-accent underline" href="/instructor/login">
-              /instructor/login
+              Вход в кабинет инструктора
             </Link>
-            {" — иначе попадёте в раздел заказа клиента."}
+            {" — не регистрируйтесь заново."}
           </p>
           <p className="text-center text-sm text-muted-foreground">
             <Link className="text-accent underline" href="/admin/login">

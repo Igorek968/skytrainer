@@ -8,6 +8,7 @@ import { InstructorPushAlertsBanner } from "@/features/instructor/instructor-pus
 import { EmailVerificationGate } from "@/features/auth/email-verification-gate";
 import { EventStartRemindersPrompt } from "@/features/events/event-start-reminders-prompt";
 import { OrderLessonRemindersPrompt } from "@/features/orders/order-lesson-reminders-prompt";
+import { PwaInstallMenuItem } from "@/features/share/pwa-install-hint";
 import { TelegramChannelInvite } from "@/shared/marketing/telegram-channel-invite";
 import { useAutoWebPushSubscribe } from "@/features/push/use-auto-web-push-subscribe";
 import { useVisibilityInvalidate } from "@/features/push/use-visibility-invalidate";
@@ -46,6 +47,7 @@ export function InstructorPanelShell({ children }: { children: React.ReactNode }
       </Suspense>
       <InstructorPushAlertsBanner audience="instructor" />
       <div className="mx-auto max-w-6xl space-y-3 px-4 pt-3">
+        <PwaInstallMenuItem />
         <TelegramChannelInvite
           campaign="instructor_cabinet"
           audience="instructor"

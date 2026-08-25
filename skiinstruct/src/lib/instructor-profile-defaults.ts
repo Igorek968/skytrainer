@@ -86,8 +86,8 @@ export function buildInstructorProfileCreateData(
     languages: [...(input.languages ?? DEFAULT_LANGUAGES)],
     specializations,
     specializationOffers: offersFromLabels(specializations, [], hourlyRate),
-    additionalServices: [...(input.additionalServices ?? DEFAULT_ADDITIONAL_SERVICES)],
     offeredDurations: [...(input.offeredDurations ?? DEFAULT_OFFERED_DURATIONS)],
+    additionalServices: [...(input.additionalServices ?? [])],
     availabilitySlots: defaultAvailabilitySlots(),
     hourlyRate,
     achievements: input.achievements ?? [],
@@ -127,9 +127,6 @@ export function buildProfileBackfillData(
   }
   if (!profile.offeredDurations.length) {
     data.offeredDurations = [...DEFAULT_OFFERED_DURATIONS];
-  }
-  if (!profile.additionalServices.length) {
-    data.additionalServices = [...DEFAULT_ADDITIONAL_SERVICES];
   }
   if (!hasAvailabilitySlots(profile.availabilitySlots)) {
     data.availabilitySlots = defaultAvailabilitySlots();

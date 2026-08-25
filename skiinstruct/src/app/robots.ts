@@ -38,6 +38,7 @@ const PUBLIC_DISALLOW = [
   "/instructor/availability",
   "/instructor/pending",
   "/verify-email",
+  "/app",
   "/login",
   "/register",
   "/reset-password",

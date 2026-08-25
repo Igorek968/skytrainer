@@ -103,11 +103,17 @@ export default NextAuth(authConfig).auth((req) => {
   }
 
   /**
-   * Рекламный лендинг для инструкторов: гости и не-инструкторы → /landings/instructor,
-   * одобренный инструктор — кабинет на /instructor.
+   * /instructor — кабинет. Гость → вход инструктора (не анкета «стать инструктором»).
+   * Другая роль → лендинг найма. Одобренный инструктор проходит дальше.
+   * Реклама новых заявок: /landings/instructor и /instructor/apply.
    */
   if (pathname === "/instructor") {
     const role = req.auth?.user?.role as UserRole | undefined;
+    if (!req.auth) {
+      const url = new URL("/instructor/login", requestOrigin(req));
+      url.searchParams.set("callbackUrl", "/instructor");
+      return withRefCookie(req, NextResponse.redirect(url));
+    }
     if (role !== "INSTRUCTOR") {
       return withRefCookie(req, redirectTo(req, "/landings/instructor"));
     }
@@ -138,7 +144,7 @@ export default NextAuth(authConfig).auth((req) => {
     pathname === "/support" ||
     pathname.startsWith("/support/");
   const isPublicGid = pathname.startsWith("/gid/") || pathname === "/faq";
-  const publicPaths = ["/", "/login", "/register", "/instructor/login", "/instructor/apply"];
+  const publicPaths = ["/", "/login", "/register", "/instructor/login", "/instructor/apply", "/app"];
   const isPublicRegister = pathname === "/register" || pathname.startsWith("/register/");
   if (
     publicPaths.includes(pathname) ||

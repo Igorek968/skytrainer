@@ -1,8 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { signIn } from "next-auth/react";
-import { useSession } from "next-auth/react";
+import { signIn, signOut, useSession } from "next-auth/react";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { readStoredUtm } from "@/shared/analytics/utm-capture";
 import { YM_GOALS, trackYandexGoal } from "@/shared/analytics/yandex-metrika-client";
@@ -18,7 +17,7 @@ export function InstructorLoginForm({
   applied = false,
   prefilledEmail = "",
   signInRequired = false,
-  callbackUrl = "/instructor/pending",
+  callbackUrl = "/instructor",
 }: {
   applied?: boolean;
   prefilledEmail?: string;
@@ -32,7 +31,7 @@ export function InstructorLoginForm({
   const [error, setError] = useState<string | null>(null);
   const signedInAsOther = Boolean(session?.user?.role && session.user.role !== "INSTRUCTOR");
   const safeCallback = useMemo(
-    () => sanitizeRedirectPath(callbackUrl, "/instructor/pending"),
+    () => sanitizeRedirectPath(callbackUrl, "/instructor"),
     [callbackUrl],
   );
 
@@ -55,6 +54,9 @@ export function InstructorLoginForm({
     }
     setPending(true);
     try {
+      if (signedInAsOther) {
+        await signOut({ redirect: false });
+      }
       const formData = new FormData(e.currentTarget);
       const captchaToken = String(formData.get("captchaToken") ?? "");
       const result = await signIn("credentials", {

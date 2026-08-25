@@ -122,6 +122,7 @@ function formatMeProfileResponse(
   return {
     firstName: view.firstName,
     lastName: view.lastName,
+    nickname: view.nickname ?? "",
     bio: repairStaleCatalogSyntheticBio(view.bio, canonSpecs),
     certificationLevel: view.certificationLevel ?? "",
     certifications: view.certifications,
@@ -159,7 +160,7 @@ export async function GET() {
   const [user, profile] = await Promise.all([
     prisma.user.findUnique({
       where: { id: userId },
-      select: { name: true },
+      select: { name: true, nickname: true },
     }),
     prisma.instructorProfile.findUnique({
       where: { userId },
@@ -200,11 +201,21 @@ export async function GET() {
   ]);
   const pendingDraft = profile?.profileDraftStatus === "PENDING_REVIEW";
   const parsedDraft = pendingDraft ? parseProfileDraft(profile.profileDraft) : null;
-
-  const view = profile
-    ? parsedDraft
-      ? draftAsProfileView(parsedDraft)
-      : draftAsProfileView(snapshotProfileToDraft(profile, user?.name ?? null))
+  const snapshot = profile
+    ? snapshotProfileToDraft(profile, user?.name ?? null, { nickname: user?.nickname })
+    : null;
+  const view = snapshot
+    ? draftAsProfileView(
+        parsedDraft
+          ? {
+              ...snapshot,
+              ...parsedDraft,
+              firstName: parsedDraft.firstName || snapshot.firstName,
+              lastName: parsedDraft.lastName || snapshot.lastName,
+              nickname: parsedDraft.nickname || snapshot.nickname,
+            }
+          : snapshot,
+      )
     : null;
 
   return NextResponse.json({
@@ -353,7 +364,7 @@ export async function PATCH(req: Request) {
   try {
     const userRow = await prisma.user.findUnique({
       where: { id: userId },
-      select: { name: true },
+      select: { name: true, nickname: true },
     });
     const parsedExistingDraft =
       existingProfile.profileDraftStatus === "PENDING_REVIEW"
@@ -361,7 +372,9 @@ export async function PATCH(req: Request) {
         : null;
     const base =
       parsedExistingDraft ??
-      snapshotProfileToDraft(existingProfile, userRow?.name ?? null);
+      snapshotProfileToDraft(existingProfile, userRow?.name ?? null, {
+        nickname: userRow?.nickname,
+      });
     const patch = buildDraftPatchFromMePayload({
       firstName: payload.firstName,
       lastName: payload.lastName,

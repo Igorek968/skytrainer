@@ -27,7 +27,7 @@ export default async function InstructorLoginPage({
       applied={applied}
       prefilledEmail={prefilledEmail}
       signInRequired={signInRequired}
-      callbackUrl={callbackUrl ?? "/instructor/pending"}
+      callbackUrl={callbackUrl ?? "/instructor"}
     />
   );
 }

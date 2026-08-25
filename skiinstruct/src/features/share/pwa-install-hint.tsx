@@ -62,7 +62,7 @@ export function PwaInstallBanner() {
 
   const forceSteps = useMemo(() => {
     if (!guide) return false;
-    return guide.strategy === "manual_steps" || guide.strategy === "safari_required" || !guide.useNativePrompt;
+    return guide.strategy === "manual_steps" || guide.strategy === "safari_required" || guide.strategy === "external_browser" || !guide.useNativePrompt;
   }, [guide]);
 
   useEffect(() => {
@@ -119,7 +119,7 @@ export function PwaInstallBanner() {
 
   return (
     <div
-      className="fixed inset-0 z-[70] flex items-end justify-center bg-black/45 p-4 sm:items-center md:hidden"
+      className="fixed inset-0 z-[70] flex items-end justify-center bg-black/45 p-4 sm:items-center lg:hidden"
       role="dialog"
       aria-modal="true"
       aria-labelledby="pwa-install-title"
