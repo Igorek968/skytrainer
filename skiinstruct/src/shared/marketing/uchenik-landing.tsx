@@ -24,7 +24,7 @@ const body = Manrope({
   display: "swap",
 });
 
-const HERO_SRC = "/brand/avito-vacancy/slides-5/slide-01-tennis.png";
+const HERO_SRC = "/brand/hero-uchenik-run.png?v=2";
 
 const REASONS = [
   {
@@ -155,58 +155,64 @@ export function UchenikLanding() {
         <div className="uchenik-hero-media absolute inset-0">
           <Image
             src={HERO_SRC}
-            alt="Персональная тренировка с инструктором ТвойТренер"
+            alt="Бег с инструктором ТвойТренер"
             fill
             priority
             sizes="100vw"
-            className="object-cover object-[center_28%] sm:object-[center_32%]"
+            className="object-cover object-[center_35%] sm:object-[center_40%]"
           />
         </div>
         <div
-          className="absolute inset-0 bg-gradient-to-r from-[var(--uchenik-ink)]/92 via-[var(--uchenik-ink)]/58 to-[var(--uchenik-ink)]/18"
+          className="absolute inset-0 bg-gradient-to-r from-[var(--uchenik-ink)]/70 via-[var(--uchenik-ink)]/30 to-transparent"
           aria-hidden
         />
         <div
-          className="uchenik-sun pointer-events-none absolute -right-16 top-10 h-64 w-64 rounded-full bg-[var(--uchenik-teal)]/35 blur-3xl"
+          className="absolute inset-0 bg-gradient-to-t from-[var(--uchenik-ink)]/45 via-transparent to-[var(--uchenik-ink)]/20"
+          aria-hidden
+        />
+        <div
+          className="uchenik-sun pointer-events-none absolute -right-16 top-10 h-64 w-64 rounded-full bg-[var(--uchenik-teal)]/25 blur-3xl"
           aria-hidden
         />
 
-        <div className="uchenik-hero-copy relative z-10 mx-auto flex min-h-[min(100dvh,920px)] max-w-6xl flex-col justify-end px-4 pb-14 pt-16 sm:justify-center sm:px-6 sm:pb-20 sm:pt-16 lg:px-8">
-          <div className="inline-flex items-center rounded-md bg-white/95 px-2.5 py-1.5 shadow-sm">
+        <div className="relative z-10 mx-auto flex min-h-[min(100dvh,920px)] max-w-6xl flex-col px-4 pt-5 sm:px-6 sm:pt-6 lg:px-8">
+          <div className="inline-flex w-fit items-center rounded-md bg-white px-2 py-1.5 shadow-sm">
             <Image
               src={BRAND_LOGO_OFFICIAL_PNG}
               alt="Твой Тренер"
               width={220}
               height={68}
-              className="h-10 w-auto sm:h-11"
+              className="h-8 w-auto sm:h-9"
               priority
             />
           </div>
 
-          <p
-            className="mt-6 inline-flex w-fit rounded-full border border-white/25 bg-white/10 px-3 py-1 text-xs font-medium tracking-wide text-white/90"
-            style={{ fontFamily: "var(--font-uchenik-body), system-ui" }}
-          >
-            Друг пригласил вас
-          </p>
+          <div className="uchenik-hero-copy flex flex-1 flex-col justify-end pb-14 pt-10 sm:justify-center sm:pb-20">
+            <p
+              className="inline-flex w-fit rounded-full border border-white/25 bg-white/10 px-3 py-1 text-xs font-medium tracking-wide text-white/90"
+              style={{ fontFamily: "var(--font-uchenik-body), system-ui" }}
+            >
+              Друг пригласил вас
+            </p>
 
-          <h1
-            className="mt-4 max-w-xl text-4xl font-semibold leading-[1.05] tracking-tight sm:text-5xl md:text-6xl"
-            style={{ fontFamily: "var(--font-uchenik-display), system-ui" }}
-          >
-            Твой тренер рядом
-          </h1>
+            <h1
+              className="mt-4 max-w-xl text-4xl font-semibold leading-[1.05] tracking-tight sm:text-5xl md:text-6xl"
+              style={{ fontFamily: "var(--font-uchenik-display), system-ui" }}
+            >
+              Твой тренер рядом
+            </h1>
 
-          <p
-            className="mt-4 max-w-md text-base leading-relaxed text-white/85 sm:text-lg"
-            style={{ fontFamily: "var(--font-uchenik-body), system-ui" }}
-          >
-            Найдите инструктора на карте, запишитесь и оплатите онлайн. Без чатов вслепую.
-          </p>
+            <p
+              className="mt-4 max-w-md text-base leading-relaxed text-white/85 sm:text-lg"
+              style={{ fontFamily: "var(--font-uchenik-body), system-ui" }}
+            >
+              Найдите инструктора на карте, запишитесь и оплатите онлайн. Без чатов вслепую.
+            </p>
 
-          <Suspense fallback={null}>
-            <UchenikCtas />
-          </Suspense>
+            <Suspense fallback={null}>
+              <UchenikCtas />
+            </Suspense>
+          </div>
         </div>
       </section>
 

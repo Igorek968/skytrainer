@@ -6,6 +6,9 @@ export const IMAGE_COMPRESS_MAX_SIDE = 1600;
 /** JPEG quality после сжатия. */
 export const IMAGE_COMPRESS_JPEG_QUALITY = 82;
 
+/** Целевой размер сжатого JPEG (байты). */
+export const IMAGE_COMPRESS_TARGET_BYTES = 900 * 1024;
+
 export type CompressedImage = {
   buffer: Buffer;
   mime: "image/jpeg";
@@ -20,38 +23,48 @@ function fallbackExt(mime: string): string {
 
 /**
  * Сжимает фото при загрузке: автоповорот EXIF, уменьшение длинной стороны,
- * JPEG mozjpeg.
+ * JPEG mozjpeg. Крупный исходник не возвращаем «как есть».
  */
 export async function compressImageBuffer(input: Buffer): Promise<CompressedImage> {
-  const image = sharp(input, { failOn: "none" }).rotate();
-  const meta = await image.metadata();
+  const meta = await sharp(input, { failOn: "none" }).metadata();
   const width = meta.width ?? 0;
   const height = meta.height ?? 0;
+  const hasAlpha = Boolean(meta.hasAlpha);
+  const sides = [IMAGE_COMPRESS_MAX_SIDE, 1280, 1024, 800];
+  let best: CompressedImage | null = null;
 
-  let pipeline = image;
-  if (width > IMAGE_COMPRESS_MAX_SIDE || height > IMAGE_COMPRESS_MAX_SIDE) {
-    pipeline = pipeline.resize({
-      width: IMAGE_COMPRESS_MAX_SIDE,
-      height: IMAGE_COMPRESS_MAX_SIDE,
-      fit: "inside",
-      withoutEnlargement: true,
-    });
+  for (const maxSide of sides) {
+    let quality = IMAGE_COMPRESS_JPEG_QUALITY;
+    while (quality >= 50) {
+      let pipeline = sharp(input, { failOn: "none" }).rotate();
+      if (width > maxSide || height > maxSide) {
+        pipeline = pipeline.resize({
+          width: maxSide,
+          height: maxSide,
+          fit: "inside",
+          withoutEnlargement: true,
+        });
+      }
+      if (hasAlpha) {
+        pipeline = pipeline.flatten({ background: { r: 255, g: 255, b: 255 } });
+      }
+      const buffer = await pipeline.jpeg({ quality, mozjpeg: true }).toBuffer();
+      const candidate: CompressedImage = { buffer, mime: "image/jpeg", ext: "jpg" };
+      if (!best || candidate.buffer.length < best.buffer.length) best = candidate;
+      if (candidate.buffer.length <= IMAGE_COMPRESS_TARGET_BYTES) return candidate;
+      quality -= 8;
+    }
   }
 
-  if (meta.hasAlpha) {
-    pipeline = pipeline.flatten({ background: { r: 255, g: 255, b: 255 } });
+  if (!best) {
+    throw new Error("compress-failed");
   }
-
-  const buffer = await pipeline
-    .jpeg({ quality: IMAGE_COMPRESS_JPEG_QUALITY, mozjpeg: true })
-    .toBuffer();
-
-  return { buffer, mime: "image/jpeg", ext: "jpg" };
+  return best;
 }
 
 /**
- * Сжать загруженные байты. При ошибке или если JPEG больше исходника —
- * возвращает оригинал.
+ * Сжать загруженные байты. Крупный оригинал всегда заменяем JPEG,
+ * даже если сжатие чуть больше исходника (типично для мелких PNG).
  */
 export async function compressUploadedImageBytes(
   original: Buffer,
@@ -64,6 +77,7 @@ export async function compressUploadedImageBytes(
   };
   try {
     const compressed = await compressImageBuffer(original);
+    if (original.length > IMAGE_COMPRESS_TARGET_BYTES) return compressed;
     if (compressed.buffer.length >= original.length && original.length > 0) {
       return fallback;
     }

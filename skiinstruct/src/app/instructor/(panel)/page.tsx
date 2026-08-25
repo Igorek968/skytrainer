@@ -47,7 +47,7 @@ import { cn } from "@/lib/utils";
 import { instructorActivityLabelsAlphabetical } from "@/lib/services/instructor-match";
 import { INSTRUCTOR_NO_SHOW_PENALTY_PERCENT } from "@/lib/legal-config";
 import { useDisplayNameDuplicateCheck } from "@/shared/hooks/use-display-name-duplicate-check";
-import { compressImageFile } from "@/lib/compress-image-client";
+import { compressImageFile, IMAGE_UPLOAD_HINT } from "@/lib/compress-image-client";
 import { DEFAULT_PLACEHOLDER_BIO } from "@/lib/instructor-profile-defaults";
 
 const instructorFetch = (input: RequestInfo | URL, init?: RequestInit) =>
@@ -1189,7 +1189,7 @@ export default function InstructorHomePage() {
                     }}
                   />
                   {uploadPhoto.isPending ? (
-                    <span className="text-sm text-muted-foreground">Загрузка…</span>
+                    <span className="text-sm text-muted-foreground">Сжимаем и загружаем…</span>
                   ) : null}
                   <Button
                     type="button"
@@ -1201,7 +1201,7 @@ export default function InstructorHomePage() {
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Загружено: {photoGallery.length}/5
+                  Загружено: {photoGallery.length}/5. {IMAGE_UPLOAD_HINT}
                 </p>
                 <div className="flex items-center gap-3 rounded-md border border-border bg-muted/30 p-2">
                   <div className="h-12 w-12 overflow-hidden rounded-full border border-border bg-background">

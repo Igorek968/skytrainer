@@ -24,7 +24,7 @@ const metadataBaseUrl = (() => {
   try {
     const url = new URL(raw);
     if (url.hostname !== "localhost" && url.hostname !== "127.0.0.1") {
-      url.protocol = "https:";
+      return new URL("https://твойтренер.рф");
     }
     return url;
   } catch {

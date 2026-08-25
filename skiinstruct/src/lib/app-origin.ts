@@ -1,5 +1,10 @@
 const INTERNAL_HOSTS = new Set(["0.0.0.0", "127.0.0.1", "localhost", "[::1]"]);
 
+/** Читаемый IDN в адресной строке. JS `URL.host` всегда отдаёт punycode xn--… */
+export const BRAND_UNICODE_HOST = "твойтренер.рф";
+export const BRAND_PUNYCODE_HOST = "xn--b1agaovdpdkd.xn--p1ai";
+export const BRAND_UNICODE_ORIGIN = `https://${BRAND_UNICODE_HOST}`;
+
 function isPublicHost(hostname: string): boolean {
   return !INTERNAL_HOSTS.has(hostname.toLowerCase());
 }
@@ -61,21 +66,42 @@ export function publicSiteHostLabel(): string {
   const origin = configuredAppOrigin();
   if (origin) {
     try {
+      const host = new URL(origin).hostname.toLowerCase();
+      if (BRAND_PUNY_HOSTS.has(host)) return BRAND_UNICODE_HOST;
       return new URL(origin).host;
     } catch {
       /* ignore */
     }
   }
-  return "твойтренер.рф";
+  return BRAND_UNICODE_HOST;
 }
 
-const BRAND_SHARE_ORIGIN = "https://твойтренер.рф";
-const BRAND_PUNY_HOSTS = new Set([
-  "твойтренер.рф",
-  "www.твойтренер.рф",
-  "xn--b1agaovdpdkd.xn--p1ai",
-  "www.xn--b1agaovdpdkd.xn--p1ai",
+const BRAND_SHARE_ORIGIN = BRAND_UNICODE_ORIGIN;
+export const BRAND_PUNY_HOSTS = new Set([
+  BRAND_UNICODE_HOST,
+  `www.${BRAND_UNICODE_HOST}`,
+  BRAND_PUNYCODE_HOST,
+  `www.${BRAND_PUNYCODE_HOST}`,
 ]);
+
+export function hostnameWithoutPort(hostHeader: string): string {
+  return hostHeader.split(",")[0]?.trim().split(":")[0]?.toLowerCase() ?? "";
+}
+
+/** Punycode / www — в адресной строке должен быть https://твойтренер.рф */
+export function shouldCanonicalizeBrandHost(hostHeader: string): boolean {
+  const host = hostnameWithoutPort(hostHeader);
+  return (
+    host === BRAND_PUNYCODE_HOST ||
+    host === `www.${BRAND_PUNYCODE_HOST}` ||
+    host === `www.${BRAND_UNICODE_HOST}`
+  );
+}
+
+export function brandUnicodeAbsoluteUrl(pathname: string, search = ""): string {
+  const path = pathname.startsWith("/") ? pathname : `/${pathname}`;
+  return `${BRAND_UNICODE_ORIGIN}${path}${search}`;
+}
 
 /**
  * Origin для реферальных/шаринговых ссылок: всегда читаемое «твойтренер.рф»,

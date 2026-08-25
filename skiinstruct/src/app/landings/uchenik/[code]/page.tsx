@@ -7,7 +7,7 @@ const PATH = "/landings/uchenik";
 const TITLE = "Твой тренер рядом — найти инструктора на ТвойТренер.рф";
 const DESCRIPTION =
   "Друг пригласил вас на ТвойТренер.рф: найдите живого инструктора на карте, запишитесь и оплатите занятие онлайн через ЮKassa.";
-const OG = "/brand/avito-vacancy/slides-5/slide-01-tennis.png";
+const OG = "/brand/hero-uchenik-run.png?v=2";
 
 const base = pageMetadata({ title: TITLE, description: DESCRIPTION, path: PATH });
 

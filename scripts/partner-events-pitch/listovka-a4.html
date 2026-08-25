@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <title>ТвойТренер.рф — листовка организатору</title>
+  <style>
+    @page { size: A4; margin: 10mm; }
+    * { box-sizing: border-box; }
+    body { font-family: "Segoe UI", Arial, sans-serif; color: #fff; margin: 0; }
+    .hero {
+      min-height: 100vh;
+      background: #15202c url("pitch-cover-sochi.png") center/cover;
+      padding: 18px;
+      position: relative;
+    }
+    .hero::before {
+      content: "";
+      position: absolute; inset: 0;
+      background: linear-gradient(180deg, rgba(14,22,32,.45), rgba(14,22,32,.88));
+    }
+    .inner { position: relative; max-width: 190mm; }
+    img.logo {
+      width: 220px;
+      height: auto;
+      filter:
+        drop-shadow(1px 0 0 #fff) drop-shadow(-1px 0 0 #fff)
+        drop-shadow(0 1px 0 #fff) drop-shadow(0 -1px 0 #fff)
+        drop-shadow(1px 1px 0 #fff) drop-shadow(-1px -1px 0 #fff)
+        drop-shadow(1px -1px 0 #fff) drop-shadow(-1px 1px 0 #fff);
+    }
+    h1 { font-size: 26px; margin: 12px 0; max-width: 18ch; }
+    .mosaic { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 12px 0; }
+    .tile {
+      height: 90px; border-radius: 10px; background-size: cover; background-position: center;
+      display: flex; align-items: flex-end; padding: 8px; font-weight: 800; font-size: 13px;
+      text-shadow: 0 2px 8px #000;
+    }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .box { background: rgba(255,255,255,.14); border-radius: 10px; padding: 10px; }
+    .big { font-size: 36px; color: #9fe8e0; font-weight: 800; }
+    p, li { font-size: 12.5px; line-height: 1.35; }
+  </style>
+</head>
+<body>
+  <div class="hero"><div class="inner">
+    <img class="logo" src="logo-on-dark.png" alt="Твой Тренер" />
+    <h1>Разместите событие на ТвойТренер.рф</h1>
+    <div class="mosaic">
+      <div class="tile" style="background-image:url('pitch-bg-quad.png')">Квадро / багги</div>
+      <div class="tile" style="background-image:url('pitch-bg-sea.png')">Море / катер</div>
+      <div class="tile" style="background-image:url('pitch-bg-ski.png')">Склоны / группы</div>
+      <div class="tile" style="background-image:url('pitch-bg-sport.png')">Тренировки</div>
+    </div>
+    <div class="row">
+      <div class="box"><div class="big">85%</div>вам после события</div>
+      <div class="box"><div class="big">15%</div>комиссия площадки</div>
+    </div>
+    <p style="margin-top:10px">Карточка · запись · ЮKassa. Нет продаж через нас — нет комиссии.</p>
+    <p><strong>твойтренер.рф</strong> · +7 910 356-44-19 · tvoitrenerrf@yandex.ru</p>
+  </div></div>
+</body>
+</html>

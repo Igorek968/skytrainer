@@ -27,7 +27,7 @@ function formatPhotoApiResponse(result: {
   };
 }
 
-const MAX_SIZE_BYTES = 5 * 1024 * 1024;
+const MAX_SIZE_BYTES = 12 * 1024 * 1024;
 const ALLOWED = new Set(["image/jpeg", "image/png", "image/webp"]);
 const MAX_GALLERY = 5;
 const patchSchema = z.object({
@@ -50,7 +50,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Допустимы JPG, PNG, WEBP" }, { status: 400 });
   }
   if (file.size > MAX_SIZE_BYTES) {
-    return NextResponse.json({ error: "Максимум 5 MB" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Файл слишком большой. Выберите JPG/PNG — сайт сожмёт его примерно до 1 МБ (длинная сторона до 1600 px)." },
+      { status: 400 },
+    );
   }
 
   const raw = Buffer.from(await file.arrayBuffer());

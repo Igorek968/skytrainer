@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>ТвойТренер.рф — партнёрам по событиям</title>
+  <style>
+    :root {
+      --teal: #027676;
+      --navy: #2E3E55;
+      --sand: #e8d7b8;
+      --white: #fff;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      font-family: "Segoe UI", "PT Sans Caption", "PT Sans", Arial, sans-serif;
+      background: #111;
+      color: var(--white);
+    }
+    .slide {
+      display: none;
+      min-height: 100dvh;
+      position: relative;
+      background: #1a2433 center/cover no-repeat;
+      padding: 22px 20px 92px;
+    }
+    .slide.active { display: block; }
+    .slide::before {
+      content: "";
+      position: absolute; inset: 0;
+      background: linear-gradient(180deg, rgba(17,28,40,.55) 0%, rgba(17,28,40,.78) 55%, rgba(14,22,32,.92) 100%);
+    }
+    .slide > * { position: relative; z-index: 1; }
+    .logo {
+      width: min(300px, 82vw);
+      height: auto;
+      /* белый контур букв и знака — рисует браузер, без рваных пикселей */
+      filter:
+        drop-shadow(1px 0 0 #fff)
+        drop-shadow(-1px 0 0 #fff)
+        drop-shadow(0 1px 0 #fff)
+        drop-shadow(0 -1px 0 #fff)
+        drop-shadow(1px 1px 0 #fff)
+        drop-shadow(-1px 1px 0 #fff)
+        drop-shadow(1px -1px 0 #fff)
+        drop-shadow(-1px -1px 0 #fff)
+        drop-shadow(2px 0 0 rgba(255,255,255,.9))
+        drop-shadow(-2px 0 0 rgba(255,255,255,.9))
+        drop-shadow(0 2px 0 rgba(255,255,255,.9))
+        drop-shadow(0 -2px 0 rgba(255,255,255,.9))
+        drop-shadow(0 10px 22px rgba(0,0,0,.45));
+    }
+    .kicker {
+      display: inline-block;
+      background: var(--teal);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      padding: 6px 10px;
+      border-radius: 6px;
+      margin: 14px 0 10px;
+    }
+    h1 { font-size: clamp(28px, 7vw, 48px); line-height: 1.12; max-width: 16ch; text-shadow: 0 6px 24px rgba(0,0,0,.45); }
+    h2 { font-size: clamp(24px, 5.5vw, 40px); line-height: 1.15; max-width: 22ch; }
+    .lead { margin-top: 12px; font-size: 17px; line-height: 1.45; max-width: 36rem; color: #e8ece8; }
+    .glass {
+      background: rgba(255,255,255,.12);
+      border: 1px solid rgba(255,255,255,.22);
+      backdrop-filter: blur(10px);
+      border-radius: 16px;
+      padding: 14px 16px;
+    }
+    .grid { display: grid; gap: 10px; margin-top: 16px; }
+    @media (min-width: 720px) {
+      .two { grid-template-columns: 1fr 1fr; }
+      .four { grid-template-columns: 1fr 1fr 1fr 1fr; }
+      .slide { padding: 36px 48px 100px; }
+    }
+    .tile {
+      min-height: 140px;
+      border-radius: 16px;
+      background-size: cover;
+      background-position: center;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: flex-end;
+      padding: 12px;
+      font-weight: 800;
+      font-size: 18px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.25);
+    }
+    .tile::before {
+      content: "";
+      position: absolute; inset: 0;
+      background: linear-gradient(transparent, rgba(10,16,24,.85));
+    }
+    .tile span { position: relative; }
+
+    /* donut 85/15 */
+    .money-wrap { display: flex; flex-wrap: wrap; gap: 22px; align-items: center; margin-top: 18px; }
+    .donut {
+      width: 200px; height: 200px;
+      border-radius: 50%;
+      background: conic-gradient(var(--teal) 0 85%, #c4a574 85% 100%);
+      display: grid; place-items: center;
+      box-shadow: 0 12px 40px rgba(0,0,0,.35);
+      flex-shrink: 0;
+    }
+    .donut i {
+      width: 118px; height: 118px;
+      background: #15202c;
+      border-radius: 50%;
+      display: grid; place-items: center;
+      text-align: center;
+      font-style: normal;
+      font-weight: 800;
+      line-height: 1.1;
+    }
+    .legend { display: grid; gap: 10px; min-width: 200px; }
+    .swatch { display: flex; gap: 10px; align-items: center; }
+    .swatch b { width: 14px; height: 14px; border-radius: 4px; display: block; }
+    .big { font-size: 42px; font-weight: 800; }
+
+    .steps { display: grid; gap: 0; margin-top: 18px; }
+    .step {
+      display: grid;
+      grid-template-columns: 56px 1fr;
+      gap: 12px;
+      padding: 10px 0;
+      border-left: 3px solid rgba(2,118,118,.7);
+      padding-left: 14px;
+      margin-left: 20px;
+    }
+    .num {
+      width: 56px; height: 56px;
+      margin-left: -45px;
+      border-radius: 50%;
+      background: var(--teal);
+      display: grid; place-items: center;
+      font-weight: 800; font-size: 20px;
+      box-shadow: 0 0 0 4px #15202c;
+    }
+
+    .funnel { display: grid; gap: 8px; margin-top: 18px; justify-items: center; }
+    .funnel div {
+      background: linear-gradient(90deg, var(--teal), #1a9a9a);
+      text-align: center;
+      padding: 12px 8px;
+      font-weight: 800;
+      border-radius: 10px;
+      box-shadow: 0 8px 20px rgba(0,0,0,.25);
+    }
+    .funnel .f1 { width: min(100%, 520px); }
+    .funnel .f2 { width: min(88%, 440px); background: linear-gradient(90deg, #1b6f7a, var(--teal)); }
+    .funnel .f3 { width: min(72%, 340px); background: linear-gradient(90deg, #c4a574, #8a6a3a); color: #1a140c; }
+    .funnel .f4 { width: min(56%, 250px); background: var(--navy); }
+
+    .compare { display: grid; gap: 10px; margin-top: 16px; }
+    @media (min-width: 720px) { .compare { grid-template-columns: 1fr 1fr; } }
+    .bad { background: rgba(140,40,40,.45); border: 1px solid rgba(255,160,160,.35); border-radius: 16px; padding: 16px; }
+    .good { background: rgba(2,118,118,.4); border: 1px solid rgba(160,230,220,.35); border-radius: 16px; padding: 16px; }
+    .bad h3, .good h3 { font-size: 15px; letter-spacing: .06em; text-transform: uppercase; margin-bottom: 8px; }
+    li { margin: 6px 0 0 18px; }
+
+    .nav {
+      position: fixed; left: 0; right: 0; bottom: 0; z-index: 10;
+      display: flex; align-items: center; gap: 8px;
+      padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+      background: linear-gradient(transparent, rgba(0,0,0,.75));
+    }
+    .nav button {
+      border: 0; background: var(--teal); color: #fff;
+      border-radius: 12px; padding: 12px 16px; font-weight: 800;
+    }
+    .dots { display: flex; gap: 6px; margin-left: 8px; flex-wrap: wrap; }
+    .dots i { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,.35); }
+    .dots i.on { background: #fff; width: 18px; border-radius: 8px; }
+    .counter { margin-left: auto; font-size: 13px; opacity: .85; }
+    .contact a { color: #9fe8e0; }
+    @media print {
+      .nav { display: none; }
+      .slide { display: block !important; page-break-after: always; min-height: 100vh; }
+    }
+  </style>
+</head>
+<body>
+  <section class="slide active" style="background-image:url('pitch-cover-sochi.png')">
+    <img class="logo" src="logo-on-dark.png" alt="Твой Тренер" />
+    <p class="kicker">Партнёрам · Сочи · Красная Поляна</p>
+    <h1>Ваше событие — на витрине, где уже ищут занятие</h1>
+    <p class="lead">Квадроциклы, море, спорт, туры. Карточка, запись, ЮKassa. Вам 85% с каждого оплатившего.</p>
+  </section>
+
+  <section class="slide" style="background-image:url('pitch-bg-ski.png')">
+    <p class="kicker">Боль</p>
+    <h2>Пустой слот дороже любой комиссии</h2>
+    <div class="compare">
+      <div class="bad">
+        <h3>Как часто сейчас</h3>
+        <ul>
+          <li>Запись в WhatsApp «кто есть»</li>
+          <li>Предоплата на карту</li>
+          <li>«Я перевёл / не перевёл»</li>
+          <li>Нет витрины в поиске</li>
+        </ul>
+      </div>
+      <div class="good">
+        <h3>Как с ТвойТренер.рф</h3>
+        <ul>
+          <li>Дата, место, цена — в карточке</li>
+          <li>Гость бронирует сам</li>
+          <li>Оплата через ЮKassa</li>
+          <li>Список участников у вас</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="slide" style="background-image:url('pitch-bg-sport.png')">
+    <p class="kicker">Кто мы</p>
+    <h2>Маркетплейс живых инструкторов и событий</h2>
+    <p class="lead">Не ИИ. Человек выбирает занятие рядом: персональный урок или группу. Вы — организатор в том же каталоге.</p>
+    <div class="grid four" style="margin-top:18px">
+      <div class="tile" style="background-image:url('pitch-bg-ski.png')"><span>Карта</span></div>
+      <div class="tile" style="background-image:url('pitch-bg-quad.png')"><span>Лента /events</span></div>
+      <div class="tile" style="background-image:url('pitch-bg-sea.png')"><span>Чат группы</span></div>
+      <div class="tile" style="background-image:url('pitch-cover-sochi.png')"><span>ЮKassa</span></div>
+    </div>
+  </section>
+
+  <section class="slide" style="background-image:url('pitch-bg-sea.png')">
+    <p class="kicker">Экономика</p>
+    <h2>Касса с каждого оплатившего гостя</h2>
+    <div class="money-wrap">
+      <div class="donut" aria-hidden="true"><i>круг<br>сделки</i></div>
+      <div class="legend">
+        <div class="swatch"><b style="background:var(--teal)"></b><div><span class="big">85%</span><div>вам после события</div></div></div>
+        <div class="swatch"><b style="background:#c4a574"></b><div><span class="big" style="font-size:28px">15%</span><div>комиссия площадки</div></div></div>
+        <p class="lead" style="margin-top:8px">Нет продаж через нас — нет комиссии. Своих гостей ведёте как раньше.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="slide" style="background-image:url('pitch-bg-quad.png')">
+    <p class="kicker">Форматы</p>
+    <h2>Если есть дата, место и цена — ставим</h2>
+    <div class="grid two">
+      <div class="tile" style="min-height:180px;background-image:url('pitch-bg-quad.png')"><span>Квадро · багги · джип</span></div>
+      <div class="tile" style="min-height:180px;background-image:url('pitch-bg-sea.png')"><span>Море · катер · сап</span></div>
+      <div class="tile" style="min-height:180px;background-image:url('pitch-bg-ski.png')"><span>Склоны · уроки · группы</span></div>
+      <div class="tile" style="min-height:180px;background-image:url('pitch-bg-sport.png')"><span>Тренировки · туры</span></div>
+    </div>
+  </section>
+
+  <section class="slide" style="background-image:url('pitch-cover-sochi.png')">
+    <p class="kicker">Запуск за визит</p>
+    <h2>Четыре шага — можно сегодня</h2>
+    <div class="steps">
+      <div class="step"><div class="num">1</div><div class="glass"><strong>Анкета</strong><br>твойтренер.рф/instructor/apply · НПД или ИП</div></div>
+      <div class="step"><div class="num">2</div><div class="glass"><strong>Карточка</strong><br>дата, точка старта, цена, места, фото — заполним с буклета</div></div>
+      <div class="step"><div class="num">3</div><div class="glass"><strong>Публикация</strong><br>модерация → лента событий и профиль</div></div>
+      <div class="step"><div class="num">4</div><div class="glass"><strong>Записи</strong><br>гости бронируют, вы видите список, выплата после события</div></div>
+    </div>
+  </section>
+
+  <section class="slide" style="background-image:url('pitch-bg-sport.png')">
+    <p class="kicker">Откуда гости</p>
+    <h2>Не «тысяча туристов завтра» — живая воронка</h2>
+    <div class="funnel">
+      <div class="f1">Поиск Сочи / Поляна + страница /events</div>
+      <div class="f2">Карточка: дата · место · цена</div>
+      <div class="f3">Запись и оплата ЮKassa</div>
+      <div class="f4">Вы на маршруте · 85%</div>
+    </div>
+    <p class="lead">Плюс ваша стойка: одна ссылка вместо новой переписки с каждым.</p>
+  </section>
+
+  <section class="slide" style="background-image:url('pitch-bg-ski.png')">
+    <p class="kicker">С собой на встречу</p>
+    <h2>С этим карточку соберём на месте</h2>
+    <div class="grid two">
+      <div class="glass">Название и что входит в цену</div>
+      <div class="glass">Ближайшие даты и длительность</div>
+      <div class="glass">Точка старта (причал, прокат, склон)</div>
+      <div class="glass">Цена с человека / группа, лимит мест</div>
+      <div class="glass">2–3 живых фото, не сток</div>
+      <div class="glass">Почта Mail.ru / Яндекс + телефон</div>
+    </div>
+  </section>
+
+  <section class="slide contact" style="background-image:url('pitch-cover-sochi.png')">
+    <img class="logo" src="logo-on-dark.png" alt="Твой Тренер" />
+    <p class="kicker">Следующий шаг</p>
+    <h2>Первое событие — на эту неделю</h2>
+    <div class="grid two" style="max-width:640px">
+      <div class="glass"><strong>Сайт</strong><br><a href="https://xn--b1agaovdpdkd.xn--p1ai/">твойтренер.рф</a><br><a href="https://xn--b1agaovdpdkd.xn--p1ai/events">/events</a></div>
+      <div class="glass"><strong>Анкета</strong><br><a href="https://xn--b1agaovdpdkd.xn--p1ai/instructor/apply">/instructor/apply</a></div>
+      <div class="glass"><strong>Тел.</strong><br>+7 910 356-44-19</div>
+      <div class="glass"><strong>Почта</strong><br>tvoitrenerrf@yandex.ru</div>
+    </div>
+  </section>
+
+  <nav class="nav">
+    <button type="button" id="prev">Назад</button>
+    <button type="button" id="next">Дальше</button>
+    <span class="dots" id="dots"></span>
+    <span class="counter" id="counter"></span>
+  </nav>
+  <script>
+    const slides = [...document.querySelectorAll(".slide")];
+    const dots = document.getElementById("dots");
+    slides.forEach((_, idx) => {
+      const i = document.createElement("i");
+      i.onclick = () => show(idx);
+      dots.appendChild(i);
+    });
+    let n = 0;
+    function show(i) {
+      n = Math.max(0, Math.min(slides.length - 1, i));
+      slides.forEach((s, idx) => s.classList.toggle("active", idx === n));
+      [...dots.children].forEach((d, idx) => d.classList.toggle("on", idx === n));
+      document.getElementById("counter").textContent = (n + 1) + " / " + slides.length;
+    }
+    document.getElementById("prev").onclick = () => show(n - 1);
+    document.getElementById("next").onclick = () => show(n + 1);
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowRight" || e.key === " ") { e.preventDefault(); show(n + 1); }
+      if (e.key === "ArrowLeft") show(n - 1);
+    });
+    let x0 = null;
+    document.addEventListener("touchstart", (e) => { x0 = e.changedTouches[0].clientX; }, { passive: true });
+    document.addEventListener("touchend", (e) => {
+      if (x0 == null) return;
+      const dx = e.changedTouches[0].clientX - x0;
+      if (dx < -40) show(n + 1);
+      if (dx > 40) show(n - 1);
+      x0 = null;
+    });
+    show(0);
+  </script>
+</body>
+</html>

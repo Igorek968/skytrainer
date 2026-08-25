@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Коммерческое предложение — перевозчикам | ТвойТренер.рф</title>
+  <style>
+    :root {
+      --teal: #027676;
+      --navy: #2E3E55;
+      --line: #d5ddd9;
+      --muted: #5c6770;
+      --paper: #f7f8f6;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--paper);
+      color: var(--navy);
+      font-family: "Segoe UI", "PT Sans", Arial, sans-serif;
+      line-height: 1.45;
+    }
+    .sheet {
+      max-width: 210mm;
+      margin: 16px auto 40px;
+      background: #fff;
+      padding: 18mm 18mm 16mm;
+      box-shadow: 0 8px 32px rgba(46, 62, 85, 0.08);
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: flex-start;
+      border-bottom: 3px solid var(--teal);
+      padding-bottom: 14px;
+    }
+    .logo { height: 52px; width: auto; }
+    .meta { text-align: right; font-size: 12px; color: var(--muted); }
+    .meta strong { color: var(--navy); font-size: 13px; }
+    h1 {
+      font-size: 22px;
+      line-height: 1.25;
+      margin: 18px 0 8px;
+    }
+    h2 {
+      font-size: 14px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--teal);
+      margin: 22px 0 8px;
+    }
+    p, li { font-size: 13.5px; }
+    .kicker {
+      display: inline-block;
+      background: var(--teal);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: 4px 9px;
+      border-radius: 4px;
+    }
+    .copy-box {
+      background: #eef6f5;
+      border: 1px dashed var(--teal);
+      padding: 12px 14px;
+      margin: 16px 0;
+      font-size: 12.5px;
+    }
+    .copy-box b { display: block; margin-bottom: 6px; color: var(--teal); }
+    table.econ {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 8px 0 4px;
+      font-size: 13.5px;
+    }
+    table.econ th, table.econ td {
+      border: 1px solid var(--line);
+      padding: 8px 10px;
+      text-align: left;
+    }
+    table.econ th { background: #f0f5f4; }
+    .num { font-size: 28px; font-weight: 800; color: var(--teal); line-height: 1; }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .tile {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px 12px;
+    }
+    .tile strong { display: block; margin-bottom: 4px; }
+    ol { padding-left: 18px; }
+    footer {
+      margin-top: 22px;
+      padding-top: 12px;
+      border-top: 1px solid var(--line);
+      font-size: 12px;
+      color: var(--muted);
+    }
+    a { color: var(--teal); }
+    .cta {
+      display: inline-block;
+      margin: 8px 0 4px;
+      background: var(--teal);
+      color: #fff !important;
+      text-decoration: none;
+      font-weight: 700;
+      font-size: 14px;
+      padding: 10px 16px;
+      border-radius: 6px;
+      line-height: 1.35;
+    }
+    .cta-url {
+      display: block;
+      margin-top: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      color: #fff;
+      word-break: break-all;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+    .print-hint { font-size: 12px; color: var(--muted); margin: 12px auto; max-width: 210mm; text-align: center; }
+    @media print {
+      body { background: #fff; }
+      .print-hint, .copy-box { display: none; }
+      .sheet { margin: 0; box-shadow: none; padding: 12mm; }
+    }
+    @media (max-width: 700px) {
+      .sheet { margin: 0; padding: 16px; }
+      .grid { grid-template-columns: 1fr; }
+      header { flex-direction: column; }
+      .meta { text-align: left; }
+    }
+  </style>
+</head>
+<body>
+  <p class="print-hint">Откройте в браузере → Ctrl+P → «Сохранить как PDF» и приложите к письму. Текст письма — в файле <code>predlozhenie-perevozchikam-pismo.md</code>.</p>
+  <article class="sheet">
+    <header>
+      <img class="logo" src="logo-tvoytrener-official.png" alt="Твой Тренер" width="220" height="68" />
+      <div class="meta">
+        <strong>ООО «ТВОЙТРЕНЕР»</strong><br />
+        ИНН 2378001540 · ОГРН 1262300030640<br />
+        Сочи, ул. Урожайная, 35/2<br />
+        <a href="https://xn--b1agaovdpdkd.xn--p1ai">https://твойтренер.рф</a><br />
+        Валерия · +7 919 279-35-77<br />
+        tvoitrenerrf@yandex.ru
+      </div>
+    </header>
+
+    <p class="kicker">Коммерческое предложение</p>
+    <p style="font-size:12px;color:var(--muted);margin:8px 0 0">Исх. № КП-СОБ-2026 · для перевозчиков и организаторов выездов</p>
+
+    <h1>Перенесите регулярные выезды на ТвойТренер.рф —<br />запись и оплата онлайн, вам 85% с каждого оплатившего</h1>
+    <p>
+      Предлагаем вашей компании разместить расписание выездов (трансферы, джип-туры, квадроциклы,
+      катера, группы) карточками событий на маркетплейсе <strong>ТвойТренер.рф</strong>.
+      Гость видит дату, место и цену, записывается и платит через ЮKassa. Вы получаете список
+      участников и белую оплату. Комиссия площадки — только с тех, кто пришёл через нас.
+    </p>
+
+    <h2>Зачем это перевозчику</h2>
+    <div class="grid">
+      <div class="tile">
+        <strong>Пустые места в слоте</strong>
+        Непроданный квадроцикл, свободное кресло в джипе или на катере в этот час — прямые потери.
+        Карточка на сайте добирает участников с поиска и с карты инструкторов.
+      </div>
+      <div class="tile">
+        <strong>Хаос в мессенджерах</strong>
+        «Напишите в WhatsApp», переводы «на карту», споры «я оплатил». На площадке — запись,
+        список и онлайн-оплата без ручной сверки.
+      </div>
+      <div class="tile">
+        <strong>Турист уже ищет занятие</strong>
+        Часть аудитории ТвойТренер.рф — гости Сочи и Красной Поляны, которые выбирают инструктора
+        и событие с датой. Ваш выезд оказывается в том же контуре, а не только в своей ленте.
+      </div>
+      <div class="tile">
+        <strong>Свои каналы остаются своими</strong>
+        Инстаграм, стойка, постоянники — как работали, так и работают. Площадка — дополнительная
+        витрина. Нет продаж через нас — нет комиссии.
+      </div>
+    </div>
+
+    <h2>Что переносится на сайт</h2>
+    <p>Не «весь бизнес», а <strong>конкретные выезды</strong> с датой и местом, например:</p>
+    <ul>
+      <li>регулярные джип-туры и трансферы по расписанию;</li>
+      <li>группы на квадроциклах / багги;</li>
+      <li>морские прогулки и катера;</li>
+      <li>сборные выезды, когда нужно добрать группу до минимума.</li>
+    </ul>
+    <p>
+      Карточка события: название, дата и время, место сбора, цена, фото, организатор.
+      Публикация после модерации. Гость бронирует слот на
+      <a href="https://xn--b1agaovdpdkd.xn--p1ai/events">https://твойтренер.рф/events</a>.
+    </p>
+
+    <h2>Экономика</h2>
+    <table class="econ">
+      <tr><th>После проведения оплаченного события</th><th>Доля</th></tr>
+      <tr><td>Вам (организатору / перевозчику)</td><td><span class="num">85%</span></td></tr>
+      <tr><td>Комиссия агента (площадка ТвойТренер.рф)</td><td><span class="num">15%</span></td></tr>
+    </table>
+    <p>
+      15% считаются только с участия, оплаченного через ЮKassa на сайте. Своих гостей, наличку
+      и прямые продажи вы ведёте как раньше. Выплата — после проведения события, по агентской оферте
+      (нужны статус самозанятого, ИП или юрлица).
+    </p>
+
+    <h2>Как запускаем</h2>
+    <p>
+      <a class="cta" href="https://xn--b1agaovdpdkd.xn--p1ai/landings/prichodi/leragaidar">
+        Перейти на ТвойТренер.рф и подключиться
+        <span class="cta-url">https://твойтренер.рф/landings/prichodi/leragaidar</span>
+      </a>
+    </p>
+    <ol>
+      <li>Откройте посадочную и оставьте заявку организатора:
+        <a href="https://xn--b1agaovdpdkd.xn--p1ai/landings/prichodi/leragaidar">https://твойтренер.рф/landings/prichodi/leragaidar</a></li>
+      <li>Карточка 1–3 ближайших выездов (дата, цена, место, фото). Можем заполнить вместе по вашему прайсу.</li>
+      <li>Модерация и публикация в каталоге событий.</li>
+      <li>Гость записывается и оплачивает онлайн; вам — список и напоминания.</li>
+      <li>После выезда — расчёт 85 / 15.</li>
+    </ol>
+
+    <h2>Пилотный шаг</h2>
+    <p>
+      Предлагаем поставить на площадку <strong>два-три ближайших слота</strong> (эта или следующая неделя)
+      и сравнить добор группы с привычным каналом. Срок ответа на это письмо — удобно в течение
+      <strong>пяти рабочих дней</strong>: назначим созвон 20 минут или заполним карточки по переписке.
+    </p>
+
+    <h2>Контакты для ответа</h2>
+    <p>
+      Контактное лицо: <strong>Валерия</strong><br />
+      Тел. / WhatsApp: <strong>+7 919 279-35-77</strong><br />
+      Почта: <a href="mailto:tvoitrenerrf@yandex.ru">tvoitrenerrf@yandex.ru</a><br />
+      Подключение: <a href="https://xn--b1agaovdpdkd.xn--p1ai/landings/prichodi/leragaidar">https://твойтренер.рф/landings/prichodi/leragaidar</a><br />
+      Каталог событий: <a href="https://xn--b1agaovdpdkd.xn--p1ai/events">https://твойтренер.рф/events</a>
+    </p>
+
+    <div class="copy-box">
+      <b>Тема письма (скопируйте)</b>
+      Партнёрство: ваши выезды на ТвойТренер.рф — запись онлайн, вам 85%
+    </div>
+
+    <footer>
+      ООО «ТВОЙТРЕНЕР» · маркетплейс персональных тренировок и событий · агентская модель.
+      Оферта организатора: <a href="https://xn--b1agaovdpdkd.xn--p1ai/oferta-instructor">https://твойтренер.рф/oferta-instructor</a>.
+      Настоящий документ — приглашение к переговорам, не публичная оферта.
+    </footer>
+  </article>
+</body>
+</html>
