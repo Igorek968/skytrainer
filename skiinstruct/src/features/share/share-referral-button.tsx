@@ -2,10 +2,14 @@
 
 import { Copy, Share2 } from "lucide-react";
 import { toast } from "sonner";
-import type { ComponentProps } from "react";
+import { useEffect, useState, type ComponentProps } from "react";
 
 import { Button } from "@/shared/ui/button";
-import { shareOrCopyReferralLink } from "@/features/share/share-referral";
+import {
+  canUseWebShare,
+  copyReferralLink,
+  shareOrCopyReferralLink,
+} from "@/features/share/share-referral";
 
 type ShareReferralButtonProps = {
   referralLink: string;
@@ -23,11 +27,21 @@ export function ShareReferralButton({
   className,
   showCopyButton = false,
 }: ShareReferralButtonProps) {
+  const [canNativeShare, setCanNativeShare] = useState(false);
+
+  useEffect(() => {
+    setCanNativeShare(canUseWebShare());
+  }, []);
+
   async function onShare() {
     if (!referralLink) return;
     try {
       const result = await shareOrCopyReferralLink(referralLink);
-      toast.success(result === "shared" ? "Ссылка отправлена" : "Ссылка скопирована");
+      toast.success(
+        result === "shared"
+          ? "Ссылка отправлена"
+          : "Ссылка скопирована — вставьте в чат или письмо",
+      );
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") return;
       toast.error("Не удалось поделиться ссылкой");
@@ -37,15 +51,12 @@ export function ShareReferralButton({
   async function onCopy() {
     if (!referralLink) return;
     try {
-      await navigator.clipboard.writeText(referralLink);
-      toast.success("Ссылка скопирована");
+      await copyReferralLink(referralLink);
+      toast.success("Ссылка скопирована — вставьте в чат или письмо");
     } catch {
       toast.error("Не удалось скопировать");
     }
   }
-
-  const canNativeShare =
-    typeof navigator !== "undefined" && typeof navigator.share === "function";
 
   return (
     <div className={className ? `flex flex-wrap gap-2 ${className}` : "flex flex-wrap gap-2"}>

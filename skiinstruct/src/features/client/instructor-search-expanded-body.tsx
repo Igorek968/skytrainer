@@ -51,6 +51,8 @@ export function InstructorSearchExpandedBody({
   const p = ins.profile;
   const avatarUrl = instructorExpandedAvatar(ins);
   const bioTrim = p.bio?.trim() ?? "";
+  const categoryLabel =
+    p.certifications.filter(Boolean).join(", ").trim() || p.certificationLevel?.trim() || "";
   const showBioSection =
     Boolean(bioTrim) && !isSyntheticInstructorBioLine(p.bio, p.specializations);
   const gallery = p.photoGallery.filter((ph) => ph?.trim());
@@ -100,14 +102,12 @@ export function InstructorSearchExpandedBody({
           <div>
             <p className="text-base font-semibold">{ins.name}</p>
             <p className="text-xs text-muted-foreground">
-              {p.certificationLevel?.trim() ? (
+              {categoryLabel ? (
                 <>
                   <span className="font-medium text-foreground">Категория · </span>
-                  {p.certificationLevel}
+                  {categoryLabel}
                 </>
-              ) : (
-                "Категория не указана"
-              )}
+              ) : null}
               {p.isOnline ? (
                 <span className="ml-2 rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200">
                   на линии
@@ -148,18 +148,16 @@ export function InstructorSearchExpandedBody({
         </p>
       </div>
 
-      <div className="grid gap-2 md:grid-cols-2">
-        <div className="rounded-md bg-muted/60 p-2 text-xs">
-          <p className="inline-flex items-center gap-1 font-medium">
-            <ShieldCheck className="h-3.5 w-3.5" />
-            Категория
-          </p>
-          <p className="mt-1">
-            {p.certifications.length
-              ? p.certifications.join(", ")
-              : p.certificationLevel?.trim() || "Не указано"}
-          </p>
-        </div>
+      <div className={cn("grid gap-2", categoryLabel ? "md:grid-cols-2" : "")}>
+        {categoryLabel ? (
+          <div className="rounded-md bg-muted/60 p-2 text-xs">
+            <p className="inline-flex items-center gap-1 font-medium">
+              <ShieldCheck className="h-3.5 w-3.5" />
+              Категория
+            </p>
+            <p className="mt-1">{categoryLabel}</p>
+          </div>
+        ) : null}
         <div className="rounded-md bg-muted/60 p-2 text-xs">
           <p className="inline-flex items-center gap-1 font-medium">
             <Award className="h-3.5 w-3.5" />

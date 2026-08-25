@@ -53,7 +53,6 @@ import { DEFAULT_PLACEHOLDER_BIO } from "@/lib/instructor-profile-defaults";
 const instructorFetch = (input: RequestInfo | URL, init?: RequestInit) =>
   fetch(input, { ...init, credentials: "include" });
 
-const CATEGORY_OPTIONS = ["A", "B", "C", "D"];
 const SKILL_LEVEL_OPTIONS = ["Для начинающих", "Средний", "Продвинутый", "Эксперт"];
 const LANGUAGE_OPTIONS = ["Русский", "English", "Deutsch", "Français", "Italiano"];
 const SERVICE_OPTIONS = [
@@ -92,7 +91,6 @@ const INSTRUCTOR_PANEL_SECTIONS = [
 type PanelSectionId = (typeof INSTRUCTOR_PANEL_SECTIONS)[number]["id"];
 
 type ProfileField =
-  | "certificationLevel"
   | "languagesRaw"
   | "specializationOffers"
   | "age"
@@ -356,7 +354,6 @@ export default function InstructorHomePage() {
   const [lastName, setLastName] = useState("");
   const [nickname, setNickname] = useState("");
   const [bio, setBio] = useState("");
-  const [certificationLevel, setCertificationLevel] = useState("");
   const [skillLevelsRaw, setSkillLevelsRaw] = useState("");
   const [languagesRaw, setLanguagesRaw] = useState("");
   const [specializationOffers, setSpecializationOffers] = useState<SpecializationOffer[]>([]);
@@ -526,7 +523,6 @@ export default function InstructorHomePage() {
     setNickname(data.profile.nickname ?? "");
     const loadedBio = data.profile.bio ?? "";
     setBio(loadedBio.trim() === DEFAULT_PLACEHOLDER_BIO ? "" : loadedBio);
-    setCertificationLevel(data.profile.certificationLevel ?? "");
     setSkillLevelsRaw(data.profile.skillLevels.join(", "));
     setLanguagesRaw(data.profile.languages.join(", "));
     setSpecializationOffers(
@@ -616,7 +612,6 @@ export default function InstructorHomePage() {
       return { ok: false, availabilitySlots: normalizeAvailabilitySlots(availabilitySlots) };
     }
 
-    if (!certificationLevel.trim()) errors.certificationLevel = "Укажите категорию";
     if (!languagesRaw.trim()) errors.languagesRaw = "Укажите хотя бы один язык";
     const filledOffers = filledSpecializationOffers(specializationOffers);
     if (!filledOffers.length) {
@@ -692,8 +687,6 @@ export default function InstructorHomePage() {
         .split(",")
         .map((s) => s.trim())
         .filter(Boolean);
-      const certLevel = certificationLevel.trim();
-      const certifications = certLevel ? [certLevel] : [];
       const skillLevels = skillLevelsRaw
         .split(",")
         .map((s) => s.trim())
@@ -721,8 +714,6 @@ export default function InstructorHomePage() {
           firstName: firstName.trim(),
           lastName: lastName.trim(),
           bio,
-          certificationLevel,
-          certifications,
           skillLevels,
           languages,
           specializationOffers: offersToSave,
@@ -1049,32 +1040,6 @@ export default function InstructorHomePage() {
                 ) : displayNameDuplicate.checking && firstName.trim() && lastName.trim() ? (
                   <p className="md:col-span-2 text-xs text-muted-foreground">Проверка имени…</p>
                 ) : null}
-                <div className="space-y-2">
-                  <Label htmlFor="cert">Категория</Label>
-                  <select
-                    id="cert"
-                    value={certificationLevel}
-                    onChange={(e) => setCertificationLevel(e.target.value)}
-                    className={cn(
-                      "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-                      fieldErrors.certificationLevel && "border-destructive ring-destructive",
-                    )}
-                  >
-                    <option value="">Выберите категорию</option>
-                    {CATEGORY_OPTIONS.map((opt) => (
-                      <option key={opt} value={opt}>
-                        {opt}
-                      </option>
-                    ))}
-                    {certificationLevel &&
-                    !CATEGORY_OPTIONS.includes(certificationLevel) ? (
-                      <option value={certificationLevel}>{certificationLevel}</option>
-                    ) : null}
-                  </select>
-                  {fieldErrors.certificationLevel ? (
-                    <p className="text-xs text-destructive">{fieldErrors.certificationLevel}</p>
-                  ) : null}
-                </div>
               </div>
               <div className="grid gap-4 md:grid-cols-3">
                 <div className="space-y-2">
