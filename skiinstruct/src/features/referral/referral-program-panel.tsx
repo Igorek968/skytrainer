@@ -1,9 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { ShareReferralButton } from "@/features/share/share-referral-button";
+import { LEGAL_ROUTES } from "@/lib/legal";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
@@ -141,6 +143,24 @@ export function ReferralProgramPanel({
         Код: <span className="font-mono text-foreground">{data.referralCode}</span>. Ссылки не меняются
         до окончания программы.
       </p>
+
+      <div className="space-y-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-3 text-xs leading-relaxed text-amber-950 dark:text-amber-100">
+        <p className="font-medium">Правила размещения ссылок</p>
+        <p>
+          Можно: личные сообщения, Telegram, VK и другие площадки, где реклама услуг в России не запрещена.
+        </p>
+        <p>
+          Нельзя: Instagram, Facebook, Threads (Meta) — рилсы, сторис, посты и любой призыв регистрироваться на
+          ТвойТренер.рф. С 1 сентября 2025 реклама там запрещена законом, даже с личного аккаунта.
+        </p>
+        <p>
+          Если приглашение пришло с такой рекламы, вознаграждение можем не начислить. Подробнее — в{" "}
+          <Link href={`${LEGAL_ROUTES.oferta}#referral`} className="underline underline-offset-2">
+            оферте, п. 9.4
+          </Link>
+          .
+        </p>
+      </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-2 rounded-md border border-border bg-muted/15 p-3">

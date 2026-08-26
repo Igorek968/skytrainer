@@ -11,6 +11,7 @@ import {
   snapshotProfileToDraft,
 } from "@/lib/instructor-profile-draft";
 import { prisma } from "@/lib/prisma";
+import { formatAcquisitionSource, isAcquisitionRestricted } from "@/lib/restricted-social-traffic";
 import { PRODUCT_NAME } from "@/shared/lib/product";
 import { orderStatusLabel } from "@/shared/lib/order-status";
 
@@ -698,12 +699,8 @@ export async function GET(req: Request) {
             rawDraft?.acquisition && typeof rawDraft.acquisition === "object" && !Array.isArray(rawDraft.acquisition)
               ? (rawDraft.acquisition as Record<string, unknown>)
               : null;
-          const acquisitionSource = acq
-            ? [acq.utm_source, acq.utm_medium, acq.utm_campaign, acq.utm_content, acq.utm_term]
-                .map((x) => (typeof x === "string" ? x.trim() : ""))
-                .filter(Boolean)
-                .join(" / ") || null
-            : null;
+          const acquisitionSource = formatAcquisitionSource(acq);
+          const acquisitionRestricted = isAcquisitionRestricted(acq);
           return {
             userId: p.userId,
             email: p.user.email,
@@ -714,6 +711,7 @@ export async function GET(req: Request) {
             inn: p.inn,
             certificationLevel: p.certificationLevel,
             acquisitionSource,
+            acquisitionRestricted,
             moderationKind,
             profileDraftSubmittedAt: p.profileDraftSubmittedAt?.toISOString() ?? null,
             ...(profileChanges?.length ? { profileChanges } : {}),

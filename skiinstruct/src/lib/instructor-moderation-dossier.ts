@@ -3,6 +3,7 @@ import { computeComplianceFlags } from "@/lib/instructor-compliance";
 import { parseProfileDraft } from "@/lib/instructor-profile-draft";
 import { prisma } from "@/lib/prisma";
 import { readSensitiveUpload } from "@/lib/private-uploads";
+import { formatAcquisitionSource } from "@/lib/restricted-social-traffic";
 import { resolveSensitiveUploadDisplaySrc } from "@/lib/sensitive-upload-urls";
 
 export type InstructorModerationDocument = {
@@ -160,12 +161,7 @@ export async function fetchInstructorModerationDossier(
     user.name?.trim() ||
     user.email;
 
-  const acquisitionSource = acq
-    ? [acq.utm_source, acq.utm_medium, acq.utm_campaign, acq.utm_content, acq.utm_term]
-        .map((x) => (typeof x === "string" ? x.trim() : ""))
-        .filter(Boolean)
-        .join(" / ") || null
-    : null;
+  const acquisitionSource = formatAcquisitionSource(acq);
 
   let moderationKind: InstructorModerationDossier["moderationKind"] = "NONE";
   if (p.verificationStatus !== "APPROVED") moderationKind = "NEW_ACCOUNT";

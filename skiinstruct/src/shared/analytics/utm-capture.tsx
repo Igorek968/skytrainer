@@ -3,6 +3,8 @@
 import { useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 
+import { readStoredRestrictedTraffic } from "@/shared/analytics/restricted-traffic-capture";
+
 const UTM_KEYS = [
   "utm_source",
   "utm_medium",
@@ -75,6 +77,20 @@ export function resolveUtmForForm(searchParams: SearchParamsLike): CapturedUtm {
     return fromUrl;
   }
   return fromStorage;
+}
+
+/** UTM + first-touch запрещённых соцсетей для скрытых полей анкеты. */
+export function resolveAcquisitionForForm(searchParams: SearchParamsLike): Record<string, string> {
+  const utm = resolveUtmForForm(searchParams);
+  const traffic = readStoredRestrictedTraffic();
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(utm)) {
+    if (v) out[k] = v;
+  }
+  for (const [k, v] of Object.entries(traffic)) {
+    if (v && !out[k]) out[k] = v;
+  }
+  return out;
 }
 
 /** Сохраняет UTM из URL в sessionStorage (first-touch) для сквозной аналитики. */

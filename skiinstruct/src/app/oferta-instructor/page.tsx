@@ -284,7 +284,7 @@ export default function InstructorAgencyOfferPage() {
         </p>
       </section>
 
-      <section className="space-y-3">
+      <section id="referral" className="space-y-3">
         <h2 className="text-lg font-semibold">10. Реферальная программа</h2>
         <p className="text-muted-foreground">
           10.1. Инструктор вправе участвовать в реферальной программе (ссылка с параметром{" "}
@@ -296,6 +296,12 @@ export default function InstructorAgencyOfferPage() {
           <strong>{REFERRAL_MAX_ORDERS_PER_CLIENT}</strong> завершённых оплаченных заказов приглашённого клиента;
           вывод баланса — от <strong>{PAYOUT_MIN_WITHDRAWAL_RUB} ₽</strong>. Налоговые обязательства по выплатам несёт
           получатель. Исполнитель вправе изменять или прекращать программу с публикацией на Сайте.
+        </p>
+        <p className="text-muted-foreground">
+          10.3. Ссылку можно направлять в личных сообщениях, в Telegram, VK и на площадках, где реклама услуг в РФ не
+          запрещена. <strong>Запрещено</strong> рекламировать Платформу и реферальную программу в Instagram, Facebook,
+          Threads и на иных ресурсах, реклама на которых запрещена законом. За приглашения с таких размещений
+          вознаграждение может не начисляться.
         </p>
       </section>
 

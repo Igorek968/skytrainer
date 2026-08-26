@@ -11,6 +11,7 @@ import {
 } from "@/lib/role-route-access";
 import { isAdminStaffRole } from "@/lib/admin-staff";
 import { attachReferralCookie } from "@/lib/referral-cookie";
+import { attachRestrictedTrafficCookie } from "@/lib/restricted-social-traffic-cookie";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import type { UserRole } from "@prisma/client";
@@ -63,7 +64,7 @@ function httpsRedirect(req: NextRequest): NextResponse | null {
 }
 
 function withRefCookie(req: NextRequest, res: NextResponse): NextResponse {
-  return attachReferralCookie(req, res);
+  return attachRestrictedTrafficCookie(req, attachReferralCookie(req, res));
 }
 
 /**

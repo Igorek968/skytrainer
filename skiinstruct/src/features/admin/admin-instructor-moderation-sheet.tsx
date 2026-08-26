@@ -17,11 +17,21 @@ type Props = {
   onRejected?: () => void;
 };
 
-function Field({ label, value }: { label: string; value: string | null | undefined }) {
+function Field({
+  label,
+  value,
+  warn,
+}: {
+  label: string;
+  value: string | null | undefined;
+  warn?: boolean;
+}) {
   return (
     <div className="min-w-0">
       <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</dt>
-      <dd className="break-words text-sm text-foreground">{value?.trim() || "—"}</dd>
+      <dd className={cn("break-words text-sm", warn ? "text-destructive" : "text-foreground")}>
+        {value?.trim() || "—"}
+      </dd>
     </div>
   );
 }
@@ -254,7 +264,11 @@ export function AdminInstructorModerationSheet({ userId, onClose, onRejected }: 
                   <div className="sm:col-span-2">
                     <Field label="О себе" value={data.profile.bio} />
                   </div>
-                  <Field label="Источник заявки" value={data.acquisitionSource} />
+                  <Field
+                    label="Источник заявки"
+                    value={data.acquisitionSource}
+                    warn={Boolean(data.acquisitionSource?.includes("⚠"))}
+                  />
                   <Field
                     label="Реквизиты выплат (маска)"
                     value={data.contract.payoutAccountHint}

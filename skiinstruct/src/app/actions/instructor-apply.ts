@@ -1,12 +1,16 @@
 "use server";
 
-import { headers } from "next/headers";
+import { headers, cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { signOut } from "@/auth";
 import { credentialsSignInNoRedirect, isNextRedirect } from "@/lib/credentials-sign-in-core";
 import { createInstructorApplication } from "@/lib/instructor-application";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
+import {
+  TRAFFIC_SOURCE_COOKIE_NAME,
+  mergeAcquisitionWithRestrictedTraffic,
+} from "@/lib/restricted-social-traffic";
 import { captchaTokenFromFormData, verifyTurnstileToken } from "@/lib/security/captcha";
 
 export type InstructorApplyState = {
@@ -55,10 +59,25 @@ async function instructorApplyActionInner(formData: FormData): Promise<Instructo
     taxStatusRaw === "IP" ? ("IP" as const) : taxStatusRaw === "SELF_EMPLOYED" ? ("SELF_EMPLOYED" as const) : undefined;
 
   const acquisition: Record<string, string> = {};
-  for (const key of ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term"] as const) {
+  for (const key of [
+    "utm_source",
+    "utm_medium",
+    "utm_campaign",
+    "utm_content",
+    "utm_term",
+    "restricted_social",
+    "traffic_evidence",
+    "traffic_referrer",
+  ] as const) {
     const v = String(formData.get(key) ?? "").trim();
     if (v) acquisition[key] = v.slice(0, 200);
   }
+  const cookieStore = await cookies();
+  const mergedAcquisition = mergeAcquisitionWithRestrictedTraffic(acquisition, {
+    referer: h.get("referer") ?? h.get("referrer"),
+    userAgent: h.get("user-agent"),
+    cookie: cookieStore.get(TRAFFIC_SOURCE_COOKIE_NAME)?.value,
+  });
 
   const created = await createInstructorApplication({
     email: String(formData.get("email") ?? ""),
@@ -91,7 +110,7 @@ async function instructorApplyActionInner(formData: FormData): Promise<Instructo
       const f = formData.get("taxDocumentScan");
       return f instanceof File && f.size > 0 ? f : null;
     })(),
-    acquisition: Object.keys(acquisition).length > 0 ? acquisition : undefined,
+    acquisition: Object.keys(mergedAcquisition).length > 0 ? mergedAcquisition : undefined,
   });
 
   if (!created.ok) {

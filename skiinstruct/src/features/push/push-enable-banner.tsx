@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 import {
   getWebPushUiMode,
+  isIosDevice,
   isWebPushAvailable,
   subscribeWebPush,
   syncWebPushSubscription,
@@ -18,6 +19,44 @@ type Props = {
   audience?: "instructor" | "client" | "admin";
   className?: string;
 };
+
+/** Браузер уже ответил «запретить» — в кабинете сайта включить нельзя. */
+function deniedHelp() {
+  if (typeof navigator === "undefined") {
+    return {
+      lead: "Это не меню кабинета: уведомления запретил браузер.",
+      steps: [] as string[],
+    };
+  }
+  if (isIosDevice()) {
+    return {
+      lead: "Это не пункт кабинета на сайте. Разрешение выдаёт iPhone.",
+      steps: [
+        "Откройте приложение «Настройки» на телефоне (серая шестерёнка), не меню сайта",
+        "Уведомления → найдите «ТвойТренер»",
+        "Включите «Допуск уведомлений» и вернитесь в кабинет",
+      ],
+    };
+  }
+  if (/Android/i.test(navigator.userAgent || "")) {
+    return {
+      lead: "Это не пункт кабинета на сайте. Браузер ранее нажал «Блокировать» для твойтренер.рф.",
+      steps: [
+        "Нажмите замочек слева от адреса сайта",
+        "Разрешения → Уведомления → Разрешить",
+        "Обновите страницу",
+      ],
+    };
+  }
+  return {
+    lead: "Это не пункт кабинета на сайте. Браузер ранее запретил уведомления для твойтренер.рф — внутри личного кабинета их включить нельзя.",
+    steps: [
+      "Нажмите замочек или значок настроек слева от адреса в строке браузера",
+      "Уведомления → Разрешить",
+      "Обновите страницу",
+    ],
+  };
+}
 
 async function resolveMode(): Promise<WebPushUiMode> {
   const mode = getWebPushUiMode();
@@ -180,14 +219,13 @@ export function PushEnableBanner({ audience = "instructor", className }: Props) 
     );
   }
 
+  const denied = mode === "denied" ? deniedHelp() : null;
   const message =
-    mode === "denied"
-      ? "Уведомления заблокированы. Настройки → уведомления → ТвойТренер → разрешите."
-      : audience === "instructor"
-        ? "Нажмите «Включить уведомления» и разрешите в системном окне iPhone — иначе заявки на события не придут, пока кабинет закрыт."
-        : audience === "admin"
-          ? "Включите push: модерация, выплаты, поддержка и претензии — даже когда кабинет закрыт."
-          : "Включите уведомления, чтобы не пропускать сообщения и напоминания.";
+    audience === "instructor"
+      ? "Нажмите «Включить уведомления» и разрешите в системном окне iPhone — иначе заявки на события не придут, пока кабинет закрыт."
+      : audience === "admin"
+        ? "Включите push: модерация, выплаты, поддержка и претензии — даже когда кабинет закрыт."
+        : "Включите уведомления, чтобы не пропускать сообщения и напоминания.";
 
   return (
     <div className={className ?? "mb-4 rounded-lg border border-amber-500/50 bg-amber-500/10 px-4 py-3 text-sm"}>
@@ -195,8 +233,23 @@ export function PushEnableBanner({ audience = "instructor", className }: Props) 
         <div className="flex min-w-0 gap-2">
           <BellRing className="mt-0.5 h-5 w-5 shrink-0 text-amber-700 dark:text-amber-300" aria-hidden />
           <div>
-            <p className="font-medium text-amber-950 dark:text-amber-100">Не пропускайте сообщения</p>
-            <p className="mt-1 text-amber-900/90 dark:text-amber-100/90">{message}</p>
+            <p className="font-medium text-amber-950 dark:text-amber-100">
+              {denied ? "Уведомления запретил браузер" : "Не пропускайте сообщения"}
+            </p>
+            {denied ? (
+              <>
+                <p className="mt-1 text-amber-900/90 dark:text-amber-100/90">{denied.lead}</p>
+                {denied.steps.length > 0 ? (
+                  <ol className="mt-2 list-decimal space-y-1 pl-4 text-amber-900/90 dark:text-amber-100/90">
+                    {denied.steps.map((step) => (
+                      <li key={step}>{step}</li>
+                    ))}
+                  </ol>
+                ) : null}
+              </>
+            ) : (
+              <p className="mt-1 text-amber-900/90 dark:text-amber-100/90">{message}</p>
+            )}
           </div>
         </div>
         <div className="flex shrink-0 flex-wrap gap-2">

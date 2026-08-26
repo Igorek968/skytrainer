@@ -8,6 +8,7 @@ import { SEO_PAGES, absoluteUrl, siteJsonLd } from "@/lib/seo";
 import { getPublicProductName } from "@/shared/lib/product";
 import { SiteAnalytics } from "@/shared/analytics/site-analytics";
 import { UtmCapture } from "@/shared/analytics/utm-capture";
+import { RestrictedTrafficCapture } from "@/shared/analytics/restricted-traffic-capture";
 import { YandexMetrikaNoscript } from "@/shared/analytics/yandex-metrika-noscript";
 import { CookieConsentBanner } from "@/shared/legal/cookie-consent-banner";
 import { AppShell } from "@/shared/layout/app-shell";
@@ -129,6 +130,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <SiteAnalytics />
           <Suspense fallback={null}>
             <UtmCapture />
+            <RestrictedTrafficCapture />
           </Suspense>
           <YandexMetrikaNoscript />
         </AppProviders>

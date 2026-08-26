@@ -240,7 +240,9 @@ export function AdminModerationSection({ data }: { data: AdminOverview }) {
                         : null}
                     </p>
                     {p.acquisitionSource ? (
-                      <p className="text-xs text-accent">Источник: {p.acquisitionSource}</p>
+                      <p className={p.acquisitionRestricted ? "text-xs text-destructive" : "text-xs text-accent"}>
+                        Источник: {p.acquisitionSource}
+                      </p>
                     ) : null}
                     <div className="text-xs">{p.certificationLevel}</div>
                     {p.moderationKind === "PROFILE_UPDATE" ? (

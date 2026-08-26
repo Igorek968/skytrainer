@@ -13,7 +13,7 @@ import { PASSPORT_UPLOAD_MAX_BYTES } from "@/lib/instructor-passport";
 import { instructorActivityLabelsAlphabetical } from "@/lib/services/instructor-match";
 import { RUSSIAN_EMAIL_EXAMPLES, RUSSIAN_EMAIL_HINT, assertRussianEmail } from "@/lib/russian-email";
 import { userFacingErrorMessage } from "@/lib/user-facing-error";
-import { resolveUtmForForm } from "@/shared/analytics/utm-capture";
+import { resolveAcquisitionForForm } from "@/shared/analytics/utm-capture";
 import { useFormDraft } from "@/shared/hooks/use-form-draft";
 import { useDisplayNameDuplicateCheck } from "@/shared/hooks/use-display-name-duplicate-check";
 import { YM_GOALS, trackYandexGoal } from "@/shared/analytics/yandex-metrika-client";
@@ -136,7 +136,7 @@ function InstructorApplyForm() {
   }, [sessionStatus, session?.user?.role]);
 
   useEffect(() => {
-    const resolved = resolveUtmForForm(searchParams);
+    const resolved = resolveAcquisitionForForm(searchParams);
     const next: Record<string, string> = {};
     for (const [k, v] of Object.entries(resolved)) {
       if (v) next[k] = v;

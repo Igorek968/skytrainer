@@ -33,6 +33,8 @@ export const YM_GOALS = {
   landingInstructorCta: "landing_instructor_cta",
   landingUchenikCta: "landing_uchenik_cta",
   landingEventsCta: "landing_events_cta",
+  /** Заход из Instagram / Facebook / Threads (in-app или Referer). */
+  restrictedSocialVisit: "restricted_social_visit",
 } as const;
 
 function canTrack(): boolean {
@@ -46,6 +48,11 @@ export function trackYandexGoal(goal: string, params?: Record<string, unknown>):
     return;
   }
   window.ym?.(COUNTER_ID, "reachGoal", goal);
+}
+
+export function trackYandexParams(params: Record<string, unknown>): void {
+  if (!canTrack()) return;
+  window.ym?.(COUNTER_ID, "params", params);
 }
 
 export function trackYandexHit(url: string, referer?: string): void {
