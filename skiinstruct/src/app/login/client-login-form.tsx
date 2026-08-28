@@ -26,10 +26,13 @@ function LoginFormInner() {
   const registered = params.get("registered") === "1";
   const prefilledEmail = params.get("email")?.trim() ?? "";
 
-  const registerHref = useMemo(
-    () => `/register?callbackUrl=${encodeURIComponent(callbackUrl)}`,
-    [callbackUrl],
-  );
+  const registerHref = useMemo(() => {
+    const next = new URL("/register", "https://example.local");
+    next.searchParams.set("callbackUrl", callbackUrl);
+    const ref = params.get("ref")?.trim();
+    if (ref) next.searchParams.set("ref", ref);
+    return `${next.pathname}${next.search}`;
+  }, [callbackUrl, params]);
 
   const [email, setEmail] = useState(prefilledEmail);
   const [password, setPassword] = useState("");

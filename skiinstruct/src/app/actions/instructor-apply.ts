@@ -111,6 +111,7 @@ async function instructorApplyActionInner(formData: FormData): Promise<Instructo
       return f instanceof File && f.size > 0 ? f : null;
     })(),
     acquisition: Object.keys(mergedAcquisition).length > 0 ? mergedAcquisition : undefined,
+    referralCode: String(formData.get("referralCode") ?? "").trim() || undefined,
   });
 
   if (!created.ok) {

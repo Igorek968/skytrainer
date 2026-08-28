@@ -66,11 +66,14 @@ function RegisterForm() {
 
   useEffect(() => {
     if (asInstructor) {
-      router.replace(
-        "/instructor/apply?utm_source=site&utm_medium=register&utm_campaign=hire",
-      );
+      const next = new URL("/instructor/apply", "https://example.local");
+      next.searchParams.set("utm_source", "site");
+      next.searchParams.set("utm_medium", "register");
+      next.searchParams.set("utm_campaign", "hire");
+      if (referralCode) next.searchParams.set("ref", referralCode);
+      router.replace(`${next.pathname}${next.search}`);
     }
-  }, [asInstructor, router]);
+  }, [asInstructor, referralCode, router]);
 
   const [state, formAction] = useFormState(registerClientAction, initialState);
   const { values, setField } = useFormDraft<RegisterDraft>(

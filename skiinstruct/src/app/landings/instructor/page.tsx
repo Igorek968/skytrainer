@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { normalizeReferralCode } from "@/lib/referral-cookie";
 import { pageMetadata } from "@/lib/seo";
 import { TrafficLanding } from "@/shared/marketing/traffic-landing";
 import { TrackedHireCta } from "@/shared/marketing/tracked-hire-cta";
@@ -11,9 +12,15 @@ export const metadata: Metadata = pageMetadata({
   path: "/landings/instructor",
 });
 
-export default function InstructorTrafficLandingPage() {
-  const applyHref =
-    "/instructor/apply?utm_source=site&utm_medium=landing_instructor&utm_campaign=hire";
+type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
+
+export default async function InstructorTrafficLandingPage({ searchParams }: Props) {
+  const params = await searchParams;
+  const refRaw = typeof params.ref === "string" ? params.ref : null;
+  const ref = normalizeReferralCode(refRaw);
+  const applyHref = ref
+    ? `/instructor/apply?utm_source=site&utm_medium=landing_instructor&utm_campaign=hire&ref=${encodeURIComponent(ref)}`
+    : "/instructor/apply?utm_source=site&utm_medium=landing_instructor&utm_campaign=hire";
   return (
     <TrafficLanding
       eyebrow="ТвойТренер.рф · для инструкторов"

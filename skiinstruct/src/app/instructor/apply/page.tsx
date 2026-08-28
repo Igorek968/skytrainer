@@ -224,6 +224,9 @@ function InstructorApplyForm() {
             {Object.entries(utm).map(([key, value]) => (
               <input key={key} type="hidden" name={key} value={value} />
             ))}
+            {searchParams.get("ref")?.trim() ? (
+              <input type="hidden" name="referralCode" value={searchParams.get("ref")!.trim()} />
+            ) : null}
             <div className="space-y-2">
               <Label htmlFor="lastName">Фамилия</Label>
               <Input

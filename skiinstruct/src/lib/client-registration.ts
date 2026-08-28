@@ -87,9 +87,8 @@ export async function createClientUser(input: {
     });
     if (input.referralCode?.trim()) {
       await bindReferralByCode(created.id, input.referralCode);
-    } else {
-      await bindReferralFromCookie(created.id);
     }
+    await bindReferralFromCookie(created.id);
     void ensureUserReferralCode(created.id).catch(() => {});
 
     void sendEmailVerification(email).catch((e) => {

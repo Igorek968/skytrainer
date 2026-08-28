@@ -16,6 +16,7 @@ import { normalizeRussianPhone } from "@/lib/phone";
 import { writePrivateUpload } from "@/lib/private-uploads";
 import { prisma } from "@/lib/prisma";
 import { sendEmailVerification } from "@/lib/services/email-verification";
+import { bindReferralByCode, bindReferralFromCookie } from "@/lib/services/referral";
 import { assertRussianEmail } from "@/lib/russian-email";
 import { canonicalizeActivityLabel, canonicalizeActivityLabels } from "@/lib/services/instructor-match";
 import { findDuplicateParticipantByDisplayName } from "@/lib/services/user-display-name-uniqueness";
@@ -102,6 +103,8 @@ export async function createInstructorApplication(input: {
   taxDocumentScan?: File | null;
   /** UTM / источник заявки (Авито, Директ, SEO…). */
   acquisition?: Record<string, string>;
+  /** Код из ?ref= / лендинга «Приходи». */
+  referralCode?: string | null;
 }): Promise<CreateInstructorApplicationResult> {
   if (!input.acceptAgencyOffer || !input.acceptPrivacy) {
     return {
@@ -380,6 +383,15 @@ export async function createInstructorApplication(input: {
     .catch((e) =>
       console.error("[yookassa-contract] apply", e instanceof Error ? e.message : e),
     );
+
+  try {
+    if (input.referralCode?.trim()) {
+      await bindReferralByCode(createdUserId, input.referralCode);
+    }
+    await bindReferralFromCookie(createdUserId);
+  } catch (e) {
+    console.error("[instructor-apply] referral bind", e instanceof Error ? e.message : e);
+  }
 
   void sendEmailVerification(email).catch((e) => {
     console.error("[instructor-apply] email verification send failed", e);

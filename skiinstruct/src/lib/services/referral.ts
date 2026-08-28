@@ -108,7 +108,7 @@ export async function bindReferralByCode(userId: string, rawCode: string | null 
     }),
   ]);
 
-  if (!user || user.role !== "CLIENT") return;
+  if (!user || (user.role !== "CLIENT" && user.role !== "INSTRUCTOR")) return;
   if (user.referredById) return;
   if (!referrer) return;
   if (referrer.id === userId) return;
