@@ -31,7 +31,7 @@ import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
 import { EventRegistrantsPanel } from "@/features/instructor/event-registrants-panel";
 import { CopyEventLinkButton } from "@/features/events/copy-event-link-button";
-import { publicEventPath } from "@/lib/public-event";
+import { publicEventPath } from "@/lib/public-event-path";
 import { EventVenuePicker, type EventVenueValue } from "@/features/instructor/event-venue-picker";
 import { compressImageFile } from "@/lib/compress-image-client";
 import { generateHourlySlots } from "@/lib/event-hourly-slots";

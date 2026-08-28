@@ -2,7 +2,7 @@
 
 import { toast } from "sonner";
 
-import { publicEventPath } from "@/lib/public-event";
+import { publicEventPath } from "@/lib/public-event-path";
 import { Button } from "@/shared/ui/button";
 
 export function CopyEventLinkButton({

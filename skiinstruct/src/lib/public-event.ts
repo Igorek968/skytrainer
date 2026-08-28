@@ -6,10 +6,6 @@ import {
   isVisibleInClientEventFeed,
 } from "@/lib/services/instructor-event-expiry";
 
-export function publicEventPath(eventId: string): string {
-  return `/events/${eventId}`;
-}
-
 export async function loadPublicClientEvent(
   eventId: string,
 ): Promise<ClientInstructorEventDTO | null> {

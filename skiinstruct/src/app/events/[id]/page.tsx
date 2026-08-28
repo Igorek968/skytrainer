@@ -3,7 +3,8 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 
 import { PublicEventView } from "@/features/events/public-event-view";
-import { loadPublicClientEvent, publicEventPath } from "@/lib/public-event";
+import { loadPublicClientEvent } from "@/lib/public-event";
+import { publicEventPath } from "@/lib/public-event-path";
 import { publicUploadAbsoluteDisplaySrc } from "@/lib/public-uploads-display";
 import { absoluteUrl, pageMetadata } from "@/lib/seo";
 import { breadcrumbJsonLd } from "@/lib/seo-schema";

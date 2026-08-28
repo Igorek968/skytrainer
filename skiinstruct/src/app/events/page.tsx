@@ -3,7 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { prisma } from "@/lib/prisma";
-import { publicEventPath } from "@/lib/public-event";
+import { publicEventPath } from "@/lib/public-event-path";
 import { pageMetadata } from "@/lib/seo";
 import { formatEventDateRu } from "@/lib/instructor-events";
 import { activePublishedEventWhere } from "@/lib/services/instructor-event-expiry";

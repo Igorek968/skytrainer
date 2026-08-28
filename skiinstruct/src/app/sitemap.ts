@@ -1,7 +1,7 @@
 import type { MetadataRoute } from "next";
 
 import { prisma } from "@/lib/prisma";
-import { publicEventPath } from "@/lib/public-event";
+import { publicEventPath } from "@/lib/public-event-path";
 import { absoluteUrl, landingSitemapPages, PUBLIC_SITEMAP_PAGES } from "@/lib/seo";
 import { activePublishedEventWhere } from "@/lib/services/instructor-event-expiry";
 
