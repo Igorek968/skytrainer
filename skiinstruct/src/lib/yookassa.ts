@@ -6,12 +6,14 @@ export function isYooKassaConfigured(): boolean {
 
 /**
  * Сохранение карты / автосписания (POST /v3/payment_methods, save_payment_method).
- * Нужен договор с ЮMoney на рекурренты. Пока магазин без него — держим выкл.
- * Включить: YOOKASSA_RECURRING_PAYMENTS=1
+ * ЮKassa включила привязку карт для магазина — по умолчанию включено, если касса настроена.
+ * Выключить: YOOKASSA_RECURRING_PAYMENTS=0
  */
 export function isYooKassaRecurringEnabled(): boolean {
   const v = process.env.YOOKASSA_RECURRING_PAYMENTS?.trim().toLowerCase();
-  return v === "1" || v === "true" || v === "yes";
+  if (v === "0" || v === "false" || v === "no" || v === "off") return false;
+  if (v === "1" || v === "true" || v === "yes" || v === "on") return true;
+  return isYooKassaConfigured();
 }
 
 export const YOO_RECURRING_UNAVAILABLE_RU =
@@ -61,6 +63,7 @@ type CreateYooPaymentInput = {
   metadata: YooKassaPaymentMetadata;
   savePaymentMethod?: boolean;
   paymentMethodId?: string;
+  merchantCustomerId?: string;
 };
 
 type CreateYooPaymentResult = {
@@ -117,16 +120,18 @@ export async function createYooKassaPayment(input: CreateYooPaymentInput): Promi
     },
   };
 
+  if (input.merchantCustomerId) {
+    body.merchant_customer_id = input.merchantCustomerId;
+  }
+
+  body.confirmation = {
+    type: "redirect",
+    return_url: input.returnUrl,
+  };
   if (input.paymentMethodId) {
     body.payment_method_id = input.paymentMethodId;
-  } else {
-    body.confirmation = {
-      type: "redirect",
-      return_url: input.returnUrl,
-    };
-    if (input.savePaymentMethod) {
-      body.save_payment_method = true;
-    }
+  } else if (input.savePaymentMethod) {
+    body.save_payment_method = true;
   }
 
   const res = await fetch("https://api.yookassa.ru/v3/payments", {
@@ -160,11 +165,24 @@ export async function createYooKassaPayment(input: CreateYooPaymentInput): Promi
 }
 
 /** Привязка карты на нулевую сумму (POST /v3/payment_methods). */
-export async function createYooKassaCardBinding(returnUrl: string): Promise<{
+export async function createYooKassaCardBinding(
+  returnUrl: string,
+  merchantCustomerId?: string,
+): Promise<{
   paymentMethodId: string;
   confirmationUrl: string | null;
   status: string;
 }> {
+  const payload: Record<string, unknown> = {
+    type: "bank_card",
+    confirmation: {
+      type: "redirect",
+      return_url: returnUrl,
+    },
+  };
+  if (merchantCustomerId) {
+    payload.merchant_customer_id = merchantCustomerId;
+  }
   const res = await fetch("https://api.yookassa.ru/v3/payment_methods", {
     method: "POST",
     headers: {
@@ -172,13 +190,7 @@ export async function createYooKassaCardBinding(returnUrl: string): Promise<{
       "Content-Type": "application/json",
       "Idempotence-Key": randomUUID(),
     },
-    body: JSON.stringify({
-      type: "bank_card",
-      confirmation: {
-        type: "redirect",
-        return_url: returnUrl,
-      },
-    }),
+    body: JSON.stringify(payload),
   });
 
   if (!res.ok) {
@@ -259,10 +271,12 @@ export async function createYooKassaLessonPayment(input: {
   returnUrl: string;
   savePaymentMethod?: boolean;
   paymentMethodId?: string;
+  userId?: string;
 }): Promise<CreateYooPaymentResult> {
   return createYooKassaPayment({
     ...input,
-    metadata: { orderId: input.orderId, type: "lesson" },
+    merchantCustomerId: input.userId,
+    metadata: { orderId: input.orderId, type: "lesson", userId: input.userId },
   });
 }
 
@@ -273,13 +287,19 @@ export async function createYooKassaEventPayment(input: {
   description: string;
   customerEmail: string;
   returnUrl: string;
+  savePaymentMethod?: boolean;
+  paymentMethodId?: string;
+  userId?: string;
 }): Promise<CreateYooPaymentResult> {
   return createYooKassaPayment({
     amountRub: input.amountRub,
     description: input.description,
     customerEmail: input.customerEmail,
     returnUrl: input.returnUrl,
-    metadata: { eventRegistrationId: input.eventRegistrationId, type: "event" },
+    savePaymentMethod: input.savePaymentMethod,
+    paymentMethodId: input.paymentMethodId,
+    merchantCustomerId: input.userId,
+    metadata: { eventRegistrationId: input.eventRegistrationId, type: "event", userId: input.userId },
   });
 }
 

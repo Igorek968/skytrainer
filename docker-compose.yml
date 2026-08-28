@@ -110,6 +110,8 @@ services:
       STRIPE_WEBHOOK_SECRET: ${SKIINSTRUCT_STRIPE_WEBHOOK_SECRET:-}
       YOOKASSA_SHOP_ID: ${YOOKASSA_SHOP_ID:-}
       YOOKASSA_SECRET_KEY: ${YOOKASSA_SECRET_KEY:-}
+      # 1 — привязка карты / списание по сохранённому способу; 0 — только разовая оплата
+      YOOKASSA_RECURRING_PAYMENTS: ${YOOKASSA_RECURRING_PAYMENTS:-1}
       # 0 — реальная ЮKassa; 1 — mock без ключей (только локальная отладка, задайте в .env)
       ALLOW_MOCK_CHECKOUT: ${ALLOW_MOCK_CHECKOUT:-0}
       REQUIRE_EMAIL_VERIFICATION: ${REQUIRE_EMAIL_VERIFICATION:-1}

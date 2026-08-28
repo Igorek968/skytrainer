@@ -122,9 +122,10 @@ export async function POST(req: Request) {
     try {
       const reg = await prisma.eventRegistration.findUnique({
         where: { id: regId },
-        select: { id: true, status: true },
+        select: { id: true, status: true, clientId: true },
       });
       if (!reg) return NextResponse.json({ received: true });
+      await saveCardFromPaymentMethodPayload(reg.clientId, paymentMethod ?? undefined);
       if (reg.status === "PAID") {
         await prisma.eventRegistration.update({
           where: { id: regId },

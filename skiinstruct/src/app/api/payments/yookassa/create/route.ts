@@ -152,6 +152,7 @@ export async function POST(req: Request) {
           customerEmail: email,
           returnUrl,
           paymentMethodId: user.yookassaPaymentMethodId,
+          userId: resolved.userId,
         });
       } else if (recurring && (bindAndPay || !hasCard)) {
         pay = await createYooKassaLessonPayment({
@@ -161,6 +162,7 @@ export async function POST(req: Request) {
           customerEmail: email,
           returnUrl,
           savePaymentMethod: true,
+          userId: resolved.userId,
         });
       } else {
         pay = await createYooKassaLessonPayment({
@@ -169,11 +171,24 @@ export async function POST(req: Request) {
           description: `${getPublicProductName()} — заказ ${order.id.slice(0, 8)}`,
           customerEmail: email,
           returnUrl,
+          userId: resolved.userId,
         });
       }
     } catch (yooErr) {
       const raw = yooErr instanceof Error ? yooErr.message : String(yooErr);
-      if (isYooKassaRecurringForbiddenMessage(raw) && recurring) {
+      if (recurring && hasCard && user?.yookassaPaymentMethodId) {
+        // Сохранённая карта могла истечь или отозвать согласие — просим ввести заново и сохранить.
+        console.warn("[yookassa/create] saved method failed, checkout with save:", raw);
+        pay = await createYooKassaLessonPayment({
+          orderId: order.id,
+          amountRub,
+          description: `${getPublicProductName()} — заказ ${order.id.slice(0, 8)}`,
+          customerEmail: email,
+          returnUrl,
+          savePaymentMethod: true,
+          userId: resolved.userId,
+        });
+      } else if (isYooKassaRecurringForbiddenMessage(raw) && recurring) {
         // Магазин без рекуррентов — fallback на разовую оплату.
         pay = await createYooKassaLessonPayment({
           orderId: order.id,
@@ -181,6 +196,7 @@ export async function POST(req: Request) {
           description: `${getPublicProductName()} — заказ ${order.id.slice(0, 8)}`,
           customerEmail: email,
           returnUrl,
+          userId: resolved.userId,
         });
       } else if (process.env.NODE_ENV === "production" && process.env.ALLOW_MOCK_CHECKOUT !== "1") {
         return NextResponse.json(

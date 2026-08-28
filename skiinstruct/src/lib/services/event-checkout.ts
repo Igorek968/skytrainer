@@ -2,10 +2,12 @@ import { isMockCheckoutEnabled } from "@/lib/checkout-config";
 import { prisma } from "@/lib/prisma";
 import { getStripe } from "@/lib/stripe";
 import { getPublicProductName } from "@/shared/lib/product";
+import { saveCardFromPaymentMethodPayload } from "@/lib/services/client-yookassa-card";
 import {
   createYooKassaEventPayment,
   fetchYooKassaPayment,
   isYooKassaConfigured,
+  isYooKassaRecurringEnabled,
 } from "@/lib/yookassa";
 
 import { computeEventPaymentShares } from "./event-registration";
@@ -107,13 +109,53 @@ export async function createEventCheckoutUrl(
       }
     }
 
-    const pay = await createYooKassaEventPayment({
+    const recurring = isYooKassaRecurringEnabled();
+    const savedId = (
+      await prisma.user.findUnique({
+        where: { id: reg.client.id },
+        select: { yookassaPaymentMethodId: true },
+      })
+    )?.yookassaPaymentMethodId?.trim();
+
+    const eventPayInput = {
       eventRegistrationId: registrationId,
       amountRub: amount,
       description: `${getPublicProductName()} — ${reg.event.title.slice(0, 80)}`,
       customerEmail: email,
       returnUrl,
-    });
+      userId: reg.client.id,
+    };
+
+    let pay;
+    try {
+      pay = await createYooKassaEventPayment({
+        ...eventPayInput,
+        paymentMethodId: recurring ? savedId || undefined : undefined,
+        savePaymentMethod: recurring && !savedId,
+      });
+    } catch (e) {
+      if (recurring && savedId) {
+        console.warn("[yookassa/event] saved method failed, checkout with save:", e);
+        pay = await createYooKassaEventPayment({
+          ...eventPayInput,
+          savePaymentMethod: true,
+        });
+      } else {
+        throw e;
+      }
+    }
+
+    if (pay.status === "succeeded") {
+      await saveCardFromPaymentMethodPayload(reg.client.id, {
+        id: pay.paymentMethodId ?? savedId,
+        saved: true,
+      });
+      await markEventRegistrationPaid({
+        registrationId,
+        yookassaPaymentId: pay.paymentId,
+      });
+      return `${returnUrl}&autopay=1`;
+    }
 
     if (!pay.confirmationUrl) throw new Error("ЮKassa не вернула ссылку на оплату");
 

@@ -142,7 +142,7 @@ export async function startYooCardBinding(userId: string, returnUrl: string): Pr
 
   let bind;
   try {
-    bind = await createYooKassaCardBinding(returnUrl);
+    bind = await createYooKassaCardBinding(returnUrl, userId);
   } catch (e) {
     if (isYooKassaRecurringForbiddenMessage(e instanceof Error ? e.message : String(e))) {
       throw new Error(YOO_RECURRING_UNAVAILABLE_RU);
