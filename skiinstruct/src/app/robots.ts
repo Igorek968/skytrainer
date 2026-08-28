@@ -16,6 +16,7 @@ const PUBLIC_ALLOW = [
   "/instructor/login",
   "/instructor/apply",
   "/vakansiya",
+  "/events/",
   "/landings/",
   "/gid/",
   "/faq",

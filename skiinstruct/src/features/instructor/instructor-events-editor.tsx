@@ -30,6 +30,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/sha
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
 import { EventRegistrantsPanel } from "@/features/instructor/event-registrants-panel";
+import { CopyEventLinkButton } from "@/features/events/copy-event-link-button";
+import { publicEventPath } from "@/lib/public-event";
 import { EventVenuePicker, type EventVenueValue } from "@/features/instructor/event-venue-picker";
 import { compressImageFile } from "@/lib/compress-image-client";
 import { generateHourlySlots } from "@/lib/event-hourly-slots";
@@ -2257,6 +2259,16 @@ function EventList({
               <EventRegistrantsPanel eventId={ev.id} />
             ) : null}
             <div className="mt-2 flex flex-wrap gap-2">
+              {ev.moderationStatus === "PUBLISHED" && !ev.isCompleted ? (
+                <>
+                  <CopyEventLinkButton eventId={ev.id} />
+                  <Button type="button" size="sm" variant="ghost" asChild>
+                    <a href={publicEventPath(ev.id)} target="_blank" rel="noreferrer">
+                      Открыть
+                    </a>
+                  </Button>
+                </>
+              ) : null}
               {onDuplicate ? (
                 <Button
                   type="button"

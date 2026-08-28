@@ -143,7 +143,7 @@ export async function buildEventBotPayload(eventId: string): Promise<BotEventPay
     place,
     sport: row.category?.trim() || null,
     image_url: publicUploadAbsoluteDisplaySrc(image),
-    signup_url: absoluteUrl(`/events?id=${row.id}`),
+    signup_url: absoluteUrl(`/events/${row.id}`),
   };
 }
 

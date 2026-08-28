@@ -130,6 +130,7 @@ export default NextAuth(authConfig).auth((req) => {
   const isPublicTrafficLandings =
     pathname === "/auto" ||
     pathname === "/events" ||
+    pathname.startsWith("/events/") ||
     pathname.startsWith("/landings/");
   const isPublicLegal =
     pathname === "/oferta" ||

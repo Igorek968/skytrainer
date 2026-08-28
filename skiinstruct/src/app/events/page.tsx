@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
 import { prisma } from "@/lib/prisma";
+import { publicEventPath } from "@/lib/public-event";
 import { pageMetadata } from "@/lib/seo";
 import { formatEventDateRu } from "@/lib/instructor-events";
 import { activePublishedEventWhere } from "@/lib/services/instructor-event-expiry";
@@ -16,10 +18,17 @@ export const metadata: Metadata = pageMetadata({
 
 export const dynamic = "force-dynamic";
 
-export default async function EventsTrafficLandingPage() {
+type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
+
+export default async function EventsTrafficLandingPage({ searchParams }: Props) {
+  const params = await searchParams;
+  const rawId = params.id;
+  const id = (Array.isArray(rawId) ? rawId[0] : rawId)?.trim();
+  if (id) redirect(publicEventPath(id));
+
   const now = new Date();
   const events = await prisma.instructorEvent.findMany({
-    where: activePublishedEventWhere(now),
+    where: { ...activePublishedEventWhere(now), orderId: null },
     orderBy: [{ eventAt: "asc" }, { createdAt: "desc" }],
     take: 8,
     select: {
@@ -45,7 +54,7 @@ export default async function EventsTrafficLandingPage() {
       bullets={[
         "В карточке события — дата, адрес и организатор.",
         "Оплата через ЮKassa, оферта и возврат доступны до бронирования.",
-        "Для рекламы используйте эту страницу, а не главную с картой «на всё».",
+        "Для рекламы одного выхода копируйте ссылку события в кабинете инструктора.",
       ]}
     >
       <section className="space-y-3" aria-labelledby="events-upcoming">
@@ -66,7 +75,12 @@ export default async function EventsTrafficLandingPage() {
               const place = e.catalogItem?.venueAddress?.trim() || e.venueAddress?.trim();
               return (
                 <li key={e.id} className="rounded-lg border border-border/70 p-3">
-                  <p className="font-medium text-foreground">{title}</p>
+                  <Link
+                    href={publicEventPath(e.id)}
+                    className="font-medium text-foreground underline-offset-2 hover:underline"
+                  >
+                    {title}
+                  </Link>
                   <p className="mt-1 text-xs text-muted-foreground">
                     {when ? <time>{when}</time> : "Дата уточняется"}
                     {place ? ` · ${place}` : ""}

@@ -1,7 +1,9 @@
 import type { MetadataRoute } from "next";
 
 import { prisma } from "@/lib/prisma";
+import { publicEventPath } from "@/lib/public-event";
 import { absoluteUrl, landingSitemapPages, PUBLIC_SITEMAP_PAGES } from "@/lib/seo";
+import { activePublishedEventWhere } from "@/lib/services/instructor-event-expiry";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticEntries: MetadataRoute.Sitemap = PUBLIC_SITEMAP_PAGES.map((page) => ({
@@ -53,5 +55,33 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     instructorEntries = [];
   }
 
-  return [...staticEntries, ...landingEntries, ...instructorEntries];
+  let eventEntries: MetadataRoute.Sitemap = [];
+  try {
+    const events = await prisma.instructorEvent.findMany({
+      where: { ...activePublishedEventWhere(), orderId: null },
+      select: { id: true, updatedAt: true },
+      take: 2000,
+    });
+    eventEntries = events.map((row) => ({
+      url: absoluteUrl(publicEventPath(row.id)),
+      lastModified: row.updatedAt,
+      changeFrequency: "daily" as const,
+      priority: 0.7,
+    }));
+  } catch {
+    eventEntries = [];
+  }
+
+  return [
+    ...staticEntries,
+    ...landingEntries,
+    {
+      url: absoluteUrl("/events"),
+      lastModified: new Date(),
+      changeFrequency: "daily",
+      priority: 0.8,
+    },
+    ...instructorEntries,
+    ...eventEntries,
+  ];
 }
