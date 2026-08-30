@@ -14,7 +14,7 @@ import {
 import { computeEventPaymentShares } from "./event-registration";
 import { notifyInstructorOfEventRegistration } from "./event-registration-notify";
 
-export async function markEventRegistrationPaid(params: {
+async function markOneEventRegistrationPaid(params: {
   registrationId: string;
   stripePaymentIntentId?: string | null;
   yookassaPaymentId?: string | null;
@@ -44,31 +44,88 @@ export async function markEventRegistrationPaid(params: {
     },
   });
 
-  // Инструктору — только после успешной оплаты (предоплата).
   void notifyInstructorOfEventRegistration(updated.id);
+  return updated;
+}
+
+export async function markEventRegistrationPaid(params: {
+  registrationId: string;
+  stripePaymentIntentId?: string | null;
+  yookassaPaymentId?: string | null;
+}) {
+  const updated = await markOneEventRegistrationPaid(params);
+
+  if (params.yookassaPaymentId) {
+    const siblings = await prisma.eventRegistration.findMany({
+      where: {
+        yookassaPaymentId: params.yookassaPaymentId,
+        id: { not: params.registrationId },
+        status: { not: "PAID" },
+      },
+      select: { id: true },
+    });
+    for (const s of siblings) {
+      await markOneEventRegistrationPaid({
+        registrationId: s.id,
+        yookassaPaymentId: params.yookassaPaymentId,
+        stripePaymentIntentId: params.stripePaymentIntentId,
+      });
+    }
+  }
 
   return updated;
 }
 
 export async function createEventCheckoutUrl(
-  registrationId: string,
+  registrationIdOrIds: string | string[],
   customerEmail?: string | null,
 ): Promise<string> {
-  const reg = await prisma.eventRegistration.findUnique({
-    where: { id: registrationId },
+  const ids = [
+    ...new Set(Array.isArray(registrationIdOrIds) ? registrationIdOrIds : [registrationIdOrIds]),
+  ];
+  const regs = await prisma.eventRegistration.findMany({
+    where: { id: { in: ids } },
     include: {
       event: { select: { id: true, title: true, eventAt: true } },
-      slot: { select: { startsAt: true } },
+      slot: { select: { startsAt: true, title: true } },
       client: { select: { id: true, email: true } },
     },
   });
-  if (!reg) throw new Error("Запись не найдена");
-  if (reg.status === "PAID" && reg.paidAt) throw new Error("Уже оплачено");
-  if (reg.status === "CANCELLED") throw new Error("Запись отменена");
+  if (!regs.length) throw new Error("Запись не найдена");
+  if (regs.length !== ids.length) throw new Error("Не все записи найдены");
+  if (regs.some((r) => r.status === "CANCELLED")) throw new Error("Запись отменена");
+  const unpaid = regs.filter((r) => !(r.status === "PAID" && r.paidAt));
+  if (!unpaid.length) throw new Error("Уже оплачено");
 
-  const amount = Number(reg.amountRub);
+  const reg = unpaid[0]!;
+  const registrationId = reg.id;
+  const unpaidIds = unpaid.map((r) => r.id);
+  const amount = unpaid.reduce((sum, r) => sum + Number(r.amountRub), 0);
+  const partyLabel =
+    unpaid.length > 1
+      ? unpaid
+          .map((r) => {
+            const title = r.slot?.title?.trim();
+            return `${formatEventPartyRu(r)}${title ? ` (${title})` : ""}`;
+          })
+          .join(", ")
+      : formatEventPartyRu(reg);
+
+  async function stampPayment(data: {
+    yookassaPaymentId?: string | null;
+    stripeCheckoutSessionId?: string | null;
+    stripePaymentIntentId?: string | null;
+  }) {
+    await prisma.eventRegistration.updateMany({
+      where: { id: { in: unpaidIds } },
+      data,
+    });
+  }
+
   if (amount <= 0) {
-    await markEventRegistrationPaid({ registrationId });
+    for (const id of unpaidIds) {
+      await markEventRegistrationPaid({ registrationId: id });
+    }
     const origin = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3001";
     return `${origin}/client/registrations/${registrationId}?paid=1`;
   }
@@ -78,10 +135,12 @@ export async function createEventCheckoutUrl(
 
   if (isMockCheckoutEnabled()) {
     const mockIntentId = `mock_event_${registrationId.slice(0, 12)}_${Date.now()}`;
-    await markEventRegistrationPaid({
-      registrationId,
-      stripePaymentIntentId: mockIntentId,
-    });
+    for (const id of unpaidIds) {
+      await markEventRegistrationPaid({
+        registrationId: id,
+        stripePaymentIntentId: mockIntentId,
+      });
+    }
     return `${returnUrl}&mock=1`;
   }
 
@@ -90,10 +149,13 @@ export async function createEventCheckoutUrl(
     if (!email) throw new Error("Укажите email для чека");
 
     // Не создавать новый платёж поверх существующего: иначе теряется id уже оплаченного.
-    const existingPaymentId = reg.yookassaPaymentId?.trim();
+    const existingPaymentId = unpaid.length === 1 ? unpaid[0]!.yookassaPaymentId?.trim() : unpaid.every((r) => r.yookassaPaymentId?.trim() && r.yookassaPaymentId === unpaid[0]!.yookassaPaymentId)
+      ? unpaid[0]!.yookassaPaymentId!.trim()
+      : "";
     if (existingPaymentId) {
       const existing = await fetchYooKassaPayment(existingPaymentId);
       if (existing?.status === "succeeded") {
+        await stampPayment({ yookassaPaymentId: existingPaymentId });
         await markEventRegistrationPaid({
           registrationId,
           yookassaPaymentId: existingPaymentId,
@@ -121,7 +183,10 @@ export async function createEventCheckoutUrl(
     const eventPayInput = {
       eventRegistrationId: registrationId,
       amountRub: amount,
-      description: `${getPublicProductName()} — ${reg.event.title.slice(0, 80)} · ${formatEventPartyRu(reg)}`,
+      description: `${getPublicProductName()} — ${reg.event.title.slice(0, 80)} · ${partyLabel}`.slice(
+        0,
+        128,
+      ),
       customerEmail: email,
       returnUrl,
       userId: reg.client.id,
@@ -151,6 +216,7 @@ export async function createEventCheckoutUrl(
         id: pay.paymentMethodId ?? savedId,
         saved: true,
       });
+      await stampPayment({ yookassaPaymentId: pay.paymentId });
       await markEventRegistrationPaid({
         registrationId,
         yookassaPaymentId: pay.paymentId,
@@ -160,10 +226,7 @@ export async function createEventCheckoutUrl(
 
     if (!pay.confirmationUrl) throw new Error("ЮKassa не вернула ссылку на оплату");
 
-    await prisma.eventRegistration.update({
-      where: { id: registrationId },
-      data: { yookassaPaymentId: pay.paymentId },
-    });
+    await stampPayment({ yookassaPaymentId: pay.paymentId });
 
     return pay.confirmationUrl;
   }
@@ -197,10 +260,7 @@ export async function createEventCheckoutUrl(
     },
   });
 
-  await prisma.eventRegistration.update({
-    where: { id: registrationId },
-    data: { stripeCheckoutSessionId: checkout.id },
-  });
+  await stampPayment({ stripeCheckoutSessionId: checkout.id });
 
   if (!checkout.url) throw new Error("Не удалось создать ссылку на оплату");
   return checkout.url;

@@ -9,9 +9,9 @@ import { toast } from "sonner";
 import type { ClientInstructorEventDTO } from "@/lib/instructor-events";
 import { formatEventPriceRu } from "@/lib/instructor-events";
 import { CancelRegistrationButton } from "@/features/orders/cancel-registration-button";
-import { EventPartyFields } from "@/features/orders/event-party-fields";
+import { EventQuantityField } from "@/features/orders/event-party-fields";
 import { EventSlotsPicker } from "@/features/orders/event-slots-picker";
-import { eventPartyError, eventRegistrationSeatCount, formatEventPartyRu } from "@/lib/event-party";
+import { eventPartyError, formatEventPartyRu } from "@/lib/event-party";
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
 import { LegalConsentCheckbox } from "@/shared/legal/legal-consent-checkbox";
@@ -42,19 +42,17 @@ export function EventRegistrationButton({
   const router = useRouter();
   const isClient = session?.user?.role === "CLIENT";
   const [acceptLegal, setAcceptLegal] = useState(false);
-  const [adultCount, setAdultCount] = useState(1);
-  const [childCount, setChildCount] = useState(0);
-  const seats = eventRegistrationSeatCount({ adultCount, childCount });
+  const [quantity, setQuantity] = useState(1);
 
   const register = useMutation({
     mutationFn: async () => {
-      const partyErr = eventPartyError({ adultCount, childCount });
+      const partyErr = eventPartyError({ adultCount: quantity, childCount: 0 });
       if (partyErr) throw new Error(partyErr);
       const r = await fetch(`/api/client/events/${event.id}/register`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ acceptLegal: true, adultCount, childCount }),
+        body: JSON.stringify({ acceptLegal: true, adultCount: quantity, childCount: 0 }),
       });
       const j = (await r.json().catch(() => ({}))) as RegisterResponse;
       if (!r.ok) {
@@ -218,7 +216,7 @@ export function EventRegistrationButton({
   }
 
   const unit = event.priceRub;
-  const totalRub = unit != null && unit > 0 ? unit * seats : unit ?? 0;
+  const totalRub = unit != null && unit > 0 ? unit * quantity : unit ?? 0;
   const priceLabel = formatEventPriceRu(totalRub);
 
   return (
@@ -227,22 +225,22 @@ export function EventRegistrationButton({
       onPointerDown={(e) => e.stopPropagation()}
       onClick={(e) => e.stopPropagation()}
     >
-      <EventPartyFields
-        idPrefix={`event-party-${event.id}`}
-        adultCount={adultCount}
-        childCount={childCount}
-        onAdultCount={setAdultCount}
-        onChildCount={setChildCount}
-        maxTotal={event.spotsLeft}
-        disabled={register.isPending}
-      />
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-card px-3 py-2">
+        <EventQuantityField
+          id={`event-qty-${event.id}`}
+          value={quantity}
+          onChange={setQuantity}
+          maxTotal={event.spotsLeft}
+          disabled={register.isPending}
+        />
+        <p className="text-sm font-semibold tabular-nums">{priceLabel}</p>
+      </div>
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs font-medium text-foreground">{priceLabel}</span>
         {!event.isFree ? (
           <span className="text-xs text-muted-foreground">
             Оплата при записи
-            {seats > 1 && unit != null && unit > 0
-              ? ` · ${formatEventPriceRu(unit)} × ${seats}`
+            {quantity > 1 && unit != null && unit > 0
+              ? ` · ${formatEventPriceRu(unit)} × ${quantity}`
               : ""}
           </span>
         ) : null}
@@ -260,7 +258,7 @@ export function EventRegistrationButton({
         type="button"
         size="sm"
         variant="accent"
-        disabled={register.isPending || !acceptLegal || seats < 1}
+        disabled={register.isPending || !acceptLegal || quantity < 1}
         onClick={() => register.mutate()}
       >
         {register.isPending ? "Оформляем…" : event.isFree ? "Записаться" : "Оплатить и записаться"}

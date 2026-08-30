@@ -2,17 +2,17 @@
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import type { ClientInstructorEventDTO } from "@/lib/instructor-events";
 import { formatEventPriceRu, formatSlotLineRu } from "@/lib/instructor-events";
-import { eventPartyError, eventRegistrationSeatCount, formatEventPartyRu } from "@/lib/event-party";
+import { EVENT_PARTY_MAX_PEOPLE, formatEventPartyRu, formatSeatCountRu } from "@/lib/event-party";
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
 import { LegalConsentCheckbox } from "@/shared/legal/legal-consent-checkbox";
 import { CancelRegistrationButton } from "@/features/orders/cancel-registration-button";
-import { EventPartyFields } from "@/features/orders/event-party-fields";
+import { QuantityStepper } from "@/features/orders/event-party-fields";
 import { cn } from "@/lib/utils";
 
 type RegisterResponse = {
@@ -39,19 +39,48 @@ export function EventSlotsPicker({
   const qc = useQueryClient();
   const router = useRouter();
   const [acceptLegal, setAcceptLegal] = useState(false);
-  const [adultCount, setAdultCount] = useState(1);
-  const [childCount, setChildCount] = useState(0);
-  const seats = eventRegistrationSeatCount({ adultCount, childCount });
+  const openSlots = event.slots.filter((s) => !s.isCompleted);
+  const bookable = openSlots.filter((s) => {
+    const my = s.myRegistration;
+    const booked = my && (my.status === "PAID" || my.status === "PENDING_PAYMENT");
+    return s.registrationOpen && !booked;
+  });
+  const defaultQty = bookable.length === 1 ? 1 : 0;
+  const [qtyBySlot, setQtyBySlot] = useState<Record<string, number>>(() => {
+    const init: Record<string, number> = {};
+    for (const s of bookable) init[s.id] = defaultQty;
+    return init;
+  });
+
+  const cart = useMemo(() => {
+    return bookable
+      .map((slot) => {
+        const max =
+          slot.spotsLeft != null
+            ? Math.min(EVENT_PARTY_MAX_PEOPLE, Math.max(0, slot.spotsLeft))
+            : EVENT_PARTY_MAX_PEOPLE;
+        const qty = Math.min(max, Math.max(0, qtyBySlot[slot.id] ?? 0));
+        const unit = slot.priceRub;
+        const lineRub = unit != null && unit > 0 ? unit * qty : 0;
+        return { slot, qty, max, unit, lineRub };
+      })
+      .filter((row) => row.qty > 0);
+  }, [bookable, qtyBySlot]);
+
+  const totalRub = cart.reduce((sum, row) => sum + row.lineRub, 0);
+  const totalSeats = cart.reduce((sum, row) => sum + row.qty, 0);
 
   const register = useMutation({
-    mutationFn: async (slotId: string) => {
-      const partyErr = eventPartyError({ adultCount, childCount });
-      if (partyErr) throw new Error(partyErr);
+    mutationFn: async () => {
+      if (!cart.length) throw new Error("Укажите число мест хотя бы на одном тарифе");
       const r = await fetch(`/api/client/events/${event.id}/register`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ slotId, acceptLegal: true, adultCount, childCount }),
+        body: JSON.stringify({
+          acceptLegal: true,
+          items: cart.map((row) => ({ slotId: row.slot.id, quantity: row.qty })),
+        }),
       });
       const j = (await r.json().catch(() => ({}))) as RegisterResponse;
       if (!r.ok) {
@@ -87,58 +116,35 @@ export function EventSlotsPicker({
     },
   });
 
-  const openSlots = event.slots.filter((s) => !s.isCompleted);
   if (!openSlots.length) {
     return <p className="mt-2 text-xs text-muted-foreground">Все выходы уже прошли</p>;
   }
 
-  const anyOpen = openSlots.some((s) => {
-    const my = s.myRegistration;
-    const booked = my && (my.status === "PAID" || my.status === "PENDING_PAYMENT");
-    return s.registrationOpen && !booked;
-  });
-
   return (
     <div
-      className="mt-3 space-y-2"
+      className="mt-3 space-y-3"
       onPointerDown={(e) => e.stopPropagation()}
       onClick={(e) => e.stopPropagation()}
     >
-      <p className="text-xs font-medium text-foreground">Выберите день события</p>
-      {anyOpen ? (
-        <>
-          <EventPartyFields
-            idPrefix={`event-party-${event.id}`}
-            adultCount={adultCount}
-            childCount={childCount}
-            onAdultCount={setAdultCount}
-            onChildCount={setChildCount}
-            disabled={register.isPending}
-          />
-          <p className="text-[11px] text-muted-foreground">
-            Цена выбранного тарифа умножается на число человек. Если взрослый и ребёнок по разным
-            тарифам — оформите две записи.
-          </p>
-        </>
-      ) : null}
-      <LegalConsentCheckbox
-        id={`event-slots-legal-${event.id}`}
-        checked={acceptLegal}
-        onChange={setAcceptLegal}
-        className="text-xs"
-      />
+      <p className="text-xs font-medium text-foreground">Выберите тариф и число мест</p>
+      <p className="text-[11px] text-muted-foreground">
+        Можно взять несколько тарифов сразу — например 4 взрослых и 1 ребёнок. Оплата одним платежом.
+      </p>
       <ul className="space-y-2">
         {openSlots.map((slot) => {
           const my = slot.myRegistration;
-          const booked =
-            my && (my.status === "PAID" || my.status === "PENDING_PAYMENT");
+          const booked = my && (my.status === "PAID" || my.status === "PENDING_PAYMENT");
+          const max =
+            slot.spotsLeft != null
+              ? Math.min(EVENT_PARTY_MAX_PEOPLE, Math.max(0, slot.spotsLeft))
+              : EVENT_PARTY_MAX_PEOPLE;
+          const qty = booked ? 0 : Math.min(max, Math.max(0, qtyBySlot[slot.id] ?? 0));
           const unit = slot.priceRub;
-          const totalRub =
-            unit != null && unit > 0 ? unit * seats : unit ?? 0;
+          const lineRub = unit != null && unit > 0 ? unit * qty : 0;
           const line = formatSlotLineRu(slot.startsAt, {
             title: slot.title,
-            priceRub: booked ? my.amountRub : totalRub,
-            includePrice: true,
+            priceRub: booked ? my.amountRub : unit,
+            includePrice: booked,
           });
           const seatsLine = booked
             ? `${formatEventPartyRu(my)} · вы записаны`
@@ -152,7 +158,7 @@ export function EventSlotsPicker({
             <li
               key={slot.id}
               className={cn(
-                "flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2.5",
+                "space-y-2 rounded-md border px-3 py-2.5",
                 booked
                   ? "border-emerald-500/40 bg-emerald-500/5"
                   : slot.registrationOpen
@@ -160,19 +166,19 @@ export function EventSlotsPicker({
                     : "border-muted bg-muted/30 opacity-75",
               )}
             >
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium leading-snug">{line}</p>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  {seatsLine}
-                  {!booked && !slot.isFree ? " · оплата при записи" : null}
-                  {!booked && seats > 1 && unit != null && unit > 0
-                    ? ` · ${formatEventPriceRu(unit)} × ${seats}`
-                    : null}
-                </p>
-              </div>
-              <div className="flex shrink-0 flex-wrap items-center gap-2">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium leading-snug">{line}</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    {seatsLine}
+                    {!booked && unit != null && unit > 0
+                      ? ` · ${formatEventPriceRu(unit)} / чел.`
+                      : null}
+                    {!booked && slot.isFree ? " · бесплатно" : null}
+                  </p>
+                </div>
                 {booked ? (
-                  <>
+                  <div className="flex shrink-0 flex-wrap items-center gap-2">
                     <Badge variant="secondary" className="text-xs">
                       Записаны
                     </Badge>
@@ -195,29 +201,78 @@ export function EventSlotsPicker({
                         }}
                       />
                     ) : null}
-                  </>
-                ) : slot.registrationOpen ? (
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="accent"
-                    disabled={register.isPending || !acceptLegal || seats < 1}
-                    onClick={() => register.mutate(slot.id)}
-                  >
-                    {register.isPending
-                      ? "…"
-                      : slot.isFree
-                        ? "Записаться"
-                        : `Оплатить${totalRub > 0 ? ` ${totalRub.toLocaleString("ru-RU")} ₽` : ""}`}
-                  </Button>
-                ) : (
-                  <span className="text-xs text-muted-foreground">Недоступно</span>
-                )}
+                  </div>
+                ) : null}
               </div>
+              {!booked && slot.registrationOpen ? (
+                <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-2">
+                  <QuantityStepper
+                    id={`slot-qty-${slot.id}`}
+                    label="Мест"
+                    value={qty}
+                    min={0}
+                    max={Math.max(0, max)}
+                    disabled={register.isPending || max < 1}
+                    onChange={(next) =>
+                      setQtyBySlot((prev) => ({ ...prev, [slot.id]: next }))
+                    }
+                  />
+                  <p className="text-sm font-semibold tabular-nums">
+                    {qty < 1
+                      ? "—"
+                      : slot.isFree
+                        ? "Бесплатно"
+                        : formatEventPriceRu(lineRub)}
+                  </p>
+                </div>
+              ) : !booked ? (
+                <p className="text-xs text-muted-foreground">Недоступно</p>
+              ) : null}
             </li>
           );
         })}
       </ul>
+      {bookable.length > 0 ? (
+        <div className="space-y-2 rounded-md border border-border bg-muted/20 p-3">
+          <LegalConsentCheckbox
+            id={`event-slots-legal-${event.id}`}
+            checked={acceptLegal}
+            onChange={setAcceptLegal}
+            className="text-xs"
+          />
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm">
+              <span className="text-muted-foreground">Итого</span>{" "}
+              <span className="font-semibold tabular-nums">
+                {totalSeats < 1
+                  ? "—"
+                  : totalRub > 0
+                    ? formatEventPriceRu(totalRub)
+                    : "Бесплатно"}
+              </span>
+              {totalSeats > 0 ? (
+                <span className="text-xs text-muted-foreground">
+                  {" "}
+                  · {formatSeatCountRu(totalSeats)}
+                </span>
+              ) : null}
+            </p>
+            <Button
+              type="button"
+              size="sm"
+              variant="accent"
+              disabled={register.isPending || !acceptLegal || totalSeats < 1}
+              onClick={() => register.mutate()}
+            >
+              {register.isPending
+                ? "…"
+                : totalRub > 0
+                  ? `Оплатить ${totalRub.toLocaleString("ru-RU")} ₽`
+                  : "Записаться"}
+            </Button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

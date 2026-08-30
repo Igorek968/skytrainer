@@ -22,19 +22,15 @@ export function eventRegistrationSeatCount(
   return total > 0 ? total : 1;
 }
 
+export function formatSeatCountRu(n: number): string {
+  const count = Math.max(0, Math.round(n));
+  return `${count} ${ruPeople(count, "человек", "человека", "человек")}`;
+}
+
 export function formatEventPartyRu(
   raw: { adultCount?: number | null; childCount?: number | null } | null | undefined,
 ): string {
-  const { adultCount, childCount } = normalizeEventParty(raw);
-  const parts: string[] = [];
-  if (adultCount > 0) {
-    parts.push(`${adultCount} ${ruPeople(adultCount, "взрослый", "взрослых", "взрослых")}`);
-  }
-  if (childCount > 0) {
-    parts.push(`${childCount} ${ruPeople(childCount, "ребёнок", "ребёнка", "детей")}`);
-  }
-  if (!parts.length) return "1 участник";
-  return parts.join(" · ");
+  return formatSeatCountRu(eventRegistrationSeatCount(raw));
 }
 
 function ruPeople(n: number, one: string, few: string, many: string): string {
@@ -50,7 +46,7 @@ export function eventPartyError(
 ): string | null {
   const { adultCount, childCount } = normalizeEventParty(raw);
   if (adultCount + childCount < 1) {
-    return "Укажите хотя бы одного взрослого или ребёнка";
+    return "Укажите хотя бы одного участника";
   }
   if (adultCount + childCount > EVENT_PARTY_MAX_PEOPLE) {
     return `В одной заявке не больше ${EVENT_PARTY_MAX_PEOPLE} человек`;

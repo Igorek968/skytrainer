@@ -4,50 +4,54 @@ import { EVENT_PARTY_MAX_PEOPLE } from "@/lib/event-party";
 import { Button } from "@/shared/ui/button";
 import { cn } from "@/lib/utils";
 
-function Stepper({
+export function QuantityStepper({
   id,
   label,
   value,
-  min,
+  min = 0,
   max,
   disabled,
   onChange,
+  className,
 }: {
   id: string;
-  label: string;
+  label?: string;
   value: number;
-  min: number;
+  min?: number;
   max: number;
   disabled?: boolean;
   onChange: (next: number) => void;
+  className?: string;
 }) {
   return (
-    <div className="flex min-w-0 flex-1 items-center justify-between gap-2 rounded-md border border-border bg-background px-2.5 py-1.5">
-      <label htmlFor={id} className="text-xs font-medium text-foreground">
-        {label}
-      </label>
+    <div className={cn("flex items-center gap-2", className)}>
+      {label ? (
+        <label htmlFor={id} className="text-xs font-medium text-foreground">
+          {label}
+        </label>
+      ) : null}
       <div className="flex items-center gap-1">
         <Button
           type="button"
           size="sm"
           variant="outline"
-          className="h-7 w-7 px-0"
+          className="h-8 w-8 px-0"
           disabled={disabled || value <= min}
-          aria-label={`${label}: меньше`}
+          aria-label={label ? `${label}: меньше` : "Меньше"}
           onClick={() => onChange(Math.max(min, value - 1))}
         >
           −
         </Button>
-        <span id={id} className="w-6 text-center text-sm font-semibold tabular-nums">
+        <span id={id} className="w-7 text-center text-sm font-semibold tabular-nums">
           {value}
         </span>
         <Button
           type="button"
           size="sm"
           variant="outline"
-          className="h-7 w-7 px-0"
+          className="h-8 w-8 px-0"
           disabled={disabled || value >= max}
-          aria-label={`${label}: больше`}
+          aria-label={label ? `${label}: больше` : "Больше"}
           onClick={() => onChange(Math.min(max, value + 1))}
         >
           +
@@ -57,52 +61,37 @@ function Stepper({
   );
 }
 
-export function EventPartyFields({
-  adultCount,
-  childCount,
-  onAdultCount,
-  onChildCount,
+/** Одно поле «сколько человек» — для события без отдельных тарифов. */
+export function EventQuantityField({
+  id,
+  value,
+  onChange,
   maxTotal,
   disabled,
   className,
-  idPrefix = "event-party",
 }: {
-  adultCount: number;
-  childCount: number;
-  onAdultCount: (n: number) => void;
-  onChildCount: (n: number) => void;
+  id: string;
+  value: number;
+  onChange: (n: number) => void;
   maxTotal?: number | null;
   disabled?: boolean;
   className?: string;
-  idPrefix?: string;
 }) {
-  const cap = Math.min(EVENT_PARTY_MAX_PEOPLE, maxTotal != null && maxTotal > 0 ? maxTotal : EVENT_PARTY_MAX_PEOPLE);
-  const adultMax = Math.max(0, cap - childCount);
-  const childMax = Math.max(0, cap - adultCount);
-
+  const cap = Math.min(
+    EVENT_PARTY_MAX_PEOPLE,
+    maxTotal != null && maxTotal > 0 ? maxTotal : EVENT_PARTY_MAX_PEOPLE,
+  );
   return (
-    <div className={cn("space-y-1.5", className)}>
-      <p className="text-xs font-medium text-foreground">Состав группы</p>
-      <div className="flex flex-col gap-1.5 sm:flex-row">
-        <Stepper
-          id={`${idPrefix}-adults`}
-          label="Взрослых"
-          value={adultCount}
-          min={0}
-          max={adultMax}
-          disabled={disabled}
-          onChange={onAdultCount}
-        />
-        <Stepper
-          id={`${idPrefix}-children`}
-          label="Детей"
-          value={childCount}
-          min={0}
-          max={childMax}
-          disabled={disabled}
-          onChange={onChildCount}
-        />
-      </div>
+    <div className={cn("flex items-center justify-between gap-2", className)}>
+      <QuantityStepper
+        id={id}
+        label="Участников"
+        value={value}
+        min={1}
+        max={Math.max(1, cap)}
+        disabled={disabled}
+        onChange={onChange}
+      />
     </div>
   );
 }

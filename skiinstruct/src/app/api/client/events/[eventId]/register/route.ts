@@ -28,6 +28,16 @@ export const dynamic = "force-dynamic";
 
 const bodySchema = z.object({
   slotId: z.string().cuid().optional(),
+  items: z
+    .array(
+      z.object({
+        slotId: z.string().cuid(),
+        quantity: z.number().int().min(1).max(20),
+      }),
+    )
+    .min(1)
+    .max(20)
+    .optional(),
   adultCount: z.number().int().min(0).max(20).optional(),
   childCount: z.number().int().min(0).max(20).optional(),
   acceptLegal: z.literal(true, {
@@ -42,6 +52,7 @@ async function respondWithRegistration(opts: {
   clientEmail: string | null | undefined;
   requiresPayment: boolean;
   event: Parameters<typeof enrichClientEvent>[0];
+  checkoutRegistrationIds?: string[];
 }) {
   const myRegistration = await prisma.eventRegistration.findUnique({
     where: { id: opts.registrationId },
@@ -60,7 +71,10 @@ async function respondWithRegistration(opts: {
   }
 
   try {
-    const checkoutUrl = await createEventCheckoutUrl(opts.registrationId, opts.clientEmail);
+    const checkoutUrl = await createEventCheckoutUrl(
+      opts.checkoutRegistrationIds?.length ? opts.checkoutRegistrationIds : opts.registrationId,
+      opts.clientEmail,
+    );
     return NextResponse.json({
       event: enriched,
       registration: myRegistration,
@@ -99,9 +113,11 @@ export async function POST(req: Request, ctx: Ctx) {
     adultCount: parsed.data.adultCount,
     childCount: parsed.data.childCount,
   });
-  const partyErr = eventPartyError(party);
-  if (partyErr) {
-    return NextResponse.json({ error: partyErr }, { status: 400 });
+  if (!parsed.data.items?.length) {
+    const partyErr = eventPartyError(party);
+    if (partyErr) {
+      return NextResponse.json({ error: partyErr }, { status: 400 });
+    }
   }
   const seats = eventRegistrationSeatCount(party);
 
@@ -121,113 +137,135 @@ export async function POST(req: Request, ctx: Ctx) {
   const clientEmail = resolved.session.user.email;
   const hasSlots = event.slots.length > 0;
 
+  const slotItems =
+    parsed.data.items?.map((it) => ({ slotId: it.slotId, quantity: it.quantity })) ??
+    (slotId ? [{ slotId, quantity: seats }] : []);
+
   if (hasSlots) {
-    if (!slotId) {
-      return NextResponse.json({ error: "Выберите время выхода" }, { status: 400 });
+    if (!slotItems.length) {
+      return NextResponse.json({ error: "Выберите тариф и число мест" }, { status: 400 });
     }
-    const slot = event.slots.find((s) => s.id === slotId);
-    if (!slot) {
-      return NextResponse.json({ error: "Выход не найден" }, { status: 404 });
-    }
+    const seen = new Set<string>();
+    const created: { id: string; requiresPayment: boolean }[] = [];
 
-    const regKey = slotRegistrationKey(slot.id, resolved.userId);
-    const existing =
-      (await prisma.eventRegistration.findUnique({ where: { registrationKey: regKey } })) ??
-      (await prisma.eventRegistration.findFirst({
-        where: { slotId: slot.id, clientId: resolved.userId },
-      }));
-
-    if (existing?.status === "PAID") {
-      return NextResponse.json({ error: "Вы уже записаны на это время" }, { status: 400 });
-    }
-
-    const capacity = await getSlotCapacityState(slot);
-    const existingSeats =
-      existing && existing.status === "PENDING_PAYMENT"
-        ? eventRegistrationSeatCount(existing)
-        : 0;
-    const available =
-      slot.maxSeats != null ? Math.max(0, slot.maxSeats - capacity.paidCount + existingSeats) : null;
-    if (available != null && seats > available) {
-      return NextResponse.json(
-        { error: available < 1 ? "Мест нет" : `Свободно мест: ${available}` },
-        { status: 400 },
-      );
-    }
-    if (!slotRegistrationOpen(slot, event, false)) {
-      return NextResponse.json({ error: "Запись на это время недоступна" }, { status: 400 });
-    }
-
-    const unitPrice = slot.priceRub ?? 0;
-    const amounts = buildRegistrationAmounts(unitPrice > 0 ? unitPrice * seats : unitPrice);
-    const partyFields = {
-      adultCount: party.adultCount,
-      childCount: party.childCount,
-    };
-
-    let registrationId = existing?.id;
-
-    if (!existing) {
-      const created = await prisma.eventRegistration.create({
-        data: {
-          eventId,
-          slotId: slot.id,
-          clientId: resolved.userId,
-          registrationKey: regKey,
-          status: amounts.requiresPayment ? "PENDING_PAYMENT" : "PAID",
-          amountRub: amounts.amountRub,
-          platformFeePercent: amounts.platformFeePercent,
-          instructorShareAmount: amounts.instructorShareAmount,
-          paidAt: amounts.requiresPayment ? null : new Date(),
-          ...partyFields,
-        },
-      });
-      registrationId = created.id;
-      if (!amounts.requiresPayment) {
-        void notifyInstructorOfEventRegistration(created.id);
+    for (const item of slotItems) {
+      if (seen.has(item.slotId)) {
+        return NextResponse.json({ error: "Тариф выбран дважды" }, { status: 400 });
       }
-    } else if (existing.status === "CANCELLED") {
-      const updated = await prisma.eventRegistration.update({
-        where: { id: existing.id },
-        data: {
-          status: amounts.requiresPayment ? "PENDING_PAYMENT" : "PAID",
-          amountRub: amounts.amountRub,
-          platformFeePercent: amounts.platformFeePercent,
-          instructorShareAmount: amounts.instructorShareAmount,
-          paidAt: amounts.requiresPayment ? null : new Date(),
-          stripeCheckoutSessionId: null,
-          stripePaymentIntentId: null,
-          yookassaPaymentId: null,
-          ...partyFields,
-        },
-      });
-      registrationId = updated.id;
-      if (!amounts.requiresPayment) {
-        void notifyInstructorOfEventRegistration(updated.id);
+      seen.add(item.slotId);
+      const slot = event.slots.find((s) => s.id === item.slotId);
+      if (!slot) {
+        return NextResponse.json({ error: "Выход не найден" }, { status: 404 });
       }
-    } else if (existing.status === "PENDING_PAYMENT") {
-      await prisma.eventRegistration.update({
-        where: { id: existing.id },
-        data: {
-          amountRub: amounts.amountRub,
-          platformFeePercent: amounts.platformFeePercent,
-          instructorShareAmount: amounts.instructorShareAmount,
-          ...partyFields,
-        },
-      });
-      registrationId = existing.id;
+      const qty = item.quantity;
+      const partyFields = { adultCount: qty, childCount: 0 };
+
+      const regKey = slotRegistrationKey(slot.id, resolved.userId);
+      const existing =
+        (await prisma.eventRegistration.findUnique({ where: { registrationKey: regKey } })) ??
+        (await prisma.eventRegistration.findFirst({
+          where: { slotId: slot.id, clientId: resolved.userId },
+        }));
+
+      if (existing?.status === "PAID") {
+        return NextResponse.json(
+          { error: `Вы уже записаны: ${slot.title?.trim() || "этот тариф"}` },
+          { status: 400 },
+        );
+      }
+
+      const capacity = await getSlotCapacityState(slot);
+      const existingSeats =
+        existing && existing.status === "PENDING_PAYMENT"
+          ? eventRegistrationSeatCount(existing)
+          : 0;
+      const available =
+        slot.maxSeats != null ? Math.max(0, slot.maxSeats - capacity.paidCount + existingSeats) : null;
+      if (available != null && qty > available) {
+        return NextResponse.json(
+          {
+            error:
+              available < 1
+                ? `Мест нет: ${slot.title?.trim() || "тариф"}`
+                : `«${slot.title?.trim() || "тариф"}»: свободно ${available}`,
+          },
+          { status: 400 },
+        );
+      }
+      if (!slotRegistrationOpen(slot, event, false)) {
+        return NextResponse.json({ error: "Запись на это время недоступна" }, { status: 400 });
+      }
+
+      const unitPrice = slot.priceRub ?? 0;
+      const amounts = buildRegistrationAmounts(unitPrice > 0 ? unitPrice * qty : unitPrice);
+
+      let registrationId = existing?.id;
+
+      if (!existing) {
+        const createdRow = await prisma.eventRegistration.create({
+          data: {
+            eventId,
+            slotId: slot.id,
+            clientId: resolved.userId,
+            registrationKey: regKey,
+            status: amounts.requiresPayment ? "PENDING_PAYMENT" : "PAID",
+            amountRub: amounts.amountRub,
+            platformFeePercent: amounts.platformFeePercent,
+            instructorShareAmount: amounts.instructorShareAmount,
+            paidAt: amounts.requiresPayment ? null : new Date(),
+            ...partyFields,
+          },
+        });
+        registrationId = createdRow.id;
+        if (!amounts.requiresPayment) {
+          void notifyInstructorOfEventRegistration(createdRow.id);
+        }
+      } else if (existing.status === "CANCELLED") {
+        const updated = await prisma.eventRegistration.update({
+          where: { id: existing.id },
+          data: {
+            status: amounts.requiresPayment ? "PENDING_PAYMENT" : "PAID",
+            amountRub: amounts.amountRub,
+            platformFeePercent: amounts.platformFeePercent,
+            instructorShareAmount: amounts.instructorShareAmount,
+            paidAt: amounts.requiresPayment ? null : new Date(),
+            stripeCheckoutSessionId: null,
+            stripePaymentIntentId: null,
+            yookassaPaymentId: null,
+            ...partyFields,
+          },
+        });
+        registrationId = updated.id;
+        if (!amounts.requiresPayment) {
+          void notifyInstructorOfEventRegistration(updated.id);
+        }
+      } else if (existing.status === "PENDING_PAYMENT") {
+        await prisma.eventRegistration.update({
+          where: { id: existing.id },
+          data: {
+            amountRub: amounts.amountRub,
+            platformFeePercent: amounts.platformFeePercent,
+            instructorShareAmount: amounts.instructorShareAmount,
+            ...partyFields,
+          },
+        });
+        registrationId = existing.id;
+      }
+
+      if (!registrationId) {
+        return NextResponse.json({ error: "Не удалось создать запись" }, { status: 500 });
+      }
+      created.push({ id: registrationId, requiresPayment: amounts.requiresPayment });
     }
 
-    if (!registrationId) {
-      return NextResponse.json({ error: "Не удалось создать запись" }, { status: 500 });
-    }
-
+    const payableIds = created.filter((c) => c.requiresPayment).map((c) => c.id);
     return respondWithRegistration({
       eventId,
-      registrationId,
+      registrationId: created[0]!.id,
       clientId: resolved.userId,
       clientEmail,
-      requiresPayment: amounts.requiresPayment,
+      requiresPayment: payableIds.length > 0,
+      checkoutRegistrationIds: payableIds.length ? payableIds : undefined,
       event,
     });
   }
