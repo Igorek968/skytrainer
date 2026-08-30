@@ -97,7 +97,7 @@ export function EventVenuePicker({
 
   const addressBlock = (
     <div className="space-y-2">
-      <Label htmlFor="event-venue-address">Адрес события</Label>
+      <Label htmlFor="event-venue-address">Место проведения</Label>
       <div className="flex flex-col gap-2 sm:flex-row">
         <Input
           id="event-venue-address"

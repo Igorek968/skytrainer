@@ -13,7 +13,7 @@ import {
   clientRegistrationStatusLabel,
   type ClientRegistrationDetail,
 } from "@/lib/client-event-registration";
-import { formatEventDateRu, formatEventPriceRu } from "@/lib/instructor-events";
+import { formatEventDateRu, formatEventPriceRu, registrationStatusClassName } from "@/lib/instructor-events";
 import { formatEventPartyRu } from "@/lib/event-party";
 import { syncYooEventRegistrationPayment } from "@/lib/payments/redirect-to-checkout";
 import { Button } from "@/shared/ui/button";
@@ -227,8 +227,10 @@ export default function ClientRegistrationDetailPage() {
           <CardHeader>
             <CardTitle className="text-lg">Запись на событие</CardTitle>
             <p className="text-sm text-muted-foreground">
-              {clientRegistrationStatusLabel(reg.status, { amountRub: reg.amountRub })}
-              {reg.amountRub > 0 ? ` · ${reg.amountRub.toLocaleString("ru-RU")} ₽` : " · Бесплатно"}
+              <span className={registrationStatusClassName(reg.status)}>
+                {clientRegistrationStatusLabel(reg.status, { amountRub: reg.amountRub })}
+              </span>
+              {reg.amountRub > 0 ? ` · ${reg.amountRub.toLocaleString("ru-RU")} ₽` : " · бесплатно"}
             </p>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -258,7 +260,7 @@ export default function ClientRegistrationDetailPage() {
             />
             {!reg.event.venueAddress?.trim() ? (
               <p className="rounded-md border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
-                Адрес сбора в карточке события не указан — уточните место у инструктора в чате или по звонку.
+                Адрес проведения в карточке события не указан — уточните место у инструктора в чате или по звонку.
               </p>
             ) : null}
 

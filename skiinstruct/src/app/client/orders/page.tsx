@@ -10,7 +10,7 @@ import {
   clientRegistrationStatusLabel,
   type ClientRegistrationListItem,
 } from "@/lib/client-event-registration";
-import { resolveMeetAddress } from "@/shared/lib/order-meet-address";
+import { registrationStatusClassName } from "@/lib/instructor-events";
 import { clientCanRemoveOrderFromHistory, orderStatusLabel } from "@/shared/lib/order-status";
 import { OrderCancellationSide } from "@/shared/ui/order-cancellation-side";
 import { Button } from "@/shared/ui/button";
@@ -176,7 +176,7 @@ export default function ClientOrdersPage() {
                       className="flex min-w-0 flex-wrap items-center justify-between gap-3"
                     >
                       <div className="min-w-0">
-                        <div className="font-medium">
+                        <div className={registrationStatusClassName(entry.registration.status)}>
                           {clientRegistrationStatusLabel(entry.registration.status, {
                             amountRub: entry.registration.amountRub,
                           })}

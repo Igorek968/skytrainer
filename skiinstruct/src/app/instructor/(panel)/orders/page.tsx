@@ -11,7 +11,7 @@ import {
   instructorRegistrationStatusLabel,
   type InstructorRegistrationListItem,
 } from "@/lib/instructor-event-registration";
-import { formatEventDateRu } from "@/lib/instructor-events";
+import { formatEventDateRu, registrationStatusClassName } from "@/lib/instructor-events";
 import { devPollInterval } from "@/lib/query-poll";
 import { orderStatusLabel } from "@/shared/lib/order-status";
 import { OrderCancellationSide } from "@/shared/ui/order-cancellation-side";
@@ -177,7 +177,7 @@ export default function InstructorOrdersPage() {
                         image={entry.registration.client.image}
                       />
                       <div className="min-w-0 flex-1">
-                        <div className="font-medium">
+                        <div className={registrationStatusClassName(entry.registration.status)}>
                           {instructorRegistrationStatusLabel(entry.registration.status)}
                         </div>
                         <div className="text-xs text-muted-foreground">

@@ -272,7 +272,7 @@ export function AdminEventEditorSheet({ eventId, onClose }: Props) {
               />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="ae-addr">Адрес</Label>
+              <Label htmlFor="ae-addr">Место проведения</Label>
               <Input
                 id="ae-addr"
                 value={venueAddress}

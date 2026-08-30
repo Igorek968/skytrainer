@@ -11,7 +11,7 @@ import {
   instructorRegistrationStatusLabel,
   type InstructorRegistrationListItem,
 } from "@/lib/instructor-event-registration";
-import { formatEventDateRu, formatEventPriceRu } from "@/lib/instructor-events";
+import { formatEventDateRu, formatEventPriceRu, registrationStatusClassName } from "@/lib/instructor-events";
 import { RegistrationChat } from "@/features/chat/registration-chat";
 import { ForceMajeureCancelButton } from "@/features/instructor/force-majeure-cancel-button";
 import { Button } from "@/shared/ui/button";
@@ -191,7 +191,10 @@ export default function InstructorRegistrationDetailPage() {
             <CardHeader>
               <CardTitle className="text-lg">Запись на событие</CardTitle>
               <p className="text-sm text-muted-foreground">
-                {instructorRegistrationStatusLabel(reg.status)} ·{" "}
+                <span className={registrationStatusClassName(reg.status)}>
+                  {instructorRegistrationStatusLabel(reg.status)}
+                </span>
+                {" · "}
                 {reg.event.moderationStatusLabel}
               </p>
             </CardHeader>

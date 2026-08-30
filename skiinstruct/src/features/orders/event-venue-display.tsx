@@ -32,7 +32,7 @@ export function EventVenueDisplay({
   return (
     <div className={compact ? "mt-2 space-y-1.5" : "mt-3 space-y-2"}>
       <p className="text-xs text-muted-foreground">
-        <span className="font-medium text-foreground">Место сбора: </span>
+        <span className="font-medium text-foreground">Место проведения: </span>
         <span className="text-foreground">{text}</span>
       </p>
       <Button type="button" variant="outline" size="sm" className="h-8 text-xs" asChild>

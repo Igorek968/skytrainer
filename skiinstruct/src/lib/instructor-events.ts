@@ -210,6 +210,18 @@ export function registrationStatusLabel(status: EventRegistrationStatus): string
   }
 }
 
+/** Цвет статуса записи: отмена — красный, оплата — зелёный. */
+export function registrationStatusClassName(status: EventRegistrationStatus): string {
+  switch (status) {
+    case "CANCELLED":
+      return "font-medium text-red-600 dark:text-red-400";
+    case "PAID":
+      return "font-medium text-emerald-600 dark:text-emerald-400";
+    default:
+      return "font-medium text-foreground";
+  }
+}
+
 export function serializeInstructorEvent(
   row: InstructorEvent,
   extra?: {
