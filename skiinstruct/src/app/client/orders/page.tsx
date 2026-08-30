@@ -11,6 +11,7 @@ import {
   type ClientRegistrationListItem,
 } from "@/lib/client-event-registration";
 import { registrationStatusClassName } from "@/lib/instructor-events";
+import { resolveMeetAddress } from "@/shared/lib/order-meet-address";
 import { clientCanRemoveOrderFromHistory, orderStatusLabel } from "@/shared/lib/order-status";
 import { OrderCancellationSide } from "@/shared/ui/order-cancellation-side";
 import { Button } from "@/shared/ui/button";

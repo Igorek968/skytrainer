@@ -9,6 +9,7 @@ import {
   resolveClientEventsOrigin,
 } from "@/lib/client-events-geo";
 import { buildClientEventFeedCards, feedCardCategory, feedCardDistanceKm } from "@/lib/event-catalog";
+import { loadEventReviewsForFeed, reviewsOrEmpty } from "@/lib/services/event-reviews";
 import { canonicalizeActivityLabel } from "@/lib/services/instructor-match";
 import { enrichClientEvent } from "@/lib/instructor-events";
 import { prisma } from "@/lib/prisma";
@@ -223,6 +224,43 @@ export async function GET(req: Request) {
   cards = cards
     .sort((a, b) => (feedCardDistanceKm(a) ?? 99999) - (feedCardDistanceKm(b) ?? 99999))
     .slice(0, 50);
+
+  const eventIds = [
+    ...new Set(cards.flatMap((c) => (c.kind === "single" ? [c.event.id] : c.offers.map((o) => o.id)))),
+  ];
+  const catalogIds = cards.filter((c) => c.kind === "catalog").map((c) => c.catalogId);
+  const reviewMaps = await loadEventReviewsForFeed({ eventIds, catalogIds });
+
+  cards = cards.map((card) => {
+    if (card.kind === "catalog") {
+      const summary = reviewsOrEmpty(reviewMaps.byCatalogId.get(card.catalogId));
+      return {
+        ...card,
+        ratingAvg: summary.ratingAvg,
+        reviewCount: summary.reviewCount,
+        reviewsPreview: summary.reviewsPreview,
+        offers: card.offers.map((o) => {
+          const own = reviewsOrEmpty(reviewMaps.byEventId.get(o.id));
+          return {
+            ...o,
+            ratingAvg: own.ratingAvg,
+            reviewCount: own.reviewCount,
+            reviewsPreview: own.reviewsPreview,
+          };
+        }),
+      };
+    }
+    const summary = reviewsOrEmpty(reviewMaps.byEventId.get(card.event.id));
+    return {
+      ...card,
+      event: {
+        ...card.event,
+        ratingAvg: summary.ratingAvg,
+        reviewCount: summary.reviewCount,
+        reviewsPreview: summary.reviewsPreview,
+      },
+    };
+  });
 
   /** Плоский список для карты / совместимости: по одной точке на карточку каталога + одиночные. */
   const eventsForMap = cards.flatMap((card) => {

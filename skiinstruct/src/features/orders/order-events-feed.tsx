@@ -6,6 +6,7 @@ import type { ClientInstructorEventDTO } from "@/lib/instructor-events";
 import { formatEventDateRu } from "@/lib/instructor-events";
 import { EventRegistrationButton } from "@/features/orders/event-registration-button";
 import { EventFeedPhoto } from "@/features/orders/event-feed-photo";
+import { EventReviewsFeed } from "@/features/orders/event-reviews-feed";
 import { EventVenueDisplay } from "@/features/orders/event-venue-display";
 import { devPollInterval } from "@/lib/query-poll";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
@@ -29,6 +30,17 @@ function EventFeedItem({
         {event.body}
       </p>
       <EventRegistrationButton event={event} queryKey={queryKey} />
+      <div className="pt-2">
+        <EventReviewsFeed
+          eventId={event.catalogItemId ? undefined : event.id}
+          catalogId={event.catalogItemId}
+          summary={{
+            ratingAvg: event.ratingAvg ?? null,
+            reviewCount: event.reviewCount ?? 0,
+            reviewsPreview: event.reviewsPreview ?? [],
+          }}
+        />
+      </div>
     </article>
   );
 }

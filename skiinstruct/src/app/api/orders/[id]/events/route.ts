@@ -4,6 +4,7 @@ import type { UserRole } from "@prisma/client";
 import { auth } from "@/auth";
 import { enrichClientEvent } from "@/lib/instructor-events";
 import { prisma } from "@/lib/prisma";
+import { loadEventReviewsForFeed, reviewsOrEmpty } from "@/lib/services/event-reviews";
 import {
   archivePastPublishedInstructorEvents,
   isVisibleInClientEventFeed,
@@ -86,5 +87,20 @@ export async function GET(_req: Request, ctx: Ctx) {
     )
   ).filter((event) => isVisibleInClientEventFeed(event, now));
 
-  return NextResponse.json({ events });
+  const eventIds = events.map((e) => e.id);
+  const catalogIds = [...new Set(events.map((e) => e.catalogItemId).filter((id): id is string => Boolean(id)))];
+  const reviewMaps = await loadEventReviewsForFeed({ eventIds, catalogIds });
+  const withReviews = events.map((event) => {
+    const summary = event.catalogItemId
+      ? reviewsOrEmpty(reviewMaps.byCatalogId.get(event.catalogItemId))
+      : reviewsOrEmpty(reviewMaps.byEventId.get(event.id));
+    return {
+      ...event,
+      ratingAvg: summary.ratingAvg,
+      reviewCount: summary.reviewCount,
+      reviewsPreview: summary.reviewsPreview,
+    };
+  });
+
+  return NextResponse.json({ events: withReviews });
 }

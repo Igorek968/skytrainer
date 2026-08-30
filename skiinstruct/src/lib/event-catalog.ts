@@ -1,5 +1,6 @@
 import type { EventCatalogStatus } from "@prisma/client";
 
+import type { EventReviewsSummary } from "@/lib/event-reviews";
 import type { ClientInstructorEventDTO, InstructorEventDTO } from "@/lib/instructor-events";
 
 export type EventCatalogItemDTO = {
@@ -53,6 +54,9 @@ export type ClientEventFeedCardDTO =
       venueLat: number | null;
       venueLng: number | null;
       distanceKm?: number;
+      ratingAvg?: number | null;
+      reviewCount?: number;
+      reviewsPreview?: EventReviewsSummary["reviewsPreview"];
       offerCount: number;
       priceFromRub: number | null;
       offers: ClientInstructorEventDTO[];
@@ -97,25 +101,36 @@ export function feedCardDistanceKm(card: ClientEventFeedCardDTO): number | undef
   return card.kind === "catalog" ? card.distanceKm : card.event.distanceKm;
 }
 
-export function feedCardBadgeValue(card: ClientEventFeedCardDTO): string {
+export function feedCardRatingAvg(card: ClientEventFeedCardDTO): number | null {
   if (card.kind === "catalog") {
-    if (card.distanceKm != null && Number.isFinite(card.distanceKm) && card.distanceKm < 9000) {
-      return card.distanceKm.toFixed(1).replace(".", ",");
-    }
-    if (card.listingOnly || card.catalogKind === "VENUE") {
-      return String(card.offerCount);
-    }
-    if (card.priceFromRub == null || card.priceFromRub <= 0) return String(card.offerCount);
-    if (card.priceFromRub < 1000) return String(card.priceFromRub);
-    return (card.priceFromRub / 1000).toFixed(1).replace(".", ",");
+    return card.ratingAvg != null && Number.isFinite(card.ratingAvg) ? card.ratingAvg : null;
   }
-  const event = card.event;
-  if (event.distanceKm != null && Number.isFinite(event.distanceKm) && event.distanceKm < 9000) {
-    return event.distanceKm.toFixed(1).replace(".", ",");
-  }
-  if (event.isFree || event.priceRub == null || event.priceRub <= 0) return "0";
-  if (event.priceRub < 1000) return String(event.priceRub);
-  return (event.priceRub / 1000).toFixed(1).replace(".", ",");
+  return card.event.ratingAvg != null && Number.isFinite(card.event.ratingAvg) ? card.event.ratingAvg : null;
+}
+
+export function feedCardReviewCount(card: ClientEventFeedCardDTO): number {
+  if (card.kind === "catalog") return card.reviewCount ?? 0;
+  return card.event.reviewCount ?? 0;
+}
+
+export function feedCardReviewsPreview(card: ClientEventFeedCardDTO): EventReviewsSummary["reviewsPreview"] {
+  if (card.kind === "catalog") return card.reviewsPreview ?? [];
+  return card.event.reviewsPreview ?? [];
+}
+
+export function feedCardReviewsSummary(card: ClientEventFeedCardDTO): EventReviewsSummary {
+  return {
+    ratingAvg: feedCardRatingAvg(card),
+    reviewCount: feedCardReviewCount(card),
+    reviewsPreview: feedCardReviewsPreview(card),
+  };
+}
+
+export function feedCardBadgeValue(card: ClientEventFeedCardDTO): string {
+  const avg = feedCardRatingAvg(card);
+  const count = feedCardReviewCount(card);
+  if (count < 1 || avg == null) return "★ —";
+  return `★ ${avg.toFixed(1).replace(".", ",")}`;
 }
 
 /** Группирует опубликованные события в карточки каталога + одиночные. */

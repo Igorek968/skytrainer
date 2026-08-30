@@ -1,6 +1,7 @@
 import { enrichClientEvent, type ClientInstructorEventDTO } from "@/lib/instructor-events";
 import { prisma } from "@/lib/prisma";
 import { resolveOptionalClientUserId } from "@/lib/api-session";
+import { loadEventReviewsSummary } from "@/lib/services/event-reviews";
 import {
   archivePastPublishedInstructorEvents,
   isVisibleInClientEventFeed,
@@ -73,5 +74,13 @@ export async function loadPublicClientEvent(
   }
 
   if (!isVisibleInClientEventFeed(event, now)) return null;
+
+  const reviews = await loadEventReviewsSummary(
+    event.catalogItemId ? { catalogId: event.catalogItemId } : { eventId: event.id },
+  );
+  event.ratingAvg = reviews.ratingAvg;
+  event.reviewCount = reviews.reviewCount;
+  event.reviewsPreview = reviews.reviewsPreview;
+
   return event;
 }

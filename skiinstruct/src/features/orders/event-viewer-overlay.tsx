@@ -5,14 +5,17 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef } from "react";
 
 import { EventRegistrationButton } from "@/features/orders/event-registration-button";
+import { EventReviewsFeed } from "@/features/orders/event-reviews-feed";
 import { EventVenueDisplay } from "@/features/orders/event-venue-display";
 import { formatDistanceKm } from "@/lib/client-events-geo";
 import {
   feedCardPhotoUrl,
+  feedCardReviewsSummary,
   feedCardTitle,
   type ClientEventFeedCardDTO,
 } from "@/lib/event-catalog";
 import type { ClientInstructorEventDTO } from "@/lib/instructor-events";
+import { EventRatingBadge } from "@/features/orders/event-rating-badge";
 import { formatEventDateRu } from "@/lib/instructor-events";
 import { publicUploadDisplaySrc } from "@/lib/public-uploads-display";
 import { Button } from "@/shared/ui/button";
@@ -144,6 +147,7 @@ export function EventViewerOverlay({
   const venueLat = card.kind === "catalog" ? card.venueLat : card.event.venueLat;
   const venueLng = card.kind === "catalog" ? card.venueLng : card.event.venueLng;
   const body = card.kind === "catalog" ? card.body : card.event.body;
+  const reviews = feedCardReviewsSummary(card);
 
   return (
     <div
@@ -230,6 +234,11 @@ export function EventViewerOverlay({
               🎿
             </div>
           )}
+          <EventRatingBadge
+            ratingAvg={reviews.ratingAvg}
+            reviewCount={reviews.reviewCount}
+            className="bottom-2 left-2"
+          />
           <p className="absolute bottom-2 right-3 rounded bg-black/55 px-2 py-0.5 text-xs text-white/90">
             {index + 1} / {cards.length}
           </p>
@@ -317,6 +326,12 @@ export function EventViewerOverlay({
               )}
             </>
           )}
+
+          <EventReviewsFeed
+            eventId={card.kind === "single" ? card.event.id : undefined}
+            catalogId={card.kind === "catalog" ? card.catalogId : card.event.catalogItemId}
+            summary={reviews}
+          />
         </div>
       </div>
     </div>

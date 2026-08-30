@@ -14,16 +14,20 @@ import {
   formatDistanceKm,
 } from "@/lib/client-events-geo";
 import {
-  feedCardBadgeValue,
   feedCardDistanceKm,
   feedCardId,
   feedCardPhotoUrl,
+  feedCardRatingAvg,
+  feedCardReviewCount,
   feedCardTitle,
   type ClientEventFeedCardDTO,
 } from "@/lib/event-catalog";
+import { formatEventRatingTitle } from "@/lib/event-reviews";
 import { eventCategoryOptions } from "@/lib/event-category";
 import { EventRegistrationButton } from "@/features/orders/event-registration-button";
 import { EventFeedPhoto } from "@/features/orders/event-feed-photo";
+import { EventRatingBadge } from "@/features/orders/event-rating-badge";
+import { EventReviewsFeed } from "@/features/orders/event-reviews-feed";
 import { EventVenueDisplay } from "@/features/orders/event-venue-display";
 import { EventViewerOverlay } from "@/features/orders/event-viewer-overlay";
 import { publicUploadDisplaySrc } from "@/lib/public-uploads-display";
@@ -108,6 +112,17 @@ function EventFeedDetails({
           , чтобы записаться на событие.
         </p>
       )}
+      <div className="pt-2">
+        <EventReviewsFeed
+          eventId={event.catalogItemId ? undefined : event.id}
+          catalogId={event.catalogItemId}
+          summary={{
+            ratingAvg: event.ratingAvg ?? null,
+            reviewCount: event.reviewCount ?? 0,
+            reviewsPreview: event.reviewsPreview ?? [],
+          }}
+        />
+      </div>
     </>
   );
 }
@@ -238,10 +253,7 @@ function EventPosterCard({
 }) {
   const id = feedCardId(card);
   const title = feedCardTitle(card);
-  const badge = feedCardBadgeValue(card);
-  const distanceKm = feedCardDistanceKm(card);
-  const distanceTitle =
-    distanceKm != null ? `${formatDistanceKm(distanceKm)} от вас` : undefined;
+  const ratingTitle = formatEventRatingTitle(feedCardRatingAvg(card), feedCardReviewCount(card));
   const photoSrc = publicUploadDisplaySrc(feedCardPhotoUrl(card));
   const clickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -306,7 +318,7 @@ function EventPosterCard({
           onDoubleClick={handleDoubleClick}
           className="block w-full text-left"
           aria-expanded={selected}
-          aria-label={`${title}${distanceTitle ? `, ${distanceTitle}` : ""}. Нажмите, чтобы открыть`}
+          aria-label={`${title}, ${ratingTitle}. Нажмите, чтобы открыть`}
           title="Нажмите, чтобы открыть на весь экран"
         >
           <div
@@ -333,12 +345,10 @@ function EventPosterCard({
                 </span>
               </div>
             )}
-            <span
-              className="absolute bottom-2 left-2 min-w-[2rem] rounded-md bg-[#3dbb4e] px-1.5 py-0.5 text-center text-xs font-bold leading-none text-white shadow-sm"
-              title={distanceTitle ?? "Цена или расстояние"}
-            >
-              {badge}
-            </span>
+            <EventRatingBadge
+              ratingAvg={feedCardRatingAvg(card)}
+              reviewCount={feedCardReviewCount(card)}
+            />
             {card.kind === "catalog" && card.offerCount > 1 ? (
               <span className="absolute right-2 top-2 rounded-md bg-black/55 px-1.5 py-0.5 text-[10px] font-medium text-white">
                 {card.offerCount} инстр.
@@ -727,7 +737,7 @@ export function ClientEventsFeed({
 
   const badgeHint =
     layout === "carousel"
-      ? "Одинаковые события схлопываются в одну карточку. Зелёная метка: расстояние или цена. На телефоне — тап на весь экран."
+      ? "Одинаковые события схлопываются в одну карточку. Зелёная метка на фото — рейтинг по отзывам. На телефоне — тап на весь экран."
       : "Нажмите событие, чтобы открыть на весь экран.";
 
   return (

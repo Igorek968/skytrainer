@@ -7,7 +7,9 @@ import { useSession } from "next-auth/react";
 import { CopyEventLinkButton } from "@/features/events/copy-event-link-button";
 import { EventFeedPhoto } from "@/features/orders/event-feed-photo";
 import { EventRegistrationButton } from "@/features/orders/event-registration-button";
+import { EventReviewsFeed } from "@/features/orders/event-reviews-feed";
 import { EventVenueDisplay } from "@/features/orders/event-venue-display";
+import { emptyEventReviewsSummary } from "@/lib/event-reviews";
 import type { ClientInstructorEventDTO } from "@/lib/instructor-events";
 import { formatEventDateRu, formatEventPriceRu } from "@/lib/instructor-events";
 import { Button } from "@/shared/ui/button";
@@ -82,6 +84,16 @@ export function PublicEventView({ event }: { event: ClientInstructorEventDTO }) 
           </div>
         </div>
       )}
+
+      <EventReviewsFeed
+        eventId={event.catalogItemId ? undefined : event.id}
+        catalogId={event.catalogItemId}
+        summary={{
+          ratingAvg: event.ratingAvg ?? null,
+          reviewCount: event.reviewCount ?? 0,
+          reviewsPreview: event.reviewsPreview ?? emptyEventReviewsSummary().reviewsPreview,
+        }}
+      />
 
       <div className="flex flex-wrap items-center gap-2 pt-2">
         <CopyEventLinkButton eventId={event.id} />

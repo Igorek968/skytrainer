@@ -72,6 +72,10 @@ export type ClientInstructorEventDTO = InstructorEventDTO & {
   instructorName?: string | null;
   /** Средний рейтинг инструктора (для меток на карте). */
   instructorRatingAvg?: number | null;
+  /** Рейтинг события по отзывам участников. */
+  ratingAvg?: number | null;
+  reviewCount?: number;
+  reviewsPreview?: import("@/lib/event-reviews").EventReviewDTO[];
   /** Расстояние от точки клиента на карте до инструктора, км */
   distanceKm?: number;
   paidRegistrationCount: number;
