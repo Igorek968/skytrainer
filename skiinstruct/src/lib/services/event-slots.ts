@@ -1,7 +1,9 @@
 import type { EventSlot, InstructorEvent, Prisma } from "@prisma/client";
 
-import { isInstructorEventCompleted, formatSlotTimeRu } from "@/lib/instructor-events";
+import { isInstructorEventCompleted } from "@/lib/instructor-events";
 import { prisma } from "@/lib/prisma";
+import { appHm, appTimezoneOffsetMinutes, appYmd } from "@/shared/lib/app-timezone";
+import { parseWallDateTime } from "@/shared/lib/lesson-wall-datetime";
 
 import {
   isEventFree,
@@ -44,23 +46,28 @@ export function eventUsesSlots(slots: { id: string }[] | number): boolean {
   return typeof slots === "number" ? slots > 0 : slots.length > 0;
 }
 
-export function parseEventDayYmd(raw: string | null | undefined): Date | null {
-  if (!raw) return null;
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(raw.trim());
-  if (!m) return null;
-  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 12, 0, 0, 0);
-  return Number.isFinite(d.getTime()) ? d : null;
-}
-
-export function buildSlotStartsAt(eventDay: Date, timeHm: string): Date | null {
+function padHm(timeHm: string): string | null {
   const m = /^(\d{1,2}):(\d{2})$/.exec(timeHm.trim());
   if (!m) return null;
   const hours = Number(m[1]);
   const minutes = Number(m[2]);
   if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return null;
-  const d = new Date(eventDay);
-  d.setHours(hours, minutes, 0, 0);
-  return d;
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+}
+
+/** Календарный день YYYY-MM-DD как полдень по Москве (не TZ сервера). */
+export function parseEventDayYmd(raw: string | null | undefined): Date | null {
+  if (!raw) return null;
+  const ymd = raw.trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd)) return null;
+  return parseWallDateTime(ymd, "12:00", appTimezoneOffsetMinutes());
+}
+
+/** «10:30» на указанный день = 10:30 Europe/Moscow, независимо от TZ контейнера. */
+export function buildSlotStartsAt(eventDay: Date, timeHm: string): Date | null {
+  const hm = padHm(timeHm);
+  if (!hm) return null;
+  return parseWallDateTime(appYmd(eventDay), hm, appTimezoneOffsetMinutes());
 }
 
 export function slotRegistrationKey(slotId: string, clientId: string): string {
@@ -279,15 +286,14 @@ export function eventDayFromIso(iso: string | null | undefined): string {
   if (!iso) return "";
   const d = new Date(iso);
   if (!Number.isFinite(d.getTime())) return "";
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  return appYmd(d);
 }
 
 export function slotsToFormInputs(slots: EventSlot[]): EventSlotInput[] {
   return slots.map((s) => ({
     id: s.id,
     date: eventDayFromIso(s.startsAt.toISOString()),
-    time: formatSlotTimeRu(s.startsAt),
+    time: appHm(s.startsAt),
     title: s.title ?? null,
     durationMinutes: s.durationMinutes ?? null,
     maxSeats: s.maxSeats,

@@ -19,6 +19,8 @@ import {
   type EventSlotDTO,
 } from "@/lib/services/event-slots";
 import { prisma } from "@/lib/prisma";
+import { APP_TIME_ZONE, appDatetimeLocalValue } from "@/shared/lib/app-timezone";
+
 export type InstructorEventDTO = {
   id: string;
   title: string;
@@ -328,6 +330,7 @@ export function formatEventDateRu(iso: string | null | undefined): string | null
   const d = new Date(iso);
   if (!Number.isFinite(d.getTime())) return null;
   return d.toLocaleString("ru-RU", {
+    timeZone: APP_TIME_ZONE,
     day: "numeric",
     month: "long",
     year: "numeric",
@@ -344,14 +347,22 @@ export function formatEventPriceRu(priceRub: number | null | undefined): string 
 export function formatSlotTimeRu(iso: string | Date): string {
   const d = iso instanceof Date ? iso : new Date(iso);
   if (!Number.isFinite(d.getTime())) return "—";
-  return d.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+  return d.toLocaleTimeString("ru-RU", {
+    timeZone: APP_TIME_ZONE,
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 /** Дата выхода без года (для строки записи): «23 июля». */
 export function formatSlotDayRu(iso: string | Date): string {
   const d = iso instanceof Date ? iso : new Date(iso);
   if (!Number.isFinite(d.getTime())) return "—";
-  return d.toLocaleDateString("ru-RU", { day: "numeric", month: "long" });
+  return d.toLocaleDateString("ru-RU", {
+    timeZone: APP_TIME_ZONE,
+    day: "numeric",
+    month: "long",
+  });
 }
 
 /** Одна строка для клиента: «23 июля, 10:00 · Утренний · 5 000 ₽». */
@@ -374,6 +385,5 @@ export function toDatetimeLocalValue(iso: string | null | undefined): string {
   if (!iso) return "";
   const d = new Date(iso);
   if (!Number.isFinite(d.getTime())) return "";
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return appDatetimeLocalValue(d);
 }

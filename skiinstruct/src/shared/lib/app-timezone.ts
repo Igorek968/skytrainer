@@ -41,16 +41,29 @@ function zonedParts(date: Date, timeZone: string): Record<DateTimeFormatPartType
 }
 
 /** Дата YYYY-MM-DD в платформенной таймзоне. */
-export function appTodayYmd(now = new Date()): string {
+export function appYmd(now = new Date()): string {
   const p = zonedParts(now, APP_TIME_ZONE);
   return `${p.year}-${p.month}-${p.day}`;
 }
 
+export function appTodayYmd(now = new Date()): string {
+  return appYmd(now);
+}
+
 /** Часы:минуты в платформенной таймзоне. */
-export function appNowHm(now = new Date()): string {
+export function appHm(now = new Date()): string {
   const p = zonedParts(now, APP_TIME_ZONE);
   const hour = p.hour === "24" ? "00" : p.hour;
   return `${hour}:${p.minute}`;
+}
+
+export function appNowHm(now = new Date()): string {
+  return appHm(now);
+}
+
+/** Значение для input[type=datetime-local] в МСК. */
+export function appDatetimeLocalValue(now = new Date()): string {
+  return `${appYmd(now)}T${appHm(now)}`;
 }
 
 /**

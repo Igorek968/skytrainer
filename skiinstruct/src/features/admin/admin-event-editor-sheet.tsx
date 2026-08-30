@@ -12,6 +12,7 @@ import {
   eventPriceRubErrorFromInput,
 } from "@/lib/event-price";
 import type { InstructorEventSlotForm } from "@/lib/instructor-events";
+import { toDatetimeLocalValue } from "@/lib/instructor-events";
 import { publicUploadDisplaySrc } from "@/lib/public-uploads-display";
 import { EVENT_BODY_HINT_RU, EVENT_BODY_MAX_CHARS } from "@/lib/validations/instructor-event";
 import { Button } from "@/shared/ui/button";
@@ -39,11 +40,7 @@ function EventEditorPhoto({ photoUrl }: { photoUrl?: string | null }) {
 }
 
 function toLocalInput(iso: string | null | undefined): string {
-  if (!iso) return "";
-  const d = new Date(iso);
-  if (!Number.isFinite(d.getTime())) return "";
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return toDatetimeLocalValue(iso);
 }
 
 type Props = {

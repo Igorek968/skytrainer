@@ -1,11 +1,16 @@
 import { prisma } from "@/lib/prisma";
-import { isInStartReminderWindow, startReminderWindow } from "@/lib/reminder-timing";
 import { sendWebPushToUser } from "@/lib/push-web";
+import { isInStartReminderWindow, startReminderWindow } from "@/lib/reminder-timing";
+import { APP_TIME_ZONE } from "@/shared/lib/app-timezone";
 
 const ACTIVE_STATUSES = ["PAID", "PENDING_PAYMENT"] as const;
 
 function formatStartLabel(at: Date): string {
-  return at.toLocaleString("ru-RU", { dateStyle: "short", timeStyle: "short" });
+  return at.toLocaleString("ru-RU", {
+    timeZone: APP_TIME_ZONE,
+    dateStyle: "short",
+    timeStyle: "short",
+  });
 }
 
 /**

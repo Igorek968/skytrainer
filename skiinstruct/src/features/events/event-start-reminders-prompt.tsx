@@ -7,6 +7,7 @@ import { instructorAlertPollInterval } from "@/lib/query-poll";
 import { isInOneHourReminderWindow } from "@/lib/order-lesson-reminder-windows";
 import { markReminderShown, wasReminderShown } from "@/lib/reminder-seen-storage";
 import { fireSiteAlert, siteAlertTitle } from "@/lib/site-alert";
+import { APP_TIME_ZONE } from "@/shared/lib/app-timezone";
 
 type ClientRegRow = {
   id: string;
@@ -27,6 +28,7 @@ type InstructorStartRow = {
 function formatStartLabel(iso: string | null): string {
   if (!iso) return "—";
   return new Date(iso).toLocaleString("ru-RU", {
+    timeZone: APP_TIME_ZONE,
     dateStyle: "short",
     timeStyle: "short",
   });

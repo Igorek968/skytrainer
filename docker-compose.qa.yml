@@ -53,6 +53,7 @@ services:
     restart: unless-stopped
     environment:
       NODE_ENV: production
+      TZ: Europe/Moscow
       DATABASE_URL: ${SKIINSTRUCT_DATABASE_URL:-postgres://sky:sky@postgres:5432/skytrainer_new?schema=skiinstruct}
       AUTH_SECRET: ${SKIINSTRUCT_AUTH_SECRET}
       AUTH_URL: ${APP_PUBLIC_URL:-https://${APP_DOMAIN}}

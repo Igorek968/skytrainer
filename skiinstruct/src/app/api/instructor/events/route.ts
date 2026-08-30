@@ -14,7 +14,12 @@ import {
   upsertInstructorEventTitle,
 } from "@/lib/services/instructor-event-titles";
 import { archivePastPublishedInstructorEvents } from "@/lib/services/instructor-event-expiry";
-import { syncEventSlots, eventDayFromIso, type EventSlotInput } from "@/lib/services/event-slots";
+import {
+  syncEventSlots,
+  eventDayFromIso,
+  parseEventDayYmd,
+  type EventSlotInput,
+} from "@/lib/services/event-slots";
 import { createInstructorEventSchema } from "@/lib/validations/instructor-event";
 
 export const dynamic = "force-dynamic";
@@ -27,11 +32,7 @@ function parseEventAt(raw: string | null | undefined) {
 }
 
 function parseEventDay(raw: string | null | undefined): Date | null {
-  if (!raw) return null;
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(raw.trim());
-  if (!m) return null;
-  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 12, 0, 0, 0);
-  return Number.isFinite(d.getTime()) ? d : null;
+  return parseEventDayYmd(raw);
 }
 
 async function serializeEventWithSlots(
