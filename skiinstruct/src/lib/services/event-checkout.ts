@@ -149,9 +149,11 @@ export async function createEventCheckoutUrl(
     if (!email) throw new Error("Укажите email для чека");
 
     // Не создавать новый платёж поверх существующего: иначе теряется id уже оплаченного.
-    const existingPaymentId = unpaid.length === 1 ? unpaid[0]!.yookassaPaymentId?.trim() : unpaid.every((r) => r.yookassaPaymentId?.trim() && r.yookassaPaymentId === unpaid[0]!.yookassaPaymentId)
-      ? unpaid[0]!.yookassaPaymentId!.trim()
-      : "";
+    const sharedPaymentId = unpaid[0]?.yookassaPaymentId?.trim() ?? "";
+    const existingPaymentId =
+      sharedPaymentId && unpaid.every((r) => r.yookassaPaymentId?.trim() === sharedPaymentId)
+        ? sharedPaymentId
+        : "";
     if (existingPaymentId) {
       const existing = await fetchYooKassaPayment(existingPaymentId);
       if (existing?.status === "succeeded") {

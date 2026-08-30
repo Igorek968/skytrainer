@@ -133,7 +133,7 @@ export function EventSlotsPicker({
       <ul className="space-y-2">
         {openSlots.map((slot) => {
           const my = slot.myRegistration;
-          const booked = my && (my.status === "PAID" || my.status === "PENDING_PAYMENT");
+          const booked = Boolean(my && (my.status === "PAID" || my.status === "PENDING_PAYMENT"));
           const max =
             slot.spotsLeft != null
               ? Math.min(EVENT_PARTY_MAX_PEOPLE, Math.max(0, slot.spotsLeft))
@@ -143,7 +143,7 @@ export function EventSlotsPicker({
           const lineRub = unit != null && unit > 0 ? unit * qty : 0;
           const line = formatSlotLineRu(slot.startsAt, {
             title: slot.title,
-            priceRub: booked ? my.amountRub : unit,
+            priceRub: booked && my ? my.amountRub : unit,
             includePrice: booked,
           });
           const seatsLine = booked
