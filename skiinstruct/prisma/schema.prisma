@@ -671,6 +671,11 @@ model EventRegistration {
   slotId String?
   slot   EventSlot? @relation(fields: [slotId], references: [id], onDelete: Cascade)
 
+  /// Сколько взрослых в этой заявке (одно место = один человек).
+  adultCount Int @default(1)
+  /// Сколько детей в этой заявке.
+  childCount Int @default(0)
+
   /// slotId или `${eventId}:${clientId}` для записей без слота
   registrationKey String? @unique
 

@@ -32,7 +32,7 @@ export async function GET(req: Request) {
     take: status === "PUBLISHED" ? 100 : 50,
     include: {
       instructor: { select: { id: true, name: true, email: true } },
-      catalogItem: { select: { id: true, title: true, status: true, citySlug: true } },
+      catalogItem: { select: { id: true, title: true, status: true, citySlug: true, photoUrl: true } },
     },
   });
 

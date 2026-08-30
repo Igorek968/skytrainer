@@ -38,6 +38,8 @@ export type ClientRegistrationDetail = ClientRegistrationListItem & {
   clientRating: number | null;
   clientReview: string | null;
   canLeaveReview: boolean;
+  adultCount: number;
+  childCount: number;
 };
 
 export function clientRegistrationStatusLabel(

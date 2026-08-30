@@ -42,7 +42,7 @@ export async function GET(_req: Request, ctx: Ctx) {
     where: { id: eventId },
     include: {
       instructor: { select: { id: true, name: true, email: true } },
-      catalogItem: { select: { id: true, title: true, status: true, citySlug: true } },
+      catalogItem: { select: { id: true, title: true, status: true, citySlug: true, photoUrl: true } },
       slots: { orderBy: [{ sortOrder: "asc" }, { startsAt: "asc" }] },
     },
   });
@@ -169,7 +169,7 @@ export async function PATCH(req: Request, ctx: Ctx) {
     where: { id: eventId },
     include: {
       instructor: { select: { id: true, name: true, email: true } },
-      catalogItem: { select: { id: true, title: true, status: true, citySlug: true } },
+      catalogItem: { select: { id: true, title: true, status: true, citySlug: true, photoUrl: true } },
       slots: { orderBy: [{ sortOrder: "asc" }, { startsAt: "asc" }] },
     },
   });

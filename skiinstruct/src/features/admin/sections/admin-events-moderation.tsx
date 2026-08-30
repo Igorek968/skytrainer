@@ -11,14 +11,58 @@ import {
   instructorEventHasSchedule,
   moderationStatusLabel,
 } from "@/lib/instructor-events";
+import { publicUploadDisplaySrc } from "@/lib/public-uploads-display";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Label } from "@/shared/ui/label";
 
 type PendingEvent = InstructorEventDTO & {
   instructor: { id: string; name: string | null; email: string };
-  catalogItem?: { id: string; title: string; status: string; citySlug?: string | null } | null;
+  catalogItem?: {
+    id: string;
+    title: string;
+    status: string;
+    citySlug?: string | null;
+    photoUrl?: string | null;
+  } | null;
 };
+
+function EventModerationPhotos({ ev }: { ev: PendingEvent }) {
+  const eventSrc = publicUploadDisplaySrc(ev.photoUrl);
+  const catalogSrc = publicUploadDisplaySrc(ev.catalogItem?.photoUrl);
+  const showCatalog = Boolean(catalogSrc && catalogSrc !== eventSrc);
+  if (!eventSrc && !showCatalog) {
+    return <p className="mt-2 text-xs text-muted-foreground">Фото не приложено</p>;
+  }
+  return (
+    <div className="mt-3 flex flex-wrap gap-3">
+      {eventSrc ? (
+        <a href={eventSrc} target="_blank" rel="noreferrer" className="block w-full max-w-sm">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={eventSrc}
+            alt={`Фото события «${ev.title}»`}
+            className="aspect-[16/9] w-full rounded-md border border-border object-cover"
+          />
+          <span className="mt-1 block text-[11px] text-muted-foreground">Фото события — нажмите, чтобы открыть</span>
+        </a>
+      ) : null}
+      {showCatalog && catalogSrc ? (
+        <a href={catalogSrc} target="_blank" rel="noreferrer" className="block w-full max-w-sm">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={catalogSrc}
+            alt={`Обложка каталога «${ev.catalogItem?.title ?? ""}»`}
+            className="aspect-[16/9] w-full rounded-md border border-border object-cover"
+          />
+          <span className="mt-1 block text-[11px] text-muted-foreground">
+            Обложка каталога{ev.catalogItem?.title ? `: ${ev.catalogItem.title}` : ""}
+          </span>
+        </a>
+      ) : null}
+    </div>
+  );
+}
 
 function parseApiError(payload: unknown, fallback: string): string {
   if (!payload || typeof payload !== "object") return fallback;
@@ -152,6 +196,7 @@ export function AdminEventsModerationSection() {
                     ev.body
                   )}
                 </p>
+                <EventModerationPhotos ev={ev} />
                 <div className="mt-3 flex flex-wrap gap-2">
                   <Button
                     type="button"

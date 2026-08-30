@@ -16,6 +16,12 @@ const priceRubField = z
 
 export { EVENT_PRICE_HINT_RU, EVENT_PRICE_MIN_PAID_RUB };
 
+/** Описание события (поле «Текст» у инструктора). */
+export const EVENT_BODY_MAX_CHARS = 500;
+export const EVENT_BODY_HINT_RU = `До ${EVENT_BODY_MAX_CHARS} символов: что будет, для кого, что взять с собой`;
+
+const eventBodyField = z.string().trim().min(1).max(EVENT_BODY_MAX_CHARS);
+
 const maxRegistrationsField = z
   .number()
   .int()
@@ -46,7 +52,7 @@ const venueCoordField = z.number().optional().nullable();
 
 export const createInstructorEventSchema = z.object({
   title: z.string().trim().min(1).max(120),
-  body: z.string().trim().min(1).max(1000),
+  body: eventBodyField,
   /** Категория / направление из каталога активностей. */
   category: requiredEventCategorySchema,
   /** День события YYYY-MM-DD (для слотов) или ISO datetime (legacy) */
@@ -68,7 +74,7 @@ export const createInstructorEventSchema = z.object({
 
 export const updateInstructorEventSchema = z.object({
   title: z.string().trim().min(1).max(120).optional(),
-  body: z.string().trim().min(1).max(1000).optional(),
+  body: eventBodyField.optional(),
   category: requiredEventCategorySchema.optional(),
   eventAt: z.string().max(40).optional().nullable(),
   orderId: z.string().cuid().optional().nullable(),
@@ -79,7 +85,7 @@ export const updateInstructorEventSchema = z.object({
 /** Полное редактирование события администратором (в т.ч. опубликованных). */
 export const adminUpdateInstructorEventSchema = z.object({
   title: z.string().trim().min(1).max(120).optional(),
-  body: z.string().trim().min(1).max(1000).optional(),
+  body: eventBodyField.optional(),
   category: requiredEventCategorySchema.optional(),
   eventAt: z.string().max(40).optional().nullable(),
   eventDay: z.string().max(40).optional().nullable(),

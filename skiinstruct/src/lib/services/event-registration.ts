@@ -1,5 +1,6 @@
 import type { EventRegistrationStatus, InstructorEvent, Prisma } from "@prisma/client";
 
+import { eventRegistrationSeatCount } from "@/lib/event-party";
 import {
   isInstructorEventCompleted,
 } from "@/lib/instructor-events";
@@ -51,6 +52,12 @@ export async function clientCanAccessEvent(
 }
 
 export async function countActiveRegistrations(eventId: string): Promise<number> {
+  const agg = await prisma.eventRegistration.aggregate({
+    where: { eventId, status: { in: ["PAID", "PENDING_PAYMENT"] } },
+    _sum: { adultCount: true, childCount: true },
+  });
+  const seats = (agg._sum.adultCount ?? 0) + (agg._sum.childCount ?? 0);
+  if (seats > 0) return seats;
   return prisma.eventRegistration.count({
     where: { eventId, status: { in: ["PAID", "PENDING_PAYMENT"] } },
   });
@@ -101,6 +108,8 @@ export type EventRegistrationSummary = {
   paidAt: string | null;
   attendanceConfirmedAt?: string | null;
   needsAttendanceConfirmation?: boolean;
+  adultCount: number;
+  childCount: number;
 };
 
 export function serializeEventRegistration(row: {
@@ -110,6 +119,8 @@ export function serializeEventRegistration(row: {
   paidAt: Date | null;
   attendanceConfirmedAt?: Date | null;
   eventAt?: Date | null;
+  adultCount?: number | null;
+  childCount?: number | null;
 }): EventRegistrationSummary {
   const needsAttendanceConfirmation =
     row.eventAt !== undefined
@@ -118,6 +129,9 @@ export function serializeEventRegistration(row: {
           row.eventAt,
         )
       : undefined;
+  const adultCount = Math.max(0, row.adultCount ?? 1);
+  const childCount = Math.max(0, row.childCount ?? 0);
+  const seats = eventRegistrationSeatCount({ adultCount, childCount });
 
   return {
     id: row.id,
@@ -126,5 +140,7 @@ export function serializeEventRegistration(row: {
     paidAt: row.paidAt?.toISOString() ?? null,
     attendanceConfirmedAt: row.attendanceConfirmedAt?.toISOString() ?? null,
     needsAttendanceConfirmation,
+    adultCount: adultCount + childCount > 0 ? adultCount : seats,
+    childCount,
   };
 }

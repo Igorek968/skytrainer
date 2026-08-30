@@ -1,6 +1,9 @@
 import nodemailer from "nodemailer";
 
 import { formatEventDateRu, formatSlotTimeRu } from "@/lib/instructor-events";
+import { formatEventPartyRu } from "@/lib/event-party";
+import { countActiveRegistrations } from "@/lib/services/event-registration";
+import { countActiveSlotRegistrations } from "@/lib/services/event-slots";
 import { publicSiteHostLabel } from "@/lib/app-origin";
 import { prisma } from "@/lib/prisma";
 import { sendWebPushToUser } from "@/lib/push-web";
@@ -53,6 +56,7 @@ export type EventRegistrationNotifyPayload = {
   paidCount: number;
   maxSeats: number | null;
   panelUrl: string;
+  partyLabel?: string;
 };
 
 export function buildEventRegistrationEmailContent(p: EventRegistrationNotifyPayload): {
@@ -73,6 +77,7 @@ export function buildEventRegistrationEmailContent(p: EventRegistrationNotifyPay
     p.amountRub > 0 ? `${p.amountRub.toLocaleString("ru-RU")} ₽ (оплачено)` : "Бесплатно";
 
   const clientLine = [p.clientName?.trim(), p.clientEmail?.trim()].filter(Boolean).join(" · ") || "Клиент";
+  const partyLine = p.partyLabel ? `Состав: ${p.partyLabel}` : "";
 
   const subject = `${appName}: новая запись — ${p.eventTitle}`;
 
@@ -84,6 +89,7 @@ export function buildEventRegistrationEmailContent(p: EventRegistrationNotifyPay
     `«${p.eventTitle}»`,
     `Когда: ${when}`,
     `Участник: ${clientLine}`,
+    ...(partyLine ? [partyLine] : []),
     `Стоимость: ${priceLine}`,
     `Заполненность: ${seats}`,
     "",
@@ -101,6 +107,7 @@ export function buildEventRegistrationEmailContent(p: EventRegistrationNotifyPay
   <table style="border-collapse:collapse;margin:12px 0;font-size:14px">
     <tr><td style="padding:4px 12px 4px 0;color:#555">Когда</td><td><strong>${when}</strong></td></tr>
     <tr><td style="padding:4px 12px 4px 0;color:#555">Участник</td><td>${clientLine}</td></tr>
+    ${p.partyLabel ? `<tr><td style="padding:4px 12px 4px 0;color:#555">Состав</td><td>${p.partyLabel}</td></tr>` : ""}
     <tr><td style="padding:4px 12px 4px 0;color:#555">Стоимость</td><td>${priceLine}</td></tr>
     <tr><td style="padding:4px 12px 4px 0;color:#555">Места</td><td>${seats}</td></tr>
   </table>
@@ -142,18 +149,8 @@ export async function notifyInstructorOfEventRegistration(registrationId: string
   const siteHost = publicSiteHostLabel();
 
   const paidCount = reg.slotId
-    ? await prisma.eventRegistration.count({
-        where: {
-          slotId: reg.slotId,
-          status: { in: ["PAID", "PENDING_PAYMENT"] },
-        },
-      })
-    : await prisma.eventRegistration.count({
-        where: {
-          eventId: reg.eventId,
-          status: { in: ["PAID", "PENDING_PAYMENT"] },
-        },
-      });
+    ? await countActiveSlotRegistrations(reg.slotId)
+    : await countActiveRegistrations(reg.eventId);
 
   const appName = getPublicProductName();
   const clientLabel = reg.client.name?.trim() || reg.client.email?.trim() || "Клиент";
@@ -199,6 +196,7 @@ export async function notifyInstructorOfEventRegistration(registrationId: string
       paidCount,
       maxSeats: reg.slot?.maxSeats ?? null,
       panelUrl,
+      partyLabel: formatEventPartyRu(reg),
     });
 
     const from = resolveSmtpFrom();

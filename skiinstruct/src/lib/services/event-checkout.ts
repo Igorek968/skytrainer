@@ -1,3 +1,4 @@
+import { formatEventPartyRu } from "@/lib/event-party";
 import { isMockCheckoutEnabled } from "@/lib/checkout-config";
 import { prisma } from "@/lib/prisma";
 import { getStripe } from "@/lib/stripe";
@@ -120,7 +121,7 @@ export async function createEventCheckoutUrl(
     const eventPayInput = {
       eventRegistrationId: registrationId,
       amountRub: amount,
-      description: `${getPublicProductName()} — ${reg.event.title.slice(0, 80)}`,
+      description: `${getPublicProductName()} — ${reg.event.title.slice(0, 80)} · ${formatEventPartyRu(reg)}`,
       customerEmail: email,
       returnUrl,
       userId: reg.client.id,

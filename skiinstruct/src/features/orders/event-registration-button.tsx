@@ -8,7 +8,10 @@ import { toast } from "sonner";
 
 import type { ClientInstructorEventDTO } from "@/lib/instructor-events";
 import { formatEventPriceRu } from "@/lib/instructor-events";
+import { CancelRegistrationButton } from "@/features/orders/cancel-registration-button";
+import { EventPartyFields } from "@/features/orders/event-party-fields";
 import { EventSlotsPicker } from "@/features/orders/event-slots-picker";
+import { eventPartyError, eventRegistrationSeatCount, formatEventPartyRu } from "@/lib/event-party";
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
 import { LegalConsentCheckbox } from "@/shared/legal/legal-consent-checkbox";
@@ -39,14 +42,19 @@ export function EventRegistrationButton({
   const router = useRouter();
   const isClient = session?.user?.role === "CLIENT";
   const [acceptLegal, setAcceptLegal] = useState(false);
+  const [adultCount, setAdultCount] = useState(1);
+  const [childCount, setChildCount] = useState(0);
+  const seats = eventRegistrationSeatCount({ adultCount, childCount });
 
   const register = useMutation({
     mutationFn: async () => {
+      const partyErr = eventPartyError({ adultCount, childCount });
+      if (partyErr) throw new Error(partyErr);
       const r = await fetch(`/api/client/events/${event.id}/register`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ acceptLegal: true }),
+        body: JSON.stringify({ acceptLegal: true, adultCount, childCount }),
       });
       const j = (await r.json().catch(() => ({}))) as RegisterResponse;
       if (!r.ok) {
@@ -150,6 +158,17 @@ export function EventRegistrationButton({
         >
           Заявка
         </Button>
+        {!event.isCompleted ? (
+          <CancelRegistrationButton
+            registrationId={my.id}
+            size="sm"
+            onCancelled={async () => {
+              await qc.invalidateQueries({ queryKey });
+              await qc.invalidateQueries({ queryKey: ["client-registrations"] });
+              await qc.invalidateQueries({ queryKey: ["client-events"] });
+            }}
+          />
+        ) : null}
       </div>
     );
   }
@@ -164,6 +183,7 @@ export function EventRegistrationButton({
               ? "Ожидает оплаты"
               : "Вы записаны"}
         </Badge>
+        <span className="text-xs text-muted-foreground">{formatEventPartyRu(my)}</span>
         <Button
           type="button"
           size="sm"
@@ -172,6 +192,17 @@ export function EventRegistrationButton({
         >
           Открыть заявку
         </Button>
+        {!event.isCompleted ? (
+          <CancelRegistrationButton
+            registrationId={my.id}
+            size="sm"
+            onCancelled={async () => {
+              await qc.invalidateQueries({ queryKey });
+              await qc.invalidateQueries({ queryKey: ["client-registrations"] });
+              await qc.invalidateQueries({ queryKey: ["client-events"] });
+            }}
+          />
+        ) : null}
       </div>
     );
   }
@@ -186,7 +217,9 @@ export function EventRegistrationButton({
     return null;
   }
 
-  const priceLabel = formatEventPriceRu(event.priceRub);
+  const unit = event.priceRub;
+  const totalRub = unit != null && unit > 0 ? unit * seats : unit ?? 0;
+  const priceLabel = formatEventPriceRu(totalRub);
 
   return (
     <div
@@ -194,10 +227,24 @@ export function EventRegistrationButton({
       onPointerDown={(e) => e.stopPropagation()}
       onClick={(e) => e.stopPropagation()}
     >
+      <EventPartyFields
+        idPrefix={`event-party-${event.id}`}
+        adultCount={adultCount}
+        childCount={childCount}
+        onAdultCount={setAdultCount}
+        onChildCount={setChildCount}
+        maxTotal={event.spotsLeft}
+        disabled={register.isPending}
+      />
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-xs font-medium text-foreground">{priceLabel}</span>
         {!event.isFree ? (
-          <span className="text-xs text-muted-foreground">Оплата при записи</span>
+          <span className="text-xs text-muted-foreground">
+            Оплата при записи
+            {seats > 1 && unit != null && unit > 0
+              ? ` · ${formatEventPriceRu(unit)} × ${seats}`
+              : ""}
+          </span>
         ) : null}
         {event.spotsLeft != null ? (
           <span className="text-xs text-muted-foreground">Осталось мест: {event.spotsLeft}</span>
@@ -213,7 +260,7 @@ export function EventRegistrationButton({
         type="button"
         size="sm"
         variant="accent"
-        disabled={register.isPending || !acceptLegal}
+        disabled={register.isPending || !acceptLegal || seats < 1}
         onClick={() => register.mutate()}
       >
         {register.isPending ? "Оформляем…" : event.isFree ? "Записаться" : "Оплатить и записаться"}

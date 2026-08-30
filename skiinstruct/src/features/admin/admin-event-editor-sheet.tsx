@@ -12,14 +12,31 @@ import {
   eventPriceRubErrorFromInput,
 } from "@/lib/event-price";
 import type { InstructorEventSlotForm } from "@/lib/instructor-events";
+import { publicUploadDisplaySrc } from "@/lib/public-uploads-display";
+import { EVENT_BODY_HINT_RU, EVENT_BODY_MAX_CHARS } from "@/lib/validations/instructor-event";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
 
-type Props = {
-  eventId: string;
-  onClose: () => void;
-};
+function EventEditorPhoto({ photoUrl }: { photoUrl?: string | null }) {
+  const src = publicUploadDisplaySrc(photoUrl);
+  if (!src) {
+    return <p className="text-xs text-muted-foreground">Фото не приложено</p>;
+  }
+  return (
+    <a href={src} target="_blank" rel="noreferrer" className="block">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={src}
+        alt="Фото события"
+        className="aspect-[16/9] w-full rounded-md border border-border object-cover"
+      />
+      <span className="mt-1 block text-[11px] text-muted-foreground">
+        Фото, которое увидят клиенты — нажмите, чтобы открыть
+      </span>
+    </a>
+  );
+}
 
 function toLocalInput(iso: string | null | undefined): string {
   if (!iso) return "";
@@ -28,6 +45,11 @@ function toLocalInput(iso: string | null | undefined): string {
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
+
+type Props = {
+  eventId: string;
+  onClose: () => void;
+};
 
 export function AdminEventEditorSheet({ eventId, onClose }: Props) {
   const qc = useQueryClient();
@@ -55,6 +77,7 @@ export function AdminEventEditorSheet({ eventId, onClose }: Props) {
           title: string;
           body: string;
           category: string | null;
+          photoUrl?: string | null;
           priceRub: number | null;
           maxRegistrations: number | null;
           eventAt: string | null;
@@ -185,6 +208,7 @@ export function AdminEventEditorSheet({ eventId, onClose }: Props) {
           <p className="text-sm text-destructive">Не удалось загрузить событие.</p>
         ) : (
           <div className="space-y-3 text-sm">
+            <EventEditorPhoto photoUrl={query.data?.event.photoUrl} />
             <div className="space-y-1">
               <Label htmlFor="ae-title">Название</Label>
               <Input id="ae-title" value={title} onChange={(e) => setTitle(e.target.value)} />
@@ -212,7 +236,12 @@ export function AdminEventEditorSheet({ eventId, onClose }: Props) {
                 className="min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
+                maxLength={EVENT_BODY_MAX_CHARS}
+                placeholder={EVENT_BODY_HINT_RU}
               />
+              <p className="text-[11px] text-muted-foreground">
+                {body.length} / {EVENT_BODY_MAX_CHARS} символов
+              </p>
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1">

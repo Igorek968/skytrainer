@@ -7,6 +7,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import type { InstructorRegistrationParticipant } from "@/lib/instructor-event-registration";
+import { formatEventPartyRu } from "@/lib/event-party";
 import { ForceMajeureCancelButton } from "@/features/instructor/force-majeure-cancel-button";
 import { Button } from "@/shared/ui/button";
 import { Badge } from "@/shared/ui/badge";
@@ -21,6 +22,8 @@ type RegRow = InstructorRegistrationParticipant & {
   slotTime: string | null;
   instructorRating: number | null;
   canReviewAttendee: boolean;
+  adultCount: number;
+  childCount: number;
 };
 
 async function instructorFetch(input: RequestInfo, init?: RequestInit) {
@@ -252,6 +255,7 @@ export function EventRegistrantsPanel({
                       <div className="truncate text-sm font-medium">
                         {reg.client.name?.trim() || reg.client.email}
                       </div>
+                      <p className="text-[11px] text-muted-foreground">{formatEventPartyRu(reg)}</p>
                       <RatingStars avg={reg.client.ratingAvg} count={reg.client.ratingCount} />
                       <div className="mt-0.5 flex flex-wrap items-center gap-1">
                         <Badge

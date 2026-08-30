@@ -15,10 +15,14 @@ export function CancelRegistrationButton({
   registrationId,
   disabled,
   onCancelled,
+  size = "default",
+  className,
 }: {
   registrationId: string;
   disabled?: boolean;
   onCancelled: () => void;
+  size?: "default" | "sm";
+  className?: string;
 }) {
   const [loading, setLoading] = useState(false);
 
@@ -69,8 +73,15 @@ export function CancelRegistrationButton({
   }
 
   return (
-    <Button variant="destructive" type="button" disabled={disabled || loading} onClick={handleCancel}>
-      {loading ? "Отмена…" : "Отменить заявку"}
+    <Button
+      variant="destructive"
+      type="button"
+      size={size}
+      className={className}
+      disabled={disabled || loading}
+      onClick={handleCancel}
+    >
+      {loading ? "Отмена…" : "Отменить запись"}
     </Button>
   );
 }

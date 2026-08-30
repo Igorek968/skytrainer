@@ -117,6 +117,8 @@ function buildRegistrationDetail(
       event: { eventAt: row.event.eventAt },
       slot: row.slot ? { startsAt: row.slot.startsAt } : null,
     }),
+    adultCount: row.adultCount ?? 1,
+    childCount: row.childCount ?? 0,
   };
 }
 

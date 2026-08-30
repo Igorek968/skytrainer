@@ -91,10 +91,10 @@ export function computeEventRegistrationCancelQuote(
     const hours = hoursUntilLesson(effectiveAt, new Date());
     if (hours < EVENT_CANCEL_FULL_REFUND_HOURS) {
       return {
-        canCancel: false,
+        canCancel: true,
         refundPercent: 0,
         refundAmount: 0,
-        reason: `Менее ${EVENT_CANCEL_FULL_REFUND_HOURS} ч до события — отмена без возврата`,
+        reason: `Менее ${EVENT_CANCEL_FULL_REFUND_HOURS} ч до события — место освободится, оплата не возвращается`,
       };
     }
 

@@ -14,6 +14,7 @@ import {
   type ClientRegistrationDetail,
 } from "@/lib/client-event-registration";
 import { formatEventDateRu, formatEventPriceRu } from "@/lib/instructor-events";
+import { formatEventPartyRu } from "@/lib/event-party";
 import { syncYooEventRegistrationPayment } from "@/lib/payments/redirect-to-checkout";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
@@ -236,6 +237,9 @@ export default function ClientRegistrationDetailPage() {
               <p className="mt-1 text-sm text-muted-foreground">
                 {reg.instructor.name ?? "Инструктор"}
                 {reg.event.eventAt ? ` · ${formatEventDateRu(reg.event.eventAt)}` : ""}
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Состав: {formatEventPartyRu(reg)}
               </p>
               <p className="mt-1 text-sm text-muted-foreground">
                 Участие:{" "}

@@ -89,6 +89,8 @@ export async function GET(_req: Request, ctx: Ctx) {
         paidAt: r.paidAt,
         attendanceConfirmedAt: r.attendanceConfirmedAt,
         eventAt: effectiveAt,
+        adultCount: r.adultCount,
+        childCount: r.childCount,
       }),
       paidAt: r.paidAt?.toISOString() ?? null,
       createdAt: r.createdAt.toISOString(),

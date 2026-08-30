@@ -26,7 +26,7 @@ export function instructorLateRefundSummary(): string {
 
 /** Отмена события клиентом. */
 export function eventCancelRefundSummary(): string {
-  return `за ${EVENT_CANCEL_FULL_REFUND_HOURS} ч и более до начала — 100%; позже — без возврата`;
+  return `за ${EVENT_CANCEL_FULL_REFUND_HOURS} ч и более до начала — 100%; позже можно отменить без возврата`;
 }
 
 /** Штраф инструктору при неявке или поздней отмене. */

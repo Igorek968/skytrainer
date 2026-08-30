@@ -40,6 +40,7 @@ import {
   EVENT_PRICE_MIN_PAID_RUB,
   eventPriceRubErrorFromInput,
 } from "@/lib/event-price";
+import { EVENT_BODY_HINT_RU, EVENT_BODY_MAX_CHARS } from "@/lib/validations/instructor-event";
 import { parseApiErrorPayload, userFacingErrorMessage } from "@/lib/user-facing-error";
 import { cn } from "@/lib/utils";
 
@@ -1296,7 +1297,7 @@ export function InstructorEventsEditor({
 
           <div className="space-y-2 sm:grid sm:grid-cols-[minmax(0,1fr)_auto] sm:gap-4 sm:space-y-0">
             <div className="space-y-2">
-              <Label htmlFor="event-body">Текст</Label>
+              <Label htmlFor="event-body">Описание</Label>
               <textarea
                 id="event-body"
                 ref={eventBodyRef}
@@ -1304,9 +1305,13 @@ export function InstructorEventsEditor({
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
                 disabled={formLocked}
-                maxLength={1000}
+                maxLength={EVENT_BODY_MAX_CHARS}
+                placeholder={EVENT_BODY_HINT_RU}
                 required
               />
+              <p className="text-[11px] text-muted-foreground">
+                {body.length} / {EVENT_BODY_MAX_CHARS} символов
+              </p>
               {!formLocked ? (
                 <div className="flex flex-wrap items-center gap-1">
                   <span className="text-[11px] text-muted-foreground">Быстрая вставка:</span>

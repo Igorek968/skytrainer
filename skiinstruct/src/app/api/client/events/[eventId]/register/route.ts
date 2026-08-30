@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { eventPartyError, eventRegistrationSeatCount, normalizeEventParty } from "@/lib/event-party";
 import { isApiErrorResponse, requireClientSession } from "@/lib/api-session";
 import { enrichClientEvent } from "@/lib/instructor-events";
 import { prisma } from "@/lib/prisma";
@@ -27,6 +28,8 @@ export const dynamic = "force-dynamic";
 
 const bodySchema = z.object({
   slotId: z.string().cuid().optional(),
+  adultCount: z.number().int().min(0).max(20).optional(),
+  childCount: z.number().int().min(0).max(20).optional(),
   acceptLegal: z.literal(true, {
     errorMap: () => ({ message: "Необходимо согласие с офертой и политикой ПДн" }),
   }),
@@ -92,6 +95,15 @@ export async function POST(req: Request, ctx: Ctx) {
     return NextResponse.json({ error: msg }, { status: 400 });
   }
   const slotId = parsed.data.slotId;
+  const party = normalizeEventParty({
+    adultCount: parsed.data.adultCount,
+    childCount: parsed.data.childCount,
+  });
+  const partyErr = eventPartyError(party);
+  if (partyErr) {
+    return NextResponse.json({ error: partyErr }, { status: 400 });
+  }
+  const seats = eventRegistrationSeatCount(party);
 
   const event = await prisma.instructorEvent.findUnique({
     where: { id: eventId },
@@ -118,14 +130,7 @@ export async function POST(req: Request, ctx: Ctx) {
       return NextResponse.json({ error: "Выход не найден" }, { status: 404 });
     }
 
-    const capacity = await getSlotCapacityState(slot);
-    if (!slotRegistrationOpen(slot, event, capacity.isFull)) {
-      return NextResponse.json({ error: "Запись на это время недоступна" }, { status: 400 });
-    }
-
-    const amounts = buildRegistrationAmounts(slot.priceRub);
     const regKey = slotRegistrationKey(slot.id, resolved.userId);
-
     const existing =
       (await prisma.eventRegistration.findUnique({ where: { registrationKey: regKey } })) ??
       (await prisma.eventRegistration.findFirst({
@@ -135,6 +140,30 @@ export async function POST(req: Request, ctx: Ctx) {
     if (existing?.status === "PAID") {
       return NextResponse.json({ error: "Вы уже записаны на это время" }, { status: 400 });
     }
+
+    const capacity = await getSlotCapacityState(slot);
+    const existingSeats =
+      existing && existing.status === "PENDING_PAYMENT"
+        ? eventRegistrationSeatCount(existing)
+        : 0;
+    const available =
+      slot.maxSeats != null ? Math.max(0, slot.maxSeats - capacity.paidCount + existingSeats) : null;
+    if (available != null && seats > available) {
+      return NextResponse.json(
+        { error: available < 1 ? "Мест нет" : `Свободно мест: ${available}` },
+        { status: 400 },
+      );
+    }
+    if (!slotRegistrationOpen(slot, event, false)) {
+      return NextResponse.json({ error: "Запись на это время недоступна" }, { status: 400 });
+    }
+
+    const unitPrice = slot.priceRub ?? 0;
+    const amounts = buildRegistrationAmounts(unitPrice > 0 ? unitPrice * seats : unitPrice);
+    const partyFields = {
+      adultCount: party.adultCount,
+      childCount: party.childCount,
+    };
 
     let registrationId = existing?.id;
 
@@ -150,6 +179,7 @@ export async function POST(req: Request, ctx: Ctx) {
           platformFeePercent: amounts.platformFeePercent,
           instructorShareAmount: amounts.instructorShareAmount,
           paidAt: amounts.requiresPayment ? null : new Date(),
+          ...partyFields,
         },
       });
       registrationId = created.id;
@@ -168,6 +198,7 @@ export async function POST(req: Request, ctx: Ctx) {
           stripeCheckoutSessionId: null,
           stripePaymentIntentId: null,
           yookassaPaymentId: null,
+          ...partyFields,
         },
       });
       registrationId = updated.id;
@@ -181,6 +212,7 @@ export async function POST(req: Request, ctx: Ctx) {
           amountRub: amounts.amountRub,
           platformFeePercent: amounts.platformFeePercent,
           instructorShareAmount: amounts.instructorShareAmount,
+          ...partyFields,
         },
       });
       registrationId = existing.id;
@@ -200,14 +232,7 @@ export async function POST(req: Request, ctx: Ctx) {
     });
   }
 
-  const capacity = await getEventCapacityState(event);
-  if (!registrationOpenForEvent(event, capacity.isFull)) {
-    return NextResponse.json({ error: "Запись на это событие недоступна" }, { status: 400 });
-  }
-
-  const amounts = buildRegistrationAmounts(event.priceRub);
   const regKey = legacyEventRegistrationKey(eventId, resolved.userId);
-
   const existing =
     (await prisma.eventRegistration.findUnique({ where: { registrationKey: regKey } })) ??
     (await prisma.eventRegistration.findFirst({
@@ -217,6 +242,30 @@ export async function POST(req: Request, ctx: Ctx) {
   if (existing?.status === "PAID") {
     return NextResponse.json({ error: "Вы уже записаны" }, { status: 400 });
   }
+
+  const capacity = await getEventCapacityState(event);
+  const existingSeats =
+    existing && existing.status === "PENDING_PAYMENT" ? eventRegistrationSeatCount(existing) : 0;
+  const available =
+    event.maxRegistrations != null
+      ? Math.max(0, event.maxRegistrations - capacity.paidCount + existingSeats)
+      : null;
+  if (available != null && seats > available) {
+    return NextResponse.json(
+      { error: available < 1 ? "Мест нет" : `Свободно мест: ${available}` },
+      { status: 400 },
+    );
+  }
+  if (!registrationOpenForEvent(event, false)) {
+    return NextResponse.json({ error: "Запись на это событие недоступна" }, { status: 400 });
+  }
+
+  const unitPrice = event.priceRub ?? 0;
+  const amounts = buildRegistrationAmounts(unitPrice > 0 ? unitPrice * seats : unitPrice);
+  const partyFields = {
+    adultCount: party.adultCount,
+    childCount: party.childCount,
+  };
 
   let registrationId = existing?.id;
 
@@ -231,6 +280,7 @@ export async function POST(req: Request, ctx: Ctx) {
         platformFeePercent: amounts.platformFeePercent,
         instructorShareAmount: amounts.instructorShareAmount,
         paidAt: amounts.requiresPayment ? null : new Date(),
+        ...partyFields,
       },
     });
     registrationId = created.id;
@@ -249,6 +299,7 @@ export async function POST(req: Request, ctx: Ctx) {
         stripeCheckoutSessionId: null,
         stripePaymentIntentId: null,
         yookassaPaymentId: null,
+        ...partyFields,
       },
     });
     registrationId = updated.id;
@@ -262,6 +313,7 @@ export async function POST(req: Request, ctx: Ctx) {
         amountRub: amounts.amountRub,
         platformFeePercent: amounts.platformFeePercent,
         instructorShareAmount: amounts.instructorShareAmount,
+        ...partyFields,
       },
     });
     registrationId = existing.id;

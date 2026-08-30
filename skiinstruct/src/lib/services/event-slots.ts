@@ -72,6 +72,12 @@ export function legacyEventRegistrationKey(eventId: string, clientId: string): s
 }
 
 export async function countActiveSlotRegistrations(slotId: string): Promise<number> {
+  const agg = await prisma.eventRegistration.aggregate({
+    where: { slotId, status: { in: ["PAID", "PENDING_PAYMENT"] } },
+    _sum: { adultCount: true, childCount: true },
+  });
+  const seats = (agg._sum.adultCount ?? 0) + (agg._sum.childCount ?? 0);
+  if (seats > 0) return seats;
   return prisma.eventRegistration.count({
     where: { slotId, status: { in: ["PAID", "PENDING_PAYMENT"] } },
   });
@@ -212,6 +218,8 @@ export async function serializeEventSlot(
     amountRub: Prisma.Decimal | number;
     paidAt: Date | null;
     attendanceConfirmedAt?: Date | null;
+    adultCount?: number | null;
+    childCount?: number | null;
   } | null,
 ): Promise<EventSlotDTO> {
   const { paidCount, spotsLeft, isFull } = await getSlotCapacityState(slot);
@@ -234,6 +242,8 @@ export async function serializeEventSlot(
       ? serializeEventRegistration({
           ...myRegistration,
           eventAt: slot.startsAt,
+          adultCount: myRegistration.adultCount,
+          childCount: myRegistration.childCount,
         })
       : null,
   };

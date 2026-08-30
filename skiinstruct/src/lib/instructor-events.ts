@@ -259,6 +259,8 @@ export async function enrichClientEvent(
     amountRub: import("@prisma/client").Prisma.Decimal | number;
     paidAt: Date | null;
     slotId?: string | null;
+    adultCount?: number | null;
+    childCount?: number | null;
   } | null,
   instructorName?: string | null,
   clientId?: string | null,

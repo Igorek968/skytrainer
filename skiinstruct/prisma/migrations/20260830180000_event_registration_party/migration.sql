@@ -1,0 +1,2 @@
+ALTER TABLE "EventRegistration" ADD COLUMN "adultCount" INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE "EventRegistration" ADD COLUMN "childCount" INTEGER NOT NULL DEFAULT 0;
