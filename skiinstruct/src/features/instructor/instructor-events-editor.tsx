@@ -250,6 +250,7 @@ export function InstructorEventsEditor({
   const [draftSlotDate, setDraftSlotDate] = useState(() => todayYmd());
   const [draftSlotEndDate, setDraftSlotEndDate] = useState(() => todayYmd());
   const [draftSlotTime, setDraftSlotTime] = useState("10:00");
+  const [draftSlotTitle, setDraftSlotTitle] = useState("");
   const [draftSlotPrice, setDraftSlotPrice] = useState("");
   const [draftSlotSeats, setDraftSlotSeats] = useState("4");
   const [hourlyFrom, setHourlyFrom] = useState("09:00");
@@ -504,6 +505,7 @@ export function InstructorEventsEditor({
     setDraftSlotDate(todayYmd());
     setDraftSlotEndDate(todayYmd());
     setDraftSlotTime("10:00");
+    setDraftSlotTitle("");
     setDraftSlotPrice("");
     setDraftSlotSeats("4");
     setPriceRub("");
@@ -976,34 +978,46 @@ export function InstructorEventsEditor({
     }
 
     let addedCount = 0;
-    setSlotRows((rows) => {
-      const existing = new Set(rows.map((r) => `${r.date}T${r.time}`));
-      const nextRows = [...rows];
-      for (const date of dates) {
-        const key = `${date}T${time}`;
-        if (existing.has(key)) continue;
-        addedCount += 1;
-        existing.add(key);
-        nextRows.push({
-          id: newLocalSlotId(),
-          date,
-          time,
-          title: "",
-          durationMinutes: scheduleMode === "hourly" ? hourlyDuration.trim() || "60" : "",
-          maxSeats: draftSlotSeats.trim(),
-          priceRub: draftSlotPrice.trim(),
-        });
-      }
-      return nextRows.sort((a, b) => `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`));
+    const titleTrim = draftSlotTitle.trim();
+    const titleKey = titleTrim.toLowerCase();
+    const existingKeys = new Set(
+      slotRows.map((r) => `${r.date}T${r.time}::${r.title.trim().toLowerCase()}`),
+    );
+    const datesToAdd = dates.filter((date) => {
+      const key = `${date}T${time}::${titleKey}`;
+      if (existingKeys.has(key)) return false;
+      existingKeys.add(key);
+      return true;
     });
-
-    const nextDate = addDaysYmd(endDate, 1);
-    setDraftSlotDate(nextDate);
-    setDraftSlotEndDate(nextDate);
+    addedCount = datesToAdd.length;
     if (addedCount > 0) {
+      setSlotRows((rows) => {
+        const nextRows = [...rows];
+        for (const date of datesToAdd) {
+          nextRows.push({
+            id: newLocalSlotId(),
+            date,
+            time,
+            title: titleTrim,
+            durationMinutes: scheduleMode === "hourly" ? hourlyDuration.trim() || "60" : "",
+            maxSeats: draftSlotSeats.trim(),
+            priceRub: draftSlotPrice.trim(),
+          });
+        }
+        return nextRows.sort((a, b) => `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`));
+      });
+    }
+
+    if (dates.length > 1) {
+      const nextDate = addDaysYmd(endDate, 1);
+      setDraftSlotDate(nextDate);
+      setDraftSlotEndDate(nextDate);
+    }
+    if (addedCount > 0) {
+      setDraftSlotTitle("");
       toast.success(addedCount === 1 ? "День добавлен в список ниже" : `Добавлено дней: ${addedCount}`);
     } else {
-      toast.message("Эти даты и время уже есть в списке");
+      toast.message("Эти даты и время уже есть в списке — укажите другое время или название");
     }
   }
 
@@ -1590,7 +1604,26 @@ export function InstructorEventsEditor({
                 {scheduleMode === "tour" && !formLocked ? (
                   <div className="space-y-2 rounded-md border border-dashed border-border/80 bg-muted/20 p-3">
                     <Label>Добавить день выхода</Label>
-                    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+                    <p className="text-xs text-muted-foreground">
+                      Название дня видно клиенту при записи. На ту же дату можно добавить ещё
+                      выход — укажите другое время и название.
+                    </p>
+                    <div className="space-y-2">
+                      <div className="space-y-1">
+                        <Label htmlFor="draft-slot-title" className="text-xs text-muted-foreground">
+                          Название дня
+                        </Label>
+                        <Input
+                          id="draft-slot-title"
+                          type="text"
+                          maxLength={80}
+                          placeholder="например, День 1: восхождение"
+                          value={draftSlotTitle}
+                          onChange={(e) => setDraftSlotTitle(e.target.value)}
+                          className="h-9"
+                        />
+                      </div>
+                      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
                       <div className="space-y-1">
                         <Label htmlFor="draft-slot-date" className="text-xs text-muted-foreground">
                           День начала
@@ -1677,6 +1710,7 @@ export function InstructorEventsEditor({
                           </Button>
                         </div>
                       </div>
+                      </div>
                     </div>
                   </div>
                 ) : null}
@@ -1703,10 +1737,28 @@ export function InstructorEventsEditor({
                           className="rounded-md border border-border bg-background p-3 text-sm"
                         >
                           <div className="flex items-start justify-between gap-2">
-                            <div>
+                            <div className="min-w-0 flex-1 space-y-2">
                               <p className="font-medium">
                                 {row.date ? formatYmdRu(row.date) : "—"} · {row.time || "—"}
                               </p>
+                              {!formLocked ? (
+                                <Input
+                                  type="text"
+                                  maxLength={80}
+                                  placeholder="Название дня"
+                                  value={row.title}
+                                  onChange={(e) =>
+                                    setSlotRows((rows) =>
+                                      rows.map((r, i) =>
+                                        i === idx ? { ...r, title: e.target.value } : r,
+                                      ),
+                                    )
+                                  }
+                                  className="h-8 text-sm"
+                                />
+                              ) : row.title.trim() ? (
+                                <p className="text-sm">{row.title}</p>
+                              ) : null}
                               <p className="text-muted-foreground">
                                 {row.priceRub.trim()
                                   ? `${row.priceRub} ₽`
@@ -1735,11 +1787,12 @@ export function InstructorEventsEditor({
                   )}
 
                   <div className="hidden overflow-x-auto rounded-md border border-border md:block">
-                    <table className="w-full min-w-[640px] text-sm">
+                    <table className="w-full min-w-[760px] text-sm">
                       <thead>
                         <tr className="border-b border-border bg-muted/40 text-left text-xs text-muted-foreground">
                           <th className="px-2 py-2 font-medium">Дата</th>
                           <th className="px-2 py-2 font-medium">Время</th>
+                          <th className="px-2 py-2 font-medium">Название</th>
                           <th className="px-2 py-2 font-medium">Мест</th>
                           <th className="px-2 py-2 font-medium">Цена, ₽</th>
                           {!formLocked ? <th className="px-2 py-2 w-10" /> : null}
@@ -1749,7 +1802,7 @@ export function InstructorEventsEditor({
                         {slotRows.length === 0 ? (
                           <tr>
                             <td
-                              colSpan={formLocked ? 4 : 5}
+                              colSpan={formLocked ? 5 : 6}
                               className="px-3 py-4 text-center text-xs text-muted-foreground"
                             >
                               Пока нет дней — заполните поля выше и нажмите «+ Добавить»
@@ -1789,6 +1842,23 @@ export function InstructorEventsEditor({
                                     )
                                   }
                                   className="h-9"
+                                />
+                              </td>
+                              <td className="px-2 py-1.5">
+                                <Input
+                                  type="text"
+                                  maxLength={80}
+                                  placeholder="Название дня"
+                                  value={row.title}
+                                  disabled={formLocked}
+                                  onChange={(e) =>
+                                    setSlotRows((rows) =>
+                                      rows.map((r, i) =>
+                                        i === idx ? { ...r, title: e.target.value } : r,
+                                      ),
+                                    )
+                                  }
+                                  className="h-9 min-w-[10rem]"
                                 />
                               </td>
                               <td className="px-2 py-1.5">
