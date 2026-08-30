@@ -241,13 +241,6 @@
   text-shadow: 0 0 2px #fff;
 }
 
-.event-map-marker__smiley {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  filter: drop-shadow(0 2px 4px rgb(15 23 42 / 28%));
-}
-
 .event-map-marker__photo {
   display: flex;
   height: 56px;
@@ -255,7 +248,7 @@
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  border-radius: 12px;
+  border-radius: 9999px;
   border: 2px solid #fff;
   background: #ffedd5;
   box-shadow: 0 2px 8px rgb(15 23 42 / 22%);
@@ -265,6 +258,12 @@
   height: 100%;
   width: 100%;
   object-fit: cover;
+}
+
+.event-map-marker__photo-fallback {
+  font-size: 15px;
+  font-weight: 700;
+  color: #c2410c;
 }
 
 .event-map-marker__tail {

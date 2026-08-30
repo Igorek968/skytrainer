@@ -17,25 +17,21 @@ export type EventMapPin = {
   ratingAvg?: number | null;
 };
 
-/** Уровень детализации иконки по зуму карты. */
+/** Уровень детализации (оставлен для совместимости; метка всегда фото + название). */
 export type EventMarkerDetail = "far" | "mid" | "close";
 
-/** Далеко — смайл; ближе — название+рейтинг; совсем близко — +фото. */
-export function resolveEventMarkerDetail(zoom: number): EventMarkerDetail {
-  if (zoom >= 15) return "close";
-  if (zoom >= 12.5) return "mid";
-  return "far";
+/** Всегда полный вид: фото события в кружке и название. */
+export function resolveEventMarkerDetail(_zoom?: number): EventMarkerDetail {
+  return "close";
 }
 
 export const EVENT_MARKER_WIDTH = 120;
-export const EVENT_MARKER_HEIGHT_FAR = 40;
-export const EVENT_MARKER_HEIGHT_MID = 56;
+export const EVENT_MARKER_HEIGHT_FAR = 100;
+export const EVENT_MARKER_HEIGHT_MID = 100;
 export const EVENT_MARKER_HEIGHT_CLOSE = 100;
 
-export function eventMarkerHeight(detail: EventMarkerDetail): number {
-  if (detail === "close") return EVENT_MARKER_HEIGHT_CLOSE;
-  if (detail === "mid") return EVENT_MARKER_HEIGHT_MID;
-  return EVENT_MARKER_HEIGHT_FAR;
+export function eventMarkerHeight(_detail?: EventMarkerDetail): number {
+  return EVENT_MARKER_HEIGHT_CLOSE;
 }
 
 function escapeHtml(text: string): string {
@@ -69,32 +65,34 @@ function buildStarRatingLine(rating: number): string {
   return `${stars} ${clamped.toFixed(1)}`;
 }
 
-function buildStarRatingHtml(rating: number): string {
-  const clamped = Math.max(0, Math.min(5, rating));
-  const stars = Array.from({ length: 5 }, (_, index) => {
-    const filled = clamped >= index + 1 - 0.25;
-    return `<span class="event-map-marker__star${filled ? " event-map-marker__star--filled" : ""}" aria-hidden="true">★</span>`;
-  }).join("");
-  return `<span class="event-map-marker__stars">${stars}</span><span class="event-map-marker__rating-value">${clamped.toFixed(1)}</span>`;
+function eventTitleInitials(title: string): string {
+  const t = title.trim();
+  if (!t) return "С";
+  const words = t.split(/\s+/).filter(Boolean);
+  if (words.length >= 2) return (words[0]![0]! + words[1]![0]!).toUpperCase();
+  return t.slice(0, 2).toUpperCase();
 }
 
-/** Круглый смайл-значок события (далеко). */
-function buildEventSmileyHtml(): string {
-  return `<div class="event-map-marker__smiley" aria-hidden="true">
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="36" height="36">
-    <circle cx="20" cy="20" r="18" fill="#ea580c" stroke="#fff" stroke-width="2"/>
-    <circle cx="13.5" cy="16" r="2.4" fill="#fff"/>
-    <circle cx="26.5" cy="16" r="2.4" fill="#fff"/>
-    <path d="M12 24c2.2 3.2 5.2 4.8 8 4.8s5.8-1.6 8-4.8" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/>
-  </svg>
-</div>`;
+function buildEventPhotoHtml(pin: EventMapPin, label: string): string {
+  const photoUrl = resolveEventMarkerPhoto(pin);
+  const inner = photoUrl
+    ? `<img src="${escapeHtml(photoUrl)}" alt="${label}" width="56" height="56" class="event-map-marker__photo-img" loading="lazy" />`
+    : `<span class="event-map-marker__photo-fallback">${escapeHtml(eventTitleInitials(pin.title))}</span>`;
+  return `<div class="event-map-marker__photo">${inner}</div>`;
 }
 
 export function buildEventBalloonHtml(pin: EventMapPin): string {
   const price = formatEventPinPrice(pin.priceRub);
-  const parts = [
+  const photoUrl = resolveEventMarkerPhoto(pin);
+  const parts: string[] = [];
+  if (photoUrl) {
+    parts.push(
+      `<div style="margin-bottom:8px;overflow:hidden;border-radius:8px;height:88px;background:#ffedd5"><img src="${escapeHtml(photoUrl)}" alt="" width="220" height="88" style="width:100%;height:100%;object-fit:cover" /></div>`,
+    );
+  }
+  parts.push(
     `<div style="font:600 13px/1.3 system-ui,sans-serif;color:#0f172a;max-width:220px">${escapeHtml(pin.title)}</div>`,
-  ];
+  );
   if (pin.ratingAvg != null && Number.isFinite(pin.ratingAvg) && pin.ratingAvg > 0) {
     parts.push(
       `<div style="margin-top:4px;font:12px/1.3 system-ui,sans-serif;color:#334155">${escapeHtml(buildStarRatingLine(pin.ratingAvg))}</div>`,
@@ -121,40 +119,12 @@ export function buildEventBalloonHtml(pin: EventMapPin): string {
   return parts.join("");
 }
 
-/** HTML иконки для Leaflet / превью — зависит от зума. */
-export function buildEventMarkerHtml(pin: EventMapPin, detail: EventMarkerDetail): string {
+/** HTML иконки: название события и фото в кружке. */
+export function buildEventMarkerHtml(pin: EventMapPin, _detail?: EventMarkerDetail): string {
   const label = escapeHtml(eventMapLabel(pin));
-  const rating =
-    pin.ratingAvg != null && Number.isFinite(pin.ratingAvg) && pin.ratingAvg > 0
-      ? pin.ratingAvg
-      : null;
-  const photoUrl = resolveEventMarkerPhoto(pin);
-
-  if (detail === "far") {
-    return `<div class="event-map-marker event-map-marker--far">${buildEventSmileyHtml()}</div>`;
-  }
-
-  const ratingHtml =
-    rating != null
-      ? `<div class="event-map-marker__rating">${buildStarRatingHtml(rating)}</div>`
-      : `<div class="event-map-marker__rating event-map-marker__rating--empty"></div>`;
-
-  if (detail === "mid") {
-    return `<div class="event-map-marker event-map-marker--mid">
-  <div class="event-map-marker__name" title="${label}">${label}</div>
-  ${ratingHtml}
-  ${buildEventSmileyHtml()}
-</div>`;
-  }
-
-  const photoInner = photoUrl
-    ? `<img src="${escapeHtml(photoUrl)}" alt="${label}" width="56" height="56" class="event-map-marker__photo-img" loading="lazy" />`
-    : buildEventSmileyHtml();
-
   return `<div class="event-map-marker event-map-marker--close">
   <div class="event-map-marker__name" title="${label}">${label}</div>
-  ${ratingHtml}
-  <div class="event-map-marker__photo">${photoInner}</div>
+  ${buildEventPhotoHtml(pin, label)}
   <div class="event-map-marker__tail" aria-hidden="true"></div>
 </div>`;
 }
@@ -195,36 +165,20 @@ type YmapsWithShape = {
 const EVENT_YANDEX_HIT_H = EVENT_MARKER_HEIGHT_CLOSE;
 
 /**
- * Один layout: три уровня через {% if %} по properties.detailLevel.
- * Якорь снизу по центру.
+ * Метка: название сверху, фото события в кружке, якорь снизу по центру.
  */
 const EVENT_YANDEX_LAYOUT = [
   '<div style="position:relative;width:0;height:0;">',
   `<div class="event-map-marker event-map-marker--yandex" style="position:absolute;left:-${EVENT_MARKER_WIDTH / 2}px;top:-${EVENT_YANDEX_HIT_H}px;display:flex;width:${EVENT_MARKER_WIDTH}px;min-height:${EVENT_YANDEX_HIT_H}px;flex-direction:column;align-items:center;justify-content:flex-end;gap:2px;pointer-events:auto;user-select:none;">`,
-
-  '{% if properties.detailLevel == "far" %}',
-  '<div class="event-map-marker__smiley" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="36" height="36"><circle cx="20" cy="20" r="18" fill="#ea580c" stroke="#fff" stroke-width="2"/><circle cx="13.5" cy="16" r="2.4" fill="#fff"/><circle cx="26.5" cy="16" r="2.4" fill="#fff"/><path d="M12 24c2.2 3.2 5.2 4.8 8 4.8s5.8-1.6 8-4.8" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg></div>',
-  "{% endif %}",
-
-  '{% if properties.detailLevel == "mid" %}',
   '<div class="event-map-marker__name" title="{{ properties.eventLabel }}">{{ properties.eventLabel }}</div>',
-  '{% if properties.markerStarsLine %}<div class="event-map-marker__rating-line">{{ properties.markerStarsLine }}</div>{% endif %}',
-  '<div class="event-map-marker__smiley" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="32" height="32"><circle cx="20" cy="20" r="18" fill="#ea580c" stroke="#fff" stroke-width="2"/><circle cx="13.5" cy="16" r="2.4" fill="#fff"/><circle cx="26.5" cy="16" r="2.4" fill="#fff"/><path d="M12 24c2.2 3.2 5.2 4.8 8 4.8s5.8-1.6 8-4.8" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg></div>',
-  "{% endif %}",
-
-  '{% if properties.detailLevel == "close" %}',
-  '<div class="event-map-marker__name" title="{{ properties.eventLabel }}">{{ properties.eventLabel }}</div>',
-  '{% if properties.markerStarsLine %}<div class="event-map-marker__rating-line">{{ properties.markerStarsLine }}</div>{% endif %}',
   '<div class="event-map-marker__photo">',
   "{% if properties.markerPhotoUrl %}",
   '<img src="{{ properties.markerPhotoUrl }}" alt="{{ properties.eventLabel }}" width="56" height="56" style="width:100%;height:100%;object-fit:cover;" />',
   "{% else %}",
-  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="40" height="40"><circle cx="20" cy="20" r="18" fill="#ea580c" stroke="#fff" stroke-width="2"/><circle cx="13.5" cy="16" r="2.4" fill="#fff"/><circle cx="26.5" cy="16" r="2.4" fill="#fff"/><path d="M12 24c2.2 3.2 5.2 4.8 8 4.8s5.8-1.6 8-4.8" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg>',
+  '<span class="event-map-marker__photo-fallback">{{ properties.markerInitials }}</span>',
   "{% endif %}",
   "</div>",
   '<div class="event-map-marker__tail" aria-hidden="true"></div>',
-  "{% endif %}",
-
   "</div></div>",
 ].join("");
 
@@ -248,15 +202,11 @@ export function getEventYandexLayout(ymaps: YmapsWithShape): unknown {
   return eventYandexLayout;
 }
 
-export function eventYandexPlacemarkProperties(pin: EventMapPin, detail: EventMarkerDetail) {
-  const rating =
-    pin.ratingAvg != null && Number.isFinite(pin.ratingAvg) && pin.ratingAvg > 0
-      ? pin.ratingAvg
-      : null;
+export function eventYandexPlacemarkProperties(pin: EventMapPin, detail: EventMarkerDetail = "close") {
   return {
     eventLabel: eventMapLabel(pin),
     detailLevel: detail,
-    markerStarsLine: rating != null ? buildStarRatingLine(rating) : "",
+    markerInitials: eventTitleInitials(pin.title),
     markerPhotoUrl: resolveEventMarkerPhoto(pin) ?? "",
     hintContent: pin.title,
     balloonContent: buildEventBalloonHtml(pin),
