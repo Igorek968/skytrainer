@@ -44,6 +44,7 @@ import {
   savePendingCheckout,
 } from "@/lib/client-pending-checkout";
 import { readClientCheckoutDraft } from "@/lib/client-checkout-draft";
+import { consumeOpenPersonalDataFlag } from "@/lib/client-personal-data-storage";
 import { syncYooCardBinding } from "@/lib/payments/redirect-to-checkout";
 import {
   formatDrivingSchoolDetailsSummary,
