@@ -10,7 +10,11 @@ import { EventRegistrationButton } from "@/features/orders/event-registration-bu
 import { EventReviewsFeed } from "@/features/orders/event-reviews-feed";
 import { EventVenueDisplay } from "@/features/orders/event-venue-display";
 import { emptyEventReviewsSummary } from "@/lib/event-reviews";
-import type { ClientInstructorEventDTO } from "@/lib/instructor-events";
+import {
+  formatEventDateRu,
+  formatEventPriceRu,
+  type ClientInstructorEventDTO,
+} from "@/lib/instructor-events";
 import { instructorPublicPath } from "@/lib/instructor-profile-slug";
 import { Button } from "@/shared/ui/button";
 
