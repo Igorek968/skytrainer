@@ -13,6 +13,7 @@ import {
 } from "@/lib/auto-instructor-offer";
 import type { InstructorPublicBusyWeek } from "@/shared/lib/instructor-schedule-types";
 import { instructorPublicPath } from "@/lib/instructor-profile-slug";
+import { isSyntheticInstructorBioLine } from "@/lib/services/instructor-match";
 import { cn } from "@/lib/utils";
 import { Button } from "@/shared/ui/button";
 import { InstructorPhoto } from "@/shared/ui/instructor-photo";
