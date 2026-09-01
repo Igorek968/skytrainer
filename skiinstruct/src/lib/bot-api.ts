@@ -2,6 +2,7 @@ import { instructorPublicPath } from "@/lib/instructor-profile-slug";
 import { isDemoInstructorEmail, liveInstructorEmailWhere } from "@/lib/demo-instructor";
 import { prisma } from "@/lib/prisma";
 import { publicUploadAbsoluteDisplaySrc } from "@/lib/public-uploads-display";
+import { absoluteUrl } from "@/lib/seo";
 import {
   canonicalizeActivityLabels,
   resolveInstructorListAvatar,

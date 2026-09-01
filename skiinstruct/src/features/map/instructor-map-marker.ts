@@ -1,6 +1,7 @@
 import L from "leaflet";
 
 import { instructorPublicPath } from "@/lib/instructor-profile-slug";
+import { publicUploadAbsoluteDisplaySrc } from "@/lib/public-uploads-display";
 
 export type InstructorMapPin = {
   id: string;
