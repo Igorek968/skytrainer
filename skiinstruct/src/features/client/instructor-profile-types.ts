@@ -5,6 +5,8 @@ import type { SpecializationOffer } from "@/lib/instructor-specialization-offers
 export type ClientInstructorListItem = {
   id: string;
   name: string | null;
+  nickname?: string | null;
+  profileSlug?: string | null;
   taxStatus?: InstructorTaxStatus | null;
   image: string | null;
   photoUrl?: string | null;
@@ -25,6 +27,8 @@ export type ClientInstructorListItem = {
 export type ClientInstructorProfileInstructor = {
   id: string;
   name: string | null;
+  nickname?: string | null;
+  profileSlug?: string | null;
   image: string | null;
   profile: {
     bio: string | null;

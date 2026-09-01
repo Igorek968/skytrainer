@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
+import { instructorPublicPath, instructorPublicReviewsPath } from "@/lib/instructor-profile-slug";
 import { prisma } from "@/lib/prisma";
 import { absoluteUrl, pageMetadata } from "@/lib/seo";
 import { breadcrumbJsonLd, reviewJsonLd } from "@/lib/seo-schema";
 import { effectivePhotoGallery } from "@/lib/instructor-profile-photo-draft";
+import { resolveInstructorByPublicKey } from "@/lib/services/instructor-nickname-uniqueness";
 import {
   canonicalizeActivityLabels,
   repairStaleCatalogSyntheticBio,
@@ -14,10 +16,12 @@ import {
 
 type Props = { params: Promise<{ id: string }> };
 
-async function loadApprovedInstructor(id: string) {
+async function loadApprovedInstructor(publicKey: string) {
+  const key = await resolveInstructorByPublicKey(publicKey);
+  if (!key) return null;
   return prisma.user.findFirst({
     where: {
-      id,
+      id: key.id,
       role: "INSTRUCTOR",
       instructorProfile: { is: { verificationStatus: "APPROVED" } },
     },
@@ -43,14 +47,19 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return pageMetadata({
     title: `${name} — инструктор (${sports}) | ТвойТренер.рф`,
     description: `Профиль инструктора ${name} на ТвойТренер.рф: ${sports}. Рейтинг ${instructor.instructorProfile.ratingAvg.toFixed(1)}, отзывов ${instructor.instructorProfile.reviewCount}. Ставка от ${Number(instructor.instructorProfile.hourlyRate).toLocaleString("ru-RU")} ₽/час. Запись и оплата онлайн.`,
-    path: `/instructors/${id}`,
+    path: instructorPublicPath(instructor),
   });
 }
 
 export default async function InstructorProfilePage({ params }: Props) {
-  const { id } = await params;
-  const instructor = await loadApprovedInstructor(id);
+  const { id: publicKey } = await params;
+  const instructor = await loadApprovedInstructor(publicKey);
   if (!instructor?.instructorProfile) notFound();
+
+  const canonicalPath = instructorPublicPath(instructor);
+  if (instructor.profileSlug && publicKey !== instructor.profileSlug) {
+    redirect(canonicalPath);
+  }
 
   const p = instructor.instructorProfile;
   const specs = canonicalizeActivityLabels(p.specializations);
@@ -62,11 +71,12 @@ export default async function InstructorProfilePage({ params }: Props) {
     userImage: instructor.image,
   });
   const name = instructor.name || "Инструктор";
-  const origin = absoluteUrl(`/instructors/${id}`);
+  const origin = absoluteUrl(canonicalPath);
+  const reviewsPath = instructorPublicReviewsPath(instructor);
 
   const recentReviews = await prisma.order.findMany({
     where: {
-      instructorId: id,
+      instructorId: instructor.id,
       status: "COMPLETED",
       clientRating: { not: null },
     },
@@ -105,7 +115,7 @@ export default async function InstructorProfilePage({ params }: Props) {
   const schemas: Record<string, unknown>[] = [
     breadcrumbJsonLd([
       { name: "ТвойТренер.рф", path: "/" },
-      { name: name, path: `/instructors/${id}` },
+      { name: name, path: canonicalPath },
     ]),
     personLd,
     ...recentReviews
@@ -113,7 +123,7 @@ export default async function InstructorProfilePage({ params }: Props) {
       .map((r) =>
         reviewJsonLd({
           itemName: name,
-          itemUrl: `/instructors/${id}`,
+          itemUrl: canonicalPath,
           ratingValue: r.clientRating!,
           reviewBody: r.clientReview,
           authorName: r.client.name,
@@ -156,6 +166,9 @@ export default async function InstructorProfilePage({ params }: Props) {
         )}
         <div className="space-y-2">
           <h1 className="text-3xl font-semibold tracking-tight">{name}</h1>
+          {instructor.nickname ? (
+            <p className="text-sm text-muted-foreground">@{instructor.nickname}</p>
+          ) : null}
           <p className="text-muted-foreground">
             Рейтинг {p.ratingAvg.toFixed(1)} · {p.reviewCount} отзывов
             {p.experienceYears != null ? ` · опыт ${p.experienceYears} лет` : ""}
@@ -185,7 +198,7 @@ export default async function InstructorProfilePage({ params }: Props) {
             >
               Найти на карте
             </Link>
-            <Link href={`/instructors/${id}/reviews`} className="text-sm text-primary underline-offset-2 hover:underline">
+            <Link href={reviewsPath} className="text-sm text-primary underline-offset-2 hover:underline">
               Все отзывы
             </Link>
           </div>
@@ -222,10 +235,7 @@ export default async function InstructorProfilePage({ params }: Props) {
               </li>
             ))}
           </ul>
-          <Link
-            href={`/instructors/${id}/reviews`}
-            className="text-sm text-primary underline-offset-2 hover:underline"
-          >
+          <Link href={reviewsPath} className="text-sm text-primary underline-offset-2 hover:underline">
             Смотреть все отзывы
           </Link>
         </section>

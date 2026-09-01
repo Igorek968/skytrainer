@@ -70,6 +70,8 @@ export type InstructorEventSlotForm = {
 export type ClientInstructorEventDTO = InstructorEventDTO & {
   instructorId: string;
   instructorName?: string | null;
+  instructorProfileSlug?: string | null;
+  instructorNickname?: string | null;
   /** Средний рейтинг инструктора (для меток на карте). */
   instructorRatingAvg?: number | null;
   /** Рейтинг события по отзывам участников. */

@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 
+import { instructorPublicPath, instructorPublicReviewsPath } from "@/lib/instructor-profile-slug";
 import { prisma } from "@/lib/prisma";
 import { publicEventPath } from "@/lib/public-event-path";
 import { absoluteUrl, landingSitemapPages, PUBLIC_SITEMAP_PAGES } from "@/lib/seo";
@@ -29,6 +30,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       },
       select: {
         id: true,
+        nickname: true,
+        profileSlug: true,
         instructorProfile: { select: { updatedAt: true } },
       },
       take: 5000,
@@ -38,13 +41,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       const lastModified = row.instructorProfile?.updatedAt ?? new Date();
       return [
         {
-          url: absoluteUrl(`/instructors/${row.id}`),
+          url: absoluteUrl(instructorPublicPath(row)),
           lastModified,
           changeFrequency: "weekly" as const,
           priority: 0.6,
         },
         {
-          url: absoluteUrl(`/instructors/${row.id}/reviews`),
+          url: absoluteUrl(instructorPublicReviewsPath(row)),
           lastModified,
           changeFrequency: "weekly" as const,
           priority: 0.4,

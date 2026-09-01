@@ -141,6 +141,8 @@ model User {
   middleName    String?
   /// Публичный никнейм (как отображаться клиентам)
   nickname      String?
+  /// Уникальный slug анкеты: /instructors/{profileSlug} (из никнейма)
+  profileSlug   String?   @unique
   email         String    @unique
   /// Нормализованный российский мобильный, 11 цифр с ведущей 7 (уникален для клиентов с телефоном)
   phone         String?   @unique

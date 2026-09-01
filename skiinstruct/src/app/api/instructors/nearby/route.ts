@@ -186,6 +186,8 @@ export async function GET(req: Request) {
       return {
         id: u.id,
         name: u.name,
+        nickname: u.nickname,
+        profileSlug: u.profileSlug,
         taxStatus: p.taxStatus,
         image: u.image,
         photoUrl: listPhotoUrl,

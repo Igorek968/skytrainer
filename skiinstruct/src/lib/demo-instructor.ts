@@ -6,7 +6,8 @@ export function isDemoInstructorEmail(email: string): boolean {
   return (
     e.startsWith("demo-skier-") ||
     e.startsWith("same-day-instructor") ||
-    e.startsWith("future-day-instructor")
+    e.startsWith("future-day-instructor") ||
+    e.startsWith("mtk-demo-")
   );
 }
 
@@ -17,6 +18,7 @@ export const liveInstructorEmailWhere: Pick<Prisma.UserWhereInput, "NOT"> = {
       { email: { startsWith: "demo-skier-" } },
       { email: { startsWith: "same-day-instructor" } },
       { email: { startsWith: "future-day-instructor" } },
+      { email: { startsWith: "mtk-demo-" } },
     ],
   },
 };

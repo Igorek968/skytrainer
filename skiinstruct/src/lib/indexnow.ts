@@ -1,3 +1,4 @@
+import { instructorPublicPath, instructorPublicReviewsPath } from "@/lib/instructor-profile-slug";
 import { prisma } from "@/lib/prisma";
 import { absoluteUrl, landingSitemapPages, PUBLIC_SITEMAP_PAGES, siteOrigin } from "@/lib/seo";
 
@@ -39,12 +40,12 @@ export async function indexNowPublicUrls(): Promise<string[]> {
         role: "INSTRUCTOR",
         instructorProfile: { is: { verificationStatus: "APPROVED" } },
       },
-      select: { id: true },
+      select: { id: true, nickname: true, profileSlug: true },
       take: 5000,
     });
     for (const row of instructors) {
-      urls.push(absoluteUrl(`/instructors/${row.id}`));
-      urls.push(absoluteUrl(`/instructors/${row.id}/reviews`));
+      urls.push(absoluteUrl(instructorPublicPath(row)));
+      urls.push(absoluteUrl(instructorPublicReviewsPath(row)));
     }
   } catch {
     // БД недоступна при сборке/cron — отправляем хотя бы статику.

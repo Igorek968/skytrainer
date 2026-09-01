@@ -28,7 +28,7 @@ export default function InstructorReviewsPage() {
   const { data, isLoading, error } = useQuery({
     queryKey: ["instructor-reviews", id, sort],
     queryFn: async () => {
-      const r = await fetch(`/api/instructors/${id}/reviews?sort=${sort}&limit=200`);
+      const r = await fetch(`/api/instructors/${encodeURIComponent(id)}/reviews?sort=${sort}&limit=200`);
       if (!r.ok) throw new Error("reviews");
       return r.json() as Promise<ReviewsResponse>;
     },

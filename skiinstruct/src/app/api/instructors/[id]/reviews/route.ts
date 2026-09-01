@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { prisma } from "@/lib/prisma";
+import { resolveInstructorByPublicKey } from "@/lib/services/instructor-nickname-uniqueness";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -11,12 +12,18 @@ const querySchema = z.object({
 });
 
 export async function GET(req: Request, ctx: Ctx) {
-  const { id } = await ctx.params;
+  const { id: publicKey } = await ctx.params;
   const url = new URL(req.url);
   const parsed = querySchema.safeParse(Object.fromEntries(url.searchParams));
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
+
+  const resolved = await resolveInstructorByPublicKey(publicKey);
+  if (!resolved) {
+    return NextResponse.json({ error: "Instructor not found" }, { status: 404 });
+  }
+  const id = resolved.id;
 
   const { sort, limit } = parsed.data;
   const [orderRows, eventRows] = await Promise.all([

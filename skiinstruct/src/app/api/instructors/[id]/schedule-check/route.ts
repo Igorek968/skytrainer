@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { findInstructorScheduleConflict } from "@/lib/services/instructor-schedule";
+import { resolveInstructorByPublicKey } from "@/lib/services/instructor-nickname-uniqueness";
 
 const querySchema = z.object({
   lessonDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -14,7 +15,12 @@ const querySchema = z.object({
 type Ctx = { params: Promise<{ id: string }> };
 
 export async function GET(req: Request, ctx: Ctx) {
-  const { id: instructorId } = await ctx.params;
+  const { id: publicKey } = await ctx.params;
+  const resolved = await resolveInstructorByPublicKey(publicKey);
+  if (!resolved) {
+    return NextResponse.json({ error: "Instructor not found" }, { status: 404 });
+  }
+  const instructorId = resolved.id;
   const url = new URL(req.url);
   const parsed = querySchema.safeParse({
     lessonDate: url.searchParams.get("lessonDate"),

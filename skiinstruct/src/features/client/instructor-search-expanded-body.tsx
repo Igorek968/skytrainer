@@ -12,7 +12,7 @@ import {
   isAutoInstructorLabel,
 } from "@/lib/auto-instructor-offer";
 import type { InstructorPublicBusyWeek } from "@/shared/lib/instructor-schedule-types";
-import { isSyntheticInstructorBioLine } from "@/lib/services/instructor-match";
+import { instructorPublicPath } from "@/lib/instructor-profile-slug";
 import { cn } from "@/lib/utils";
 import { Button } from "@/shared/ui/button";
 import { InstructorPhoto } from "@/shared/ui/instructor-photo";
@@ -394,7 +394,7 @@ export function InstructorSearchExpandedBody({
               {showAllReviewsFor === listItemId ? "Скрыть отзывы" : "Показать все в карточке"}
             </Button>
             <Button type="button" size="sm" variant="outline" asChild>
-              <Link href={`/instructors/${listItemId}/reviews?sort=date_desc`}>Все отзывы (страница)</Link>
+              <Link href={`${instructorPublicPath({ id: listItemId, profileSlug: instructor.profileSlug, nickname: instructor.nickname })}/reviews?sort=date_desc`}>Все отзывы (страница)</Link>
             </Button>
           </div>
         ) : null}

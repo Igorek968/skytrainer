@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
+import { resolveInstructorByPublicKey } from "@/lib/services/instructor-nickname-uniqueness";
 import {
   parseSpecializationOffers,
   resolveHourlyRateForDiscipline,
@@ -19,8 +20,14 @@ type Ctx = { params: Promise<{ id: string }> };
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request, ctx: Ctx) {
-  const { id } = await ctx.params;
+  const { id: publicKey } = await ctx.params;
   const discipline = new URL(req.url).searchParams.get("discipline");
+
+  const resolved = await resolveInstructorByPublicKey(publicKey);
+  if (!resolved) {
+    return NextResponse.json({ error: "Instructor not found" }, { status: 404 });
+  }
+  const id = resolved.id;
 
   const instructor = await prisma.user.findFirst({
     where: { id, role: "INSTRUCTOR" },
@@ -109,6 +116,8 @@ export async function GET(req: Request, ctx: Ctx) {
     instructor: {
       id: instructor.id,
       name: instructor.name,
+      nickname: instructor.nickname,
+      profileSlug: instructor.profileSlug,
       image: instructor.image,
       profile: {
         bio: repairStaleCatalogSyntheticBio(instructor.instructorProfile.bio, canonSpecs),

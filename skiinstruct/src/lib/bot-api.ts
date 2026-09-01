@@ -1,4 +1,4 @@
-import { absoluteUrl } from "@/lib/seo";
+import { instructorPublicPath } from "@/lib/instructor-profile-slug";
 import { isDemoInstructorEmail, liveInstructorEmailWhere } from "@/lib/demo-instructor";
 import { prisma } from "@/lib/prisma";
 import { publicUploadAbsoluteDisplaySrc } from "@/lib/public-uploads-display";
@@ -66,6 +66,8 @@ export async function buildInstructorBotPayload(
     select: {
       id: true,
       name: true,
+      nickname: true,
+      profileSlug: true,
       image: true,
       email: true,
       instructorProfile: {
@@ -97,7 +99,7 @@ export async function buildInstructorBotPayload(
     name: user.name?.trim() || "Инструктор",
     sport: primarySport(profile.specializations),
     photo_url: publicUploadAbsoluteDisplaySrc(avatar),
-    profile_url: absoluteUrl(`/instructors/${user.id}`),
+    profile_url: absoluteUrl(instructorPublicPath(user)),
     city: profile.workDistrict?.trim() || profile.resort?.name?.trim() || null,
     is_online: profile.isOnline,
     ...(extras?.is_urgent != null ? { is_urgent: extras.is_urgent } : {}),
@@ -240,6 +242,8 @@ export async function listBotInstructors(params: {
     select: {
       id: true,
       name: true,
+      nickname: true,
+      profileSlug: true,
       image: true,
       instructorProfile: {
         select: {
@@ -271,7 +275,7 @@ export async function listBotInstructors(params: {
       name: u.name?.trim() || "Инструктор",
       sport: primarySport(p.specializations),
       photo_url: publicUploadAbsoluteDisplaySrc(avatar),
-      profile_url: absoluteUrl(`/instructors/${u.id}`),
+      profile_url: absoluteUrl(instructorPublicPath(u)),
       city: p.workDistrict?.trim() || p.resort?.name?.trim() || null,
       is_online: p.isOnline,
     });

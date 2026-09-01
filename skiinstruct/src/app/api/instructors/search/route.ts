@@ -88,6 +88,8 @@ async function instructorIdsFromPublishedEvents(tokens: string[]): Promise<strin
 type InstructorListRow = {
   id: string;
   name: string | null;
+  nickname: string | null;
+  profileSlug: string | null;
   taxStatus: import("@prisma/client").InstructorTaxStatus | null;
   image: string | null;
   photoUrl: string | null;
@@ -162,6 +164,8 @@ function mapInstructorToListRow(
   return {
     id: u.id,
     name: u.name,
+    nickname: u.nickname,
+    profileSlug: u.profileSlug,
     taxStatus: p.taxStatus,
     image: u.image,
     photoUrl: listPhotoUrl,

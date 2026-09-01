@@ -22,6 +22,8 @@ export async function loadPublicClientEvent(
       instructor: {
         select: {
           name: true,
+          nickname: true,
+          profileSlug: true,
           instructorProfile: { select: { ratingAvg: true } },
         },
       },
@@ -59,6 +61,8 @@ export async function loadPublicClientEvent(
     clientId,
     row.instructor.instructorProfile?.ratingAvg ?? null,
   );
+  event.instructorProfileSlug = row.instructor.profileSlug;
+  event.instructorNickname = row.instructor.nickname;
 
   const catalog = row.catalogItem;
   if (catalog?.status === "PUBLISHED") {

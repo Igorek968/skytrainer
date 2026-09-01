@@ -59,6 +59,8 @@ export async function GET(req: Request) {
       instructor: {
         select: {
           name: true,
+          nickname: true,
+          profileSlug: true,
           instructorProfile: { select: { lat: true, lng: true, ratingAvg: true } },
         },
       },
@@ -125,6 +127,8 @@ export async function GET(req: Request) {
         clientId,
         row.instructor.instructorProfile?.ratingAvg ?? null,
       );
+      event.instructorProfileSlug = row.instructor.profileSlug;
+      event.instructorNickname = row.instructor.nickname;
       return { ...event, distanceKm, catalogItemId: row.catalogItemId ?? null };
     }),
   );

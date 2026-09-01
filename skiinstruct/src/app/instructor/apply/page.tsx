@@ -16,6 +16,7 @@ import { userFacingErrorMessage } from "@/lib/user-facing-error";
 import { resolveAcquisitionForForm } from "@/shared/analytics/utm-capture";
 import { useFormDraft } from "@/shared/hooks/use-form-draft";
 import { useDisplayNameDuplicateCheck } from "@/shared/hooks/use-display-name-duplicate-check";
+import { useNicknameDuplicateCheck } from "@/shared/hooks/use-nickname-duplicate-check";
 import { YM_GOALS, trackYandexGoal } from "@/shared/analytics/yandex-metrika-client";
 import { TurnstileWidget } from "@/shared/security/turnstile-widget";
 import { Button } from "@/shared/ui/button";
@@ -104,13 +105,13 @@ const defaultDraft: InstructorApplyDraft = {
   acceptPrivacy: false,
 };
 
-function SubmitButton({ disabledByName }: { disabledByName: boolean }) {
+function SubmitButton({ disabled }: { disabled: boolean }) {
   const { pending } = useFormStatus();
   return (
     <Button
       className="w-full"
       type="submit"
-      disabled={pending || disabledByName}
+      disabled={pending || disabled}
       aria-busy={pending}
     >
       {pending ? "Отправка…" : "Отправить заявку на модерацию"}
@@ -127,6 +128,7 @@ function InstructorApplyForm() {
     defaultDraft,
   );
   const displayNameDuplicate = useDisplayNameDuplicateCheck(values.firstName, values.lastName);
+  const nicknameCheck = useNicknameDuplicateCheck(values.nickname);
   const [utm, setUtm] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -274,13 +276,24 @@ function InstructorApplyForm() {
                 autoComplete="nickname"
                 required
                 maxLength={80}
-                aria-invalid={Boolean(state.error)}
+                aria-invalid={Boolean(state.error) || nicknameCheck.blocked}
                 value={values.nickname}
                 onChange={(e) => setField("nickname", e.target.value)}
               />
               <p className="text-xs text-muted-foreground">
-                Как вас будут видеть клиенты на сайте. Имя и фамилия нужны для проверки уникальности и модерации.
+                Как вас видят клиенты. Ссылка на анкету: твойтренер.рф/instructors/
+                {nicknameCheck.slug || "ваш-ник"}
               </p>
+              {nicknameCheck.message ? (
+                <div
+                  role="alert"
+                  className="rounded-md border border-destructive bg-destructive/10 px-3 py-2 text-sm text-destructive"
+                >
+                  {nicknameCheck.message} Измените никнейм.
+                </div>
+              ) : nicknameCheck.checking && values.nickname.trim().length >= 2 ? (
+                <p className="text-xs text-muted-foreground">Проверка никнейма…</p>
+              ) : null}
               {displayNameDuplicate.duplicate ? (
                 <p className="text-xs text-destructive">{displayNameDuplicate.message}</p>
               ) : displayNameDuplicate.checking && values.firstName.trim() && values.lastName.trim() ? (
@@ -629,7 +642,7 @@ function InstructorApplyForm() {
 
             <TurnstileWidget className="py-1" />
 
-            <SubmitButton disabledByName={displayNameDuplicate.duplicate} />
+            <SubmitButton disabled={displayNameDuplicate.duplicate || nicknameCheck.blocked} />
           </form>
 
           <p className="mt-4 text-center text-sm text-muted-foreground">

@@ -14,6 +14,12 @@ import { formatRussianPhoneDisplay, normalizeRussianPhone } from "@/lib/phone";
 import { writePrivateUpload } from "@/lib/private-uploads";
 import { prisma } from "@/lib/prisma";
 import { canonicalizeActivityLabel, canonicalizeActivityLabels } from "@/lib/services/instructor-match";
+import {
+  NICKNAME_SLUG_INVALID_MESSAGE,
+  NICKNAME_TAKEN_MESSAGE,
+  nicknameToProfileSlug,
+} from "@/lib/instructor-profile-slug";
+import { findDuplicateInstructorNickname } from "@/lib/services/instructor-nickname-uniqueness";
 import { findDuplicateParticipantByDisplayName } from "@/lib/services/user-display-name-uniqueness";
 import { validateUploadedBytes } from "@/lib/upload-validation";
 import { DISPLAY_NAME_DUPLICATE_MESSAGE } from "@/lib/user-display-name";
@@ -29,7 +35,12 @@ const updateSchema = z.object({
   lastName: namePart,
   firstName: namePart,
   middleName: namePart,
-  nickname: z.string().trim().min(2).max(80),
+  nickname: z
+    .string()
+    .trim()
+    .min(2)
+    .max(80)
+    .refine((s) => Boolean(nicknameToProfileSlug(s)), { message: NICKNAME_SLUG_INVALID_MESSAGE }),
   bio: z.string().trim().min(20, "Кратко опишите опыт (от 20 символов)").max(300, "О себе: не более 300 символов"),
   hourlyRate: z.coerce.number().min(500).max(500_000),
   primarySpecialization: z.string().trim().min(1, "Выберите направление"),
@@ -259,6 +270,16 @@ export async function updateInstructorApplicationAndResubmit(input: {
     return { ok: false, error: DISPLAY_NAME_DUPLICATE_MESSAGE, status: 409 };
   }
 
+  const duplicateNick = await findDuplicateInstructorNickname(input.userId, parsed.data.nickname);
+  if (duplicateNick) {
+    return { ok: false, error: NICKNAME_TAKEN_MESSAGE, status: 409 };
+  }
+
+  const profileSlug = nicknameToProfileSlug(parsed.data.nickname);
+  if (!profileSlug) {
+    return { ok: false, error: NICKNAME_SLUG_INVALID_MESSAGE, status: 400 };
+  }
+
   const phoneTaken = await prisma.user.findFirst({
     where: { phone: parsed.data.phone, NOT: { id: input.userId } },
     select: { id: true },
@@ -294,6 +315,7 @@ export async function updateInstructorApplicationAndResubmit(input: {
           name: systemName,
           middleName: parsed.data.middleName,
           nickname: parsed.data.nickname,
+          profileSlug,
           phone: parsed.data.phone,
           birthDate: passportParsed.data.birthDate,
         },
@@ -319,9 +341,14 @@ export async function updateInstructorApplicationAndResubmit(input: {
       });
     });
   } catch (e) {
-    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
-      return { ok: false, error: "Этот номер телефона уже используется", status: 409 };
-    }
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
+        const target = e.meta?.target;
+        const fields = Array.isArray(target) ? target.map(String) : [String(target ?? "")];
+        if (fields.some((f) => f.includes("profileSlug"))) {
+          return { ok: false, error: NICKNAME_TAKEN_MESSAGE, status: 409 };
+        }
+        return { ok: false, error: "Этот номер телефона уже используется", status: 409 };
+      }
     throw e;
   }
 

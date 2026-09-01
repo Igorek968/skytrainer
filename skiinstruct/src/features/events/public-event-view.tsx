@@ -11,7 +11,7 @@ import { EventReviewsFeed } from "@/features/orders/event-reviews-feed";
 import { EventVenueDisplay } from "@/features/orders/event-venue-display";
 import { emptyEventReviewsSummary } from "@/lib/event-reviews";
 import type { ClientInstructorEventDTO } from "@/lib/instructor-events";
-import { formatEventDateRu, formatEventPriceRu } from "@/lib/instructor-events";
+import { instructorPublicPath } from "@/lib/instructor-profile-slug";
 import { Button } from "@/shared/ui/button";
 
 function guestReturnPath(pathname: string, search: string): string {
@@ -99,7 +99,11 @@ export function PublicEventView({ event }: { event: ClientInstructorEventDTO }) 
         <CopyEventLinkButton eventId={event.id} />
         {event.instructorId ? (
           <Button asChild size="sm" variant="ghost">
-            <Link href={`/instructors/${event.instructorId}`}>Профиль инструктора</Link>
+            <Link href={instructorPublicPath({
+              id: event.instructorId,
+              profileSlug: event.instructorProfileSlug,
+              nickname: event.instructorNickname,
+            })}>Профиль инструктора</Link>
           </Button>
         ) : null}
       </div>

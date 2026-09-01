@@ -11,7 +11,7 @@ import { instructorActivityLabelsAlphabetical } from "@/lib/services/instructor-
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Input } from "@/shared/ui/input";
-import { Label } from "@/shared/ui/label";
+import { useNicknameDuplicateCheck } from "@/shared/hooks/use-nickname-duplicate-check";
 
 type Application = {
   email: string;
@@ -46,6 +46,7 @@ type FormState = Omit<
 export function InstructorApplicationEditClient() {
   const router = useRouter();
   const [form, setForm] = useState<FormState | null>(null);
+  const nicknameCheck = useNicknameDuplicateCheck(form?.nickname ?? "", Boolean(form));
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ["instructor-application-edit"],
@@ -158,6 +159,10 @@ export function InstructorApplicationEditClient() {
           className="space-y-4"
           onSubmit={(e) => {
             e.preventDefault();
+            if (nicknameCheck.blocked) {
+              toast.error(nicknameCheck.message ?? "Измените никнейм");
+              return;
+            }
             const fd = new FormData(e.currentTarget);
             save.mutate(fd);
           }}
@@ -202,9 +207,24 @@ export function InstructorApplicationEditClient() {
               name="nickname"
               required
               minLength={2}
+              aria-invalid={nicknameCheck.blocked}
               value={form.nickname}
               onChange={(e) => setField("nickname", e.target.value)}
             />
+            {nicknameCheck.message ? (
+              <div
+                role="alert"
+                className="rounded-md border border-destructive bg-destructive/10 px-3 py-2 text-sm text-destructive"
+              >
+                {nicknameCheck.message} Измените никнейм.
+              </div>
+            ) : nicknameCheck.checking && form.nickname.trim().length >= 2 ? (
+              <p className="text-xs text-muted-foreground">Проверка никнейма…</p>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Ссылка на анкету: /instructors/{nicknameCheck.slug || "ваш-ник"}
+              </p>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -426,7 +446,12 @@ export function InstructorApplicationEditClient() {
           </p>
 
           <div className="flex flex-col gap-2 sm:flex-row">
-            <Button type="submit" variant="accent" disabled={save.isPending} className="sm:flex-1">
+            <Button
+              type="submit"
+              variant="accent"
+              disabled={save.isPending || nicknameCheck.blocked}
+              className="sm:flex-1"
+            >
               {save.isPending ? "Сохранение…" : "Сохранить и отправить на модерацию"}
             </Button>
             <Button type="button" variant="outline" asChild>

@@ -19,7 +19,7 @@ import type {
 import { MeetAddressSearch } from "@/features/map/meet-address-search";
 import { BookingMapViewport } from "@/features/map/booking-map-viewport";
 import type { EventMapPin } from "@/features/map/event-map-marker";
-import { consumeOpenPersonalDataFlag } from "@/lib/client-personal-data-storage";
+import { instructorPublicPath } from "@/lib/instructor-profile-slug";
 import { locateUserMeetPoint, useMeetPoint } from "@/features/map/use-client-meet-point";
 import { CLIENT_EVENTS_RADIUS_KM } from "@/lib/client-events-geo";
 import {
@@ -614,8 +614,9 @@ export default function ClientHomePage() {
     setSelectedId(id);
     setExpandedId(id);
     setShowAllReviewsFor(null);
+    const row = instructorsForList.find((i) => i.id === id);
     // Повторный клик / double-click по метке — публичная анкета
-    router.push(`/instructors/${id}`);
+    router.push(instructorPublicPath(row ?? { id }));
   }
 
   function focusInstructorFromEvent(instructor: { id: string; name: string | null }) {
@@ -916,6 +917,8 @@ export default function ClientHomePage() {
               .map((i) => ({
                 id: i.id,
                 name: i.name,
+                nickname: i.nickname,
+                profileSlug: i.profileSlug,
                 lat: i.lat as number,
                 lng: i.lng as number,
                 hourlyRate: i.hourlyRate,

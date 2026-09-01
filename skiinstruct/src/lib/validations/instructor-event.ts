@@ -17,7 +17,7 @@ const priceRubField = z
 export { EVENT_PRICE_HINT_RU, EVENT_PRICE_MIN_PAID_RUB };
 
 /** Описание события (поле «Текст» у инструктора). */
-export const EVENT_BODY_MAX_CHARS = 500;
+export const EVENT_BODY_MAX_CHARS = 1000;
 export const EVENT_BODY_HINT_RU = `До ${EVENT_BODY_MAX_CHARS} символов: что будет, для кого, что взять с собой`;
 
 const eventBodyField = z.string().trim().min(1).max(EVENT_BODY_MAX_CHARS);

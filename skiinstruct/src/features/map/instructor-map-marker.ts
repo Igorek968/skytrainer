@@ -1,10 +1,12 @@
 import L from "leaflet";
 
-import { publicUploadAbsoluteDisplaySrc } from "@/lib/public-uploads-display";
+import { instructorPublicPath } from "@/lib/instructor-profile-slug";
 
 export type InstructorMapPin = {
   id: string;
   name: string | null;
+  nickname?: string | null;
+  profileSlug?: string | null;
   lat: number;
   lng: number;
   hourlyRate: number;
@@ -94,7 +96,7 @@ export function buildInstructorBalloonHtml(
   const displayName = pin.name?.trim() || "Инструктор";
   const photoUrl = resolveInstructorMarkerPhoto(pin);
   const sportLabel = resolveInstructorSportLabel(pin);
-  const profileHref = `/instructors/${encodeURIComponent(pin.id)}`;
+  const profileHref = instructorPublicPath(pin);
   const sportHtml = sportLabel
     ? mode === "inline"
       ? `<div style="margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;line-height:1.25;color:#64748b;">${escapeHtml(sportLabel)}</div>`
