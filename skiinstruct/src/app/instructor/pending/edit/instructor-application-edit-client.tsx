@@ -11,6 +11,7 @@ import { instructorActivityLabelsAlphabetical } from "@/lib/services/instructor-
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Input } from "@/shared/ui/input";
+import { Label } from "@/shared/ui/label";
 import { useNicknameDuplicateCheck } from "@/shared/hooks/use-nickname-duplicate-check";
 
 type Application = {
