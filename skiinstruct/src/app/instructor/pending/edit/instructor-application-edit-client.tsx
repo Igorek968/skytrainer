@@ -217,7 +217,7 @@ export function InstructorApplicationEditClient() {
                 role="alert"
                 className="rounded-md border border-destructive bg-destructive/10 px-3 py-2 text-sm text-destructive"
               >
-                {nicknameCheck.message} Измените никнейм.
+                {nicknameCheck.message} Измените никнейм (логин на сайте).
               </div>
             ) : nicknameCheck.checking && form.nickname.trim().length >= 2 ? (
               <p className="text-xs text-muted-foreground">Проверка никнейма…</p>

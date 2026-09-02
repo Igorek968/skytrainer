@@ -46,7 +46,6 @@ import { PhotoViewerOverlay, type PhotoViewerState } from "@/shared/ui/photo-vie
 import { cn } from "@/lib/utils";
 import { instructorActivityLabelsAlphabetical } from "@/lib/services/instructor-match";
 import { INSTRUCTOR_NO_SHOW_PENALTY_PERCENT } from "@/lib/legal-config";
-import { useDisplayNameDuplicateCheck } from "@/shared/hooks/use-display-name-duplicate-check";
 import { compressImageFile, IMAGE_UPLOAD_HINT } from "@/lib/compress-image-client";
 import { DEFAULT_PLACEHOLDER_BIO } from "@/lib/instructor-profile-defaults";
 
@@ -376,7 +375,6 @@ export default function InstructorHomePage() {
   /** Иначе Chrome подставляет «чужие» имя/фамилию из профиля браузера в поля с id вроде first-name. */
   const [publicNameFieldsUnlocked, setPublicNameFieldsUnlocked] = useState(false);
   const [activePanelSection, setActivePanelSection] = useState<PanelSectionId>("lesson-schedule");
-  const displayNameDuplicate = useDisplayNameDuplicateCheck(firstName, lastName, inited);
 
   const navigatePanelSection = useCallback((sectionId: PanelSectionId) => {
     setActivePanelSection(sectionId);
@@ -606,11 +604,6 @@ export default function InstructorHomePage() {
 
   function validateProfileForm(): { ok: boolean; availabilitySlots: AvailabilitySlot[] } {
     const errors: Partial<Record<ProfileField, string>> = {};
-
-    if (displayNameDuplicate.duplicate) {
-      toast.error(displayNameDuplicate.message ?? "Укажите другие имя или фамилию");
-      return { ok: false, availabilitySlots: normalizeAvailabilitySlots(availabilitySlots) };
-    }
 
     if (!languagesRaw.trim()) errors.languagesRaw = "Укажите хотя бы один язык";
     const filledOffers = filledSpecializationOffers(specializationOffers);
@@ -1035,11 +1028,6 @@ export default function InstructorHomePage() {
                     />
                   </div>
                 ) : null}
-                {displayNameDuplicate.duplicate ? (
-                  <p className="md:col-span-2 text-xs text-destructive">{displayNameDuplicate.message}</p>
-                ) : displayNameDuplicate.checking && firstName.trim() && lastName.trim() ? (
-                  <p className="md:col-span-2 text-xs text-muted-foreground">Проверка имени…</p>
-                ) : null}
               </div>
               <div className="grid gap-4 md:grid-cols-3">
                 <div className="space-y-2">
@@ -1270,7 +1258,7 @@ export default function InstructorHomePage() {
                   type="button"
                   variant="accent"
                   disabled={
-                    saveProfile.isPending || signedInAsOtherRole || displayNameDuplicate.duplicate
+                    saveProfile.isPending || signedInAsOtherRole
                   }
                   onClick={() => saveProfile.mutate()}
                 >

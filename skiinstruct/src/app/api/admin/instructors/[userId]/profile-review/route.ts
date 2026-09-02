@@ -8,8 +8,6 @@ import {
   parseProfileDraft,
 } from "@/lib/instructor-profile-draft";
 import { prisma } from "@/lib/prisma";
-import { findDuplicateParticipantByDisplayName } from "@/lib/services/user-display-name-uniqueness";
-import { DISPLAY_NAME_DUPLICATE_MESSAGE } from "@/lib/user-display-name";
 
 const bodySchema = z
   .object({
@@ -79,15 +77,6 @@ export async function POST(req: Request, ctx: Ctx) {
   const draft = parseProfileDraft(profile.profileDraft);
   if (!draft) {
     return NextResponse.json({ error: "Черновик повреждён" }, { status: 400 });
-  }
-
-  const draftFirst = draft.firstName?.trim() ?? "";
-  const draftLast = draft.lastName?.trim() ?? "";
-  if (draftFirst && draftLast) {
-    const duplicate = await findDuplicateParticipantByDisplayName(userId, draftFirst, draftLast);
-    if (duplicate) {
-      return NextResponse.json({ error: DISPLAY_NAME_DUPLICATE_MESSAGE }, { status: 409 });
-    }
   }
 
   await prisma.$transaction(async (tx) => {

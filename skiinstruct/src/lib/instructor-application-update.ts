@@ -20,9 +20,7 @@ import {
   nicknameToProfileSlug,
 } from "@/lib/instructor-profile-slug";
 import { findDuplicateInstructorNickname } from "@/lib/services/instructor-nickname-uniqueness";
-import { findDuplicateParticipantByDisplayName } from "@/lib/services/user-display-name-uniqueness";
 import { validateUploadedBytes } from "@/lib/upload-validation";
-import { DISPLAY_NAME_DUPLICATE_MESSAGE } from "@/lib/user-display-name";
 
 const namePart = z
   .string()
@@ -259,15 +257,6 @@ export async function updateInstructorApplicationAndResubmit(input: {
   const primary = canonicalizeActivityLabel(parsed.data.primarySpecialization);
   if (!primary) {
     return { ok: false, error: "Выберите направление", status: 400 };
-  }
-
-  const duplicate = await findDuplicateParticipantByDisplayName(
-    input.userId,
-    parsed.data.firstName,
-    parsed.data.lastName,
-  );
-  if (duplicate) {
-    return { ok: false, error: DISPLAY_NAME_DUPLICATE_MESSAGE, status: 409 };
   }
 
   const duplicateNick = await findDuplicateInstructorNickname(input.userId, parsed.data.nickname);

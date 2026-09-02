@@ -25,9 +25,7 @@ import {
   nicknameToProfileSlug,
 } from "@/lib/instructor-profile-slug";
 import { findDuplicateInstructorNickname } from "@/lib/services/instructor-nickname-uniqueness";
-import { findDuplicateParticipantByDisplayName } from "@/lib/services/user-display-name-uniqueness";
 import { validateUploadedBytes } from "@/lib/upload-validation";
-import { DISPLAY_NAME_DUPLICATE_MESSAGE } from "@/lib/user-display-name";
 
 const namePart = z
   .string()
@@ -247,11 +245,6 @@ export async function createInstructorApplication(input: {
     passportIssuedAt,
     passportDepartmentCode,
   } = passportParsed.data;
-
-  const duplicateName = await findDuplicateParticipantByDisplayName(null, firstName, lastName);
-  if (duplicateName) {
-    return { ok: false, error: DISPLAY_NAME_DUPLICATE_MESSAGE, status: 409 };
-  }
 
   const duplicateNick = await findDuplicateInstructorNickname(null, nickname);
   if (duplicateNick) {

@@ -15,7 +15,6 @@ import { RUSSIAN_EMAIL_EXAMPLES, RUSSIAN_EMAIL_HINT, assertRussianEmail } from "
 import { userFacingErrorMessage } from "@/lib/user-facing-error";
 import { resolveAcquisitionForForm } from "@/shared/analytics/utm-capture";
 import { useFormDraft } from "@/shared/hooks/use-form-draft";
-import { useDisplayNameDuplicateCheck } from "@/shared/hooks/use-display-name-duplicate-check";
 import { useNicknameDuplicateCheck } from "@/shared/hooks/use-nickname-duplicate-check";
 import { YM_GOALS, trackYandexGoal } from "@/shared/analytics/yandex-metrika-client";
 import { TurnstileWidget } from "@/shared/security/turnstile-widget";
@@ -127,7 +126,6 @@ function InstructorApplyForm() {
     FORM_DRAFT_KEYS.instructorApply,
     defaultDraft,
   );
-  const displayNameDuplicate = useDisplayNameDuplicateCheck(values.firstName, values.lastName);
   const nicknameCheck = useNicknameDuplicateCheck(values.nickname);
   const [utm, setUtm] = useState<Record<string, string>>({});
 
@@ -289,15 +287,10 @@ function InstructorApplyForm() {
                   role="alert"
                   className="rounded-md border border-destructive bg-destructive/10 px-3 py-2 text-sm text-destructive"
                 >
-                  {nicknameCheck.message} Измените никнейм.
+                  {nicknameCheck.message} Измените никнейм (логин на сайте).
                 </div>
               ) : nicknameCheck.checking && values.nickname.trim().length >= 2 ? (
                 <p className="text-xs text-muted-foreground">Проверка никнейма…</p>
-              ) : null}
-              {displayNameDuplicate.duplicate ? (
-                <p className="text-xs text-destructive">{displayNameDuplicate.message}</p>
-              ) : displayNameDuplicate.checking && values.firstName.trim() && values.lastName.trim() ? (
-                <p className="text-xs text-muted-foreground">Проверка имени…</p>
               ) : null}
             </div>
             <div className="space-y-2">
@@ -642,7 +635,7 @@ function InstructorApplyForm() {
 
             <TurnstileWidget className="py-1" />
 
-            <SubmitButton disabled={displayNameDuplicate.duplicate || nicknameCheck.blocked} />
+            <SubmitButton disabled={nicknameCheck.blocked} />
           </form>
 
           <p className="mt-4 text-center text-sm text-muted-foreground">

@@ -8,8 +8,6 @@ import { prisma } from "@/lib/prisma";
 import { notifyBotInstructorApproved } from "@/lib/bot-api";
 import { writeAdminAudit } from "@/lib/services/admin-audit";
 import { notifyInstructorVerificationResult } from "@/lib/services/instructor-verification-notify";
-import { findDuplicateParticipantByDisplayName } from "@/lib/services/user-display-name-uniqueness";
-import { DISPLAY_NAME_DUPLICATE_MESSAGE } from "@/lib/user-display-name";
 
 const bodySchema = z
   .object({
@@ -93,17 +91,6 @@ export async function POST(req: Request, ctx: Ctx) {
     profile.profileDraftStatus === "PENDING_REVIEW"
       ? parseProfileDraft(profile.profileDraft)
       : null;
-
-  if (draft) {
-    const draftFirst = draft.firstName?.trim() ?? "";
-    const draftLast = draft.lastName?.trim() ?? "";
-    if (draftFirst && draftLast) {
-      const duplicate = await findDuplicateParticipantByDisplayName(userId, draftFirst, draftLast);
-      if (duplicate) {
-        return NextResponse.json({ error: DISPLAY_NAME_DUPLICATE_MESSAGE }, { status: 409 });
-      }
-    }
-  }
 
   await prisma.$transaction(async (tx) => {
     if (draft) {
